@@ -1,0 +1,21 @@
+{
+  "name": "Dex Hub",
+  "plugin": "plugin.video.dexhub",
+  "language": "ar",
+  "priority": 100,
+  "assert": {
+    "play_movie":     ["tmdb"],
+    "play_episode":   ["showname", "season", "episode"],
+    "search_movie":   ["title"],
+    "search_episode": ["showname"]
+  },
+  "fallback": {
+    "play_movie":   "Dex Hub search_movie",
+    "play_episode": "Dex Hub search_episode"
+  },
+  "play_movie":     "plugin://plugin.video.dexhub/?action=tmdb_player&video_type=movie&title={title_url}&ar_title={ar_title_url}&year={year}&imdb_id={imdb}&tmdb_id={tmdb}&poster={poster_url}&fanart={fanart_url}",
+  "play_episode":   "plugin://plugin.video.dexhub/?action=tmdb_player&video_type=episode&showname={showname_url}&ar_showname={ar_showname_url}&title={title_url}&season={season}&episode={episode}&tvdb_id={tvdb}&tmdb_id={tmdb}&imdb_id={imdb}&poster={poster_url}&fanart={fanart_url}",
+  "search_movie":   "plugin://plugin.video.dexhub/?action=tmdb_player&video_type=movie&title={title_url}&ar_title={ar_title_url}&year={year}&imdb_id={imdb}&tmdb_id={tmdb}",
+  "search_episode": "plugin://plugin.video.dexhub/?action=tmdb_player&video_type=show&showname={showname_url}&ar_showname={ar_showname_url}&tvdb_id={tvdb}&tmdb_id={tmdb}&imdb_id={imdb}",
+  "is_resolvable": "false"
+}

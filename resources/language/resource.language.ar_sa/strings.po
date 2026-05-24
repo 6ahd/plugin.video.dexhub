@@ -1,0 +1,633 @@
+# DexHub Arabic (ar_SA) translation
+# Project-Id-Version: plugin.video.dexhub
+msgid ""
+msgstr ""
+"Project-Id-Version: plugin.video.dexhub\n"
+"Report-Msgid-Bugs-To: translations@dexhub\n"
+"POT-Creation-Date: 2026-05-09\n"
+"PO-Revision-Date: 2026-05-09\n"
+"Language-Team: Arabic\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: ar_SA\n"
+
+# ── Original strings ──────────────────────────────────────────────────
+msgctxt "#30000"
+msgid "Playback mode"
+msgstr "وضع التشغيل"
+
+msgctxt "#30001"
+msgid "Choose source"
+msgstr "اختيار المصدر"
+
+# ── Categories ────────────────────────────────────────────────────────
+msgctxt "#30100"
+msgid "General"
+msgstr "عام"
+
+msgctxt "#30101"
+msgid "Metadata"
+msgstr "البيانات الوصفية"
+
+msgctxt "#30102"
+msgid "Sources"
+msgstr "المصادر"
+
+msgctxt "#30103"
+msgid "Subtitles"
+msgstr "الترجمات"
+
+msgctxt "#30104"
+msgid "Plex / Emby"
+msgstr "Plex / Emby"
+
+msgctxt "#30105"
+msgid "Trakt"
+msgstr "Trakt"
+
+msgctxt "#30106"
+msgid "TMDb Helper"
+msgstr "TMDb Helper"
+
+msgctxt "#30107"
+msgid "Performance"
+msgstr "الأداء"
+
+# ── General settings ──────────────────────────────────────────────────
+msgctxt "#30110"
+msgid "Language / اللغة"
+msgstr "اللغة / Language"
+
+msgctxt "#30111"
+msgid "Request timeout (seconds)"
+msgstr "مهلة الطلب (بالثواني)"
+
+msgctxt "#30112"
+msgid "Use direct player (recommended)"
+msgstr "استخدام المشغّل المباشر (مستحسن)"
+
+msgctxt "#30113"
+msgid "Show playback loading screen"
+msgstr "إظهار شاشة تحميل التشغيل"
+
+msgctxt "#30114"
+msgid "Home screen"
+msgstr "الشاشة الرئيسية"
+
+msgctxt "#30115"
+msgid "Show Next Up on the home screen"
+msgstr "إظهار \"التالي\" في الشاشة الرئيسية"
+
+msgctxt "#30116"
+msgid "Show Favorites on the home screen"
+msgstr "إظهار المفضلة في الشاشة الرئيسية"
+
+msgctxt "#30117"
+msgid "Show catalog facets as folders (Genre / Year)"
+msgstr "إظهار تصنيفات الكتالوج كمجلدات (النوع / السنة)"
+
+msgctxt "#30118"
+msgid "Hide empty collection entries"
+msgstr "إخفاء عناصر الكوليكشن الفارغة"
+
+msgctxt "#30119"
+msgid "DexWorld Pro: force folder view for internal catalogs"
+msgstr "DexWorld Pro: فرض عرض المجلدات للكتالوجات الداخلية"
+
+msgctxt "#30120"
+msgid "Add custom home folder..."
+msgstr "إضافة مجلد رئيسي مخصص..."
+
+msgctxt "#30121"
+msgid "Manage home folders..."
+msgstr "إدارة مجلدات الشاشة الرئيسية..."
+
+msgctxt "#30122"
+msgid "Click behavior"
+msgstr "سلوك الضغط"
+
+msgctxt "#30123"
+msgid "When pressing an item in the catalog"
+msgstr "عند الضغط على عنصر في الكتالوج"
+
+msgctxt "#30124"
+msgid "When pressing inside Dex Hub"
+msgstr "عند الضغط داخل Dex Hub"
+
+# ── Metadata settings ─────────────────────────────────────────────────
+msgctxt "#30130"
+msgid "Default metadata source"
+msgstr "مصدر البيانات الوصفية الافتراضي"
+
+msgctxt "#30131"
+msgid "Manage metadata sources per addon..."
+msgstr "إدارة مصادر البيانات الوصفية لكل إضافة..."
+
+msgctxt "#30132"
+msgid "Full metadata enrichment for listings (slower)"
+msgstr "إثراء كامل للبيانات الوصفية في القوائم (أبطأ)"
+
+msgctxt "#30133"
+msgid "Artwork enrichment (Fanart.tv)"
+msgstr "إثراء الصور والفنون (Fanart.tv)"
+
+msgctxt "#30134"
+msgid "Enrich artwork from Fanart.tv (clearart, banner, discart, multi-language clearlogo)"
+msgstr "إثراء الصور من Fanart.tv (شعار، بانر، صورة قرص، شعار متعدد اللغات)"
+
+msgctxt "#30135"
+msgid "Fanart.tv personal API key (optional — built-in key used if blank)"
+msgstr "مفتاح Fanart.tv الشخصي (اختياري — يُستخدم المفتاح المدمج إذا كان فارغاً)"
+
+msgctxt "#30136"
+msgid "API keys (used by Discover, People, Calendar)"
+msgstr "مفاتيح الـ API (تُستخدم في Discover والأشخاص والتقويم)"
+
+msgctxt "#30137"
+msgid "TMDb API key (required for People search and TMDb-direct lookups)"
+msgstr "مفتاح TMDb (مطلوب للبحث عن الأشخاص والوصول المباشر لـ TMDb)"
+
+msgctxt "#30138"
+msgid "MDBList API Key (optional, for MDBList lists)"
+msgstr "مفتاح MDBList (اختياري، لقوائم MDBList)"
+
+msgctxt "#30139"
+msgid "DexWorld API key (for AI subtitles + quality feedback)"
+msgstr "مفتاح DexWorld (للترجمات بالذكاء الاصطناعي + تقييم الجودة)"
+
+msgctxt "#30140"
+msgid "Clear metadata cache now"
+msgstr "مسح ذاكرة البيانات الوصفية الآن"
+
+# ── Sources settings ──────────────────────────────────────────────────
+msgctxt "#30150"
+msgid "Minimum source quality"
+msgstr "أدنى جودة للمصدر"
+
+msgctxt "#30151"
+msgid "Hide CAM / TS / TELESYNC / SCREENER sources"
+msgstr "إخفاء مصادر CAM / TS / TELESYNC / SCREENER"
+
+msgctxt "#30152"
+msgid "Prioritize RD / AD / Premiumize / TorBox sources"
+msgstr "إعطاء الأولوية لمصادر RD / AD / Premiumize / TorBox"
+
+msgctxt "#30153"
+msgid "Prefer HDR10+ / Dolby Vision"
+msgstr "تفضيل HDR10+ / Dolby Vision"
+
+msgctxt "#30154"
+msgid "Prefer Atmos / DTS-X / TrueHD"
+msgstr "تفضيل Atmos / DTS-X / TrueHD"
+
+msgctxt "#30155"
+msgid "Remember the last selected source for each movie/episode"
+msgstr "تذكّر آخر مصدر مختار لكل فيلم/حلقة"
+
+msgctxt "#30156"
+msgid "Diagnose sources (test response time)..."
+msgstr "تشخيص المصادر (اختبار سرعة الاستجابة)..."
+
+msgctxt "#30157"
+msgid "Posters &amp; overlays"
+msgstr "البوسترات والـ overlays"
+
+msgctxt "#30158"
+msgid "Decorated poster handling (RPDB, BetterPosters, TOP Posters)"
+msgstr "معالجة البوسترات المزيّنة (RPDB, BetterPosters, TOP Posters)"
+
+# ── Subtitles ─────────────────────────────────────────────────────────
+msgctxt "#30160"
+msgid "Enable Stremio subtitle broker"
+msgstr "تفعيل وسيط ترجمات Stremio"
+
+msgctxt "#30161"
+msgid "When choosing a source"
+msgstr "عند اختيار مصدر"
+
+msgctxt "#30162"
+msgid "Subtitle broker timeout (seconds)"
+msgstr "مهلة وسيط الترجمات (بالثواني)"
+
+msgctxt "#30163"
+msgid "Preferred subtitle languages (comma-separated, e.g. ar,en)"
+msgstr "لغات الترجمة المفضلة (مفصولة بفواصل، مثل ar,en)"
+
+msgctxt "#30164"
+msgid "Auto-play the next episode for TV shows"
+msgstr "التشغيل التلقائي للحلقة التالية في المسلسلات"
+
+msgctxt "#30165"
+msgid "Next episode window duration (seconds)"
+msgstr "مدة نافذة الحلقة التالية (بالثواني)"
+
+# ── Plex / Emby ───────────────────────────────────────────────────────
+msgctxt "#30170"
+msgid "Enable progress sync (Companion)"
+msgstr "تفعيل مزامنة التقدّم (Companion)"
+
+msgctxt "#30171"
+msgid "Progress sync interval (seconds)"
+msgstr "فترة مزامنة التقدّم (بالثواني)"
+
+# ── Trakt ─────────────────────────────────────────────────────────────
+msgctxt "#30180"
+msgid "Enable Trakt integration"
+msgstr "تفعيل التكامل مع Trakt"
+
+msgctxt "#30181"
+msgid "Link via PIN"
+msgstr "الربط عبر PIN"
+
+msgctxt "#30182"
+msgid "Connect Trakt via PIN"
+msgstr "ربط Trakt عبر PIN"
+
+msgctxt "#30183"
+msgid "Disconnect Trakt"
+msgstr "قطع الاتصال بـ Trakt"
+
+msgctxt "#30184"
+msgid "Import Trakt progress now"
+msgstr "استيراد تقدّم Trakt الآن"
+
+msgctxt "#30185"
+msgid "Sync"
+msgstr "المزامنة"
+
+msgctxt "#30186"
+msgid "Send playback activity to Trakt (scrobble)"
+msgstr "إرسال نشاط التشغيل إلى Trakt (scrobble)"
+
+msgctxt "#30187"
+msgid "Import Trakt progress into Continue Watching"
+msgstr "استيراد تقدّم Trakt إلى \"متابعة المشاهدة\""
+
+msgctxt "#30188"
+msgid "Fetch posters for imported movies/shows"
+msgstr "جلب البوسترات للأفلام والمسلسلات المستوردة"
+
+msgctxt "#30189"
+msgid "Sync Trakt watchlist into Favorites"
+msgstr "مزامنة قائمة Trakt إلى المفضلة"
+
+msgctxt "#30190"
+msgid "Background Trakt sync interval (minutes)"
+msgstr "فترة مزامنة Trakt في الخلفية (بالدقائق)"
+
+msgctxt "#30191"
+msgid "Advanced"
+msgstr "متقدّم"
+
+# ── TMDb Helper ───────────────────────────────────────────────────────
+msgctxt "#30200"
+msgid "Register Dex Hub as a TMDb Helper player"
+msgstr "تسجيل Dex Hub كمشغّل لـ TMDb Helper"
+
+msgctxt "#30201"
+msgid "Remove Dex Hub from TMDb Helper players"
+msgstr "إزالة Dex Hub من مشغّلات TMDb Helper"
+
+msgctxt "#30202"
+msgid "Auto-play the first source when called from TMDb Helper"
+msgstr "تشغيل أول مصدر تلقائياً عند الاستدعاء من TMDb Helper"
+
+# ── Performance ───────────────────────────────────────────────────────
+msgctxt "#30210"
+msgid "Parallel request workers"
+msgstr "عدد العمّال المتوازين للطلبات"
+
+msgctxt "#30211"
+msgid "Item limit per page in large sections"
+msgstr "الحد الأقصى للعناصر في الصفحة (للأقسام الكبيرة)"
+
+msgctxt "#30212"
+msgid "Use gzip compression (faster)"
+msgstr "استخدام ضغط gzip (أسرع)"
+
+msgctxt "#30213"
+msgid "HTTP cache"
+msgstr "ذاكرة HTTP المؤقتة"
+
+msgctxt "#30214"
+msgid "Catalog cache TTL (seconds)"
+msgstr "مدة بقاء كاش الكتالوج (بالثواني)"
+
+msgctxt "#30215"
+msgid "Metadata HTTP cache TTL (seconds)"
+msgstr "مدة بقاء كاش HTTP للبيانات الوصفية (بالثواني)"
+
+msgctxt "#30216"
+msgid "Clear HTTP cache now"
+msgstr "مسح كاش HTTP الآن"
+
+# ── Home folder titles ────────────────────────────────────────────────
+msgctxt "#30300"
+msgid "Movies"
+msgstr "أفلام"
+
+msgctxt "#30301"
+msgid "Series"
+msgstr "مسلسلات"
+
+msgctxt "#30302"
+msgid "Anime"
+msgstr "أنمي"
+
+msgctxt "#30303"
+msgid "Arabic"
+msgstr "عربي"
+
+msgctxt "#30304"
+msgid "Turkish"
+msgstr "تركي"
+
+msgctxt "#30305"
+msgid "Korean"
+msgstr "كوري"
+
+msgctxt "#30306"
+msgid "Live TV"
+msgstr "بث مباشر"
+
+msgctxt "#30307"
+msgid "Other catalogs"
+msgstr "كتالوجات أخرى"
+
+msgctxt "#30308"
+msgid "Continue watching"
+msgstr "متابعة المشاهدة"
+
+msgctxt "#30309"
+msgid "Search"
+msgstr "بحث"
+
+msgctxt "#30310"
+msgid "Sources"
+msgstr "المصادر"
+
+msgctxt "#30311"
+msgid "Collection"
+msgstr "كوليكشن"
+
+msgctxt "#30312"
+msgid "Watchlist"
+msgstr "قائمتي"
+
+msgctxt "#30313"
+msgid "Favorites"
+msgstr "المفضلة"
+
+msgctxt "#30314"
+msgid "Next Up"
+msgstr "التالي"
+
+msgctxt "#30315"
+msgid "Discover"
+msgstr "اكتشاف"
+
+msgctxt "#30316"
+msgid "People"
+msgstr "الأشخاص"
+
+msgctxt "#30317"
+msgid "Calendar"
+msgstr "التقويم"
+
+msgctxt "#30318"
+msgid "4K"
+msgstr "4K"
+
+msgctxt "#30319"
+msgid "Kids"
+msgstr "أطفال"
+
+msgctxt "#30320"
+msgid "Documentary"
+msgstr "وثائقيات"
+
+# ── Dialog / status common strings ────────────────────────────────────
+msgctxt "#30400"
+msgid "CONNECTING"
+msgstr "جاري الاتصال"
+
+msgctxt "#30401"
+msgid "Press Back to cancel"
+msgstr "اضغط رجوع للإلغاء"
+
+msgctxt "#30402"
+msgid "Loading..."
+msgstr "جاري التحميل..."
+
+msgctxt "#30403"
+msgid "Searching sources..."
+msgstr "البحث في المصادر..."
+
+msgctxt "#30404"
+msgid "No sources found"
+msgstr "لم يتم العثور على مصادر"
+
+msgctxt "#30405"
+msgid "Cancel"
+msgstr "إلغاء"
+
+msgctxt "#30406"
+msgid "OK"
+msgstr "موافق"
+
+msgctxt "#30407"
+msgid "Yes"
+msgstr "نعم"
+
+msgctxt "#30408"
+msgid "No"
+msgstr "لا"
+
+# ── Sub folder management ─────────────────────────────────────────────
+msgctxt "#30420"
+msgid "Add a sub folder inside this folder"
+msgstr "إضافة مجلد فرعي داخل هذا المجلد"
+
+msgctxt "#30421"
+msgid "Manage sub folders for this folder"
+msgstr "إدارة المجلدات الفرعية لهذا المجلد"
+
+msgctxt "#30422"
+msgid "Add a new home folder"
+msgstr "إضافة مجلد جديد في الشاشة الرئيسية"
+
+msgctxt "#30423"
+msgid "Manage home folders"
+msgstr "إدارة مجلدات الشاشة الرئيسية"
+
+msgctxt "#30424"
+msgid "Remove this folder from home"
+msgstr "حذف هذا المجلد من الشاشة الرئيسية"
+
+# ── Library Index (v3.9.27) ────────────────────────────────────────────
+msgctxt "#30220"
+msgid "Library"
+msgstr "المكتبة"
+
+msgctxt "#30221"
+msgid "Local index"
+msgstr "الفهرس المحلي"
+
+msgctxt "#30222"
+msgid "Performance mode"
+msgstr "وضع الأداء"
+
+msgctxt "#30223"
+msgid "Background sync interval (hours)"
+msgstr "فترة المزامنة التلقائية (ساعات)"
+
+msgctxt "#30224"
+msgid "Refresh library now"
+msgstr "تحديث المكتبة الآن"
+
+msgctxt "#30225"
+msgid "View library status"
+msgstr "عرض حالة المكتبة"
+
+msgctxt "#30226"
+msgid "Clear library"
+msgstr "مسح المكتبة"
+
+# ── Community bilingual settings (v3.9.81) ───────────────────────
+
+msgctxt "#30227"
+msgid "Lightweight / community mode"
+msgstr "الوضع الخفيف / وضع المجتمع"
+
+msgctxt "#30228"
+msgid "Enable lightweight mode (hide aggregated home folders, disable index sync, speed up startup)"
+msgstr "تفعيل الوضع الخفيف (إخفاء مجلدات الهوم المجمعة، إيقاف مزامنة الفهرس، وتسريع البدء)"
+
+msgctxt "#30229"
+msgid "Disable the pre-playback loading window to reduce crashes"
+msgstr "تعطيل نافذة التحميل قبل التشغيل لتقليل الكراشات"
+
+msgctxt "#30230"
+msgid "Source playback routing"
+msgstr "طريقة تشغيل المصدر"
+
+msgctxt "#30231"
+msgid "Source priority order (optional text override)"
+msgstr "ترتيب أولوية المصادر (تجاوز نصّي اختياري)"
+
+msgctxt "#30232"
+msgid "Trakt Client ID (bundled)"
+msgstr "Trakt Client ID (مدمج)"
+
+msgctxt "#30233"
+msgid "Trakt Client Secret (bundled)"
+msgstr "Trakt Client Secret (مدمج)"
+
+msgctxt "#30234"
+msgid "Fetch all sources in parallel before showing results"
+msgstr "جلب كل المصادر بالتوازي قبل عرض النتائج"
+
+msgctxt "#30235"
+msgid "Open results quickly, then update remaining sources in the background"
+msgstr "فتح النتائج بسرعة ثم تحديث باقي المصادر بالخلفية"
+
+msgctxt "#30250"
+msgid "Arabic"
+msgstr "العربية"
+
+msgctxt "#30251"
+msgid "English"
+msgstr "English"
+
+msgctxt "#30252"
+msgid "Dex Hub"
+msgstr "Dex Hub"
+
+msgctxt "#30253"
+msgid "TMDb Helper"
+msgstr "TMDb Helper"
+
+msgctxt "#30254"
+msgid "Ask every time"
+msgstr "السؤال كل مرة"
+
+msgctxt "#30255"
+msgid "Choose from sources"
+msgstr "الاختيار من المصادر"
+
+msgctxt "#30256"
+msgid "Best quality automatically"
+msgstr "أفضل جودة تلقائيًا"
+
+msgctxt "#30257"
+msgid "Same source"
+msgstr "نفس المصدر"
+
+msgctxt "#30258"
+msgid "DexHub picker"
+msgstr "منتقي DexHub"
+
+msgctxt "#30259"
+msgid "Auto (smart)"
+msgstr "تلقائي (ذكي)"
+
+msgctxt "#30260"
+msgid "TMDb Helper (recommended)"
+msgstr "TMDb Helper (مستحسن)"
+
+msgctxt "#30261"
+msgid "Native (addon)"
+msgstr "الأصلي (الإضافة)"
+
+msgctxt "#30262"
+msgid "No filter"
+msgstr "بدون فلترة"
+
+msgctxt "#30263"
+msgid "480p+"
+msgstr "480p فأعلى"
+
+msgctxt "#30264"
+msgid "720p+"
+msgstr "720p فأعلى"
+
+msgctxt "#30265"
+msgid "1080p+"
+msgstr "1080p فأعلى"
+
+msgctxt "#30266"
+msgid "4K only"
+msgstr "4K فقط"
+
+msgctxt "#30267"
+msgid "Smart fallback (recommended)"
+msgstr "بديل ذكي (مستحسن)"
+
+msgctxt "#30268"
+msgid "Always clean (no badges)"
+msgstr "نظيف دائمًا (بدون شارات)"
+
+msgctxt "#30269"
+msgid "Keep decorated"
+msgstr "الحفاظ على البوستر المزيّن"
+
+msgctxt "#30270"
+msgid "Play only"
+msgstr "تشغيل فقط"
+
+msgctxt "#30271"
+msgid "Play with subtitles"
+msgstr "تشغيل مع الترجمات"
+
+msgctxt "#30272"
+msgid "Live (current)"
+msgstr "مباشر (الحالي)"
+
+msgctxt "#30273"
+msgid "Hybrid (recommended)"
+msgstr "هجين (مستحسن)"
+
+msgctxt "#30274"
+msgid "Fast Index"
+msgstr "فهرس سريع"

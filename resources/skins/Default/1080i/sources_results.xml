@@ -1,0 +1,461 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Dex Hub sources picker window.
+
+    Layout 1920x1080:
+    Top bar: addon icon + result count + filter + loading status
+              with play-mode pill on the top-right.
+    Hero: 340x510 poster on the left with amber outline.
+          To its right: clearlogo (or text title fallback) + year/genre/rating
+          row + plot textbox.
+    Stream list fills the area under the hero on the right.
+    Filters drawer slides in from the left when LEFT is pressed.
+
+    Identity tokens (v3.9.17 brand-unified):
+      surface deep         FF1A1332
+      brand purple primary FF7C3AED
+      brand cyan secondary FF33D8F7
+      text white           FFE7E7EF
+      muted text           FF8E94A6
+
+    Three font sizes only:
+      font24 = title fallback
+      font12 = primary stream rows
+      font10 = secondary metadata
+-->
+<window>
+    <controls>
+
+        <!-- Background layers -->
+        <control type="group">
+            <control type="image">
+                <left>0</left><top>0</top><width>1920</width><height>1080</height>
+                <texture colordiffuse="FF12141C">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture>
+            </control>
+            <control type="image">
+                <left>0</left><top>0</top><width>1920</width><height>1080</height>
+                <aspectratio>scale</aspectratio>
+                <texture>$INFO[Window.Property(dexhub.results.fanart)]</texture>
+                <animation effect="fade" start="0" end="22" time="0" tween="sine">WindowOpen</animation>
+            </control>
+            <control type="image">
+                <left>0</left><top>0</top><width>1920</width><height>1080</height>
+                <texture colordiffuse="C812141C">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture>
+            </control>
+        </control>
+
+        <!-- Foreground content -->
+        <control type="group">
+            <animation effect="fade" end="100" time="240">WindowOpen</animation>
+
+            <!-- Header strip: icon + counter + loading hint -->
+            <control type="image">
+                <left>60</left><top>32</top><width>40</width><height>40</height>
+                <aspectratio aligny="center">keep</aspectratio>
+                <texture>special://home/addons/plugin.video.dexhub/resources/media/icon.png</texture>
+            </control>
+            <control type="label">
+                <left>112</left><top>34</top><width>900</width><height>26</height>
+                <font>font12</font>
+                <textcolor>FF7C3AED</textcolor>
+                <shadowcolor>FF000000</shadowcolor>
+                <label>[B]$INFO[Window.Property(total_results)][/B]  RESULTS  $INFO[Window.Property(filter_info)]</label>
+            </control>
+            <control type="label">
+                <left>112</left><top>58</top><width>900</width><height>20</height>
+                <font>font10</font>
+                <textcolor>FF33D8F7</textcolor>
+                <shadowcolor>FF000000</shadowcolor>
+                <label>$INFO[Window.Property(loading_label)]</label>
+            </control>
+
+            <!-- Play-mode pill, top-right -->
+            <control type="button" id="2200">
+                <left>1340</left><top>30</top><width>520</width><height>44</height>
+                <label>[B]PLAY MODE:[/B]  $INFO[Window.Property(play_mode_label)]</label>
+                <font>font10</font>
+                <textcolor>FFE7E7EF</textcolor>
+                <focusedcolor>FF12141C</focusedcolor>
+                <align>center</align>
+                <textoffsetx>0</textoffsetx><textoffsety>0</textoffsety>
+                <texturefocus border="22">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texturefocus>
+                <texturenofocus border="22">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texturenofocus>
+                <colordiffuse>D81F2336</colordiffuse>
+                <onup>2200</onup><ondown>2000</ondown><onleft>2000</onleft>
+            </control>
+
+            <!-- POSTER (left column, full hero height) -->
+            <control type="group">
+                <left>60</left><top>110</top>
+
+                <!-- Subtle amber outline shadow behind poster -->
+                <control type="image">
+                    <left>-4</left><top>-4</top><width>348</width><height>518</height>
+                    <texture border="6" colordiffuse="557C3AED">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture>
+                </control>
+                <!-- Poster card frame -->
+                <control type="image">
+                    <left>0</left><top>0</top><width>340</width><height>510</height>
+                    <texture colordiffuse="FF1B2030">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture>
+                </control>
+                <!-- Actual poster image, dynamic -->
+                <control type="image" id="200">
+                    <left>0</left><top>0</top><width>340</width><height>510</height>
+                    <aspectratio aligny="top" align="center">keep</aspectratio>
+                    <texture background="true" fallback="special://home/addons/plugin.video.dexhub/resources/media/default_video.png">$INFO[Window.Property(dexhub.results.poster)]</texture>
+                </control>
+            </control>
+
+            <!-- Title block, top-right of poster -->
+            <control type="group">
+                <left>440</left><top>110</top>
+
+                <!-- Clearlogo when present -->
+                <control type="image">
+                    <left>0</left><top>0</top><width>540</width><height>150</height>
+                    <aspectratio align="left" aligny="center">keep</aspectratio>
+                    <texture background="true">$INFO[Window.Property(dexhub.results.clearlogo)]</texture>
+                    <visible>!String.IsEmpty(Window.Property(dexhub.results.clearlogo))</visible>
+                </control>
+                <!-- Title fallback when no clearlogo -->
+                <control type="label">
+                    <left>0</left><top>30</top><width>1020</width><height>80</height>
+                    <font>font24</font>
+                    <textcolor>FFE7E7EF</textcolor>
+                    <shadowcolor>FF000000</shadowcolor>
+                    <align>left</align><aligny>top</aligny>
+                    <wrapmultiline>true</wrapmultiline>
+                    <label>[B]$INFO[Window.Property(title)][/B]</label>
+                    <visible>String.IsEmpty(Window.Property(dexhub.results.clearlogo))</visible>
+                </control>
+
+                <!-- Year · Genre · Rating row -->
+                <control type="label">
+                    <left>0</left><top>156</top><width>1020</width><height>22</height>
+                    <font>font10</font>
+                    <textcolor>FF7C3AED</textcolor>
+                    <shadowcolor>FF000000</shadowcolor>
+                    <label>[UPPERCASE]$INFO[Window.Property(year)]$INFO[Window.Property(genre),   ·   ,]$INFO[Window.Property(studio),   ·   ,]$INFO[Window.Property(rating),   ·   IMDb ,][/UPPERCASE]</label>
+                </control>
+
+                <!-- Plot, two-three lines muted -->
+                <control type="textbox">
+                    <left>0</left><top>184</top><width>1020</width><height>62</height>
+                    <font>font10</font>
+                    <textcolor>FF8E94A6</textcolor>
+                    <shadowcolor>FF000000</shadowcolor>
+                    <align>left</align>
+                    <label>$INFO[Window.Property(plot)]</label>
+                </control>
+            </control>
+
+            <!-- Stream list, right side under the title block -->
+            <!--
+              Redesigned stream row — 112px height.
+
+              LEFT BLOCK (170px): Quality resolution badge + provider.
+              RIGHT BLOCK (1230px):
+                Row 1 (0-22px):  Stream name (bold)               right: SIZE chip
+                Row 2 (26-44px): Addon · Site                     right: PROVIDER badge
+                Row 3 (48-68px): Video info (bits, codec)
+                Row 4 (72-92px): 8 colour-coded format badges
+
+              Badge colours come from BetterFormatter OR the native
+              fallback in source_browser.py (HDR=amber, DV=purple,
+              ATMOS=violet, 4K=cyan, etc.).
+            -->
+            <control type="fixedlist" id="2000">
+                <left>440</left><top>368</top><width>1440</width><height>670</height>
+                <onup>2200</onup><ondown>2000</ondown><onleft>2100</onleft>
+                <scrolltime tween="cubic" easing="out">240</scrolltime>
+                <orientation>Vertical</orientation>
+                <focusposition>0</focusposition>
+                <movement>5</movement>
+
+                <itemlayout height="112" width="1440">
+                    <!-- Row card background -->
+                    <control type="image">
+                        <left>0</left><top>6</top><width>1440</width><height>100</height>
+                        <texture colordiffuse="D01B2030" border="18">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture>
+                    </control>
+
+                    <!-- LEFT: quality + provider block -->
+                    <control type="group">
+                        <left>0</left><top>6</top><width>170</width><height>100</height>
+                        <!-- Quality colour band -->
+                        <control type="image">
+                            <left>0</left><top>0</top><width>170</width><height>100</height>
+                            <texture colordiffuse="$INFO[ListItem.Property(highlight)]" border="18">special://home/addons/plugin.video.dexhub/resources/media/left-circle.png</texture>
+                            <colordiffuse>AA000000</colordiffuse>
+                        </control>
+                        <!-- Quality label (4K / 1080P …) -->
+                        <control type="label">
+                            <left>14</left><top>20</top><width>144</width><height>34</height>
+                            <font>font13</font>
+                            <textcolor>FFE8E8F0</textcolor>
+                            <shadowcolor>EE000000</shadowcolor>
+                            <align>left</align>
+                            <label>[B]$INFO[ListItem.Property(quality)][/B]</label>
+                        </control>
+                        <!-- Provider name (small, muted) -->
+                        <control type="label">
+                            <left>14</left><top>60</top><width>144</width><height>22</height>
+                            <font>font10</font>
+                            <textcolor>CCE8E8F0</textcolor>
+                            <shadowcolor>EE000000</shadowcolor>
+                            <label>$INFO[ListItem.Property(provider)]</label>
+                        </control>
+                    </control>
+
+                    <!-- RIGHT: info block -->
+                    <control type="group">
+                        <left>184</left><top>12</top><width>1240</width><height>92</height>
+
+                        <!-- Row 1: stream name + size -->
+                        <control type="label">
+                            <left>0</left><top>0</top><width>1000</width><height>24</height>
+                            <font>font12</font>
+                            <textcolor>FFE7E7EF</textcolor>
+                            <shadowcolor>FF000000</shadowcolor>
+                            <label>[B]$INFO[ListItem.Property(name)][/B]</label>
+                        </control>
+                        <!-- Size chip top-right -->
+                        <control type="group">
+                            <visible>!String.IsEmpty(ListItem.Property(size_label))</visible>
+                            <left>1020</left><top>0</top>
+                            <control type="image">
+                                <left>0</left><top>0</top><width>220</width><height>24</height>
+                                <texture border="10" colordiffuse="6640484E">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture>
+                            </control>
+                            <control type="label">
+                                <left>8</left><top>1</top><width>204</width><height>22</height>
+                                <font>font10</font>
+                                <textcolor>FF8E94A6</textcolor>
+                                <align>center</align>
+                                <label>$INFO[ListItem.Property(size_label)]</label>
+                            </control>
+                        </control>
+
+                        <!-- Row 2: addon · site -->
+                        <control type="label">
+                            <left>0</left><top>28</top><width>1240</width><height>18</height>
+                            <font>font10</font>
+                            <textcolor>FF8E94A6</textcolor>
+                            <label>$INFO[ListItem.Property(addon)]$INFO[ListItem.Property(source_site),  ·  ,]</label>
+                        </control>
+
+                        <!-- Row 3: video info — bits and codec -->
+                        <control type="label">
+                            <left>0</left><top>50</top><width>1240</width><height>18</height>
+                            <font>font10</font>
+                            <textcolor>BB8E94A6</textcolor>
+                            <label>$INFO[ListItem.Property(video_bits)]$INFO[ListItem.Property(audio_bits),  ·  ,]</label>
+                        </control>
+
+                        <!-- Row 4: 8 coloured format badges -->
+                        <control type="group">
+                            <left>0</left><top>72</top><width>1240</width><height>26</height>
+
+                            <!-- Badge 1 -->
+                            <control type="group"><visible>!String.IsEmpty(ListItem.Property(fmt1_text))</visible>
+                                <control type="image"><left>0</left><top>0</top><width>146</width><height>26</height><texture border="10" colordiffuse="$INFO[ListItem.Property(fmt1_bg)]">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture></control>
+                                <control type="label"><left>6</left><top>2</top><width>134</width><height>22</height><font>font10</font><textcolor>$INFO[ListItem.Property(fmt1_fg)]</textcolor><shadowcolor>88000000</shadowcolor><align>center</align><label>[B]$INFO[ListItem.Property(fmt1_text)][/B]</label></control>
+                            </control>
+
+                            <!-- Badge 2 -->
+                            <control type="group"><visible>!String.IsEmpty(ListItem.Property(fmt2_text))</visible>
+                                <control type="image"><left>150</left><top>0</top><width>146</width><height>26</height><texture border="10" colordiffuse="$INFO[ListItem.Property(fmt2_bg)]">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture></control>
+                                <control type="label"><left>156</left><top>2</top><width>134</width><height>22</height><font>font10</font><textcolor>$INFO[ListItem.Property(fmt2_fg)]</textcolor><shadowcolor>88000000</shadowcolor><align>center</align><label>[B]$INFO[ListItem.Property(fmt2_text)][/B]</label></control>
+                            </control>
+
+                            <!-- Badge 3 -->
+                            <control type="group"><visible>!String.IsEmpty(ListItem.Property(fmt3_text))</visible>
+                                <control type="image"><left>300</left><top>0</top><width>146</width><height>26</height><texture border="10" colordiffuse="$INFO[ListItem.Property(fmt3_bg)]">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture></control>
+                                <control type="label"><left>306</left><top>2</top><width>134</width><height>22</height><font>font10</font><textcolor>$INFO[ListItem.Property(fmt3_fg)]</textcolor><shadowcolor>88000000</shadowcolor><align>center</align><label>[B]$INFO[ListItem.Property(fmt3_text)][/B]</label></control>
+                            </control>
+
+                            <!-- Badge 4 -->
+                            <control type="group"><visible>!String.IsEmpty(ListItem.Property(fmt4_text))</visible>
+                                <control type="image"><left>450</left><top>0</top><width>146</width><height>26</height><texture border="10" colordiffuse="$INFO[ListItem.Property(fmt4_bg)]">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture></control>
+                                <control type="label"><left>456</left><top>2</top><width>134</width><height>22</height><font>font10</font><textcolor>$INFO[ListItem.Property(fmt4_fg)]</textcolor><shadowcolor>88000000</shadowcolor><align>center</align><label>[B]$INFO[ListItem.Property(fmt4_text)][/B]</label></control>
+                            </control>
+
+                            <!-- Badge 5 -->
+                            <control type="group"><visible>!String.IsEmpty(ListItem.Property(fmt5_text))</visible>
+                                <control type="image"><left>600</left><top>0</top><width>146</width><height>26</height><texture border="10" colordiffuse="$INFO[ListItem.Property(fmt5_bg)]">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture></control>
+                                <control type="label"><left>606</left><top>2</top><width>134</width><height>22</height><font>font10</font><textcolor>$INFO[ListItem.Property(fmt5_fg)]</textcolor><shadowcolor>88000000</shadowcolor><align>center</align><label>[B]$INFO[ListItem.Property(fmt5_text)][/B]</label></control>
+                            </control>
+
+                            <!-- Badge 6 -->
+                            <control type="group"><visible>!String.IsEmpty(ListItem.Property(fmt6_text))</visible>
+                                <control type="image"><left>750</left><top>0</top><width>146</width><height>26</height><texture border="10" colordiffuse="$INFO[ListItem.Property(fmt6_bg)]">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture></control>
+                                <control type="label"><left>756</left><top>2</top><width>134</width><height>22</height><font>font10</font><textcolor>$INFO[ListItem.Property(fmt6_fg)]</textcolor><shadowcolor>88000000</shadowcolor><align>center</align><label>[B]$INFO[ListItem.Property(fmt6_text)][/B]</label></control>
+                            </control>
+
+                            <!-- Badge 7 -->
+                            <control type="group"><visible>!String.IsEmpty(ListItem.Property(fmt7_text))</visible>
+                                <control type="image"><left>900</left><top>0</top><width>146</width><height>26</height><texture border="10" colordiffuse="$INFO[ListItem.Property(fmt7_bg)]">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture></control>
+                                <control type="label"><left>906</left><top>2</top><width>134</width><height>22</height><font>font10</font><textcolor>$INFO[ListItem.Property(fmt7_fg)]</textcolor><shadowcolor>88000000</shadowcolor><align>center</align><label>[B]$INFO[ListItem.Property(fmt7_text)][/B]</label></control>
+                            </control>
+
+                            <!-- Badge 8 -->
+                            <control type="group"><visible>!String.IsEmpty(ListItem.Property(fmt8_text))</visible>
+                                <control type="image"><left>1050</left><top>0</top><width>146</width><height>26</height><texture border="10" colordiffuse="$INFO[ListItem.Property(fmt8_bg)]">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture></control>
+                                <control type="label"><left>1056</left><top>2</top><width>134</width><height>22</height><font>font10</font><textcolor>$INFO[ListItem.Property(fmt8_fg)]</textcolor><shadowcolor>88000000</shadowcolor><align>center</align><label>[B]$INFO[ListItem.Property(fmt8_text)][/B]</label></control>
+                            </control>
+
+                        </control><!-- end badge row -->
+                    </control><!-- end right info block -->
+                </itemlayout>
+
+                <focusedlayout height="112" width="1440">
+                    <!-- v3.9.42: focused card opacity reduced from solid
+                         FF7C3AED (full purple) to 887C3AED (translucent
+                         53% purple). The previous solid fill overpowered
+                         the dark text underneath, making the selected
+                         row's filename, size, and provider info hard to
+                         read. The translucent version still clearly
+                         indicates selection through tint while keeping
+                         the underlying text legible. -->
+                    <control type="image">
+                        <left>0</left><top>6</top><width>1440</width><height>100</height>
+                        <texture colordiffuse="887C3AED" border="18">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture>
+                    </control>
+                    <!-- Quality colour band (focused) -->
+                    <control type="image">
+                        <left>0</left><top>6</top><width>170</width><height>100</height>
+                        <texture colordiffuse="$INFO[ListItem.Property(highlight)]" border="18">special://home/addons/plugin.video.dexhub/resources/media/left-circle.png</texture>
+                    </control>
+
+                    <!-- LEFT: quality (focused — dark text) -->
+                    <control type="group">
+                        <left>0</left><top>6</top><width>170</width><height>100</height>
+                        <control type="label">
+                            <left>14</left><top>20</top><width>144</width><height>34</height>
+                            <font>font13</font>
+                            <textcolor>FF12141C</textcolor>
+                            <align>left</align>
+                            <label>[B]$INFO[ListItem.Property(quality)][/B]</label>
+                        </control>
+                        <control type="label">
+                            <left>14</left><top>60</top><width>144</width><height>22</height>
+                            <font>font10</font>
+                            <textcolor>DD12141C</textcolor>
+                            <label>$INFO[ListItem.Property(provider)]</label>
+                        </control>
+                    </control>
+
+                    <!-- RIGHT: info (focused — dark text on amber) -->
+                    <control type="group">
+                        <left>184</left><top>12</top><width>1240</width><height>92</height>
+
+                        <control type="label">
+                            <left>0</left><top>0</top><width>1000</width><height>24</height>
+                            <font>font12</font><textcolor>FF12141C</textcolor>
+                            <label>[B]$INFO[ListItem.Property(name)][/B]</label>
+                        </control>
+                        <!-- Size chip -->
+                        <control type="group">
+                            <visible>!String.IsEmpty(ListItem.Property(size_label))</visible>
+                            <left>1020</left><top>0</top>
+                            <control type="image"><left>0</left><top>0</top><width>220</width><height>24</height><texture border="10" colordiffuse="4412141C">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture></control>
+                            <control type="label"><left>8</left><top>1</top><width>204</width><height>22</height><font>font10</font><textcolor>CC12141C</textcolor><align>center</align><label>$INFO[ListItem.Property(size_label)]</label></control>
+                        </control>
+
+                        <control type="label">
+                            <left>0</left><top>28</top><width>1240</width><height>18</height>
+                            <font>font10</font><textcolor>CC12141C</textcolor>
+                            <label>$INFO[ListItem.Property(addon)]$INFO[ListItem.Property(source_site),  ·  ,]</label>
+                        </control>
+
+                        <control type="label">
+                            <left>0</left><top>50</top><width>1240</width><height>18</height>
+                            <font>font10</font><textcolor>AA12141C</textcolor>
+                            <label>$INFO[ListItem.Property(video_bits)]$INFO[ListItem.Property(audio_bits),  ·  ,]</label>
+                        </control>
+
+                        <!-- Badges row (focused) — semi-transparent dark on amber -->
+                        <control type="group">
+                            <left>0</left><top>72</top><width>1240</width><height>26</height>
+
+                            <control type="group"><visible>!String.IsEmpty(ListItem.Property(fmt1_text))</visible>
+                                <control type="image"><left>0</left><top>0</top><width>146</width><height>26</height><texture border="10" colordiffuse="5512141C">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture></control>
+                                <control type="label"><left>6</left><top>2</top><width>134</width><height>22</height><font>font10</font><textcolor>FF12141C</textcolor><align>center</align><label>[B]$INFO[ListItem.Property(fmt1_text)][/B]</label></control>
+                            </control>
+                            <control type="group"><visible>!String.IsEmpty(ListItem.Property(fmt2_text))</visible>
+                                <control type="image"><left>150</left><top>0</top><width>146</width><height>26</height><texture border="10" colordiffuse="5512141C">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture></control>
+                                <control type="label"><left>156</left><top>2</top><width>134</width><height>22</height><font>font10</font><textcolor>FF12141C</textcolor><align>center</align><label>[B]$INFO[ListItem.Property(fmt2_text)][/B]</label></control>
+                            </control>
+                            <control type="group"><visible>!String.IsEmpty(ListItem.Property(fmt3_text))</visible>
+                                <control type="image"><left>300</left><top>0</top><width>146</width><height>26</height><texture border="10" colordiffuse="5512141C">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture></control>
+                                <control type="label"><left>306</left><top>2</top><width>134</width><height>22</height><font>font10</font><textcolor>FF12141C</textcolor><align>center</align><label>[B]$INFO[ListItem.Property(fmt3_text)][/B]</label></control>
+                            </control>
+                            <control type="group"><visible>!String.IsEmpty(ListItem.Property(fmt4_text))</visible>
+                                <control type="image"><left>450</left><top>0</top><width>146</width><height>26</height><texture border="10" colordiffuse="5512141C">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture></control>
+                                <control type="label"><left>456</left><top>2</top><width>134</width><height>22</height><font>font10</font><textcolor>FF12141C</textcolor><align>center</align><label>[B]$INFO[ListItem.Property(fmt4_text)][/B]</label></control>
+                            </control>
+                            <control type="group"><visible>!String.IsEmpty(ListItem.Property(fmt5_text))</visible>
+                                <control type="image"><left>600</left><top>0</top><width>146</width><height>26</height><texture border="10" colordiffuse="5512141C">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture></control>
+                                <control type="label"><left>606</left><top>2</top><width>134</width><height>22</height><font>font10</font><textcolor>FF12141C</textcolor><align>center</align><label>[B]$INFO[ListItem.Property(fmt5_text)][/B]</label></control>
+                            </control>
+                            <control type="group"><visible>!String.IsEmpty(ListItem.Property(fmt6_text))</visible>
+                                <control type="image"><left>750</left><top>0</top><width>146</width><height>26</height><texture border="10" colordiffuse="5512141C">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture></control>
+                                <control type="label"><left>756</left><top>2</top><width>134</width><height>22</height><font>font10</font><textcolor>FF12141C</textcolor><align>center</align><label>[B]$INFO[ListItem.Property(fmt6_text)][/B]</label></control>
+                            </control>
+                            <control type="group"><visible>!String.IsEmpty(ListItem.Property(fmt7_text))</visible>
+                                <control type="image"><left>900</left><top>0</top><width>146</width><height>26</height><texture border="10" colordiffuse="5512141C">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture></control>
+                                <control type="label"><left>906</left><top>2</top><width>134</width><height>22</height><font>font10</font><textcolor>FF12141C</textcolor><align>center</align><label>[B]$INFO[ListItem.Property(fmt7_text)][/B]</label></control>
+                            </control>
+                            <control type="group"><visible>!String.IsEmpty(ListItem.Property(fmt8_text))</visible>
+                                <control type="image"><left>1050</left><top>0</top><width>146</width><height>26</height><texture border="10" colordiffuse="5512141C">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture></control>
+                                <control type="label"><left>1056</left><top>2</top><width>134</width><height>22</height><font>font10</font><textcolor>FF12141C</textcolor><align>center</align><label>[B]$INFO[ListItem.Property(fmt8_text)][/B]</label></control>
+                            </control>
+                        </control>
+                    </control>
+                </focusedlayout>
+            </control>
+
+            <!-- Filters drawer, slides in from left -->
+            <control type="group">
+                <visible>String.IsEqual(Window.Property(filters_visible),true) + Integer.IsGreater(Container(2100).NumItems,1)</visible>
+                <animation effect="slide" start="-360,0" end="0,0" time="180" tween="cubic" easing="out">VisibleChange</animation>
+                <control type="image">
+                    <left>0</left><top>110</top><width>360</width><height>900</height>
+                    <texture colordiffuse="EE0E1018">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture>
+                </control>
+                <control type="label">
+                    <left>40</left><top>144</top><font>font12</font>
+                    <textcolor>FF7C3AED</textcolor><shadowcolor>FF000000</shadowcolor>
+                    <label>[UPPERCASE][B]FILTERS[/B][/UPPERCASE]</label>
+                </control>
+                <control type="fixedlist" id="2100">
+                    <left>20</left><top>190</top><width>320</width><height>780</height>
+                    <onup>2100</onup><ondown>2100</ondown><onright>2000</onright>
+                    <scrolltime tween="sine">160</scrolltime>
+                    <orientation>Vertical</orientation>
+                    <focusposition>0</focusposition>
+                    <movement>5</movement>
+                    <itemlayout height="64" width="320">
+                        <control type="label">
+                            <left>20</left><top>20</top><width max="280">auto</width><height>22</height>
+                            <font>font10</font><textcolor>FFE7E7EF</textcolor><shadowcolor>FF000000</shadowcolor>
+                            <label>[UPPERCASE]$INFO[ListItem.Property(label)][/UPPERCASE]</label>
+                        </control>
+                    </itemlayout>
+                    <focusedlayout height="64" width="320">
+                        <control type="image">
+                            <width>320</width><height>50</height><top>7</top>
+                            <texture colordiffuse="FF7C3AED" border="22">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture>
+                        </control>
+                        <control type="label">
+                            <left>20</left><top>20</top><width max="280">auto</width><height>22</height>
+                            <font>font10</font><textcolor>FF12141C</textcolor>
+                            <label>[UPPERCASE]$INFO[ListItem.Property(label)][/UPPERCASE]</label>
+                        </control>
+                    </focusedlayout>
+                </control>
+            </control>
+
+        </control>
+    </controls>
+</window>

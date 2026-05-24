@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- v3.9.59/v3.9.60: N2 Bottom Sheet layout. Modal-bottom-sheet style:
+     fanart + ghost poster + big title up top, three-column control
+     sheet at the bottom. Reads namespaced dexhub.loading.{poster,
+     fanart,clearlogo} properties to prevent stale-art leakage. -->
+<window>
+    <defaultcontrol always="true">9001</defaultcontrol>
+    <controls>
+        <control type="image">
+            <left>0</left><top>0</top><width>1920</width><height>1080</height>
+            <texture colordiffuse="FF000000">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture>
+        </control>
+        <control type="image" id="5101">
+            <left>0</left><top>0</top><width>1920</width><height>1080</height>
+            <aspectratio>scale</aspectratio>
+            <texture background="true">$INFO[Window.Property(dexhub.loading.fanart)]</texture>
+            <animation effect="fade" start="0" end="100" time="280">WindowOpen</animation>
+        </control>
+        <control type="image">
+            <left>0</left><top>0</top><width>1920</width><height>1080</height>
+            <texture colordiffuse="A6050310">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture>
+        </control>
+        <control type="image">
+            <left>0</left><top>540</top><width>1920</width><height>540</height>
+            <texture colordiffuse="80020108">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture>
+        </control>
+
+        <control type="group">
+            <animation effect="fade" end="100" time="320" delay="80">WindowOpen</animation>
+            <animation effect="slide" start="0,30" end="0,0" time="380" tween="cubic" easing="out" delay="80">WindowOpen</animation>
+
+            <control type="image" id="5102">
+                <left>80</left><top>110</top><width>280</width><height>420</height>
+                <aspectratio>scale</aspectratio>
+                <texture colordiffuse="55FFFFFF" background="true">$INFO[Window.Property(dexhub.loading.poster)]</texture>
+                <visible>!String.IsEmpty(Window.Property(dexhub.loading.poster))</visible>
+            </control>
+            <control type="image">
+                <left>78</left><top>108</top><width>284</width><height>424</height>
+                <texture border="1" colordiffuse="44B07CFF">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture>
+                <visible>!String.IsEmpty(Window.Property(dexhub.loading.poster))</visible>
+            </control>
+
+            <control type="image" id="5103">
+                <left>400</left><top>180</top><width>1100</width><height>200</height>
+                <aspectratio align="left" aligny="top">keep</aspectratio>
+                <texture background="true">$INFO[Window.Property(dexhub.loading.clearlogo)]</texture>
+                <visible>!String.IsEmpty(Window.Property(dexhub.loading.clearlogo))</visible>
+            </control>
+            <control type="label">
+                <left>400</left><top>200</top><width>1400</width><height>150</height>
+                <font>font17</font>
+                <textcolor>FFFFFFFF</textcolor>
+                <shadowcolor>FF000000</shadowcolor>
+                <align>left</align><aligny>top</aligny>
+                <label>$INFO[Window.Property(title)]</label>
+                <visible>String.IsEmpty(Window.Property(dexhub.loading.clearlogo))</visible>
+            </control>
+            <control type="label">
+                <left>400</left><top>400</top><width>1400</width><height>40</height>
+                <font>font14</font>
+                <textcolor>FFC8B7E0</textcolor>
+                <shadowcolor>FF000000</shadowcolor>
+                <align>left</align><aligny>center</aligny>
+                <label>$INFO[Window.Property(subtitle)]</label>
+            </control>
+        </control>
+
+        <control type="group">
+            <animation effect="slide" start="0,420" end="0,0" time="420" tween="cubic" easing="out">WindowOpen</animation>
+            <animation effect="fade" start="0" end="100" time="320">WindowOpen</animation>
+
+            <control type="image">
+                <left>0</left><top>720</top><width>1920</width><height>400</height>
+                <texture colordiffuse="FF14102D">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture>
+            </control>
+            <control type="image">
+                <left>0</left><top>720</top><width>1920</width><height>4</height>
+                <texture colordiffuse="FF7C3AED">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture>
+            </control>
+            <control type="image">
+                <left>960</left><top>720</top><width>960</width><height>4</height>
+                <texture colordiffuse="9933D8F7">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture>
+            </control>
+            <control type="image">
+                <left>920</left><top>738</top><width>80</width><height>6</height>
+                <texture colordiffuse="FF8C82AA">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture>
+            </control>
+
+            <control type="label">
+                <left>100</left><top>780</top><width>660</width><height>26</height>
+                <font>font10</font><textcolor>FFB07CFF</textcolor>
+                <align>left</align><aligny>center</aligny>
+                <label>[B]$INFO[Window.Property(eyebrow)][/B]</label>
+            </control>
+            <control type="label">
+                <left>100</left><top>812</top><width>660</width><height>40</height>
+                <font>font14</font><textcolor>FFFFFFFF</textcolor>
+                <align>left</align><aligny>center</aligny>
+                <label>$INFO[Window.Property(current_provider)]</label>
+            </control>
+            <control type="image">
+                <left>100</left><top>876</top><width>620</width><height>8</height>
+                <texture colordiffuse="66312166">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture>
+            </control>
+            <control type="progress">
+                <left>100</left><top>876</top><width>620</width><height>8</height>
+                <info>Window.Property(progress_pct)</info>
+                <texturebg colordiffuse="00000000">special://home/addons/plugin.video.dexhub/resources/media/black.png</texturebg>
+                <lefttexture colordiffuse="FF7C3AED">special://home/addons/plugin.video.dexhub/resources/media/black.png</lefttexture>
+                <midtexture colordiffuse="FF7C3AED">special://home/addons/plugin.video.dexhub/resources/media/black.png</midtexture>
+                <righttexture colordiffuse="FF7C3AED">special://home/addons/plugin.video.dexhub/resources/media/black.png</righttexture>
+            </control>
+            <control type="label">
+                <left>100</left><top>892</top><width>660</width><height>26</height>
+                <font>font10</font><textcolor>FF8C82AA</textcolor>
+                <align>left</align><aligny>center</aligny>
+                <label>$INFO[Window.Property(sub_status)]</label>
+            </control>
+
+            <control type="label">
+                <left>820</left><top>760</top><width>200</width><height>150</height>
+                <font>font17</font><textcolor>FF10B981</textcolor>
+                <align>left</align><aligny>center</aligny>
+                <label>[B]$INFO[Window.Property(counter_number)][/B]</label>
+            </control>
+            <control type="label">
+                <left>1010</left><top>800</top><width>240</width><height>40</height>
+                <font>font14</font><textcolor>FFFFFFFF</textcolor>
+                <align>left</align><aligny>center</aligny>
+                <label>[B]$INFO[Window.Property(counter_label)][/B]</label>
+            </control>
+            <control type="label">
+                <left>1010</left><top>850</top><width>240</width><height>30</height>
+                <font>font10</font><textcolor>FF6EE7B7</textcolor>
+                <align>left</align><aligny>center</aligny>
+                <label>$INFO[Window.Property(results_line)]</label>
+            </control>
+
+            <control type="button" id="9001">
+                <left>1280</left><top>760</top><width>540</width><height>80</height>
+                <font>font14</font><textcolor>FFFFFFFF</textcolor><focusedcolor>FFFFFFFF</focusedcolor>
+                <align>center</align><aligny>center</aligny>
+                <texturenofocus border="0" colordiffuse="FF10B981">special://home/addons/plugin.video.dexhub/resources/media/black.png</texturenofocus>
+                <texturefocus border="0" colordiffuse="FF34D399">special://home/addons/plugin.video.dexhub/resources/media/black.png</texturefocus>
+                <label>$INFO[Window.Property(sufficient_label)]</label>
+                <onclick>SendClick(9999,10)</onclick>
+            </control>
+            <control type="group">
+                <visible>Control.HasFocus(9001)</visible>
+                <control type="image"><left>1276</left><top>756</top><width>548</width><height>3</height><texture colordiffuse="FF34D399">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture></control>
+                <control type="image"><left>1276</left><top>841</top><width>548</width><height>3</height><texture colordiffuse="FF34D399">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture></control>
+                <control type="image"><left>1276</left><top>756</top><width>3</width><height>88</height><texture colordiffuse="FF34D399">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture></control>
+                <control type="image"><left>1821</left><top>756</top><width>3</width><height>88</height><texture colordiffuse="FF34D399">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture></control>
+            </control>
+
+            <control type="button" id="9000">
+                <left>1280</left><top>860</top><width>540</width><height>60</height>
+                <font>font13</font><textcolor>FFC8B7E0</textcolor><focusedcolor>FFFFFFFF</focusedcolor>
+                <align>center</align><aligny>center</aligny>
+                <texturenofocus border="0" colordiffuse="FF1A1330">special://home/addons/plugin.video.dexhub/resources/media/black.png</texturenofocus>
+                <texturefocus border="0" colordiffuse="FFDC2626">special://home/addons/plugin.video.dexhub/resources/media/black.png</texturefocus>
+                <label>$INFO[Window.Property(cancel_label)]</label>
+                <onclick>SendClick(9999,10)</onclick>
+            </control>
+            <control type="group">
+                <visible>Control.HasFocus(9000)</visible>
+                <control type="image"><left>1276</left><top>856</top><width>548</width><height>3</height><texture colordiffuse="FFFCA5A5">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture></control>
+                <control type="image"><left>1276</left><top>921</top><width>548</width><height>3</height><texture colordiffuse="FFFCA5A5">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture></control>
+                <control type="image"><left>1276</left><top>856</top><width>3</width><height>68</height><texture colordiffuse="FFFCA5A5">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture></control>
+                <control type="image"><left>1821</left><top>856</top><width>3</width><height>68</height><texture colordiffuse="FFFCA5A5">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture></control>
+            </control>
+
+            <control type="label">
+                <left>100</left><top>1010</top><width>900</width><height>30</height>
+                <font>font10</font><textcolor>FFB07CFF</textcolor>
+                <align>left</align><aligny>center</aligny>
+                <label>[B]$INFO[Window.Property(hint_line)][/B]</label>
+            </control>
+        </control>
+    </controls>
+</window>

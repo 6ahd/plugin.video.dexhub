@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Dex Hub Custom Confirm Dialog (v3.9.25)
+  =====================================================================
+  Drop-in replacement for xbmcgui.Dialog().yesno(). Brand-matched
+  glassmorphic card with purple→cyan top accent, two large buttons,
+  fade-in animation.
+
+  Control IDs (Python sets these via getControl)
+    100  title label    — setLabel()
+    101  message text   — setText()
+    200  yes button     — setLabel(), focus default
+    201  no button      — setLabel()
+
+  Window properties (Python sets via setProperty)
+    dexhub.confirm.title    — title text
+    dexhub.confirm.message  — message body
+    dexhub.confirm.yes      — yes button label
+    dexhub.confirm.no       — no button label
+
+  Result conveyed by which button was clicked:
+    onclick on 200 → setProperty('dexhub.confirm.result', '1') + Close
+    onclick on 201 → setProperty('dexhub.confirm.result', '0') + Close
+-->
+<window type="dialog">
+  <defaultcontrol always="true">201</defaultcontrol>  <!-- default "No" for safety -->
+  <zorder>15</zorder>
+  <animation effect="fade" start="0" end="100" time="180">WindowOpen</animation>
+  <animation effect="fade" start="100" end="0" time="120">WindowClose</animation>
+  <controls>
+
+    <!-- Modal dim overlay -->
+    <control type="image">
+      <left>0</left><top>0</top><width>1920</width><height>1080</height>
+      <texture>dim_overlay.png</texture>
+    </control>
+
+    <!-- Centered glass card 760×420 -->
+    <control type="group">
+      <left>580</left><top>330</top>
+      <animation effect="slide" start="0,40" end="0,0" time="240" tween="cubic" easing="out">WindowOpen</animation>
+
+      <!-- Card body -->
+      <control type="image">
+        <left>0</left><top>0</top><width>760</width><height>420</height>
+        <texture border="32">glass_panel.png</texture>
+      </control>
+
+      <!-- Top brand accent stripe -->
+      <control type="image">
+        <left>40</left><top>14</top><width>680</width><height>4</height>
+        <texture>brand_stripe.png</texture>
+      </control>
+
+      <!-- Title — id 100 -->
+      <control type="label" id="100">
+        <left>50</left><top>50</top><width>660</width><height>50</height>
+        <font>font30_title</font>
+        <textcolor>FFFFFFFF</textcolor>
+        <align>center</align>
+        <label>$INFO[Window.Property(dexhub.confirm.title)]</label>
+      </control>
+
+      <!-- Message — id 101 -->
+      <control type="textbox" id="101">
+        <left>50</left><top>112</top><width>660</width><height>170</height>
+        <font>font13</font>
+        <textcolor>FFE5DEFF</textcolor>
+        <align>center</align>
+        <label>$INFO[Window.Property(dexhub.confirm.message)]</label>
+      </control>
+
+      <!-- Buttons row -->
+      <control type="button" id="201">
+        <left>50</left><top>310</top><width>320</width><height>72</height>
+        <texturefocus border="16">button_focus.png</texturefocus>
+        <texturenofocus border="16">button_idle.png</texturenofocus>
+        <font>font13_title</font>
+        <textcolor>FFFFFFFF</textcolor>
+        <focusedcolor>FF0D0819</focusedcolor>
+        <align>center</align>
+        <aligny>center</aligny>
+        <label>$INFO[Window.Property(dexhub.confirm.no)]</label>
+        <onleft>200</onleft>
+        <onright>200</onright>
+      </control>
+
+      <control type="button" id="200">
+        <left>390</left><top>310</top><width>320</width><height>72</height>
+        <texturefocus border="16">button_focus.png</texturefocus>
+        <texturenofocus border="16">button_idle.png</texturenofocus>
+        <font>font13_title</font>
+        <textcolor>FFFFFFFF</textcolor>
+        <focusedcolor>FF0D0819</focusedcolor>
+        <align>center</align>
+        <aligny>center</aligny>
+        <label>$INFO[Window.Property(dexhub.confirm.yes)]</label>
+        <onleft>201</onleft>
+        <onright>201</onright>
+      </control>
+
+    </control>
+  </controls>
+</window>

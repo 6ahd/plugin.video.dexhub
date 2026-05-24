@@ -1,0 +1,633 @@
+# DexHub English (en_GB) translation
+# Project-Id-Version: plugin.video.dexhub
+msgid ""
+msgstr ""
+"Project-Id-Version: plugin.video.dexhub\n"
+"Report-Msgid-Bugs-To: translations@dexhub\n"
+"POT-Creation-Date: 2026-05-09\n"
+"PO-Revision-Date: 2026-05-09\n"
+"Language-Team: English\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en_GB\n"
+
+# ── Original strings (kept for back-compat) ───────────────────────────
+msgctxt "#30000"
+msgid "Playback mode"
+msgstr "Playback mode"
+
+msgctxt "#30001"
+msgid "Choose source"
+msgstr "Choose source"
+
+# ── Categories ────────────────────────────────────────────────────────
+msgctxt "#30100"
+msgid "General"
+msgstr "General"
+
+msgctxt "#30101"
+msgid "Metadata"
+msgstr "Metadata"
+
+msgctxt "#30102"
+msgid "Sources"
+msgstr "Sources"
+
+msgctxt "#30103"
+msgid "Subtitles"
+msgstr "Subtitles"
+
+msgctxt "#30104"
+msgid "Plex / Emby"
+msgstr "Plex / Emby"
+
+msgctxt "#30105"
+msgid "Trakt"
+msgstr "Trakt"
+
+msgctxt "#30106"
+msgid "TMDb Helper"
+msgstr "TMDb Helper"
+
+msgctxt "#30107"
+msgid "Performance"
+msgstr "Performance"
+
+# ── General settings ──────────────────────────────────────────────────
+msgctxt "#30110"
+msgid "Language / اللغة"
+msgstr "Language / اللغة"
+
+msgctxt "#30111"
+msgid "Request timeout (seconds)"
+msgstr "Request timeout (seconds)"
+
+msgctxt "#30112"
+msgid "Use direct player (recommended)"
+msgstr "Use direct player (recommended)"
+
+msgctxt "#30113"
+msgid "Show playback loading screen"
+msgstr "Show playback loading screen"
+
+msgctxt "#30114"
+msgid "Home screen"
+msgstr "Home screen"
+
+msgctxt "#30115"
+msgid "Show Next Up on the home screen"
+msgstr "Show Next Up on the home screen"
+
+msgctxt "#30116"
+msgid "Show Favorites on the home screen"
+msgstr "Show Favorites on the home screen"
+
+msgctxt "#30117"
+msgid "Show catalog facets as folders (Genre / Year)"
+msgstr "Show catalog facets as folders (Genre / Year)"
+
+msgctxt "#30118"
+msgid "Hide empty collection entries"
+msgstr "Hide empty collection entries"
+
+msgctxt "#30119"
+msgid "DexWorld Pro: force folder view for internal catalogs"
+msgstr "DexWorld Pro: force folder view for internal catalogs"
+
+msgctxt "#30120"
+msgid "Add custom home folder..."
+msgstr "Add custom home folder..."
+
+msgctxt "#30121"
+msgid "Manage home folders..."
+msgstr "Manage home folders..."
+
+msgctxt "#30122"
+msgid "Click behavior"
+msgstr "Click behavior"
+
+msgctxt "#30123"
+msgid "When pressing an item in the catalog"
+msgstr "When pressing an item in the catalog"
+
+msgctxt "#30124"
+msgid "When pressing inside Dex Hub"
+msgstr "When pressing inside Dex Hub"
+
+# ── Metadata settings ─────────────────────────────────────────────────
+msgctxt "#30130"
+msgid "Default metadata source"
+msgstr "Default metadata source"
+
+msgctxt "#30131"
+msgid "Manage metadata sources per addon..."
+msgstr "Manage metadata sources per addon..."
+
+msgctxt "#30132"
+msgid "Full metadata enrichment for listings (slower)"
+msgstr "Full metadata enrichment for listings (slower)"
+
+msgctxt "#30133"
+msgid "Artwork enrichment (Fanart.tv)"
+msgstr "Artwork enrichment (Fanart.tv)"
+
+msgctxt "#30134"
+msgid "Enrich artwork from Fanart.tv (clearart, banner, discart, multi-language clearlogo)"
+msgstr "Enrich artwork from Fanart.tv (clearart, banner, discart, multi-language clearlogo)"
+
+msgctxt "#30135"
+msgid "Fanart.tv personal API key (optional — built-in key used if blank)"
+msgstr "Fanart.tv personal API key (optional — built-in key used if blank)"
+
+msgctxt "#30136"
+msgid "API keys (used by Discover, People, Calendar)"
+msgstr "API keys (used by Discover, People, Calendar)"
+
+msgctxt "#30137"
+msgid "TMDb API key (required for People search and TMDb-direct lookups)"
+msgstr "TMDb API key (required for People search and TMDb-direct lookups)"
+
+msgctxt "#30138"
+msgid "MDBList API Key (optional, for MDBList lists)"
+msgstr "MDBList API Key (optional, for MDBList lists)"
+
+msgctxt "#30139"
+msgid "DexWorld API key (for AI subtitles + quality feedback)"
+msgstr "DexWorld API key (for AI subtitles + quality feedback)"
+
+msgctxt "#30140"
+msgid "Clear metadata cache now"
+msgstr "Clear metadata cache now"
+
+# ── Sources settings ──────────────────────────────────────────────────
+msgctxt "#30150"
+msgid "Minimum source quality"
+msgstr "Minimum source quality"
+
+msgctxt "#30151"
+msgid "Hide CAM / TS / TELESYNC / SCREENER sources"
+msgstr "Hide CAM / TS / TELESYNC / SCREENER sources"
+
+msgctxt "#30152"
+msgid "Prioritize RD / AD / Premiumize / TorBox sources"
+msgstr "Prioritize RD / AD / Premiumize / TorBox sources"
+
+msgctxt "#30153"
+msgid "Prefer HDR10+ / Dolby Vision"
+msgstr "Prefer HDR10+ / Dolby Vision"
+
+msgctxt "#30154"
+msgid "Prefer Atmos / DTS-X / TrueHD"
+msgstr "Prefer Atmos / DTS-X / TrueHD"
+
+msgctxt "#30155"
+msgid "Remember the last selected source for each movie/episode"
+msgstr "Remember the last selected source for each movie/episode"
+
+msgctxt "#30156"
+msgid "Diagnose sources (test response time)..."
+msgstr "Diagnose sources (test response time)..."
+
+msgctxt "#30157"
+msgid "Posters &amp; overlays"
+msgstr "Posters & overlays"
+
+msgctxt "#30158"
+msgid "Decorated poster handling (RPDB, BetterPosters, TOP Posters)"
+msgstr "Decorated poster handling (RPDB, BetterPosters, TOP Posters)"
+
+# ── Subtitles ─────────────────────────────────────────────────────────
+msgctxt "#30160"
+msgid "Enable Stremio subtitle broker"
+msgstr "Enable Stremio subtitle broker"
+
+msgctxt "#30161"
+msgid "When choosing a source"
+msgstr "When choosing a source"
+
+msgctxt "#30162"
+msgid "Subtitle broker timeout (seconds)"
+msgstr "Subtitle broker timeout (seconds)"
+
+msgctxt "#30163"
+msgid "Preferred subtitle languages (comma-separated, e.g. ar,en)"
+msgstr "Preferred subtitle languages (comma-separated, e.g. ar,en)"
+
+msgctxt "#30164"
+msgid "Auto-play the next episode for TV shows"
+msgstr "Auto-play the next episode for TV shows"
+
+msgctxt "#30165"
+msgid "Next episode window duration (seconds)"
+msgstr "Next episode window duration (seconds)"
+
+# ── Plex / Emby ───────────────────────────────────────────────────────
+msgctxt "#30170"
+msgid "Enable progress sync (Companion)"
+msgstr "Enable progress sync (Companion)"
+
+msgctxt "#30171"
+msgid "Progress sync interval (seconds)"
+msgstr "Progress sync interval (seconds)"
+
+# ── Trakt ─────────────────────────────────────────────────────────────
+msgctxt "#30180"
+msgid "Enable Trakt integration"
+msgstr "Enable Trakt integration"
+
+msgctxt "#30181"
+msgid "Link via PIN"
+msgstr "Link via PIN"
+
+msgctxt "#30182"
+msgid "Connect Trakt via PIN"
+msgstr "Connect Trakt via PIN"
+
+msgctxt "#30183"
+msgid "Disconnect Trakt"
+msgstr "Disconnect Trakt"
+
+msgctxt "#30184"
+msgid "Import Trakt progress now"
+msgstr "Import Trakt progress now"
+
+msgctxt "#30185"
+msgid "Sync"
+msgstr "Sync"
+
+msgctxt "#30186"
+msgid "Send playback activity to Trakt (scrobble)"
+msgstr "Send playback activity to Trakt (scrobble)"
+
+msgctxt "#30187"
+msgid "Import Trakt progress into Continue Watching"
+msgstr "Import Trakt progress into Continue Watching"
+
+msgctxt "#30188"
+msgid "Fetch posters for imported movies/shows"
+msgstr "Fetch posters for imported movies/shows"
+
+msgctxt "#30189"
+msgid "Sync Trakt watchlist into Favorites"
+msgstr "Sync Trakt watchlist into Favorites"
+
+msgctxt "#30190"
+msgid "Background Trakt sync interval (minutes)"
+msgstr "Background Trakt sync interval (minutes)"
+
+msgctxt "#30191"
+msgid "Advanced"
+msgstr "Advanced"
+
+# ── TMDb Helper ───────────────────────────────────────────────────────
+msgctxt "#30200"
+msgid "Register Dex Hub as a TMDb Helper player"
+msgstr "Register Dex Hub as a TMDb Helper player"
+
+msgctxt "#30201"
+msgid "Remove Dex Hub from TMDb Helper players"
+msgstr "Remove Dex Hub from TMDb Helper players"
+
+msgctxt "#30202"
+msgid "Auto-play the first source when called from TMDb Helper"
+msgstr "Auto-play the first source when called from TMDb Helper"
+
+# ── Performance ───────────────────────────────────────────────────────
+msgctxt "#30210"
+msgid "Parallel request workers"
+msgstr "Parallel request workers"
+
+msgctxt "#30211"
+msgid "Item limit per page in large sections"
+msgstr "Item limit per page in large sections"
+
+msgctxt "#30212"
+msgid "Use gzip compression (faster)"
+msgstr "Use gzip compression (faster)"
+
+msgctxt "#30213"
+msgid "HTTP cache"
+msgstr "HTTP cache"
+
+msgctxt "#30214"
+msgid "Catalog cache TTL (seconds)"
+msgstr "Catalog cache TTL (seconds)"
+
+msgctxt "#30215"
+msgid "Metadata HTTP cache TTL (seconds)"
+msgstr "Metadata HTTP cache TTL (seconds)"
+
+msgctxt "#30216"
+msgid "Clear HTTP cache now"
+msgstr "Clear HTTP cache now"
+
+# ── Home folder titles (used by plugin code via tr() lookup) ──────────
+msgctxt "#30300"
+msgid "Movies"
+msgstr "Movies"
+
+msgctxt "#30301"
+msgid "Series"
+msgstr "Series"
+
+msgctxt "#30302"
+msgid "Anime"
+msgstr "Anime"
+
+msgctxt "#30303"
+msgid "Arabic"
+msgstr "Arabic"
+
+msgctxt "#30304"
+msgid "Turkish"
+msgstr "Turkish"
+
+msgctxt "#30305"
+msgid "Korean"
+msgstr "Korean"
+
+msgctxt "#30306"
+msgid "Live TV"
+msgstr "Live TV"
+
+msgctxt "#30307"
+msgid "Other catalogs"
+msgstr "Other catalogs"
+
+msgctxt "#30308"
+msgid "Continue watching"
+msgstr "Continue watching"
+
+msgctxt "#30309"
+msgid "Search"
+msgstr "Search"
+
+msgctxt "#30310"
+msgid "Sources"
+msgstr "Sources"
+
+msgctxt "#30311"
+msgid "Collection"
+msgstr "Collection"
+
+msgctxt "#30312"
+msgid "Watchlist"
+msgstr "Watchlist"
+
+msgctxt "#30313"
+msgid "Favorites"
+msgstr "Favorites"
+
+msgctxt "#30314"
+msgid "Next Up"
+msgstr "Next Up"
+
+msgctxt "#30315"
+msgid "Discover"
+msgstr "Discover"
+
+msgctxt "#30316"
+msgid "People"
+msgstr "People"
+
+msgctxt "#30317"
+msgid "Calendar"
+msgstr "Calendar"
+
+msgctxt "#30318"
+msgid "4K"
+msgstr "4K"
+
+msgctxt "#30319"
+msgid "Kids"
+msgstr "Kids"
+
+msgctxt "#30320"
+msgid "Documentary"
+msgstr "Documentary"
+
+# ── Dialog / status common strings ────────────────────────────────────
+msgctxt "#30400"
+msgid "CONNECTING"
+msgstr "CONNECTING"
+
+msgctxt "#30401"
+msgid "Press Back to cancel"
+msgstr "Press Back to cancel"
+
+msgctxt "#30402"
+msgid "Loading..."
+msgstr "Loading..."
+
+msgctxt "#30403"
+msgid "Searching sources..."
+msgstr "Searching sources..."
+
+msgctxt "#30404"
+msgid "No sources found"
+msgstr "No sources found"
+
+msgctxt "#30405"
+msgid "Cancel"
+msgstr "Cancel"
+
+msgctxt "#30406"
+msgid "OK"
+msgstr "OK"
+
+msgctxt "#30407"
+msgid "Yes"
+msgstr "Yes"
+
+msgctxt "#30408"
+msgid "No"
+msgstr "No"
+
+# ── Sub folder management ─────────────────────────────────────────────
+msgctxt "#30420"
+msgid "Add a sub folder inside this folder"
+msgstr "Add a sub folder inside this folder"
+
+msgctxt "#30421"
+msgid "Manage sub folders for this folder"
+msgstr "Manage sub folders for this folder"
+
+msgctxt "#30422"
+msgid "Add a new home folder"
+msgstr "Add a new home folder"
+
+msgctxt "#30423"
+msgid "Manage home folders"
+msgstr "Manage home folders"
+
+msgctxt "#30424"
+msgid "Remove this folder from home"
+msgstr "Remove this folder from home"
+
+# ── Library Index (v3.9.27) ────────────────────────────────────────────
+msgctxt "#30220"
+msgid "Library"
+msgstr "Library"
+
+msgctxt "#30221"
+msgid "Local index"
+msgstr "Local index"
+
+msgctxt "#30222"
+msgid "Performance mode"
+msgstr "Performance mode"
+
+msgctxt "#30223"
+msgid "Background sync interval (hours)"
+msgstr "Background sync interval (hours)"
+
+msgctxt "#30224"
+msgid "Refresh library now"
+msgstr "Refresh library now"
+
+msgctxt "#30225"
+msgid "View library status"
+msgstr "View library status"
+
+msgctxt "#30226"
+msgid "Clear library"
+msgstr "Clear library"
+
+# ── Community bilingual settings (v3.9.81) ───────────────────────
+
+msgctxt "#30227"
+msgid "Lightweight / community mode"
+msgstr "Lightweight / community mode"
+
+msgctxt "#30228"
+msgid "Enable lightweight mode (hide aggregated home folders, disable index sync, speed up startup)"
+msgstr "Enable lightweight mode (hide aggregated home folders, disable index sync, speed up startup)"
+
+msgctxt "#30229"
+msgid "Disable the pre-playback loading window to reduce crashes"
+msgstr "Disable the pre-playback loading window to reduce crashes"
+
+msgctxt "#30230"
+msgid "Source playback routing"
+msgstr "Source playback routing"
+
+msgctxt "#30231"
+msgid "Source priority order (optional text override)"
+msgstr "Source priority order (optional text override)"
+
+msgctxt "#30232"
+msgid "Trakt Client ID (bundled)"
+msgstr "Trakt Client ID (bundled)"
+
+msgctxt "#30233"
+msgid "Trakt Client Secret (bundled)"
+msgstr "Trakt Client Secret (bundled)"
+
+msgctxt "#30234"
+msgid "Fetch all sources in parallel before showing results"
+msgstr "Fetch all sources in parallel before showing results"
+
+msgctxt "#30235"
+msgid "Open results quickly, then update remaining sources in the background"
+msgstr "Open results quickly, then update remaining sources in the background"
+
+msgctxt "#30250"
+msgid "Arabic"
+msgstr "Arabic"
+
+msgctxt "#30251"
+msgid "English"
+msgstr "English"
+
+msgctxt "#30252"
+msgid "Dex Hub"
+msgstr "Dex Hub"
+
+msgctxt "#30253"
+msgid "TMDb Helper"
+msgstr "TMDb Helper"
+
+msgctxt "#30254"
+msgid "Ask every time"
+msgstr "Ask every time"
+
+msgctxt "#30255"
+msgid "Choose from sources"
+msgstr "Choose from sources"
+
+msgctxt "#30256"
+msgid "Best quality automatically"
+msgstr "Best quality automatically"
+
+msgctxt "#30257"
+msgid "Same source"
+msgstr "Same source"
+
+msgctxt "#30258"
+msgid "DexHub picker"
+msgstr "DexHub picker"
+
+msgctxt "#30259"
+msgid "Auto (smart)"
+msgstr "Auto (smart)"
+
+msgctxt "#30260"
+msgid "TMDb Helper (recommended)"
+msgstr "TMDb Helper (recommended)"
+
+msgctxt "#30261"
+msgid "Native (addon)"
+msgstr "Native (addon)"
+
+msgctxt "#30262"
+msgid "No filter"
+msgstr "No filter"
+
+msgctxt "#30263"
+msgid "480p+"
+msgstr "480p+"
+
+msgctxt "#30264"
+msgid "720p+"
+msgstr "720p+"
+
+msgctxt "#30265"
+msgid "1080p+"
+msgstr "1080p+"
+
+msgctxt "#30266"
+msgid "4K only"
+msgstr "4K only"
+
+msgctxt "#30267"
+msgid "Smart fallback (recommended)"
+msgstr "Smart fallback (recommended)"
+
+msgctxt "#30268"
+msgid "Always clean (no badges)"
+msgstr "Always clean (no badges)"
+
+msgctxt "#30269"
+msgid "Keep decorated"
+msgstr "Keep decorated"
+
+msgctxt "#30270"
+msgid "Play only"
+msgstr "Play only"
+
+msgctxt "#30271"
+msgid "Play with subtitles"
+msgstr "Play with subtitles"
+
+msgctxt "#30272"
+msgid "Live (current)"
+msgstr "Live (current)"
+
+msgctxt "#30273"
+msgid "Hybrid (recommended)"
+msgstr "Hybrid (recommended)"
+
+msgctxt "#30274"
+msgid "Fast Index"
+msgstr "Fast Index"

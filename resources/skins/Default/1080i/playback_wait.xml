@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  DexHub Playback Wait Screen — v7 BRAND-UNIFIED
+  =====================================================================
+  Color system unified with logo (purple #7C3AED + cyan #33D8F7) replacing
+  the v6 amber/charcoal palette. Same control IDs as v6 — Python untouched.
+
+  Brand palette
+    Primary purple : FF7C3AED   accents, progress, glow
+    Secondary cyan : FF33D8F7   highlights, status, progress tail
+    Surface deep   : FF1A1332   card body
+    Surface dim    : FF0D0819   page bg under fanart
+    Text high      : FFFFFFFF
+    Text muted     : FFB07CFF   secondary labels (purple-tint)
+    Text dim       : FF8E7DB3
+
+  Control IDs (UNCHANGED FROM v6)
+    500  poster image       setImage()
+    501  clearlogo image    setImage()
+    502  fanart image       setImage()
+    510  title label        setLabel() / setVisible()
+    511  meta line          setLabel()
+    512  plot textbox       setText()
+    513  provider chip      setLabel()
+    520  provider chip grp  setVisible()
+    530  status label       static (Window.Property)
+    540  progress           Window.Property(dex.marquee_pct)
+    541-545 wave bars       colordiffuse=Window.Property(dex.barN)
+-->
+<window type="dialog">
+  <zorder>9</zorder>
+  <controls>
+
+    <!-- ═══ BACKGROUND STACK ═════════════════════════════════════════════ -->
+    <!-- 1. Deep navy base -->
+    <control type="image">
+      <left>0</left><top>0</top><width>1920</width><height>1080</height>
+      <texture colordiffuse="FF0D0819">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture>
+    </control>
+
+    <!-- 2. Fanart — id 502 -->
+    <control type="image" id="502">
+      <left>0</left><top>0</top><width>1920</width><height>1080</height>
+      <aspectratio>scale</aspectratio>
+      <colordiffuse>59FFFFFF</colordiffuse>
+      <texture background="true"
+               fallback="special://home/addons/plugin.video.dexhub/resources/media/fanart.jpg">
+      </texture>
+    </control>
+
+    <!-- 3. Brand-tinted overlay -->
+    <control type="image">
+      <left>0</left><top>0</top><width>1920</width><height>1080</height>
+      <texture colordiffuse="C81A1332">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture>
+    </control>
+
+    <!-- 4. Brand top accent (purple → cyan halves) -->
+    <control type="image">
+      <left>0</left><top>0</top><width>960</width><height>4</height>
+      <texture colordiffuse="FF7C3AED">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture>
+    </control>
+    <control type="image">
+      <left>960</left><top>0</top><width>960</width><height>4</height>
+      <texture colordiffuse="FF33D8F7">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture>
+    </control>
+
+    <!-- ═══ CONTENT CARD ═════════════════════════════════════════════════ -->
+    <control type="group">
+      <animation effect="fade" start="0" end="100" time="320" tween="sine">WindowOpen</animation>
+      <animation effect="slide" start="0,36" end="0,0" time="380" tween="cubic" easing="out">WindowOpen</animation>
+      <animation effect="fade" start="100" end="0" time="200">WindowClose</animation>
+
+      <!-- ─── POSTER COLUMN ─── -->
+      <control type="group">
+        <left>70</left><top>110</top>
+
+        <control type="image">
+          <left>-22</left><top>-22</top><width>444</width><height>644</height>
+          <texture border="22" colordiffuse="227C3AED">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture>
+        </control>
+        <control type="image">
+          <left>-12</left><top>-12</top><width>424</width><height>624</height>
+          <texture border="16" colordiffuse="447C3AED">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture>
+        </control>
+        <control type="image">
+          <left>-4</left><top>-4</top><width>408</width><height>608</height>
+          <texture border="8" colordiffuse="8833D8F7">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture>
+        </control>
+
+        <control type="image">
+          <left>0</left><top>0</top><width>400</width><height>600</height>
+          <texture colordiffuse="FF1A1332">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture>
+        </control>
+
+        <control type="image" id="500">
+          <left>0</left><top>0</top><width>400</width><height>600</height>
+          <aspectratio aligny="center" align="center">keep</aspectratio>
+          <texture fallback="special://home/addons/plugin.video.dexhub/resources/media/default_video.png">
+            special://home/addons/plugin.video.dexhub/resources/media/default_video.png
+          </texture>
+        </control>
+      </control>
+
+      <!-- ─── INFO PANEL ─── -->
+      <control type="group">
+        <left>510</left><top>100</top>
+
+        <control type="image">
+          <left>0</left><top>0</top><width>1370</width><height>830</height>
+          <texture border="24" colordiffuse="CC1A1332">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture>
+        </control>
+        <control type="image">
+          <left>0</left><top>0</top><width>685</width><height>3</height>
+          <texture colordiffuse="EE7C3AED">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture>
+        </control>
+        <control type="image">
+          <left>685</left><top>0</top><width>685</width><height>3</height>
+          <texture colordiffuse="EE33D8F7">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture>
+        </control>
+
+        <control type="group">
+          <left>48</left><top>30</top>
+
+          <control type="image" id="501">
+            <left>0</left><top>0</top><width>900</width><height>190</height>
+            <aspectratio align="left" aligny="center">keep</aspectratio>
+            <texture fallback=""></texture>
+          </control>
+
+          <control type="label" id="510">
+            <left>0</left><top>36</top><width>1260</width><height>130</height>
+            <font>font24</font>
+            <textcolor>FFFFFFFF</textcolor>
+            <shadowcolor>EE000000</shadowcolor>
+            <wrapmultiline>true</wrapmultiline>
+            <label></label>
+          </control>
+
+          <control type="label" id="511">
+            <left>0</left><top>202</top><width>820</width><height>30</height>
+            <font>font12</font>
+            <textcolor>FF33D8F7</textcolor>
+            <shadowcolor>CC000000</shadowcolor>
+            <label></label>
+          </control>
+
+          <control type="group" id="520">
+            <left>836</left><top>200</top>
+            <control type="image">
+              <left>0</left><top>0</top><width>380</width><height>36</height>
+              <texture border="16" colordiffuse="CC7C3AED">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture>
+            </control>
+            <control type="image">
+              <left>2</left><top>2</top><width>376</width><height>32</height>
+              <texture border="14" colordiffuse="FF0D0819">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture>
+            </control>
+            <control type="label" id="513">
+              <left>0</left><top>4</top><width>380</width><height>28</height>
+              <font>font10</font>
+              <textcolor>FFB07CFF</textcolor>
+              <align>center</align>
+              <label></label>
+            </control>
+          </control>
+
+          <control type="image">
+            <left>0</left><top>244</top><width>637</width><height>1</height>
+            <texture colordiffuse="557C3AED">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture>
+          </control>
+          <control type="image">
+            <left>637</left><top>244</top><width>637</width><height>1</height>
+            <texture colordiffuse="5533D8F7">special://home/addons/plugin.video.dexhub/resources/media/black.png</texture>
+          </control>
+
+          <control type="textbox" id="512">
+            <left>0</left><top>256</top><width>1274</width><height>100</height>
+            <font>font10</font>
+            <textcolor>FFBEC3D0</textcolor>
+            <shadowcolor>CC000000</shadowcolor>
+            <label></label>
+          </control>
+
+          <control type="group">
+            <left>0</left><top>374</top>
+
+            <control type="image">
+              <left>0</left><top>8</top><width>20</width><height>20</height>
+              <texture border="8" colordiffuse="FF33D8F7">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture>
+              <animation effect="pulse" start="70" end="100" time="1200" loop="true" tween="sine">Visible</animation>
+            </control>
+
+            <control type="label" id="530">
+              <left>36</left><top>0</top><width>900</width><height>40</height>
+              <font>font13</font>
+              <textcolor>FFFFFFFF</textcolor>
+              <shadowcolor>EE000000</shadowcolor>
+              <label>$INFO[Window(10000).Property(dex.wait.status_text)]</label>
+            </control>
+
+            <control type="image">
+              <left>0</left><top>56</top><width>1274</width><height>8</height>
+              <texture border="4" colordiffuse="287C3AED">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texture>
+            </control>
+            <control type="progress" id="540">
+              <left>0</left><top>56</top><width>1274</width><height>8</height>
+              <texturebg>special://home/addons/plugin.video.dexhub/resources/media/black.png</texturebg>
+              <lefttexture>special://home/addons/plugin.video.dexhub/resources/media/black.png</lefttexture>
+              <midtexture colordiffuse="FF7C3AED">special://home/addons/plugin.video.dexhub/resources/media/circle.png</midtexture>
+              <righttexture colordiffuse="FF33D8F7">special://home/addons/plugin.video.dexhub/resources/media/circle.png</righttexture>
+              <overlaytexture>-</overlaytexture>
+              <info>Window(10000).Property(dex.marquee_pct)</info>
+            </control>
+
+            <control type="group">
+              <left>0</left><top>86</top>
+
+              <control type="image" id="541">
+                <left>0</left><top>0</top><width>80</width><height>12</height>
+                <texture border="5" colordiffuse="$INFO[Window(10000).Property(dex.bar1)]">
+                  special://home/addons/plugin.video.dexhub/resources/media/circle.png
+                </texture>
+              </control>
+              <control type="image" id="542">
+                <left>92</left><top>0</top><width>80</width><height>12</height>
+                <texture border="5" colordiffuse="$INFO[Window(10000).Property(dex.bar2)]">
+                  special://home/addons/plugin.video.dexhub/resources/media/circle.png
+                </texture>
+              </control>
+              <control type="image" id="543">
+                <left>184</left><top>0</top><width>80</width><height>12</height>
+                <texture border="5" colordiffuse="$INFO[Window(10000).Property(dex.bar3)]">
+                  special://home/addons/plugin.video.dexhub/resources/media/circle.png
+                </texture>
+              </control>
+              <control type="image" id="544">
+                <left>276</left><top>0</top><width>80</width><height>12</height>
+                <texture border="5" colordiffuse="$INFO[Window(10000).Property(dex.bar4)]">
+                  special://home/addons/plugin.video.dexhub/resources/media/circle.png
+                </texture>
+              </control>
+              <control type="image" id="545">
+                <left>368</left><top>0</top><width>80</width><height>12</height>
+                <texture border="5" colordiffuse="$INFO[Window(10000).Property(dex.bar5)]">
+                  special://home/addons/plugin.video.dexhub/resources/media/circle.png
+                </texture>
+              </control>
+
+              <control type="label">
+                <left>480</left><top>0</top><width>800</width><height>26</height>
+                <font>font10</font>
+                <textcolor>CC8E7DB3</textcolor>
+                <aligny>center</aligny>
+                <label>$INFO[Window(10000).Property(dex.wait.cancel_hint)]</label>
+              </control>
+            </control>
+
+          </control>
+        </control>
+      </control>
+    </control>
+
+  </controls>
+</window>
