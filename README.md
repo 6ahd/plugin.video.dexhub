@@ -32,7 +32,20 @@ Dex Hub brings the Stremio philosophy to Kodi without sacrificing what makes Kod
 
 ## Screenshots
 
-_Coming soon — see Releases for the latest build._
+<table>
+  <tr>
+    <td><img src=".github/screenshots/home.png" alt="Dex Hub home" /></td>
+    <td><img src=".github/screenshots/picker.png" alt="Source picker" /></td>
+  </tr>
+  <tr>
+    <td><img src=".github/screenshots/loading.png" alt="N2 Bottom Sheet loader" /></td>
+    <td><img src=".github/screenshots/collection.png" alt="Collections" /></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src=".github/screenshots/trakt.png" alt="Native Trakt browsing" /></td>
+  </tr>
+</table>
+
 
 ## Installation
 
