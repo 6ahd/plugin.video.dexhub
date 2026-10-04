@@ -19,7 +19,7 @@ Stremio & Nuvio add-ons · Plex, Emby, Jellyfin & Silo · Live TV · Native Trak
 
 ## What's new
 
-**Dex Hub 5.10.142 · Dex Hub skin 3.19.1**
+**Dex Hub 5.10.143 · Dex Hub skin 3.19.1**
 
 * **A dedicated skin, if you want it.** The new Dex Hub skin lets Kodi draw the Home itself, so Dex Hub opens faster and scrolls smoother. It is optional: Dex Hub keeps working as usual in any other skin.
 * **Quality badges like the official logos.** Pick the Elite pack (official Dolby Vision, Atmos and DTS logos), Gold or Minimalist white, and every logo sits clean at one height with no plate behind it. A pack is downloaded once and kept on your device, so nothing is fetched while you watch.
@@ -87,7 +87,7 @@ Dex Hub supports Kodi 20 (Nexus), 21 (Omega) and 22 (Piers) on Android, Linux, W
 
 Install the add-on first, then the skin, with **Add-ons → Install from zip file**:
 
-1. Add-on: [plugin.video.dexhub-5.10.142.zip](https://dexworld.cc/kodi/plugin.video.dexhub/plugin.video.dexhub-5.10.142.zip)
+1. Add-on: [plugin.video.dexhub-5.10.142.zip](https://dexworld.cc/kodi/plugin.video.dexhub/plugin.video.dexhub-5.10.143.zip)
 2. Skin (optional): [skin.dexhub-3.19.1.zip](https://dexworld.cc/kodi/skin.dexhub/skin.dexhub-3.19.1.zip)
 
 Zip installs do not update themselves; the repository keeps both up to date. The install guide and the other DexWorld add-ons are at [dexworld.cc/kodi](https://dexworld.cc/kodi/).
