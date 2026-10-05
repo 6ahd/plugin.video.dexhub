@@ -87,10 +87,6 @@ Dex Hub supports Kodi 20 (Nexus), 21 (Omega) and 22 (Piers) on Android, Linux, W
 
 Install the add-on first, then the skin, with **Add-ons → Install from zip file**:
 
-1. Add-on: [plugin.video.dexhub-5.10.142.zip](https://dexworld.cc/kodi/plugin.video.dexhub/plugin.video.dexhub-5.10.143.zip)
-2. Skin (optional): [skin.dexhub-3.19.1.zip](https://dexworld.cc/kodi/skin.dexhub/skin.dexhub-3.19.1.zip)
-
-Zip installs do not update themselves; the repository keeps both up to date. The install guide and the other DexWorld add-ons are at [dexworld.cc/kodi](https://dexworld.cc/kodi/).
 
 On first launch, Quick Start offers three ways in: connect Nuvio, add Stremio add-ons (Cinemeta and Torrentio are good starters), or set things up by hand.
 
