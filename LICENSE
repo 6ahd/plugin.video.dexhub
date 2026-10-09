@@ -1,21 +1,40 @@
-MIT License
+Dex Hub (plugin.video.dexhub)
+Copyright (c) 2024-2026 DexWorld (6ahd). All rights reserved.
 
-Copyright (c) 2026 6ahd
+This licence applies to Dex Hub version 5.10.216 and every later version.
+Versions published before 5.10.216 were released under the MIT License and
+remain under it.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Use
+   You may download, install and use Dex Hub, free of charge, on devices you
+   own or control, for your own personal use.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+2. What is not allowed without written permission from DexWorld
+   a. Redistributing Dex Hub, in whole or in part, in its original or a
+      modified form: in another repository, a build, a wizard, an image,
+      an app store or any download link.
+   b. Publishing or distributing a modified version, a fork, or a work based
+      on Dex Hub's code, interface, layouts or artwork.
+   c. Removing or changing the name Dex Hub, the DexWorld name, the logos,
+      or this notice.
+   d. Selling Dex Hub, bundling it with a paid product or service, or
+      charging for access to it.
+   e. Using Dex Hub's code or design to build a competing add-on.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+3. Official sources
+   The only official sources of Dex Hub are https://dexworld.cc/dexhub/ and
+   the repositories published by DexWorld. Copies from anywhere else are not
+   supported.
+
+4. Third-party components
+   Some files in this package belong to others and stay under their own
+   licences, listed in THIRD-PARTY-NOTICES.txt. Nothing in this licence
+   restricts what those licences allow for those files.
+
+5. No warranty
+   DEX HUB IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR
+   OTHER LIABILITY ARISING FROM THE USE OF DEX HUB. Dex Hub does not host any
+   content and is not affiliated with Kodi, Team Kodi or the XBMC Foundation.
+
+Permission requests: https://dexworld.cc
