@@ -1,0 +1,32 @@
+Third-party components bundled with Dex Hub
+===========================================
+
+These files are not covered by Dex Hub's licence (LICENSE.txt); each keeps
+the licence named here.
+
+resources/lib/qrcode/
+    python-qrcode by Lincoln Loop. BSD licence, text in
+    resources/lib/qrcode/LICENSE.
+
+resources/media/menu/
+    Icons from Font Awesome Free (https://fontawesome.com), CC BY 4.0.
+
+resources/media/ (Plex, Emby, Jellyfin, TMDb, Trakt, MDBList, Simkl,
+Stremio and Kodi marks)
+    Geometry from Simple Icons (https://simpleicons.org), CC0 1.0. The names
+    and marks belong to their owners; see resources/media/BRAND-ASSETS.txt.
+
+resources/media/homeui/emoji/ (flags)
+    GoSquared flag icons, MIT licence; see LICENSE-flags.txt there.
+
+resources/media/homeui/pairing_blur.jpg
+    Texture from Arctic Fuse 3 by jurialmunkey, CC BY-NC-SA 4.0; see
+    pairing_blur.NOTICE.txt there.
+
+resources/badge_packs/ fonts
+    Exo 2, Michroma and Rajdhani, SIL Open Font License 1.1; texts in
+    resources/badge_packs/licenses/.
+
+Service names (Stremio, Nuvio, Plex, Emby, Jellyfin, Silo, Trakt, Simkl,
+TMDb, MDBList, AIOStreams, AIOMetadata) are used only to identify the
+services Dex Hub works with and do not imply endorsement.

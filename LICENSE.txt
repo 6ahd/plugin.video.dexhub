@@ -1,0 +1,40 @@
+Dex Hub (plugin.video.dexhub)
+Copyright (c) 2024-2026 DexWorld (6ahd). All rights reserved.
+
+This licence applies to Dex Hub version 5.10.216 and every later version.
+Versions published before 5.10.216 were released under the MIT License and
+remain under it.
+
+1. Use
+   You may download, install and use Dex Hub, free of charge, on devices you
+   own or control, for your own personal use.
+
+2. What is not allowed without written permission from DexWorld
+   a. Redistributing Dex Hub, in whole or in part, in its original or a
+      modified form: in another repository, a build, a wizard, an image,
+      an app store or any download link.
+   b. Publishing or distributing a modified version, a fork, or a work based
+      on Dex Hub's code, interface, layouts or artwork.
+   c. Removing or changing the name Dex Hub, the DexWorld name, the logos,
+      or this notice.
+   d. Selling Dex Hub, bundling it with a paid product or service, or
+      charging for access to it.
+   e. Using Dex Hub's code or design to build a competing add-on.
+
+3. Official sources
+   The only official sources of Dex Hub are https://dexworld.cc/dexhub/ and
+   the repositories published by DexWorld. Copies from anywhere else are not
+   supported.
+
+4. Third-party components
+   Some files in this package belong to others and stay under their own
+   licences, listed in THIRD-PARTY-NOTICES.txt. Nothing in this licence
+   restricts what those licences allow for those files.
+
+5. No warranty
+   DEX HUB IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR
+   OTHER LIABILITY ARISING FROM THE USE OF DEX HUB. Dex Hub does not host any
+   content and is not affiliated with Kodi, Team Kodi or the XBMC Foundation.
+
+Permission requests: https://dexworld.cc
