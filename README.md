@@ -14,7 +14,7 @@ Stremio & Nuvio add-ons · Plex, Emby, Jellyfin & Silo · Live TV · Native Trak
 
 [Install](#installation) · [What's new](#whats-new) · [Features](#what-makes-dex-hub-different) · [Skin](#the-dex-hub-skin) · [Screenshots](#screenshots) · [Support](#support-the-project)
 
-<img src="screenshots/home.jpg" alt="Dex Hub Home in the Dex Hub skin" />
+<img src=".github/screenshots/home.jpg" alt="Dex Hub Home in the Dex Hub skin" />
 
 </div>
 
@@ -75,20 +75,20 @@ Install it from the Dex Hub repository (Look and feel → Skin), or turn it on f
 
 <table>
   <tr>
-    <td align="center"><img src="screenshots/title.jpg" alt="Title page" /><br><sub>Title page with episodes, progress and ratings</sub></td>
-    <td align="center"><img src="screenshots/sources.jpg" alt="Source picker" /><br><sub>Source picker with Cached status and badges</sub></td>
+    <td align="center"><img src=".github/screenshots/title.jpg" alt="Title page" /><br><sub>Title page with episodes, progress and ratings</sub></td>
+    <td align="center"><img src=".github/screenshots/sources.jpg" alt="Source picker" /><br><sub>Source picker with Cached status and badges</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="screenshots/my-library.jpg" alt="My Library" /><br><sub>My Library: every service in one place</sub></td>
-    <td align="center"><img src="screenshots/dex-community.jpg" alt="Dex Community" /><br><sub>Dex Community: ready made catalogs</sub></td>
+    <td align="center"><img src=".github/screenshots/my-library.jpg" alt="My Library" /><br><sub>My Library: every service in one place</sub></td>
+    <td align="center"><img src=".github/screenshots/dex-community.jpg" alt="Dex Community" /><br><sub>Dex Community: ready made catalogs</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="screenshots/collections.jpg" alt="Collections" /><br><sub>Collections from your catalogs</sub></td>
-    <td align="center"><img src="screenshots/spotlight-cards.jpg" alt="Spotlight cards" /><br><sub>Spotlight cards for whole catalogs</sub></td>
+    <td align="center"><img src=".github/screenshots/collections.jpg" alt="Collections" /><br><sub>Collections from your catalogs</sub></td>
+    <td align="center"><img src=".github/screenshots/spotlight-cards.jpg" alt="Spotlight cards" /><br><sub>Spotlight cards for whole catalogs</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="screenshots/control-centre.jpg" alt="Control centre" /><br><sub>Control centre</sub></td>
-    <td align="center"><img src="screenshots/screensaver.jpg" alt="Cinema screensaver" /><br><sub>Cinema screensaver: what's coming this week</sub></td>
+    <td align="center"><img src=".github/screenshots/control-centre.jpg" alt="Control centre" /><br><sub>Control centre</sub></td>
+    <td align="center"><img src=".github/screenshots/screensaver.jpg" alt="Cinema screensaver" /><br><sub>Cinema screensaver: what's coming this week</sub></td>
   </tr>
 </table>
 
