@@ -1,0 +1,20 @@
+Brand marks bundled in Dex Hub 4.2.2
+====================================
+
+The Plex, Emby, Jellyfin, TMDb, Trakt, MDBList, Simkl, Stremio and Kodi
+mark geometry comes from Simple Icons 16.28.0 (CC0-1.0):
+https://simpleicons.org/
+
+Brand names and trademarks belong to their respective owners. Inclusion is
+for service identification inside the Kodi interface and does not imply an
+endorsement or affiliation.
+
+The Silo icon is the official referential asset from:
+https://github.com/Silo-Server/silo-server/blob/main/assets/icon.png
+Silo and its logo are trademarks of Silo Media L.L.C. Dex Hub is an
+independent client described only as compatible with Silo.
+
+The Nuvio icon is the project's own play mark, extracted from the official
+Nuvio banner supplied by the maintainer and matted onto transparency. Nuvio
+and its logo belong to their owner; inclusion is for service identification
+only.

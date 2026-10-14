@@ -1,0 +1,1 @@
+Menu icons (resources/media/menu): Font Awesome Free (https://fontawesome.com), icons licensed CC BY 4.0. White glyphs drawn from the Font Awesome SVGs.

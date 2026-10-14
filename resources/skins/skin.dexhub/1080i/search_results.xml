@@ -1,0 +1,61 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Dex Hub poster-grid search: selected-work details + fast 5x2 panel. --><window>
+    <defaultcontrol always="true">3000</defaultcontrol>
+    <controls>
+        <control type="image"><left>0</left><top>0</top><width>1920</width><height>1080</height><texture colordiffuse="FF02070D">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/black.png</texture></control>
+        <control type="image"><left>-28</left><top>-18</top><width>1976</width><height>1116</height><aspectratio>scale</aspectratio><texture background="true">$INFO[Container(3000).ListItem.Art(fanart)]</texture><animation effect="fade" start="0" end="100" time="260">Conditional</animation></control>
+        <control type="image"><left>0</left><top>0</top><width>1920</width><height>1080</height><texture colordiffuse="BA02070D">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/black.png</texture></control>
+        <control type="image"><left>0</left><top>0</top><width>575</width><height>1080</height><texture colordiffuse="E8070D16">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/black.png</texture></control>
+
+        <!-- Header -->
+        <control type="image"><left>52</left><top>29</top><width>48</width><height>48</height><aspectratio>keep</aspectratio><texture>$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/icon.png</texture></control>
+        <control type="label"><left>114</left><top>32</top><width>195</width><height>44</height><font>font_midi</font><textcolor>FFFFFFFF</textcolor><label>[B]DEX[/B] [COLOR FFBF8A22][B]HUB[/B][/COLOR]</label></control>
+        <control type="button" id="3200">
+            <left>330</left><top>25</top><width>1010</width><height>58</height><font>font_mini</font><align>left</align><aligny>center</aligny><textoffsetx>28</textoffsetx>
+            <textcolor>FFE8ECF2</textcolor><focusedcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]</focusedcolor>
+            <texturenofocus border="24" colordiffuse="C31A2231">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturenofocus>
+            <texturefocus border="24" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturefocus>
+            <label>$INFO[Window.Property(dexhub.search.search_label)]  •  $INFO[Window.Property(dexhub.search.query)]</label><ondown>3101</ondown>
+        </control>
+        <control type="label"><left>1510</left><top>35</top><width>350</width><height>36</height><font>font_mini</font><align>right</align><textcolor>FFE9EDF4</textcolor><label>$INFO[Window.Property(dexhub.search.count)] $INFO[Window.Property(dexhub.search.result_label)]   •   $INFO[System.Time]</label></control>
+
+        <!-- Filters -->
+        <control type="grouplist" id="3100">
+            <left>607</left><top>108</top><width>1250</width><height>58</height><orientation>horizontal</orientation><itemgap>12</itemgap><onup>3200</onup><ondown>3000</ondown>
+            <control type="button" id="3101"><width>190</width><height>52</height><font>font_mini</font><align>center</align><textcolor>FFE8ECF2</textcolor><focusedcolor>FF11151D</focusedcolor><texturenofocus border="22" colordiffuse="C31A2231">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturenofocus><texturefocus border="22" colordiffuse="FFE9EDF4">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturefocus><label>$INFO[Window.Property(dexhub.search.all_label)]</label></control>
+            <control type="button" id="3102"><width>210</width><height>52</height><font>font_mini</font><align>center</align><textcolor>FFE8ECF2</textcolor><focusedcolor>FF11151D</focusedcolor><texturenofocus border="22" colordiffuse="C31A2231">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturenofocus><texturefocus border="22" colordiffuse="FFE9EDF4">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturefocus><label>$INFO[Window.Property(dexhub.search.movies_label)]</label></control>
+            <control type="button" id="3103"><width>230</width><height>52</height><font>font_mini</font><align>center</align><textcolor>FFE8ECF2</textcolor><focusedcolor>FF11151D</focusedcolor><texturenofocus border="22" colordiffuse="C31A2231">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturenofocus><texturefocus border="22" colordiffuse="FFE9EDF4">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturefocus><label>$INFO[Window.Property(dexhub.search.series_label)]</label></control>
+            <control type="button" id="3104"><width>200</width><height>52</height><font>font_mini</font><align>center</align><textcolor>FFE8ECF2</textcolor><focusedcolor>FF11151D</focusedcolor><texturenofocus border="22" colordiffuse="C31A2231">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturenofocus><texturefocus border="22" colordiffuse="FFE9EDF4">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturefocus><label>$INFO[Window.Property(dexhub.search.anime_label)]</label></control>
+            <control type="button" id="3105"><width>210</width><height>52</height><font>font_mini</font><align>center</align><textcolor>FFE8ECF2</textcolor><focusedcolor>FF11151D</focusedcolor><texturenofocus border="22" colordiffuse="C31A2231">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturenofocus><texturefocus border="22" colordiffuse="FFE9EDF4">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturefocus><label>$INFO[Window.Property(dexhub.search.people_label)]</label><visible>String.IsEqual(Window.Property(dexhub.search.people_available),true)</visible></control>
+        </control>
+
+        <!-- Selected result details; bindings change with focus without Python work. -->
+        <control type="label"><left>58</left><top>128</top><width>465</width><height>32</height><font>font_tiny</font><textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.secondary)]</textcolor><label>[UPPERCASE][B]$INFO[Window.Property(dexhub.search.title)][/B][/UPPERCASE]</label></control>
+        <control type="image"><left>58</left><top>188</top><width>445</width><height>142</height><aspectratio align="left" aligny="center">keep</aspectratio><texture background="true">$INFO[Container(3000).ListItem.Art(clearlogo)]</texture><visible>!String.IsEmpty(Container(3000).ListItem.Art(clearlogo))</visible></control>
+        <control type="textbox"><left>58</left><top>198</top><width>462</width><height>118</height><font>font_head_bold</font><textcolor>FFFFFFFF</textcolor><shadowcolor>FF000000</shadowcolor><label>$INFO[Container(3000).ListItem.Property(title)]</label><autoscroll>false</autoscroll><visible>String.IsEmpty(Container(3000).ListItem.Art(clearlogo))</visible></control>
+        <control type="label"><left>58</left><top>350</top><width>462</width><height>32</height><font>font_mini</font><textcolor>FFF1F3F7</textcolor><shadowcolor>FF000000</shadowcolor><label>$INFO[Container(3000).ListItem.Property(year)]$INFO[Container(3000).ListItem.Property(kind),   •   ,]$INFO[Container(3000).ListItem.Property(runtime),   •   ,]$INFO[Container(3000).ListItem.Property(rating),   •   ★ ,]</label></control>
+        <control type="label"><left>58</left><top>394</top><width>462</width><height>30</height><font>font_tiny</font><textcolor>FFFFC45A</textcolor><scroll>true</scroll><scrollspeed>35</scrollspeed><scrollsuffix>      </scrollsuffix><label>$INFO[Container(3000).ListItem.Property(genre)]</label></control>
+        <control type="label"><left>58</left><top>438</top><width>462</width><height>28</height><font>font_tiny</font><textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.secondary)]</textcolor><label>$INFO[Container(3000).ListItem.Property(source_label)]</label></control>
+        <control type="textbox"><left>58</left><top>490</top><width>460</width><height>332</height><font>font_mini</font><textcolor>FFD6DCE5</textcolor><shadowcolor>FF000000</shadowcolor><label>$INFO[Container(3000).ListItem.Property(plot)]</label><autoscroll>false</autoscroll></control>
+        <control type="label"><left>58</left><top>918</top><width>460</width><height>30</height><font>font_tiny</font><textcolor>FFAEB8C7</textcolor><label>$INFO[Window.Property(dexhub.search.hint)]</label></control>
+        <control type="image"><left>58</left><top>970</top><width>110</width><height>4</height><texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture></control>
+
+        <!-- Five-column poster panel. -->
+        <control type="panel" id="3000">
+            <left>596</left><top>180</top><width>1282</width><height>858</height><scrolltime tween="quadratic" easing="out">85</scrolltime><preloaditems>2</preloaditems>
+            <onup>3101</onup><ondown>3000</ondown><onleft>3000</onleft><onright>3000</onright>
+            <itemlayout width="254" height="422">
+                <control type="image"><left>10</left><top>8</top><width>234</width><height>350</height><texture border="17" colordiffuse="E10B111B">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control>
+                <control type="image"><left>14</left><top>12</top><width>226</width><height>342</height><aspectratio>scale</aspectratio><texture background="true" border="14">$INFO[ListItem.Art(poster)]</texture></control>
+                <control type="label"><left>14</left><top>363</top><width>226</width><height>27</height><font>font_tiny_bold</font><textcolor>FFF1F4F8</textcolor><label>$INFO[ListItem.Property(title)]</label></control>
+                <control type="label"><left>14</left><top>393</top><width>226</width><height>23</height><font>font_tiny</font><textcolor>FFAEB8C7</textcolor><label>$INFO[ListItem.Property(year)]$INFO[ListItem.Property(kind),  •  ,]</label></control>
+            </itemlayout>
+            <focusedlayout width="254" height="422">
+                <control type="image"><left>4</left><top>2</top><width>246</width><height>362</height><texture border="19" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control>
+                <control type="image"><left>10</left><top>8</top><width>234</width><height>350</height><aspectratio>scale</aspectratio><texture background="true" border="14">$INFO[ListItem.Art(poster)]</texture><animation effect="zoom" start="96" end="100" time="90">Focus</animation></control>
+                <control type="label"><left>10</left><top>365</top><width>234</width><height>27</height><font>font_tiny_bold</font><textcolor>FFFFFFFF</textcolor><scroll>true</scroll><scrollspeed>35</scrollspeed><scrollsuffix>      </scrollsuffix><label>$INFO[ListItem.Property(title)]</label></control>
+                <control type="label"><left>10</left><top>395</top><width>234</width><height>23</height><font>font_tiny</font><textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.secondary)]</textcolor><label>$INFO[ListItem.Property(year)]$INFO[ListItem.Property(kind),  •  ,]</label></control>
+            </focusedlayout>
+        </control>
+    </controls>
+</window>

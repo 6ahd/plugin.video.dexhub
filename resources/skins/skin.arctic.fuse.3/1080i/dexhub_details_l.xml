@@ -1,0 +1,1471 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<window>
+	<defaultcontrol always="false">100</defaultcontrol>
+	<animation effect="fade" start="0" end="100" time="300">WindowOpen</animation>
+	<animation effect="fade" start="100" end="0" time="200">WindowClose</animation>
+	<backgroundcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.surface)]</backgroundcolor>
+	<controls>
+		<control type="image">
+			<left>0</left>
+			<top>0</top>
+			<width>1920</width>
+			<height>1080</height>
+			<texture colordiffuse="FF0B0D12">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture>
+			<visible>String.IsEmpty(Window(Home).Property(dexhub.tvos.theme.surface))</visible>
+		</control>
+		<control type="videowindow" id="30">
+			<left>0</left>
+			<top>0</top>
+			<width>1920</width>
+			<height>1080</height>
+			<visible>!String.IsEmpty(Window.Property(dh.trailer.on)) | Player.HasVideo</visible>
+		</control>
+		<control type="group">
+			<animation effect="fade" start="100" end="0" time="650" tween="sine" easing="inout" condition="!String.IsEmpty(Window.Property(dh.trailer.visible)) | [!String.IsEmpty(Window.Property(dh.playing)) + Player.HasVideo]">Conditional</animation>
+			<control type="image">
+				<left>0</left>
+				<top>0</top>
+				<width>1920</width>
+				<height>1080</height>
+				<aspectratio>scale</aspectratio>
+				<texture colordiffuse="55FFFFFF">$INFO[Window.Property(dh.brand.fanart)]</texture>
+				<visible>String.IsEmpty(Window.Property(dh.backdrop))</visible>
+			</control>
+			<control type="image">
+				<left>0</left>
+				<top>0</top>
+				<width>1920</width>
+				<height>1080</height>
+				<aspectratio align="right" aligny="top">scale</aspectratio>
+				<fadetime>250</fadetime>
+				<texture background="true">$INFO[Window.Property(dh.backdrop)]</texture>
+				<animation type="Conditional" condition="!String.IsEmpty(Window.Property(dh.kenburns)) + String.IsEmpty(Window.Property(dh.playing)) + System.IdleTime(6) + !System.ScreenSaverActive + !System.HasActiveModalDialog" reversible="false">
+					<effect type="zoom" start="100" end="105" center="1320,400" time="40000" tween="sine" easing="inout"/>
+				</animation>
+			</control>
+		</control>
+		<control type="group">
+			<animation effect="fade" start="100" end="30" time="700" condition="!String.IsEmpty(Window.Property(dh.immersive))">Conditional</animation>
+			<control type="image">
+				<left>0</left>
+				<top>0</top>
+				<width>1920</width>
+				<height>1080</height>
+				<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/shade_330_1350.png</texture>
+			</control>
+			<control type="image">
+				<left>0</left>
+				<top>0</top>
+				<width>1920</width>
+				<height>250</height>
+				<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/grad_top.png</texture>
+			</control>
+		</control>
+		<control type="group">
+			<animation effect="slide" end="0,-540" time="380" tween="cubic" easing="out" condition="String.IsEqual(Window.Property(dd.zone),cast) + !String.IsEmpty(Window.Property(dd.series))">Conditional</animation>
+			<animation effect="slide" end="0,-840" time="380" tween="cubic" easing="out" condition="String.IsEqual(Window.Property(dd.zone),related) + !String.IsEmpty(Window.Property(dd.series))">Conditional</animation>
+			<animation effect="slide" end="0,-300" time="380" tween="cubic" easing="out" condition="String.IsEqual(Window.Property(dd.zone),related) + String.IsEmpty(Window.Property(dd.series))">Conditional</animation>
+			<control type="group">
+				<left>96</left>
+				<top>0</top>
+				<animation type="Conditional" condition="String.IsEqual(Window.Property(dh.hero.anim),a)" reversible="false">
+					<effect type="fade" start="0" end="100" time="320"/>
+					<effect type="slide" start="-26,0" end="0,0" time="380" tween="cubic" easing="out"/>
+				</animation>
+				<animation type="Conditional" condition="String.IsEqual(Window.Property(dh.hero.anim),b)" reversible="false">
+					<effect type="fade" start="0" end="100" time="320"/>
+					<effect type="slide" start="-26,0" end="0,0" time="380" tween="cubic" easing="out"/>
+				</animation>
+				<control type="image">
+					<left>0</left>
+					<top>70</top>
+					<width>640</width>
+					<height>180</height>
+					<aspectratio align="left" aligny="bottom">keep</aspectratio>
+					<texture background="true">$INFO[Window.Property(dh.logo)]</texture>
+					<fadetime>250</fadetime>
+					<visible>!String.IsEmpty(Window.Property(dh.logo))</visible>
+				</control>
+				<control type="label">
+					<left>0</left>
+					<top>146</top>
+					<width>1100</width>
+					<height>104</height>
+					<font>font_title_main</font>
+					<textcolor>FFFFFFFF</textcolor>
+					<align>left</align>
+					<aligny>center</aligny>
+					<label>$INFO[Window.Property(dh.title)]</label>
+					<shadowcolor>66000000</shadowcolor>
+					<visible>String.IsEmpty(Window.Property(dh.logo)) + String.IsEmpty(Window.Property(dh.title.long))</visible>
+				</control>
+				<control type="label">
+					<left>0</left>
+					<top>92</top>
+					<width>980</width>
+					<height>158</height>
+					<font>font_huge_bold</font>
+					<textcolor>FFFFFFFF</textcolor>
+					<align>left</align>
+					<aligny>center</aligny>
+					<label>$INFO[Window.Property(dh.title)]</label>
+					<shadowcolor>66000000</shadowcolor>
+					<wrapmultiline>true</wrapmultiline>
+					<visible>String.IsEmpty(Window.Property(dh.logo)) + !String.IsEmpty(Window.Property(dh.title.long))</visible>
+				</control>
+				<control type="label">
+					<left>0</left>
+					<top>244</top>
+					<width>980</width>
+					<height>32</height>
+					<font>font_mini</font>
+					<textcolor>E6FFFFFF</textcolor>
+					<align>left</align>
+					<aligny>center</aligny>
+					<label>$INFO[Window.Property(dh.subtitle)]</label>
+					<visible>!String.IsEmpty(Window.Property(dh.subtitle))</visible>
+				</control>
+				<control type="grouplist">
+					<left>0</left>
+					<top>284</top>
+					<width>1720</width>
+					<height>40</height>
+					<orientation>horizontal</orientation>
+					<itemgap>16</itemgap>
+					<usecontrolcoords>true</usecontrolcoords>
+					<control type="group">
+						<width>124</width>
+						<height>36</height>
+						<visible>!String.IsEmpty(Window.Property(dh.studio))</visible>
+						<control type="image">
+							<left>0</left>
+							<top>0</top>
+							<width>124</width>
+							<height>36</height>
+							<texture border="16" colordiffuse="EEF3F4F6">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+							<visible>!String.IsEmpty(Window.Property(dh.studio.chip))</visible>
+						</control>
+						<control type="image">
+							<left>12</left>
+							<top>5</top>
+							<width>100</width>
+							<height>26</height>
+							<aspectratio>keep</aspectratio>
+							<texture background="true">$INFO[Window.Property(dh.studio)]</texture>
+							<visible>!String.IsEmpty(Window.Property(dh.studio.chip))</visible>
+						</control>
+						<control type="image">
+							<left>0</left>
+							<top>0</top>
+							<width>124</width>
+							<height>36</height>
+							<aspectratio align="left">keep</aspectratio>
+							<texture background="true">$INFO[Window.Property(dh.studio)]</texture>
+							<visible>String.IsEmpty(Window.Property(dh.studio.chip))</visible>
+						</control>
+					</control>
+					<control type="button">
+						<width>auto</width>
+						<height>36</height>
+						<font>font_tiny</font>
+						<textoffsetx>16</textoffsetx>
+						<textcolor>FFFFFFFF</textcolor>
+						<disabledcolor>FFFFFFFF</disabledcolor>
+						<align>center</align>
+						<aligny>center</aligny>
+						<texturenofocus border="16" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent_dim)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texturenofocus>
+						<texturefocus border="16" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent_dim)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texturefocus>
+						<label>[B]$INFO[Window.Property(dh.badge)][/B]</label>
+						<enable>false</enable>
+						<visible>!String.IsEmpty(Window.Property(dh.badge))</visible>
+					</control>
+					<control type="label">
+						<width>auto</width>
+						<height>36</height>
+						<font>font_mini</font>
+						<textcolor>F2FFFFFF</textcolor>
+						<aligny>center</aligny>
+						<label>$INFO[Window.Property(dh.meta)]</label>
+					</control>
+					<control type="image"><left>0</left><top>5</top><width>26</width><height>26</height><aspectratio>keep</aspectratio><texture colordiffuse="FFF5C518">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/star.png</texture><visible>!String.IsEmpty(Window.Property(dh.rating.star))</visible></control>
+					<control type="label"><left>-10</left><top>0</top><width>auto</width><height>36</height><font>font_mini_bold</font><textcolor>F2FFFFFF</textcolor><shadowcolor>66000000</shadowcolor><aligny>center</aligny><label>$INFO[Window.Property(dh.rating.star)]</label><visible>!String.IsEmpty(Window.Property(dh.rating.star))</visible></control>
+					<control type="image">
+						<left>0</left>
+						<top>3</top>
+						<width>58</width>
+						<height>30</height>
+						<aspectratio>keep</aspectratio>
+						<texture>$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/ratings/imdb.png</texture>
+						<visible>!String.IsEmpty(Window.Property(dh.rating.imdb))</visible>
+					</control>
+					<control type="label">
+						<left>-8</left>
+						<top>0</top>
+						<width>auto</width>
+						<height>36</height>
+						<font>font_mini_bold</font>
+						<textcolor>F2FFFFFF</textcolor>
+						<shadowcolor>66000000</shadowcolor>
+						<aligny>center</aligny>
+						<label>$INFO[Window.Property(dh.rating.imdb)]</label>
+						<visible>!String.IsEmpty(Window.Property(dh.rating.imdb))</visible>
+					</control>
+					<control type="image">
+						<left>0</left>
+						<top>0</top>
+						<width>46</width>
+						<height>38</height>
+						<aspectratio align="left">keep</aspectratio>
+						<texture>$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/ratings/tmdb/$INFO[Window.Property(dh.rating.tmdb.pct)].png</texture>
+						<visible>!String.IsEmpty(Window.Property(dh.rating.tmdb))</visible>
+					</control>
+					<control type="image">
+						<left>0</left>
+						<top>3</top>
+						<width>31</width>
+						<height>31</height>
+						<aspectratio>keep</aspectratio>
+						<texture>$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/ratings/$INFO[Window.Property(dh.rating.rt_crit.icon)]</texture>
+						<visible>!String.IsEmpty(Window.Property(dh.rating.rt_crit))</visible>
+					</control>
+					<control type="label">
+						<left>-8</left>
+						<top>0</top>
+						<width>auto</width>
+						<height>36</height>
+						<font>font_mini_bold</font>
+						<textcolor>F2FFFFFF</textcolor>
+						<shadowcolor>66000000</shadowcolor>
+						<aligny>center</aligny>
+						<label>$INFO[Window.Property(dh.rating.rt_crit)]</label>
+						<visible>!String.IsEmpty(Window.Property(dh.rating.rt_crit))</visible>
+					</control>
+					<control type="image">
+						<left>0</left>
+						<top>2</top>
+						<width>23</width>
+						<height>32</height>
+						<aspectratio>keep</aspectratio>
+						<texture>$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/ratings/rt_pop_fresh.png</texture>
+						<visible>!String.IsEmpty(Window.Property(dh.rating.rt_aud)) + !String.IsEmpty(Window.Property(dh.rating.rt_aud.fresh))</visible>
+					</control>
+					<control type="image">
+						<left>0</left>
+						<top>3</top>
+						<width>49</width>
+						<height>31</height>
+						<aspectratio>keep</aspectratio>
+						<texture>$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/ratings/rt_pop_rotten.png</texture>
+						<visible>!String.IsEmpty(Window.Property(dh.rating.rt_aud)) + String.IsEmpty(Window.Property(dh.rating.rt_aud.fresh))</visible>
+					</control>
+					<control type="label">
+						<left>-8</left>
+						<top>0</top>
+						<width>auto</width>
+						<height>36</height>
+						<font>font_mini_bold</font>
+						<textcolor>F2FFFFFF</textcolor>
+						<shadowcolor>66000000</shadowcolor>
+						<aligny>center</aligny>
+						<label>$INFO[Window.Property(dh.rating.rt_aud)]</label>
+						<visible>!String.IsEmpty(Window.Property(dh.rating.rt_aud))</visible>
+					</control>
+					<control type="image">
+						<left>0</left>
+						<top>3</top>
+						<width>30</width>
+						<height>30</height>
+						<aspectratio>keep</aspectratio>
+						<texture>$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/ratings/metacritic.png</texture>
+						<visible>!String.IsEmpty(Window.Property(dh.rating.metacritic))</visible>
+					</control>
+					<control type="group">
+						<left>-8</left>
+						<top>3</top>
+						<width>38</width>
+						<height>30</height>
+						<visible>!String.IsEmpty(Window.Property(dh.rating.metacritic))</visible>
+						<control type="image">
+							<left>0</left>
+							<top>0</top>
+							<width>38</width>
+							<height>30</height>
+							<texture border="8" colordiffuse="$INFO[Window.Property(dh.rating.metacritic.color)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/ratings/metacritic_box.png</texture>
+						</control>
+						<control type="label">
+							<left>0</left>
+							<top>0</top>
+							<width>38</width>
+							<height>30</height>
+							<font>font_tiny_bold</font>
+							<textcolor>FFFFFFFF</textcolor>
+							<align>center</align>
+							<aligny>center</aligny>
+							<label>$INFO[Window.Property(dh.rating.metacritic)]</label>
+							<visible>String.IsEmpty(Window.Property(dh.rating.metacritic.dark))</visible>
+						</control>
+						<control type="label">
+							<left>0</left>
+							<top>0</top>
+							<width>38</width>
+							<height>30</height>
+							<font>font_tiny_bold</font>
+							<textcolor>FF1B1B1B</textcolor>
+							<align>center</align>
+							<aligny>center</aligny>
+							<label>$INFO[Window.Property(dh.rating.metacritic)]</label>
+							<visible>!String.IsEmpty(Window.Property(dh.rating.metacritic.dark))</visible>
+						</control>
+					</control>
+					<control type="image">
+						<left>0</left>
+						<top>3</top>
+						<width>30</width>
+						<height>30</height>
+						<aspectratio>keep</aspectratio>
+						<texture>$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/ratings/trakt.png</texture>
+						<visible>!String.IsEmpty(Window.Property(dh.rating.trakt))</visible>
+					</control>
+					<control type="label">
+						<left>-8</left>
+						<top>0</top>
+						<width>auto</width>
+						<height>36</height>
+						<font>font_mini_bold</font>
+						<textcolor>F2FFFFFF</textcolor>
+						<shadowcolor>66000000</shadowcolor>
+						<aligny>center</aligny>
+						<label>$INFO[Window.Property(dh.rating.trakt)]</label>
+						<visible>!String.IsEmpty(Window.Property(dh.rating.trakt))</visible>
+					</control>
+					<control type="image">
+						<left>0</left>
+						<top>9</top>
+						<width>48</width>
+						<height>18</height>
+						<aspectratio>keep</aspectratio>
+						<texture>$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/ratings/letterboxd.png</texture>
+						<visible>!String.IsEmpty(Window.Property(dh.rating.letterboxd))</visible>
+					</control>
+					<control type="label">
+						<left>-8</left>
+						<top>0</top>
+						<width>auto</width>
+						<height>36</height>
+						<font>font_mini_bold</font>
+						<textcolor>F2FFFFFF</textcolor>
+						<shadowcolor>66000000</shadowcolor>
+						<aligny>center</aligny>
+						<label>$INFO[Window.Property(dh.rating.letterboxd)]</label>
+						<visible>!String.IsEmpty(Window.Property(dh.rating.letterboxd))</visible>
+					</control>
+					<control type="image">
+						<left>0</left>
+						<top>3</top>
+						<width>30</width>
+						<height>30</height>
+						<aspectratio>keep</aspectratio>
+						<texture>$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/ratings/mdblist.png</texture>
+						<visible>!String.IsEmpty(Window.Property(dh.rating.mdblist))</visible>
+					</control>
+					<control type="label">
+						<left>-8</left>
+						<top>0</top>
+						<width>auto</width>
+						<height>36</height>
+						<font>font_mini_bold</font>
+						<textcolor>F2FFFFFF</textcolor>
+						<shadowcolor>66000000</shadowcolor>
+						<aligny>center</aligny>
+						<label>$INFO[Window.Property(dh.rating.mdblist)]</label>
+						<visible>!String.IsEmpty(Window.Property(dh.rating.mdblist))</visible>
+					</control>
+					<control type="image">
+						<left>0</left>
+						<top>5</top>
+						<width>46</width>
+						<height>26</height>
+						<aspectratio>keep</aspectratio>
+						<texture>$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/ratings/mal.png</texture>
+						<visible>!String.IsEmpty(Window.Property(dh.rating.mal))</visible>
+					</control>
+					<control type="label">
+						<left>-8</left>
+						<top>0</top>
+						<width>auto</width>
+						<height>36</height>
+						<font>font_mini_bold</font>
+						<textcolor>F2FFFFFF</textcolor>
+						<shadowcolor>66000000</shadowcolor>
+						<aligny>center</aligny>
+						<label>$INFO[Window.Property(dh.rating.mal)]</label>
+						<visible>!String.IsEmpty(Window.Property(dh.rating.mal))</visible>
+					</control>
+				</control>
+				<control type="group">
+					<animation effect="fade" start="100" end="0" time="500" condition="!String.IsEmpty(Window.Property(dh.immersive))">Conditional</animation>
+					<control type="textbox">
+						<left>0</left>
+						<top>332</top>
+						<width>900</width>
+						<height>92</height>
+						<font>font_mini</font>
+						<textcolor>D9FFFFFF</textcolor>
+						<shadowcolor>55000000</shadowcolor>
+						<autoscroll delay="6000" time="3000" repeat="10000">!String.IsEmpty(Window.Property(dh.plot.scroll)) + !Skin.HasSetting(Textboxes.DisableAutoscroll) + System.IdleTime(6) + String.IsEmpty(Window.Property(dh.immersive))</autoscroll>
+						<label>$INFO[Window.Property(dh.plot)]</label>
+					</control>
+					<control type="group">
+						<top>454</top>
+						<visible>!String.IsEmpty(Window.Property(dh.progress))</visible>
+						<control type="list" id="220">
+							<left>0</left>
+							<top>0</top>
+							<width>290</width>
+							<height>30</height>
+							<orientation>horizontal</orientation>
+							<scrolltime>0</scrolltime>
+							<itemlayout width="290" height="30">
+								<control type="progress">
+									<left>0</left>
+									<top>12</top>
+									<width>280</width>
+									<height>6</height>
+									<texturebg colordiffuse="55FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texturebg>
+									<midtexture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</midtexture>
+									<info>ListItem.PercentPlayed</info>
+								</control>
+							</itemlayout>
+							<focusedlayout width="290" height="30">
+								<control type="progress">
+									<left>0</left>
+									<top>12</top>
+									<width>280</width>
+									<height>6</height>
+									<texturebg colordiffuse="55FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texturebg>
+									<midtexture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</midtexture>
+									<info>ListItem.PercentPlayed</info>
+								</control>
+							</focusedlayout>
+						</control>
+						<control type="label">
+							<left>300</left>
+							<top>0</top>
+							<width>500</width>
+							<height>30</height>
+							<font>font_tiny</font>
+							<textcolor>CCFFFFFF</textcolor>
+							<align>left</align>
+							<aligny>center</aligny>
+							<label>$INFO[Window.Property(dh.remaining)]</label>
+						</control>
+					</control>
+				</control>
+			</control>
+			<control type="label">
+				<left>96</left>
+				<top>452</top>
+				<width>1400</width>
+				<height>34</height>
+				<font>font_mini</font>
+				<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]</textcolor>
+				<align>left</align>
+				<aligny>center</aligny>
+				<label>$INFO[Window.Property(dd.status)]</label>
+				<visible>!String.IsEmpty(Window.Property(dd.status))</visible>
+			</control>
+			<control type="list" id="100">
+				<left>84</left>
+				<top>476</top>
+				<width>1760</width>
+				<height>64</height>
+				<orientation>horizontal</orientation>
+				<scrolltime>0</scrolltime>
+				<onleft>100</onleft>
+				<onright>100</onright>
+				<onup>100</onup>
+				<ondown condition="Control.IsVisible(300)">300</ondown>
+				<ondown condition="!Control.IsVisible(300) + Control.IsVisible(400)">400</ondown>
+				<ondown condition="!Control.IsVisible(300) + !Control.IsVisible(400)">500</ondown>
+				<itemlayout width="244" height="64">
+					<control type="image">
+						<left>0</left>
+						<top>0</top>
+						<width>232</width>
+						<height>62</height>
+						<texture border="30" colordiffuse="FFFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/pill.png</texture>
+						<visible>false</visible>
+					</control>
+					<control type="image">
+						<left>0</left>
+						<top>0</top>
+						<width>232</width>
+						<height>62</height>
+						<texture border="30" colordiffuse="33FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/pill.png</texture>
+						<visible>true</visible>
+					</control>
+					<control type="image">
+						<left>24</left>
+						<top>17</top>
+						<width>28</width>
+						<height>28</height>
+						<texture colordiffuse="FF101010">$INFO[ListItem.Property(icon)]</texture>
+						<visible>false + !String.IsEqual(ListItem.Property(on),1)</visible>
+					</control>
+					<control type="image">
+						<left>24</left>
+						<top>17</top>
+						<width>28</width>
+						<height>28</height>
+						<texture colordiffuse="FF101010">$INFO[ListItem.Property(icon_on)]</texture>
+						<visible>false + String.IsEqual(ListItem.Property(on),1)</visible>
+					</control>
+					<control type="label">
+						<left>62</left>
+						<top>0</top>
+						<width>158</width>
+						<height>62</height>
+						<font>font_mini_bold</font>
+						<textcolor>FF101010</textcolor>
+						<align>left</align>
+						<aligny>center</aligny>
+						<label>$INFO[ListItem.Label]</label>
+						<visible>false</visible>
+					</control>
+					<control type="image">
+						<left>24</left>
+						<top>17</top>
+						<width>28</width>
+						<height>28</height>
+						<texture colordiffuse="FFFFFFFF">$INFO[ListItem.Property(icon)]</texture>
+						<visible>true + !String.IsEqual(ListItem.Property(on),1)</visible>
+					</control>
+					<control type="image">
+						<left>24</left>
+						<top>17</top>
+						<width>28</width>
+						<height>28</height>
+						<texture colordiffuse="FFFFFFFF">$INFO[ListItem.Property(icon_on)]</texture>
+						<visible>true + String.IsEqual(ListItem.Property(on),1)</visible>
+					</control>
+					<control type="label">
+						<left>62</left>
+						<top>0</top>
+						<width>158</width>
+						<height>62</height>
+						<font>font_mini_bold</font>
+						<textcolor>FFFFFFFF</textcolor>
+						<align>left</align>
+						<aligny>center</aligny>
+						<label>$INFO[ListItem.Label]</label>
+						<visible>true</visible>
+					</control>
+				</itemlayout>
+				<focusedlayout width="244" height="64">
+					<control type="image">
+						<left>0</left>
+						<top>0</top>
+						<width>232</width>
+						<height>62</height>
+						<texture border="30" colordiffuse="FFFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/pill.png</texture>
+						<visible>Control.HasFocus(100)</visible>
+					</control>
+					<control type="image">
+						<left>0</left>
+						<top>0</top>
+						<width>232</width>
+						<height>62</height>
+						<texture border="30" colordiffuse="33FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/pill.png</texture>
+						<visible>!Control.HasFocus(100)</visible>
+					</control>
+					<control type="image">
+						<left>24</left>
+						<top>17</top>
+						<width>28</width>
+						<height>28</height>
+						<texture colordiffuse="FF101010">$INFO[ListItem.Property(icon)]</texture>
+						<visible>Control.HasFocus(100) + !String.IsEqual(ListItem.Property(on),1)</visible>
+					</control>
+					<control type="image">
+						<left>24</left>
+						<top>17</top>
+						<width>28</width>
+						<height>28</height>
+						<texture colordiffuse="FF101010">$INFO[ListItem.Property(icon_on)]</texture>
+						<visible>Control.HasFocus(100) + String.IsEqual(ListItem.Property(on),1)</visible>
+					</control>
+					<control type="label">
+						<left>62</left>
+						<top>0</top>
+						<width>158</width>
+						<height>62</height>
+						<font>font_mini_bold</font>
+						<textcolor>FF101010</textcolor>
+						<align>left</align>
+						<aligny>center</aligny>
+						<label>$INFO[ListItem.Label]</label>
+						<visible>Control.HasFocus(100)</visible>
+					</control>
+					<control type="image">
+						<left>24</left>
+						<top>17</top>
+						<width>28</width>
+						<height>28</height>
+						<texture colordiffuse="FFFFFFFF">$INFO[ListItem.Property(icon)]</texture>
+						<visible>!Control.HasFocus(100) + !String.IsEqual(ListItem.Property(on),1)</visible>
+					</control>
+					<control type="image">
+						<left>24</left>
+						<top>17</top>
+						<width>28</width>
+						<height>28</height>
+						<texture colordiffuse="FFFFFFFF">$INFO[ListItem.Property(icon_on)]</texture>
+						<visible>!Control.HasFocus(100) + String.IsEqual(ListItem.Property(on),1)</visible>
+					</control>
+					<control type="label">
+						<left>62</left>
+						<top>0</top>
+						<width>158</width>
+						<height>62</height>
+						<font>font_mini_bold</font>
+						<textcolor>FFFFFFFF</textcolor>
+						<align>left</align>
+						<aligny>center</aligny>
+						<label>$INFO[ListItem.Label]</label>
+						<visible>!Control.HasFocus(100)</visible>
+					</control>
+				</focusedlayout>
+			</control>
+			<control type="list" id="300">
+				<left>84</left>
+				<top>566</top>
+				<width>1760</width>
+				<height>64</height>
+				<visible>!String.IsEmpty(Window.Property(dd.series)) + Integer.IsGreater(Container(300).NumItems,0)</visible>
+				<orientation>horizontal</orientation>
+				<scrolltime tween="cubic" easing="out">200</scrolltime>
+				<onup>100</onup>
+				<ondown>310</ondown>
+				<onleft>300</onleft>
+				<onright>300</onright>
+				<itemlayout width="212" height="64">
+					<control type="image">
+						<left>0</left>
+						<top>4</top>
+						<width>204</width>
+						<height>52</height>
+						<texture border="26" colordiffuse="33FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/pill.png</texture>
+						<visible>false</visible>
+					</control>
+					<control type="label">
+						<left>0</left>
+						<top>4</top>
+						<width>204</width>
+						<height>52</height>
+						<font>font_mini_bold</font>
+						<textcolor>B3FFFFFF</textcolor>
+						<align>center</align>
+						<aligny>center</aligny>
+						<label>$INFO[ListItem.Label]</label>
+					</control>
+				</itemlayout>
+				<focusedlayout width="212" height="64">
+					<control type="image">
+						<left>0</left>
+						<top>4</top>
+						<width>204</width>
+						<height>52</height>
+						<texture border="26" colordiffuse="33FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/pill.png</texture>
+						<visible>Control.HasFocus(300)</visible>
+					</control>
+					<control type="label">
+						<left>0</left>
+						<top>4</top>
+						<width>204</width>
+						<height>52</height>
+						<font>font_mini_bold</font>
+						<textcolor>FFFFFFFF</textcolor>
+						<align>center</align>
+						<aligny>center</aligny>
+						<label>$INFO[ListItem.Label]</label>
+					</control>
+					<control type="image">
+						<left>62</left>
+						<top>58</top>
+						<width>80</width>
+						<height>4</height>
+						<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture>
+					</control>
+				</focusedlayout>
+			</control>
+			<control type="label">
+				<left>96</left>
+				<top>666</top>
+				<width>1400</width>
+				<height>60</height>
+				<font>font_mini</font>
+				<textcolor>B3FFFFFF</textcolor>
+				<align>left</align>
+				<aligny>center</aligny>
+				<label>$INFO[Window.Property(dd.eps.status)]</label>
+				<visible>!String.IsEmpty(Window.Property(dd.series)) + !String.IsEmpty(Window.Property(dd.eps.status))</visible>
+			</control>
+			<control type="list" id="310">
+				<left>84</left>
+				<top>630</top>
+				<width>1836</width>
+				<height>400</height>
+				<visible>!String.IsEmpty(Window.Property(dd.series)) + Integer.IsGreater(Container(310).NumItems,0)</visible>
+				<orientation>horizontal</orientation>
+				<scrolltime tween="cubic" easing="out">240</scrolltime>
+				<preloaditems>2</preloaditems>
+				<onup>300</onup>
+				<onleft>310</onleft>
+				<onright>310</onright>
+				<ondown condition="Control.IsVisible(400)">400</ondown>
+				<ondown condition="!Control.IsVisible(400)">500</ondown>
+				<itemlayout width="424" height="400">
+					<control type="group">
+						<left>0</left>
+						<top>14</top>
+						<control type="image">
+							<left>0</left>
+							<top>0</top>
+							<width>400</width>
+							<height>225</height>
+							<texture border="16" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface_card)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						</control>
+						<control type="image">
+							<left>0</left>
+							<top>0</top>
+							<width>400</width>
+							<height>225</height>
+							<aspectratio>scale</aspectratio>
+							<texture background="true" diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/mask_landscape.png">$INFO[ListItem.Art(thumb)]</texture>
+							<fadetime>160</fadetime>
+						</control>
+						<control type="progress">
+							<left>12</left>
+							<top>209</top>
+							<width>376</width>
+							<height>6</height>
+							<texturebg colordiffuse="66FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texturebg>
+							<midtexture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</midtexture>
+							<info>ListItem.PercentPlayed</info>
+							<visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+						</control>
+						<control type="image">
+							<left>354</left>
+							<top>12</top>
+							<width>34</width>
+							<height>34</height>
+							<texture>$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/watched_badge.png</texture>
+							<visible>String.IsEqual(ListItem.Property(watched),1)</visible>
+						</control>
+						<control type="label">
+							<left>4</left>
+							<top>235</top>
+							<width>392</width>
+							<height>34</height>
+							<font>font_mini_bold</font>
+							<textcolor>E6FFFFFF</textcolor>
+							<align>left</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+						</control>
+						<control type="label">
+							<left>4</left>
+							<top>267</top>
+							<width>392</width>
+							<height>28</height>
+							<font>font_tiny</font>
+							<textcolor>99FFFFFF</textcolor>
+							<align>left</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Property(sub)]</label>
+						</control>
+						<control type="textbox">
+							<left>4</left>
+							<top>297</top>
+							<width>392</width>
+							<height>81</height>
+							<font>font_tiny</font>
+							<textcolor>B3FFFFFF</textcolor>
+							<label>$INFO[ListItem.Property(plot)]</label>
+						</control>
+					</control>
+				</itemlayout>
+				<focusedlayout width="424" height="400">
+					<control type="group">
+						<left>0</left>
+						<top>14</top>
+						<animation effect="zoom" start="100" end="104" time="200" tween="cubic" easing="out" center="auto" condition="Control.HasFocus(310)">Conditional</animation>
+						<control type="image">
+							<left>-26</left>
+							<top>-26</top>
+							<width>452</width>
+							<height>277</height>
+							<texture border="60" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/glow.png</texture>
+							<visible>Control.HasFocus(310)</visible>
+						</control>
+						<control type="image">
+							<left>0</left>
+							<top>0</top>
+							<width>400</width>
+							<height>225</height>
+							<texture border="16" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface_card)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						</control>
+						<control type="image">
+							<left>0</left>
+							<top>0</top>
+							<width>400</width>
+							<height>225</height>
+							<aspectratio>scale</aspectratio>
+							<texture background="true" diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/mask_landscape.png">$INFO[ListItem.Art(thumb)]</texture>
+							<fadetime>160</fadetime>
+						</control>
+						<control type="progress">
+							<left>12</left>
+							<top>209</top>
+							<width>376</width>
+							<height>6</height>
+							<texturebg colordiffuse="66FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texturebg>
+							<midtexture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</midtexture>
+							<info>ListItem.PercentPlayed</info>
+							<visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
+						</control>
+						<control type="image">
+							<left>354</left>
+							<top>12</top>
+							<width>34</width>
+							<height>34</height>
+							<texture>$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/watched_badge.png</texture>
+							<visible>String.IsEqual(ListItem.Property(watched),1)</visible>
+						</control>
+						<control type="image">
+							<left>-4</left>
+							<top>-4</top>
+							<width>408</width>
+							<height>233</height>
+							<texture border="24" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/ring.png</texture>
+							<visible>Control.HasFocus(310)</visible>
+						</control>
+						<control type="label">
+							<left>4</left>
+							<top>235</top>
+							<width>392</width>
+							<height>34</height>
+							<font>font_mini_bold</font>
+							<textcolor>FFFFFFFF</textcolor>
+							<align>left</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+						</control>
+						<control type="label">
+							<left>4</left>
+							<top>267</top>
+							<width>392</width>
+							<height>28</height>
+							<font>font_tiny</font>
+							<textcolor>99FFFFFF</textcolor>
+							<align>left</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Property(sub)]</label>
+						</control>
+						<control type="textbox">
+							<left>4</left>
+							<top>297</top>
+							<width>392</width>
+							<height>81</height>
+							<font>font_tiny</font>
+							<textcolor>B3FFFFFF</textcolor>
+							<autoscroll delay="2000" time="2000" repeat="5000">Control.HasFocus(310)</autoscroll>
+							<label>$INFO[ListItem.Property(plot)]</label>
+						</control>
+					</control>
+				</focusedlayout>
+			</control>
+			<control type="group">
+				<animation effect="slide" end="0,-470" time="0" condition="String.IsEmpty(Window.Property(dd.series))">Conditional</animation>
+				<control type="label">
+					<left>96</left>
+					<top>1036</top>
+					<width>1400</width>
+					<height>44</height>
+					<font>font_midi_bold</font>
+					<textcolor>FFFFFFFF</textcolor>
+					<align>left</align>
+					<aligny>center</aligny>
+					<label>$INFO[Window.Property(dd.cast.title)]</label>
+					<visible>Integer.IsGreater(Container(400).NumItems,0)</visible>
+				</control>
+				<control type="list" id="400">
+					<left>84</left>
+					<top>1082</top>
+					<width>1836</width>
+					<height>250</height>
+					<visible>Integer.IsGreater(Container(400).NumItems,0)</visible>
+					<orientation>horizontal</orientation>
+					<scrolltime tween="cubic" easing="out">220</scrolltime>
+					<onleft>400</onleft>
+					<onright>400</onright>
+					<onup condition="Control.IsVisible(310)">310</onup>
+					<onup condition="!Control.IsVisible(310)">100</onup>
+					<ondown>500</ondown>
+					<itemlayout width="220" height="250">
+						<control type="image">
+							<left>35</left>
+							<top>14</top>
+							<width>150</width>
+							<height>150</height>
+							<texture>$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/person.png</texture>
+						</control>
+						<control type="image">
+							<left>35</left>
+							<top>14</top>
+							<width>150</width>
+							<height>150</height>
+							<aspectratio scalediffuse="false">scale</aspectratio>
+							<texture background="true" diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/mask_circle.png">$INFO[ListItem.Art(thumb)]</texture>
+						</control>
+						<control type="label">
+							<left>0</left>
+							<top>176</top>
+							<width>220</width>
+							<height>34</height>
+							<font>font_tiny_bold</font>
+							<textcolor>E6FFFFFF</textcolor>
+							<align>center</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+						</control>
+						<control type="label">
+							<left>0</left>
+							<top>206</top>
+							<width>220</width>
+							<height>30</height>
+							<font>font_tiny</font>
+							<textcolor>99FFFFFF</textcolor>
+							<align>center</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label2]</label>
+						</control>
+					</itemlayout>
+					<focusedlayout width="220" height="250">
+						<control type="image">
+							<left>35</left>
+							<top>14</top>
+							<width>150</width>
+							<height>150</height>
+							<texture>$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/person.png</texture>
+						</control>
+						<control type="image">
+							<left>35</left>
+							<top>14</top>
+							<width>150</width>
+							<height>150</height>
+							<aspectratio scalediffuse="false">scale</aspectratio>
+							<texture background="true" diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/mask_circle.png">$INFO[ListItem.Art(thumb)]</texture>
+						</control>
+						<control type="image">
+							<left>29</left>
+							<top>8</top>
+							<width>162</width>
+							<height>162</height>
+							<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/ring_circle.png</texture>
+							<visible>Control.HasFocus(400)</visible>
+						</control>
+						<control type="label">
+							<left>0</left>
+							<top>176</top>
+							<width>220</width>
+							<height>34</height>
+							<font>font_tiny_bold</font>
+							<textcolor>FFFFFFFF</textcolor>
+							<align>center</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+						</control>
+						<control type="label">
+							<left>0</left>
+							<top>206</top>
+							<width>220</width>
+							<height>30</height>
+							<font>font_tiny</font>
+							<textcolor>99FFFFFF</textcolor>
+							<align>center</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label2]</label>
+						</control>
+					</focusedlayout>
+				</control>
+				<control type="label">
+					<left>96</left>
+					<top>1336</top>
+					<width>1400</width>
+					<height>44</height>
+					<font>font_midi_bold</font>
+					<textcolor>FFFFFFFF</textcolor>
+					<align>left</align>
+					<aligny>center</aligny>
+					<label>$INFO[Window.Property(dd.related.title)]</label>
+					<visible>Integer.IsGreater(Container(500).NumItems,0)</visible>
+				</control>
+				<control type="list" id="500">
+					<left>84</left>
+					<top>1382</top>
+					<width>1836</width>
+					<height>340</height>
+					<visible>Integer.IsGreater(Container(500).NumItems,0)</visible>
+					<orientation>horizontal</orientation>
+					<scrolltime tween="cubic" easing="out">220</scrolltime>
+					<onleft>500</onleft>
+					<onright>500</onright>
+					<ondown>500</ondown>
+					<onup condition="Control.IsVisible(400)">400</onup>
+					<onup condition="!Control.IsVisible(400) + Control.IsVisible(310)">310</onup>
+					<onup condition="!Control.IsVisible(400) + !Control.IsVisible(310)">100</onup>
+					<itemlayout width="198" height="340">
+						<control type="group">
+							<left>0</left>
+							<top>14</top>
+							<control type="image">
+								<left>0</left>
+								<top>0</top>
+								<width>176</width>
+								<height>264</height>
+								<texture border="16" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface_card)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+							</control>
+							<control type="label">
+								<left>10</left>
+								<top>0</top>
+								<width>156</width>
+								<height>264</height>
+								<font>font_tiny</font>
+								<textcolor>99FFFFFF</textcolor>
+								<align>center</align>
+								<aligny>center</aligny>
+								<label>$INFO[ListItem.Label]</label>
+								<wrapmultiline>true</wrapmultiline>
+								<visible>String.IsEmpty(ListItem.Art(poster))</visible>
+							</control>
+							<control type="image">
+								<left>0</left>
+								<top>0</top>
+								<width>176</width>
+								<height>264</height>
+								<aspectratio>scale</aspectratio>
+								<texture background="true" diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/mask_poster.png">$INFO[ListItem.Art(poster)]</texture>
+								<fadetime>160</fadetime>
+							</control>
+						</control>
+					</itemlayout>
+					<focusedlayout width="198" height="340">
+						<control type="group">
+							<left>0</left>
+							<top>14</top>
+							<animation effect="zoom" start="100" end="106" time="200" tween="cubic" easing="out" center="auto" condition="Control.HasFocus(500)">Conditional</animation>
+							<control type="image">
+								<left>-26</left>
+								<top>-26</top>
+								<width>228</width>
+								<height>316</height>
+								<texture border="60" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/glow.png</texture>
+								<visible>Control.HasFocus(500)</visible>
+							</control>
+							<control type="image">
+								<left>0</left>
+								<top>0</top>
+								<width>176</width>
+								<height>264</height>
+								<texture border="16" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface_card)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+							</control>
+							<control type="label">
+								<left>10</left>
+								<top>0</top>
+								<width>156</width>
+								<height>264</height>
+								<font>font_tiny</font>
+								<textcolor>99FFFFFF</textcolor>
+								<align>center</align>
+								<aligny>center</aligny>
+								<label>$INFO[ListItem.Label]</label>
+								<wrapmultiline>true</wrapmultiline>
+								<visible>String.IsEmpty(ListItem.Art(poster))</visible>
+							</control>
+							<control type="image">
+								<left>0</left>
+								<top>0</top>
+								<width>176</width>
+								<height>264</height>
+								<aspectratio>scale</aspectratio>
+								<texture background="true" diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/mask_poster.png">$INFO[ListItem.Art(poster)]</texture>
+								<fadetime>160</fadetime>
+							</control>
+							<control type="image">
+								<left>-4</left>
+								<top>-4</top>
+								<width>184</width>
+								<height>272</height>
+								<texture border="24" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/ring.png</texture>
+								<visible>Control.HasFocus(500)</visible>
+							</control>
+							<control type="label">
+								<left>-10</left>
+								<top>274</top>
+								<width>196</width>
+								<height>30</height>
+								<font>font_tiny</font>
+								<textcolor>FFFFFFFF</textcolor>
+								<align>center</align>
+								<aligny>center</aligny>
+								<label>$INFO[ListItem.Label]</label>
+								<visible>Control.HasFocus(500)</visible>
+							</control>
+						</control>
+					</focusedlayout>
+				</control>
+			</control>
+		</control>
+		<control type="group">
+			<visible>!String.IsEmpty(Window.Property(dd.loading))</visible>
+			<animation type="Conditional" condition="!String.IsEmpty(Window.Property(dd.loading))" pulse="true">
+				<effect type="fade" start="100" end="40" time="900" tween="sine"/>
+			</animation>
+			<control type="image">
+				<left>96</left>
+				<top>1030</top>
+				<width>220</width>
+				<height>6</height>
+				<texture border="3" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/pill.png</texture>
+			</control>
+		</control>
+		<control type="group">
+			<visible>!String.IsEmpty(Window.Property(dh.np.on))</visible>
+			<animation effect="slide" end="0,96" time="0" condition="String.IsEqual(Window.Property(dh.mode),home)">Conditional</animation>
+			<animation effect="fade" start="0" end="100" time="300">Visible</animation>
+			<animation effect="fade" start="100" end="0" time="200">Hidden</animation>
+			<control type="image">
+				<left>1420</left>
+				<top>22</top>
+				<width>410</width>
+				<height>124</height>
+				<texture border="16" colordiffuse="D90B0D12">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+			</control>
+			<control type="image">
+				<left>1440</left>
+				<top>39</top>
+				<width>12</width>
+				<height>12</height>
+				<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/dot.png</texture>
+				<animation type="Conditional" condition="!Player.Paused + [!String.IsEmpty(Window.Property(dh.np.on))]" pulse="true">
+					<effect type="fade" start="100" end="35" time="900" tween="sine"/>
+				</animation>
+			</control>
+			<control type="label">
+				<left>1460</left>
+				<top>30</top>
+				<width>350</width>
+				<height>30</height>
+				<font>font_tiny</font>
+				<textcolor>B3FFFFFF</textcolor>
+				<align>left</align>
+				<aligny>center</aligny>
+				<label>$ADDON[plugin.video.dexhub 31045]</label>
+			</control>
+			<control type="label">
+				<left>1440</left>
+				<top>58</top>
+				<width>370</width>
+				<height>32</height>
+				<font>font_mini_bold</font>
+				<textcolor>FFFFFFFF</textcolor>
+				<align>left</align>
+				<aligny>center</aligny>
+				<label>$INFO[Window.Property(dh.np.title)]</label>
+			</control>
+			<control type="label">
+				<left>1440</left>
+				<top>86</top>
+				<width>370</width>
+				<height>26</height>
+				<font>font_tiny</font>
+				<textcolor>CCFFFFFF</textcolor>
+				<align>left</align>
+				<aligny>center</aligny>
+				<label>$INFO[Window.Property(dh.np.sub)]</label>
+			</control>
+			<control type="label">
+				<left>1440</left>
+				<top>110</top>
+				<width>370</width>
+				<height>26</height>
+				<font>font_tiny</font>
+				<textcolor>CCFFFFFF</textcolor>
+				<align>left</align>
+				<aligny>center</aligny>
+				<label>$INFO[Player.Time]$INFO[Player.Duration, / ]</label>
+				<visible>!Player.Paused</visible>
+			</control>
+			<control type="label">
+				<left>1440</left>
+				<top>110</top>
+				<width>370</width>
+				<height>26</height>
+				<font>font_tiny</font>
+				<textcolor>CCFFFFFF</textcolor>
+				<align>left</align>
+				<aligny>center</aligny>
+				<label>[COLOR $INFO[Window(Home).Property(dexhub.tvos.theme.accent)]]$ADDON[plugin.video.dexhub 31046][/COLOR]  $INFO[Player.Time]</label>
+				<visible>Player.Paused</visible>
+			</control>
+			<control type="progress">
+				<left>1440</left>
+				<top>136</top>
+				<width>370</width>
+				<height>4</height>
+				<texturebg colordiffuse="44FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texturebg>
+				<midtexture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</midtexture>
+				<info>Player.Progress</info>
+			</control>
+			<control type="list" id="95">
+				<left>1420</left>
+				<top>156</top>
+				<width>420</width>
+				<height>52</height>
+				<visible>!String.IsEmpty(Window.Property(dh.np.on))</visible>
+				<orientation>horizontal</orientation>
+				<scrolltime>0</scrolltime>
+				<onleft condition="String.IsEqual(Window.Property(dh.mode),home)">91</onleft>
+				<onleft condition="!String.IsEqual(Window.Property(dh.mode),home) + Control.IsVisible(92)">92</onleft>
+				<onleft condition="!String.IsEqual(Window.Property(dh.mode),home) + !Control.IsVisible(92)">SetProperty(dh.edge,left)</onleft>
+				<onright>SetProperty(dh.edge,right)</onright>
+				<onup>95</onup>
+				<ondown>95</ondown>
+				<itemlayout width="138" height="52">
+					<control type="image">
+						<left>0</left>
+						<top>0</top>
+						<width>128</width>
+						<height>52</height>
+						<texture border="26" colordiffuse="FFFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/pill.png</texture>
+						<visible>false</visible>
+					</control>
+					<control type="image">
+						<left>0</left>
+						<top>0</top>
+						<width>128</width>
+						<height>52</height>
+						<texture border="26" colordiffuse="40FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/pill.png</texture>
+						<visible>true</visible>
+					</control>
+					<control type="image">
+						<left>14</left>
+						<top>14</top>
+						<width>24</width>
+						<height>24</height>
+						<texture colordiffuse="FF101010">$INFO[ListItem.Property(icon)]</texture>
+						<visible>false + ![String.IsEqual(ListItem.Property(key),pause) + Player.Paused]</visible>
+					</control>
+					<control type="image">
+						<left>14</left>
+						<top>14</top>
+						<width>24</width>
+						<height>24</height>
+						<texture colordiffuse="FF101010">$INFO[ListItem.Property(icon_alt)]</texture>
+						<visible>false + String.IsEqual(ListItem.Property(key),pause) + Player.Paused</visible>
+					</control>
+					<control type="image">
+						<left>14</left>
+						<top>14</top>
+						<width>24</width>
+						<height>24</height>
+						<texture colordiffuse="FFFFFFFF">$INFO[ListItem.Property(icon)]</texture>
+						<visible>true + ![String.IsEqual(ListItem.Property(key),pause) + Player.Paused]</visible>
+					</control>
+					<control type="image">
+						<left>14</left>
+						<top>14</top>
+						<width>24</width>
+						<height>24</height>
+						<texture colordiffuse="FFFFFFFF">$INFO[ListItem.Property(icon_alt)]</texture>
+						<visible>true + String.IsEqual(ListItem.Property(key),pause) + Player.Paused</visible>
+					</control>
+					<control type="label">
+						<left>44</left>
+						<top>0</top>
+						<width>80</width>
+						<height>52</height>
+						<font>font_tiny_bold</font>
+						<textcolor>FF101010</textcolor>
+						<align>left</align>
+						<aligny>center</aligny>
+						<label>$INFO[ListItem.Label]</label>
+						<visible>false + ![String.IsEqual(ListItem.Property(key),pause) + Player.Paused]</visible>
+					</control>
+					<control type="label">
+						<left>44</left>
+						<top>0</top>
+						<width>80</width>
+						<height>52</height>
+						<font>font_tiny_bold</font>
+						<textcolor>FF101010</textcolor>
+						<align>left</align>
+						<aligny>center</aligny>
+						<label>$INFO[ListItem.Property(label_alt)]</label>
+						<visible>false + String.IsEqual(ListItem.Property(key),pause) + Player.Paused</visible>
+					</control>
+					<control type="label">
+						<left>44</left>
+						<top>0</top>
+						<width>80</width>
+						<height>52</height>
+						<font>font_tiny_bold</font>
+						<textcolor>FFFFFFFF</textcolor>
+						<align>left</align>
+						<aligny>center</aligny>
+						<label>$INFO[ListItem.Label]</label>
+						<visible>true + ![String.IsEqual(ListItem.Property(key),pause) + Player.Paused]</visible>
+					</control>
+					<control type="label">
+						<left>44</left>
+						<top>0</top>
+						<width>80</width>
+						<height>52</height>
+						<font>font_tiny_bold</font>
+						<textcolor>FFFFFFFF</textcolor>
+						<align>left</align>
+						<aligny>center</aligny>
+						<label>$INFO[ListItem.Property(label_alt)]</label>
+						<visible>true + String.IsEqual(ListItem.Property(key),pause) + Player.Paused</visible>
+					</control>
+				</itemlayout>
+				<focusedlayout width="138" height="52">
+					<control type="image">
+						<left>0</left>
+						<top>0</top>
+						<width>128</width>
+						<height>52</height>
+						<texture border="26" colordiffuse="FFFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/pill.png</texture>
+						<visible>Control.HasFocus(95)</visible>
+					</control>
+					<control type="image">
+						<left>0</left>
+						<top>0</top>
+						<width>128</width>
+						<height>52</height>
+						<texture border="26" colordiffuse="40FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/pill.png</texture>
+						<visible>!Control.HasFocus(95)</visible>
+					</control>
+					<control type="image">
+						<left>14</left>
+						<top>14</top>
+						<width>24</width>
+						<height>24</height>
+						<texture colordiffuse="FF101010">$INFO[ListItem.Property(icon)]</texture>
+						<visible>Control.HasFocus(95) + ![String.IsEqual(ListItem.Property(key),pause) + Player.Paused]</visible>
+					</control>
+					<control type="image">
+						<left>14</left>
+						<top>14</top>
+						<width>24</width>
+						<height>24</height>
+						<texture colordiffuse="FF101010">$INFO[ListItem.Property(icon_alt)]</texture>
+						<visible>Control.HasFocus(95) + String.IsEqual(ListItem.Property(key),pause) + Player.Paused</visible>
+					</control>
+					<control type="image">
+						<left>14</left>
+						<top>14</top>
+						<width>24</width>
+						<height>24</height>
+						<texture colordiffuse="FFFFFFFF">$INFO[ListItem.Property(icon)]</texture>
+						<visible>!Control.HasFocus(95) + ![String.IsEqual(ListItem.Property(key),pause) + Player.Paused]</visible>
+					</control>
+					<control type="image">
+						<left>14</left>
+						<top>14</top>
+						<width>24</width>
+						<height>24</height>
+						<texture colordiffuse="FFFFFFFF">$INFO[ListItem.Property(icon_alt)]</texture>
+						<visible>!Control.HasFocus(95) + String.IsEqual(ListItem.Property(key),pause) + Player.Paused</visible>
+					</control>
+					<control type="label">
+						<left>44</left>
+						<top>0</top>
+						<width>80</width>
+						<height>52</height>
+						<font>font_tiny_bold</font>
+						<textcolor>FF101010</textcolor>
+						<align>left</align>
+						<aligny>center</aligny>
+						<label>$INFO[ListItem.Label]</label>
+						<visible>Control.HasFocus(95) + ![String.IsEqual(ListItem.Property(key),pause) + Player.Paused]</visible>
+					</control>
+					<control type="label">
+						<left>44</left>
+						<top>0</top>
+						<width>80</width>
+						<height>52</height>
+						<font>font_tiny_bold</font>
+						<textcolor>FF101010</textcolor>
+						<align>left</align>
+						<aligny>center</aligny>
+						<label>$INFO[ListItem.Property(label_alt)]</label>
+						<visible>Control.HasFocus(95) + String.IsEqual(ListItem.Property(key),pause) + Player.Paused</visible>
+					</control>
+					<control type="label">
+						<left>44</left>
+						<top>0</top>
+						<width>80</width>
+						<height>52</height>
+						<font>font_tiny_bold</font>
+						<textcolor>FFFFFFFF</textcolor>
+						<align>left</align>
+						<aligny>center</aligny>
+						<label>$INFO[ListItem.Label]</label>
+						<visible>!Control.HasFocus(95) + ![String.IsEqual(ListItem.Property(key),pause) + Player.Paused]</visible>
+					</control>
+					<control type="label">
+						<left>44</left>
+						<top>0</top>
+						<width>80</width>
+						<height>52</height>
+						<font>font_tiny_bold</font>
+						<textcolor>FFFFFFFF</textcolor>
+						<align>left</align>
+						<aligny>center</aligny>
+						<label>$INFO[ListItem.Property(label_alt)]</label>
+						<visible>!Control.HasFocus(95) + String.IsEqual(ListItem.Property(key),pause) + Player.Paused</visible>
+					</control>
+				</focusedlayout>
+			</control>
+		</control>
+		<control type="button" id="9990">
+			<left>-40</left>
+			<top>-40</top>
+			<width>8</width>
+			<height>8</height>
+			<texturefocus/>
+			<texturenofocus/>
+			<label/>
+			<onleft>9990</onleft>
+			<onright>9990</onright>
+			<onup>9990</onup>
+			<ondown>9990</ondown>
+		</control>
+		<control type="group">
+			<!-- v5.10.157: a skin's own information page (Arctic Fuse 3's, opened from
+			     the long press menu) draws over the page under it: the page hides -->
+			<visible>Window.IsVisible(DialogVideoInfo.xml) + !String.IsEmpty(Window.Property(dh.info.cover))</visible>
+			<control type="image">
+				<left>0</left><top>0</top><width>1920</width><height>1080</height>
+				<texture colordiffuse="FF07080C">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture>
+			</control>
+			<control type="image">
+				<left>0</left><top>0</top><width>1920</width><height>1080</height>
+				<aspectratio>scale</aspectratio>
+				<texture colordiffuse="59FFFFFF" background="true">$INFO[Window.Property(dh.backdrop)]</texture>
+			</control>
+		</control>
+	</controls>
+</window>

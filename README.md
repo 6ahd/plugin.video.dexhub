@@ -6,8 +6,8 @@
 
 Stremio & Nuvio add-ons · Plex, Emby, Jellyfin & Silo · Live TV · Native Trakt, Simkl & MDBList · Arabic-first UI · TMDb Helper integration
 
-[![Version](https://img.shields.io/badge/version-5.10.216-7c3aed)]()
-[![Skin](https://img.shields.io/badge/skin-3.27.10-ffd23f)]()
+[![Version](https://img.shields.io/badge/version-5.10.293-7c3aed)]()
+[![Skin](https://img.shields.io/badge/skin-3.28.41-ffd23f)]()
 [![Kodi](https://img.shields.io/badge/Kodi-21%20Omega%20%7C%2022%20Piers-33d8f7)]()
 [![License](https://img.shields.io/badge/license-all%20rights%20reserved-ef4444)](LICENSE.txt)
 [![Ko-fi](https://img.shields.io/badge/support-Ko--fi-ff5e5b)](https://ko-fi.com/dexworld)
@@ -20,23 +20,19 @@ Stremio & Nuvio add-ons · Plex, Emby, Jellyfin & Silo · Live TV · Native Trak
 
 ## What's new
 
-**Dex Hub 5.10.216 · Dex Hub skin 3.27.10**
+**Dex Hub 5.10.293 · Dex Hub skin 3.28.41**
 
-* **My watching:** one page for Continue Watching, Up Next, your watchlists, an upcoming episodes calendar and "Because you watched". It filters by service and is also a chip in My Library.
-* **Dex Community:** hundreds of ready made catalogs (studios, actors, directors, film collections, moods, decades) that you add to Home, Movies or Series in one press.
-    * Import collections from a link or a JSON file (Kaptain, Nuvio and Fusion formats).
-    * Share your whole setup as one file.
-* **Control centre:** every setting in one organised menu: Home, Following and library, Metadata, Accounts & Sources, Player, Appearance and System.
-* **Backup and restore:** pick what to keep (settings, sources, Home layout, collections, library, progress, accounts) and restore it any time.
-* **Episode names and pictures:** the real episode names from TMDb, plus episode stills instead of the show poster. Both have a spoiler safe mode that only shows the episodes you've started.
-* **Season names** like "Season 1: Murder House", and **watched ticks** on episodes, synced from Trakt.
-* **Merge services:** a title shows once in Continue Watching and Next Up, even when it's in Trakt, Nuvio and your server at the same time.
-* **Continue Watching:**
-    * One row, or split into Movies and Series.
-    * Sorted by recent, almost done or oldest.
-* **Row styles gallery** with live previews: big banners with logos, Top 10 numbers, Spotlight cards and collection walls.
-* **Cinema screensaver:** TMDb lists and a calendar of what's coming this week. You can browse it and open titles straight from it.
-* **Faster everywhere:** progress reaches Trakt, Simkl and Nuvio while you watch, smart Trakt sync only pulls when something changed, and the Home loads the tab you're on first.
+* **Home layouts:** Cinematic full screen, Hero with one row, Compact hero and two rows, Wide card shelf, Hero and rows, and Spotlight and posters, each with a preview in the picker.
+* **Home size from 50% to 200%,** a sidebar that can show icons only, and a top bar that hides while you scroll.
+* **Row styles:** 18 styles with live previews, a switch to hide the "from <source>" line, and See all only on rows that really have more.
+* **Nuvio profiles:** each profile keeps its own Home rows, collections, sources and settings. A profile opened for the first time starts from the one you come from.
+* **Like Nuvio everywhere:** metadata, Continue Watching art and the new **Like Nuvio** source order (each add-on's results exactly as the add-on returned them).
+* **Player bar:** choose, hide and order the buttons, plus **Sync subtitle** and **Next subtitle** (works on its own, and uses DexSubtitles when it's installed). Codec badges at full strength with an opacity choice.
+* **Library:** Films and series filter, lists split into movies and series, and a cleaner header.
+* **Phone setup page:** link accounts, pick the layout, arrange rows, themes, trailers and player options from your phone.
+* **Fixes from your reports:** missing artwork and plot for Nuvio-synced Continue Watching (#7, #17), trailers stuck behind the interface (#14), dim badges (#18), and more.
+
+Full history in [changelog.txt](changelog.txt).
 
 ## What makes Dex Hub different
 

@@ -1,0 +1,11 @@
+{
+  "copy": [
+    "1080i/Custom_1981_DexHubFolder.xml",
+    "1080i/Includes_DexHub.xml"
+  ],
+  "files": 152,
+  "fold_window": 1981,
+  "marker": "<!-- dexhub-pages v8 -->",
+  "title_first": 8101,
+  "version": 8
+}

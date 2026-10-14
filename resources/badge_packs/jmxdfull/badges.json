@@ -1,0 +1,277 @@
+{
+ "name": "Dex Hub Badges: jmxd Full",
+ "credit": "Drawn for Dex Hub by DexWorld; fonts Michroma, Exo 2 and Rajdhani (SIL Open Font License); lettering after the jmxd Kometa overlays",
+ "perGroup": 1,
+ "badges": [
+  {
+   "name": "WEB UHD",
+   "pattern": "^(?=.*\\bweb[ ._-]?(?:dl|rip)\\b)(?=.*\\b(?:2160p|4k|uhd)\\b).*",
+   "image": "src_web_uhd.png",
+   "group": "source"
+  },
+  {
+   "name": "WEB",
+   "pattern": "^(?=.*\\bweb[ ._-]?(?:dl|rip)\\b).*",
+   "image": "src_web.png",
+   "group": "source"
+  },
+  {
+   "name": "BLURAY UHD",
+   "pattern": "^(?=.*\\b(?:blu[ ._-]?ray|bdrip|brrip|b[dr]remux|remux)\\b)(?=.*\\b(?:2160p|4k|uhd)\\b).*",
+   "image": "src_bluray_uhd.png",
+   "group": "source"
+  },
+  {
+   "name": "BLURAY",
+   "pattern": "^(?=.*\\b(?:blu[ ._-]?ray|bdrip|brrip|b[dr]remux|remux)\\b).*",
+   "image": "src_bluray.png",
+   "group": "source"
+  },
+  {
+   "name": "HDTV",
+   "pattern": "^(?=.*\\b(?:hdtv|pdtv)\\b).*",
+   "image": "src_hdtv.png",
+   "group": "source"
+  },
+  {
+   "name": "DVD",
+   "pattern": "^(?=.*\\bdvd(?:rip|5|9)?\\b).*",
+   "image": "src_dvd.png",
+   "group": "source"
+  },
+  {
+   "name": "8K",
+   "pattern": "^(?=.*\\b(?:4320p|8k)\\b).*",
+   "image": "res_8k.png",
+   "group": "resolution"
+  },
+  {
+   "name": "4K",
+   "pattern": "^(?=.*\\b(?:2160p|4k|uhd)\\b).*",
+   "image": "res_4k.png",
+   "group": "resolution"
+  },
+  {
+   "name": "1080",
+   "pattern": "^(?=.*\\b1080[pi]\\b).*",
+   "image": "res_1080.png",
+   "group": "resolution"
+  },
+  {
+   "name": "720",
+   "pattern": "^(?=.*\\b720p\\b).*",
+   "image": "res_720.png",
+   "group": "resolution"
+  },
+  {
+   "name": "576",
+   "pattern": "^(?=.*\\b576[pi]?\\b).*",
+   "image": "res_576.png",
+   "group": "resolution"
+  },
+  {
+   "name": "540",
+   "pattern": "^(?=.*\\b540p\\b).*",
+   "image": "res_540.png",
+   "group": "resolution"
+  },
+  {
+   "name": "480",
+   "pattern": "^(?=.*\\b480[pi]?\\b).*",
+   "image": "res_480.png",
+   "group": "resolution"
+  },
+  {
+   "name": "DV",
+   "pattern": "^(?=.*\\b(?:dv|dovi|dolby vision)\\b).*",
+   "image": "hdr_dv.png",
+   "group": "hdr"
+  },
+  {
+   "name": "10PLUS",
+   "pattern": "^(?=.*hdr10(?:\\+|plus)).*",
+   "image": "hdr_10plus.png",
+   "group": "hdr"
+  },
+  {
+   "name": "10",
+   "pattern": "^(?=.*\\bhdr10\\b(?!\\+)).*",
+   "image": "hdr_10.png",
+   "group": "hdr"
+  },
+  {
+   "name": "HLG",
+   "pattern": "^(?=.*\\bhlg\\b).*",
+   "image": "hdr_hlg.png",
+   "group": "hdr"
+  },
+  {
+   "name": "GENERIC",
+   "pattern": "^(?=.*\\bhdr\\b).*",
+   "image": "hdr_generic.png",
+   "group": "hdr"
+  },
+  {
+   "name": "HEVC",
+   "pattern": "^(?=.*\\b(?:hevc|h\\.?265|x265)\\b).*",
+   "image": "codec_hevc.png",
+   "group": "codec"
+  },
+  {
+   "name": "H264",
+   "pattern": "^(?=.*\\b(?:avc|h\\.?264|x264)\\b).*",
+   "image": "codec_h264.png",
+   "group": "codec"
+  },
+  {
+   "name": "AV1",
+   "pattern": "^(?=.*\\bav1\\b).*",
+   "image": "codec_av1.png",
+   "group": "codec"
+  },
+  {
+   "name": "VC1",
+   "pattern": "^(?=.*\\bvc-?1\\b).*",
+   "image": "codec_vc1.png",
+   "group": "codec"
+  },
+  {
+   "name": "MPEG2",
+   "pattern": "^(?=.*\\bmpeg-?2\\b).*",
+   "image": "codec_mpeg2.png",
+   "group": "codec"
+  },
+  {
+   "name": "ATMOS",
+   "pattern": "^(?=.*\\batmos\\b).*",
+   "image": "audio_atmos.png",
+   "group": "audio"
+  },
+  {
+   "name": "DTSX IMAX",
+   "pattern": "^(?=.*\\bdts[:-]?x\\b)(?=.*\\bimax\\b).*",
+   "image": "audio_dtsx_imax.png",
+   "group": "audio"
+  },
+  {
+   "name": "DTSX",
+   "pattern": "^(?=.*\\bdts[:-]?x\\b).*",
+   "image": "audio_dtsx.png",
+   "group": "audio"
+  },
+  {
+   "name": "DTSHD MA",
+   "pattern": "^(?=.*dts-?hd[ ._-]?(?:ma|master)).*",
+   "image": "audio_dtshd_ma.png",
+   "group": "audio"
+  },
+  {
+   "name": "DTSHD HRA",
+   "pattern": "^(?=.*dts-?hd[ ._-]?hra).*",
+   "image": "audio_dtshd_hra.png",
+   "group": "audio"
+  },
+  {
+   "name": "DTS",
+   "pattern": "^(?=.*\\bdts\\b).*",
+   "image": "audio_dts.png",
+   "group": "audio"
+  },
+  {
+   "name": "TRUEHD",
+   "pattern": "^(?=.*\\btrue[ ._-]?hd\\b).*",
+   "image": "audio_truehd.png",
+   "group": "audio"
+  },
+  {
+   "name": "DDPLUS",
+   "pattern": "^(?=.*(?:dd\\+|\\bddp\\b|digital plus|\\beac3\\b)).*",
+   "image": "audio_ddplus.png",
+   "group": "audio"
+  },
+  {
+   "name": "DD",
+   "pattern": "^(?=.*(?:\\bac3\\b|\\bdd\\b(?!\\+))).*",
+   "image": "audio_dd.png",
+   "group": "audio"
+  },
+  {
+   "name": "AAC",
+   "pattern": "^(?=.*\\baac\\b).*",
+   "image": "audio_aac.png",
+   "group": "audio"
+  },
+  {
+   "name": "FLAC",
+   "pattern": "^(?=.*\\bflac\\b).*",
+   "image": "audio_flac.png",
+   "group": "audio"
+  },
+  {
+   "name": "OPUS",
+   "pattern": "^(?=.*\\bopus\\b).*",
+   "image": "audio_opus.png",
+   "group": "audio"
+  },
+  {
+   "name": "MP3",
+   "pattern": "^(?=.*\\bmp3\\b).*",
+   "image": "audio_mp3.png",
+   "group": "audio"
+  },
+  {
+   "name": "PCM",
+   "pattern": "^(?=.*\\bpcm\\b).*",
+   "image": "audio_pcm.png",
+   "group": "audio"
+  },
+  {
+   "name": "VORBIS",
+   "pattern": "^(?=.*\\bvorbis\\b).*",
+   "image": "audio_vorbis.png",
+   "group": "audio"
+  },
+  {
+   "name": "714",
+   "pattern": "^(?=.*(?<![0-9.])7\\.1(?![0-9]))(?=.*(?:\\batmos\\b|\\bdts[:-]?x\\b)).*",
+   "image": "ch_714.png",
+   "group": "channels"
+  },
+  {
+   "name": "514",
+   "pattern": "^(?=.*(?<![0-9.])5\\.1(?![0-9]))(?=.*\\batmos\\b).*",
+   "image": "ch_514.png",
+   "group": "channels"
+  },
+  {
+   "name": "8",
+   "pattern": "^(?=.*(?<![0-9.])7\\.1(?![0-9])).*",
+   "image": "ch_8.png",
+   "group": "channels"
+  },
+  {
+   "name": "7",
+   "pattern": "^(?=.*(?<![0-9.])6\\.1(?![0-9])).*",
+   "image": "ch_7.png",
+   "group": "channels"
+  },
+  {
+   "name": "6",
+   "pattern": "^(?=.*(?<![0-9.])5\\.1(?![0-9])).*",
+   "image": "ch_6.png",
+   "group": "channels"
+  },
+  {
+   "name": "2",
+   "pattern": "^(?=.*(?<![0-9.])2\\.0(?![0-9])).*",
+   "image": "ch_2.png",
+   "group": "channels"
+  },
+  {
+   "name": "1",
+   "pattern": "^(?=.*(?<![0-9.])1\\.0(?![0-9])).*",
+   "image": "ch_1.png",
+   "group": "channels"
+  }
+ ]
+}

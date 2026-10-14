@@ -1,0 +1,463 @@
+{
+ "name": "Dex Hub Badges: jmxd Colorful",
+ "credit": "jmxd Kometa overlays (github.com/6ahd/kometa-config-images)",
+ "perGroup": 1,
+ "badges": [
+  {
+   "name": "4KDVHDRPLUS",
+   "pattern": "^(?=.*\\b(?:2160p|4k|uhd)\\b)(?=.*\\b(?:dv|dovi|dolby vision)\\b)(?=.*hdr10(?:\\+|plus)).*",
+   "image": "4kdvhdrplus.png",
+   "group": "video"
+  },
+  {
+   "name": "4KDVHDR",
+   "pattern": "^(?=.*\\b(?:2160p|4k|uhd)\\b)(?=.*\\b(?:dv|dovi|dolby vision)\\b)(?=.*\\bhdr(?:10)?\\b(?!\\+)).*",
+   "image": "4kdvhdr.png",
+   "group": "video"
+  },
+  {
+   "name": "4KDV",
+   "pattern": "^(?=.*\\b(?:2160p|4k|uhd)\\b)(?=.*\\b(?:dv|dovi|dolby vision)\\b).*",
+   "image": "4kdv.png",
+   "group": "video"
+  },
+  {
+   "name": "4KPLUS",
+   "pattern": "^(?=.*\\b(?:2160p|4k|uhd)\\b)(?!.*\\b(?:dv|dovi|dolby vision)\\b)(?=.*hdr10(?:\\+|plus)).*",
+   "image": "4kplus.png",
+   "group": "video"
+  },
+  {
+   "name": "4KHDR",
+   "pattern": "^(?=.*\\b(?:2160p|4k|uhd)\\b)(?!.*\\b(?:dv|dovi|dolby vision)\\b)(?!.*hdr10(?:\\+|plus))(?=.*\\bhdr(?:10)?\\b(?!\\+)).*",
+   "image": "4khdr.png",
+   "group": "video"
+  },
+  {
+   "name": "4K",
+   "pattern": "^(?=.*\\b(?:2160p|4k|uhd)\\b).*",
+   "image": "4k.png",
+   "group": "video"
+  },
+  {
+   "name": "1080PDVHDRPLUS",
+   "pattern": "^(?=.*\\b1080p\\b)(?=.*\\b(?:dv|dovi|dolby vision)\\b)(?=.*hdr10(?:\\+|plus)).*",
+   "image": "1080pdvhdrplus.png",
+   "group": "video"
+  },
+  {
+   "name": "1080PDVHDR",
+   "pattern": "^(?=.*\\b1080p\\b)(?=.*\\b(?:dv|dovi|dolby vision)\\b)(?=.*\\bhdr(?:10)?\\b(?!\\+)).*",
+   "image": "1080pdvhdr.png",
+   "group": "video"
+  },
+  {
+   "name": "1080PDV",
+   "pattern": "^(?=.*\\b1080p\\b)(?=.*\\b(?:dv|dovi|dolby vision)\\b).*",
+   "image": "1080pdv.png",
+   "group": "video"
+  },
+  {
+   "name": "1080PPLUS",
+   "pattern": "^(?=.*\\b1080p\\b)(?!.*\\b(?:dv|dovi|dolby vision)\\b)(?=.*hdr10(?:\\+|plus)).*",
+   "image": "1080pplus.png",
+   "group": "video"
+  },
+  {
+   "name": "1080PHDR",
+   "pattern": "^(?=.*\\b1080p\\b)(?!.*\\b(?:dv|dovi|dolby vision)\\b)(?!.*hdr10(?:\\+|plus))(?=.*\\bhdr(?:10)?\\b(?!\\+)).*",
+   "image": "1080phdr.png",
+   "group": "video"
+  },
+  {
+   "name": "1080P",
+   "pattern": "^(?=.*\\b1080p\\b).*",
+   "image": "1080p.png",
+   "group": "video"
+  },
+  {
+   "name": "720PDVHDRPLUS",
+   "pattern": "^(?=.*\\b720p\\b)(?=.*\\b(?:dv|dovi|dolby vision)\\b)(?=.*hdr10(?:\\+|plus)).*",
+   "image": "720pdvhdrplus.png",
+   "group": "video"
+  },
+  {
+   "name": "720PDVHDR",
+   "pattern": "^(?=.*\\b720p\\b)(?=.*\\b(?:dv|dovi|dolby vision)\\b)(?=.*\\bhdr(?:10)?\\b(?!\\+)).*",
+   "image": "720pdvhdr.png",
+   "group": "video"
+  },
+  {
+   "name": "720PDV",
+   "pattern": "^(?=.*\\b720p\\b)(?=.*\\b(?:dv|dovi|dolby vision)\\b).*",
+   "image": "720pdv.png",
+   "group": "video"
+  },
+  {
+   "name": "720PPLUS",
+   "pattern": "^(?=.*\\b720p\\b)(?!.*\\b(?:dv|dovi|dolby vision)\\b)(?=.*hdr10(?:\\+|plus)).*",
+   "image": "720pplus.png",
+   "group": "video"
+  },
+  {
+   "name": "720PHDR",
+   "pattern": "^(?=.*\\b720p\\b)(?!.*\\b(?:dv|dovi|dolby vision)\\b)(?!.*hdr10(?:\\+|plus))(?=.*\\bhdr(?:10)?\\b(?!\\+)).*",
+   "image": "720phdr.png",
+   "group": "video"
+  },
+  {
+   "name": "720P",
+   "pattern": "^(?=.*\\b720p\\b).*",
+   "image": "720p.png",
+   "group": "video"
+  },
+  {
+   "name": "576PDVHDRPLUS",
+   "pattern": "^(?=.*\\b576p\\b)(?=.*\\b(?:dv|dovi|dolby vision)\\b)(?=.*hdr10(?:\\+|plus)).*",
+   "image": "576pdvhdrplus.png",
+   "group": "video"
+  },
+  {
+   "name": "576PDVHDR",
+   "pattern": "^(?=.*\\b576p\\b)(?=.*\\b(?:dv|dovi|dolby vision)\\b)(?=.*\\bhdr(?:10)?\\b(?!\\+)).*",
+   "image": "576pdvhdr.png",
+   "group": "video"
+  },
+  {
+   "name": "576PDV",
+   "pattern": "^(?=.*\\b576p\\b)(?=.*\\b(?:dv|dovi|dolby vision)\\b).*",
+   "image": "576pdv.png",
+   "group": "video"
+  },
+  {
+   "name": "576PPLUS",
+   "pattern": "^(?=.*\\b576p\\b)(?!.*\\b(?:dv|dovi|dolby vision)\\b)(?=.*hdr10(?:\\+|plus)).*",
+   "image": "576pplus.png",
+   "group": "video"
+  },
+  {
+   "name": "576PHDR",
+   "pattern": "^(?=.*\\b576p\\b)(?!.*\\b(?:dv|dovi|dolby vision)\\b)(?!.*hdr10(?:\\+|plus))(?=.*\\bhdr(?:10)?\\b(?!\\+)).*",
+   "image": "576phdr.png",
+   "group": "video"
+  },
+  {
+   "name": "576P",
+   "pattern": "^(?=.*\\b576p\\b).*",
+   "image": "576p.png",
+   "group": "video"
+  },
+  {
+   "name": "480PDVHDRPLUS",
+   "pattern": "^(?=.*\\b480p\\b)(?=.*\\b(?:dv|dovi|dolby vision)\\b)(?=.*hdr10(?:\\+|plus)).*",
+   "image": "480pdvhdrplus.png",
+   "group": "video"
+  },
+  {
+   "name": "480PDVHDR",
+   "pattern": "^(?=.*\\b480p\\b)(?=.*\\b(?:dv|dovi|dolby vision)\\b)(?=.*\\bhdr(?:10)?\\b(?!\\+)).*",
+   "image": "480pdvhdr.png",
+   "group": "video"
+  },
+  {
+   "name": "480PDV",
+   "pattern": "^(?=.*\\b480p\\b)(?=.*\\b(?:dv|dovi|dolby vision)\\b).*",
+   "image": "480pdv.png",
+   "group": "video"
+  },
+  {
+   "name": "480PPLUS",
+   "pattern": "^(?=.*\\b480p\\b)(?!.*\\b(?:dv|dovi|dolby vision)\\b)(?=.*hdr10(?:\\+|plus)).*",
+   "image": "480pplus.png",
+   "group": "video"
+  },
+  {
+   "name": "480PHDR",
+   "pattern": "^(?=.*\\b480p\\b)(?!.*\\b(?:dv|dovi|dolby vision)\\b)(?!.*hdr10(?:\\+|plus))(?=.*\\bhdr(?:10)?\\b(?!\\+)).*",
+   "image": "480phdr.png",
+   "group": "video"
+  },
+  {
+   "name": "480P",
+   "pattern": "^(?=.*\\b480p\\b).*",
+   "image": "480p.png",
+   "group": "video"
+  },
+  {
+   "name": "DVHDRPLUS",
+   "pattern": "^(?=.*\\b(?:dv|dovi|dolby vision)\\b)(?=.*hdr10(?:\\+|plus)).*",
+   "image": "dvhdrplus.png",
+   "group": "video"
+  },
+  {
+   "name": "DVHDR",
+   "pattern": "^(?=.*\\b(?:dv|dovi|dolby vision)\\b)(?=.*\\bhdr(?:10)?\\b(?!\\+)).*",
+   "image": "dvhdr.png",
+   "group": "video"
+  },
+  {
+   "name": "DV",
+   "pattern": "^(?=.*\\b(?:dv|dovi|dolby vision)\\b).*",
+   "image": "dv.png",
+   "group": "video"
+  },
+  {
+   "name": "PLUS",
+   "pattern": "^(?!.*\\b(?:dv|dovi|dolby vision)\\b)(?=.*hdr10(?:\\+|plus)).*",
+   "image": "plus.png",
+   "group": "video"
+  },
+  {
+   "name": "HDR",
+   "pattern": "^(?!.*\\b(?:dv|dovi|dolby vision)\\b)(?!.*hdr10(?:\\+|plus))(?=.*\\bhdr(?:10)?\\b(?!\\+)).*",
+   "image": "hdr.png",
+   "group": "video"
+  },
+  {
+   "name": "TRUEHD ATMOS",
+   "pattern": "^(?=.*\\btruehd\\b)(?=.*\\batmos\\b).*",
+   "image": "audio_truehd_atmos.png",
+   "group": "audio"
+  },
+  {
+   "name": "PLUS ATMOS",
+   "pattern": "^(?=.*(?:dd\\+|\\bddp\\b|digital plus|\\beac3\\b))(?=.*\\batmos\\b).*",
+   "image": "audio_plus_atmos.png",
+   "group": "audio"
+  },
+  {
+   "name": "DOLBY ATMOS",
+   "pattern": "^(?=.*\\batmos\\b).*",
+   "image": "audio_dolby_atmos.png",
+   "group": "audio"
+  },
+  {
+   "name": "TRUEHD",
+   "pattern": "^(?=.*\\btruehd\\b).*",
+   "image": "audio_truehd.png",
+   "group": "audio"
+  },
+  {
+   "name": "PLUS",
+   "pattern": "^(?=.*(?:dd\\+|\\bddp\\b|digital plus|\\beac3\\b)).*",
+   "image": "audio_plus.png",
+   "group": "audio"
+  },
+  {
+   "name": "DTSX",
+   "pattern": "^(?=.*\\bdts[:-]?x\\b).*",
+   "image": "audio_dtsx.png",
+   "group": "audio"
+  },
+  {
+   "name": "MA",
+   "pattern": "^(?=.*\\bdts-?hd ma\\b).*",
+   "image": "audio_ma.png",
+   "group": "audio"
+  },
+  {
+   "name": "HRA",
+   "pattern": "^(?=.*\\bdts-?hd hra\\b).*",
+   "image": "audio_hra.png",
+   "group": "audio"
+  },
+  {
+   "name": "DTSES",
+   "pattern": "^(?=.*\\bdts[- ]?es\\b).*",
+   "image": "audio_dtses.png",
+   "group": "audio"
+  },
+  {
+   "name": "DTS",
+   "pattern": "^(?=.*\\bdts\\b).*",
+   "image": "audio_dts.png",
+   "group": "audio"
+  },
+  {
+   "name": "DIGITAL",
+   "pattern": "^(?=.*(?:\\bac3\\b|\\bdd\\b(?!\\+))).*",
+   "image": "audio_digital.png",
+   "group": "audio"
+  },
+  {
+   "name": "FLAC",
+   "pattern": "^(?=.*\\bflac\\b).*",
+   "image": "audio_flac.png",
+   "group": "audio"
+  },
+  {
+   "name": "PCM",
+   "pattern": "^(?=.*\\bpcm\\b).*",
+   "image": "audio_pcm.png",
+   "group": "audio"
+  },
+  {
+   "name": "OPUS",
+   "pattern": "^(?=.*\\bopus\\b).*",
+   "image": "audio_opus.png",
+   "group": "audio"
+  },
+  {
+   "name": "MP3",
+   "pattern": "^(?=.*\\bmp3\\b).*",
+   "image": "audio_mp3.png",
+   "group": "audio"
+  },
+  {
+   "name": "AAC",
+   "pattern": "^(?=.*\\baac\\b).*",
+   "image": "audio_aac.png",
+   "group": "audio"
+  },
+  {
+   "name": "ALTERNATE",
+   "pattern": "^(?=.*\\bEDITION_alternate\\b).*",
+   "image": "edition_alternate.png",
+   "group": "edition"
+  },
+  {
+   "name": "ANNIVERSARY",
+   "pattern": "^(?=.*\\bEDITION_anniversary\\b).*",
+   "image": "edition_anniversary.png",
+   "group": "edition"
+  },
+  {
+   "name": "BLACKCHROME",
+   "pattern": "^(?=.*\\bEDITION_blackchrome\\b).*",
+   "image": "edition_blackchrome.png",
+   "group": "edition"
+  },
+  {
+   "name": "CODA",
+   "pattern": "^(?=.*\\bEDITION_coda\\b).*",
+   "image": "edition_coda.png",
+   "group": "edition"
+  },
+  {
+   "name": "COLLECTOR",
+   "pattern": "^(?=.*\\bEDITION_collector\\b).*",
+   "image": "edition_collector.png",
+   "group": "edition"
+  },
+  {
+   "name": "CRITERION",
+   "pattern": "^(?=.*\\bEDITION_criterion\\b).*",
+   "image": "edition_criterion.png",
+   "group": "edition"
+  },
+  {
+   "name": "DEFINITIVE",
+   "pattern": "^(?=.*\\bEDITION_definitive\\b).*",
+   "image": "edition_definitive.png",
+   "group": "edition"
+  },
+  {
+   "name": "DIAMOND",
+   "pattern": "^(?=.*\\bEDITION_diamond\\b).*",
+   "image": "edition_diamond.png",
+   "group": "edition"
+  },
+  {
+   "name": "DIRECTORS",
+   "pattern": "^(?=.*\\bEDITION_directors\\b).*",
+   "image": "edition_directors.png",
+   "group": "edition"
+  },
+  {
+   "name": "ENHANCED",
+   "pattern": "^(?=.*\\bEDITION_imax_enhanced\\b).*",
+   "image": "edition_enhanced.png",
+   "group": "edition"
+  },
+  {
+   "name": "EXTENDED",
+   "pattern": "^(?=.*\\bEDITION_extended_cut\\b).*",
+   "image": "edition_extended.png",
+   "group": "edition"
+  },
+  {
+   "name": "EXTENDED",
+   "pattern": "^(?=.*\\bEDITION_extended\\b).*",
+   "image": "edition_extended.png",
+   "group": "edition"
+  },
+  {
+   "name": "FINAL",
+   "pattern": "^(?=.*\\bEDITION_final\\b).*",
+   "image": "edition_final.png",
+   "group": "edition"
+  },
+  {
+   "name": "IMAX",
+   "pattern": "^(?=.*\\bEDITION_imax\\b).*",
+   "image": "edition_imax.png",
+   "group": "edition"
+  },
+  {
+   "name": "INTERNATIONAL",
+   "pattern": "^(?=.*\\bEDITION_international\\b).*",
+   "image": "edition_international.png",
+   "group": "edition"
+  },
+  {
+   "name": "PLATINUM",
+   "pattern": "^(?=.*\\bEDITION_platinum\\b).*",
+   "image": "edition_platinum.png",
+   "group": "edition"
+  },
+  {
+   "name": "REMASTERED",
+   "pattern": "^(?=.*\\bEDITION_remastered\\b).*",
+   "image": "edition_remastered.png",
+   "group": "edition"
+  },
+  {
+   "name": "RICHARDDONNER",
+   "pattern": "^(?=.*\\bEDITION_donner\\b).*",
+   "image": "edition_richarddonner.png",
+   "group": "edition"
+  },
+  {
+   "name": "SPECIAL",
+   "pattern": "^(?=.*\\bEDITION_special\\b).*",
+   "image": "edition_special.png",
+   "group": "edition"
+  },
+  {
+   "name": "THEATRICAL",
+   "pattern": "^(?=.*\\bEDITION_theatrical_cut\\b).*",
+   "image": "edition_theatrical.png",
+   "group": "edition"
+  },
+  {
+   "name": "THEATRICAL",
+   "pattern": "^(?=.*\\bEDITION_theatrical\\b).*",
+   "image": "edition_theatrical.png",
+   "group": "edition"
+  },
+  {
+   "name": "ULTIMATE",
+   "pattern": "^(?=.*\\bEDITION_ultimate\\b).*",
+   "image": "edition_ultimate.png",
+   "group": "edition"
+  },
+  {
+   "name": "ULYSSES",
+   "pattern": "^(?=.*\\bEDITION_ulysses\\b).*",
+   "image": "edition_ulysses.png",
+   "group": "edition"
+  },
+  {
+   "name": "UNCUT",
+   "pattern": "^(?=.*\\bEDITION_uncut\\b).*",
+   "image": "edition_uncut.png",
+   "group": "edition"
+  },
+  {
+   "name": "UNRATED",
+   "pattern": "^(?=.*\\bEDITION_unrated\\b).*",
+   "image": "edition_unrated.png",
+   "group": "edition"
+  }
+ ]
+}

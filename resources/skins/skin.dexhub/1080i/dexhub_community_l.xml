@@ -1,0 +1,1544 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Dex Community (Dex Hub 5.10.195), 1600x900 canvas: written by gen_community_xml.py -->
+<window>
+	<defaultcontrol always="false">600</defaultcontrol>
+	<animation effect="fade" start="0" end="100" time="200">WindowOpen</animation>
+	<animation effect="fade" start="100" end="0" time="160">WindowClose</animation>
+	<controls>
+		<control type="group">
+			<left>0</left>
+			<top>0</top>
+			<width>1600</width>
+			<height>900</height>
+			<animation effect="zoom" start="120" end="120" center="0,0" time="0" condition="true">Conditional</animation>
+			<control type="image">
+				<left>0</left>
+				<top>0</top>
+				<width>1600</width>
+				<height>900</height>
+				<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture>
+			</control>
+			<control type="image">
+				<left>0</left>
+				<top>0</top>
+				<width>1600</width>
+				<height>900</height>
+				<texture colordiffuse="FF0B0D12">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture>
+				<visible>String.IsEmpty(Window(Home).Property(dexhub.tvos.theme.surface))</visible>
+			</control>
+			<control type="image">
+				<left>800</left>
+				<top>-450</top>
+				<width>1280</width>
+				<height>990</height>
+				<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.glow)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/glow.png</texture>
+			</control>
+			<control type="label">
+				<left>56</left>
+				<top>30</top>
+				<width>900</width>
+				<height>56</height>
+				<font>af3_font_head_bold</font>
+				<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+				<align>left</align>
+				<aligny>center</aligny>
+				<label>Dex Community</label>
+			</control>
+			<control type="label">
+				<left>56</left>
+				<top>86</top>
+				<width>588</width>
+				<height>34</height>
+				<font>af3_font_mini</font>
+				<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
+				<align>left</align>
+				<aligny>center</aligny>
+				<label>$INFO[Window.Property(cm.sub)]</label>
+			</control>
+			<control type="label">
+				<left>56</left>
+				<top>120</top>
+				<width>1488</width>
+				<height>30</height>
+				<font>af3_font_tiny</font>
+				<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
+				<align>left</align>
+				<aligny>center</aligny>
+				<label>$INFO[Window.Property(cm.src.title),,:  ]$INFO[Window.Property(cm.src)]</label>
+			</control>
+			<control type="list" id="600">
+				<left>704</left>
+				<top>36</top>
+				<width>840</width>
+				<height>56</height>
+				<orientation>horizontal</orientation>
+				<onleft>600</onleft>
+				<onright>600</onright>
+				<onup>600</onup>
+				<ondown>100</ondown>
+				<scrolltime>0</scrolltime>
+				<itemlayout width="210" height="56">
+					<control type="image">
+						<left>0</left>
+						<top>0</top>
+						<width>194</width>
+						<height>56</height>
+						<texture border="16" colordiffuse="14FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+					</control>
+					<control type="image">
+						<left>0</left>
+						<top>0</top>
+						<width>194</width>
+						<height>56</height>
+						<texture border="16" colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						<visible>!String.IsEmpty(ListItem.Property(on))</visible>
+					</control>
+					<control type="label">
+						<left>14</left>
+						<top>0</top>
+						<width>166</width>
+						<height>56</height>
+						<font>af3_font_mini_bold</font>
+						<textcolor>FF0B0E13</textcolor>
+						<align>center</align>
+						<aligny>center</aligny>
+						<label>$INFO[ListItem.Label]</label>
+						<visible>!String.IsEmpty(ListItem.Property(on))</visible>
+					</control>
+					<control type="label">
+						<left>14</left>
+						<top>0</top>
+						<width>166</width>
+						<height>56</height>
+						<font>af3_font_mini_bold</font>
+						<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+						<align>center</align>
+						<aligny>center</aligny>
+						<label>$INFO[ListItem.Label]</label>
+						<visible>!!String.IsEmpty(ListItem.Property(on))</visible>
+					</control>
+				</itemlayout>
+				<focusedlayout width="210" height="56">
+					<control type="image">
+						<left>0</left>
+						<top>0</top>
+						<width>194</width>
+						<height>56</height>
+						<texture border="16" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						<visible>Control.HasFocus(600)</visible>
+					</control>
+					<control type="image">
+						<left>0</left>
+						<top>0</top>
+						<width>194</width>
+						<height>56</height>
+						<texture border="16" colordiffuse="26FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						<visible>!Control.HasFocus(600)</visible>
+					</control>
+					<control type="image">
+						<left>0</left>
+						<top>0</top>
+						<width>194</width>
+						<height>56</height>
+						<texture border="16" colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						<visible>!String.IsEmpty(ListItem.Property(on)) + !Control.HasFocus(600)</visible>
+					</control>
+					<control type="label">
+						<left>14</left>
+						<top>0</top>
+						<width>166</width>
+						<height>56</height>
+						<font>af3_font_mini_bold</font>
+						<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]</textcolor>
+						<align>center</align>
+						<aligny>center</aligny>
+						<label>$INFO[ListItem.Label]</label>
+						<visible>Control.HasFocus(600)</visible>
+					</control>
+					<control type="label">
+						<left>14</left>
+						<top>0</top>
+						<width>166</width>
+						<height>56</height>
+						<font>af3_font_mini_bold</font>
+						<textcolor>FF0B0E13</textcolor>
+						<align>center</align>
+						<aligny>center</aligny>
+						<label>$INFO[ListItem.Label]</label>
+						<visible>!Control.HasFocus(600) + !String.IsEmpty(ListItem.Property(on))</visible>
+					</control>
+					<control type="label">
+						<left>14</left>
+						<top>0</top>
+						<width>166</width>
+						<height>56</height>
+						<font>af3_font_mini_bold</font>
+						<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+						<align>center</align>
+						<aligny>center</aligny>
+						<label>$INFO[ListItem.Label]</label>
+						<visible>!Control.HasFocus(600) + !!String.IsEmpty(ListItem.Property(on))</visible>
+					</control>
+				</focusedlayout>
+			</control>
+			<control type="group">
+				<visible>String.IsEmpty(Window.Property(cm.detail))</visible>
+				<control type="list" id="100">
+					<left>56</left>
+					<top>170</top>
+					<width>780</width>
+					<height>58</height>
+					<orientation>horizontal</orientation>
+					<onleft>100</onleft>
+					<onright>100</onright>
+					<onup>600</onup>
+					<ondown>200</ondown>
+					<scrolltime>0</scrolltime>
+					<itemlayout width="260" height="58">
+						<control type="image">
+							<left>0</left>
+							<top>0</top>
+							<width>244</width>
+							<height>58</height>
+							<texture border="16" colordiffuse="14FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						</control>
+						<control type="image">
+							<left>0</left>
+							<top>0</top>
+							<width>244</width>
+							<height>58</height>
+							<texture border="16" colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+							<visible>!String.IsEmpty(ListItem.Property(on))</visible>
+						</control>
+						<control type="label">
+							<left>14</left>
+							<top>0</top>
+							<width>216</width>
+							<height>58</height>
+							<font>af3_font_mini_bold</font>
+							<textcolor>FF0B0E13</textcolor>
+							<align>center</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+							<visible>!String.IsEmpty(ListItem.Property(on))</visible>
+						</control>
+						<control type="label">
+							<left>14</left>
+							<top>0</top>
+							<width>216</width>
+							<height>58</height>
+							<font>af3_font_mini_bold</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+							<align>center</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+							<visible>!!String.IsEmpty(ListItem.Property(on))</visible>
+						</control>
+					</itemlayout>
+					<focusedlayout width="260" height="58">
+						<control type="image">
+							<left>0</left>
+							<top>0</top>
+							<width>244</width>
+							<height>58</height>
+							<texture border="16" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+							<visible>Control.HasFocus(100)</visible>
+						</control>
+						<control type="image">
+							<left>0</left>
+							<top>0</top>
+							<width>244</width>
+							<height>58</height>
+							<texture border="16" colordiffuse="26FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+							<visible>!Control.HasFocus(100)</visible>
+						</control>
+						<control type="image">
+							<left>0</left>
+							<top>0</top>
+							<width>244</width>
+							<height>58</height>
+							<texture border="16" colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+							<visible>!String.IsEmpty(ListItem.Property(on)) + !Control.HasFocus(100)</visible>
+						</control>
+						<control type="label">
+							<left>14</left>
+							<top>0</top>
+							<width>216</width>
+							<height>58</height>
+							<font>af3_font_mini_bold</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]</textcolor>
+							<align>center</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+							<visible>Control.HasFocus(100)</visible>
+						</control>
+						<control type="label">
+							<left>14</left>
+							<top>0</top>
+							<width>216</width>
+							<height>58</height>
+							<font>af3_font_mini_bold</font>
+							<textcolor>FF0B0E13</textcolor>
+							<align>center</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+							<visible>!Control.HasFocus(100) + !String.IsEmpty(ListItem.Property(on))</visible>
+						</control>
+						<control type="label">
+							<left>14</left>
+							<top>0</top>
+							<width>216</width>
+							<height>58</height>
+							<font>af3_font_mini_bold</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+							<align>center</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+							<visible>!Control.HasFocus(100) + !!String.IsEmpty(ListItem.Property(on))</visible>
+						</control>
+					</focusedlayout>
+				</control>
+				<control type="list" id="200">
+					<left>56</left>
+					<top>258</top>
+					<width>300</width>
+					<height>612</height>
+					<orientation>vertical</orientation>
+					<onleft>200</onleft>
+					<onright>300</onright>
+					<onup>100</onup>
+					<ondown>200</ondown>
+					<scrolltime tween="cubic" easing="out">180</scrolltime>
+					<itemlayout width="300" height="66">
+						<control type="image">
+							<left>0</left>
+							<top>2</top>
+							<width>300</width>
+							<height>62</height>
+							<texture border="16" colordiffuse="14FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+							<visible>!String.IsEmpty(ListItem.Property(on))</visible>
+						</control>
+						<control type="label">
+							<left>22</left>
+							<top>2</top>
+							<width>200</width>
+							<height>62</height>
+							<font>af3_font_mini_bold</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+							<align>left</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+							<visible>[!String.IsEmpty(ListItem.Property(on))] + [!!String.IsEmpty(ListItem.Property(set))]</visible>
+						</control>
+						<control type="label">
+							<left>22</left>
+							<top>6</top>
+							<width>200</width>
+							<height>34</height>
+							<font>af3_font_mini_bold</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+							<align>left</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+							<visible>[!String.IsEmpty(ListItem.Property(on))] + [!String.IsEmpty(ListItem.Property(set))]</visible>
+						</control>
+						<control type="label">
+							<left>22</left>
+							<top>38</top>
+							<width>200</width>
+							<height>24</height>
+							<font>af3_font_tiny</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
+							<align>left</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Property(set)]</label>
+							<visible>[!String.IsEmpty(ListItem.Property(on))] + [!String.IsEmpty(ListItem.Property(set))]</visible>
+						</control>
+						<control type="label">
+							<left>22</left>
+							<top>2</top>
+							<width>200</width>
+							<height>62</height>
+							<font>af3_font_mini</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
+							<align>left</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+							<visible>[!!String.IsEmpty(ListItem.Property(on))] + [!!String.IsEmpty(ListItem.Property(set))]</visible>
+						</control>
+						<control type="label">
+							<left>22</left>
+							<top>6</top>
+							<width>200</width>
+							<height>34</height>
+							<font>af3_font_mini</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
+							<align>left</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+							<visible>[!!String.IsEmpty(ListItem.Property(on))] + [!String.IsEmpty(ListItem.Property(set))]</visible>
+						</control>
+						<control type="label">
+							<left>22</left>
+							<top>38</top>
+							<width>200</width>
+							<height>24</height>
+							<font>af3_font_tiny</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
+							<align>left</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Property(set)]</label>
+							<visible>[!!String.IsEmpty(ListItem.Property(on))] + [!String.IsEmpty(ListItem.Property(set))]</visible>
+						</control>
+						<control type="label">
+							<left>220</left>
+							<top>2</top>
+							<width>62</width>
+							<height>62</height>
+							<font>af3_font_tiny</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
+							<align>right</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label2]</label>
+						</control>
+					</itemlayout>
+					<focusedlayout width="300" height="66">
+						<control type="image">
+							<left>0</left>
+							<top>2</top>
+							<width>300</width>
+							<height>62</height>
+							<texture border="16" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+							<visible>Control.HasFocus(200)</visible>
+						</control>
+						<control type="image">
+							<left>0</left>
+							<top>2</top>
+							<width>300</width>
+							<height>62</height>
+							<texture border="16" colordiffuse="1FFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+							<visible>!Control.HasFocus(200)</visible>
+						</control>
+						<control type="label">
+							<left>22</left>
+							<top>2</top>
+							<width>200</width>
+							<height>62</height>
+							<font>af3_font_mini_bold</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]</textcolor>
+							<align>left</align>
+							<aligny>center</aligny>
+							<scroll>true</scroll>
+							<label>$INFO[ListItem.Label]</label>
+							<visible>[Control.HasFocus(200)] + [!!String.IsEmpty(ListItem.Property(set))]</visible>
+						</control>
+						<control type="label">
+							<left>22</left>
+							<top>6</top>
+							<width>200</width>
+							<height>34</height>
+							<font>af3_font_mini_bold</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]</textcolor>
+							<align>left</align>
+							<aligny>center</aligny>
+							<scroll>true</scroll>
+							<label>$INFO[ListItem.Label]</label>
+							<visible>[Control.HasFocus(200)] + [!String.IsEmpty(ListItem.Property(set))]</visible>
+						</control>
+						<control type="label">
+							<left>22</left>
+							<top>38</top>
+							<width>200</width>
+							<height>24</height>
+							<font>af3_font_tiny</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]</textcolor>
+							<align>left</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Property(set)]</label>
+							<visible>[Control.HasFocus(200)] + [!String.IsEmpty(ListItem.Property(set))]</visible>
+						</control>
+						<control type="label">
+							<left>22</left>
+							<top>2</top>
+							<width>200</width>
+							<height>62</height>
+							<font>af3_font_mini_bold</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+							<align>left</align>
+							<aligny>center</aligny>
+							<scroll>true</scroll>
+							<label>$INFO[ListItem.Label]</label>
+							<visible>[!Control.HasFocus(200)] + [!!String.IsEmpty(ListItem.Property(set))]</visible>
+						</control>
+						<control type="label">
+							<left>22</left>
+							<top>6</top>
+							<width>200</width>
+							<height>34</height>
+							<font>af3_font_mini_bold</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+							<align>left</align>
+							<aligny>center</aligny>
+							<scroll>true</scroll>
+							<label>$INFO[ListItem.Label]</label>
+							<visible>[!Control.HasFocus(200)] + [!String.IsEmpty(ListItem.Property(set))]</visible>
+						</control>
+						<control type="label">
+							<left>22</left>
+							<top>38</top>
+							<width>200</width>
+							<height>24</height>
+							<font>af3_font_tiny</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
+							<align>left</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Property(set)]</label>
+							<visible>[!Control.HasFocus(200)] + [!String.IsEmpty(ListItem.Property(set))]</visible>
+						</control>
+						<control type="label">
+							<left>220</left>
+							<top>2</top>
+							<width>62</width>
+							<height>62</height>
+							<font>af3_font_tiny</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]</textcolor>
+							<align>right</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label2]</label>
+							<visible>Control.HasFocus(200)</visible>
+						</control>
+						<control type="label">
+							<left>220</left>
+							<top>2</top>
+							<width>62</width>
+							<height>62</height>
+							<font>af3_font_tiny</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
+							<align>right</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label2]</label>
+							<visible>!Control.HasFocus(200)</visible>
+						</control>
+					</focusedlayout>
+				</control>
+				<control type="label">
+					<left>392</left>
+					<top>256</top>
+					<width>452</width>
+					<height>46</height>
+					<font>af3_font_midi_bold</font>
+					<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+					<align>left</align>
+					<aligny>center</aligny>
+					<label>$INFO[Window.Property(cm.group)]</label>
+				</control>
+				<control type="label">
+					<left>392</left>
+					<top>300</top>
+					<width>452</width>
+					<height>32</height>
+					<font>af3_font_tiny</font>
+					<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
+					<align>left</align>
+					<aligny>center</aligny>
+					<label>$INFO[Window.Property(cm.group.line)]</label>
+				</control>
+				<control type="list" id="700">
+					<left>864</left>
+					<top>264</top>
+					<width>680</width>
+					<height>56</height>
+					<orientation>horizontal</orientation>
+					<onleft>200</onleft>
+					<onright>700</onright>
+					<onup>100</onup>
+					<ondown>300</ondown>
+					<scrolltime>0</scrolltime>
+					<itemlayout width="340" height="56">
+						<control type="image">
+							<left>0</left>
+							<top>0</top>
+							<width>324</width>
+							<height>56</height>
+							<texture border="16" colordiffuse="14FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						</control>
+						<control type="image">
+							<left>0</left>
+							<top>0</top>
+							<width>324</width>
+							<height>56</height>
+							<texture border="16" colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+							<visible>!String.IsEmpty(ListItem.Property(on))</visible>
+						</control>
+						<control type="label">
+							<left>14</left>
+							<top>0</top>
+							<width>296</width>
+							<height>56</height>
+							<font>af3_font_mini_bold</font>
+							<textcolor>FF0B0E13</textcolor>
+							<align>center</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+							<visible>!String.IsEmpty(ListItem.Property(on))</visible>
+						</control>
+						<control type="label">
+							<left>14</left>
+							<top>0</top>
+							<width>296</width>
+							<height>56</height>
+							<font>af3_font_mini_bold</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+							<align>center</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+							<visible>!!String.IsEmpty(ListItem.Property(on))</visible>
+						</control>
+					</itemlayout>
+					<focusedlayout width="340" height="56">
+						<control type="image">
+							<left>0</left>
+							<top>0</top>
+							<width>324</width>
+							<height>56</height>
+							<texture border="16" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+							<visible>Control.HasFocus(700)</visible>
+						</control>
+						<control type="image">
+							<left>0</left>
+							<top>0</top>
+							<width>324</width>
+							<height>56</height>
+							<texture border="16" colordiffuse="26FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+							<visible>!Control.HasFocus(700)</visible>
+						</control>
+						<control type="image">
+							<left>0</left>
+							<top>0</top>
+							<width>324</width>
+							<height>56</height>
+							<texture border="16" colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+							<visible>!String.IsEmpty(ListItem.Property(on)) + !Control.HasFocus(700)</visible>
+						</control>
+						<control type="label">
+							<left>14</left>
+							<top>0</top>
+							<width>296</width>
+							<height>56</height>
+							<font>af3_font_mini_bold</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]</textcolor>
+							<align>center</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+							<visible>Control.HasFocus(700)</visible>
+						</control>
+						<control type="label">
+							<left>14</left>
+							<top>0</top>
+							<width>296</width>
+							<height>56</height>
+							<font>af3_font_mini_bold</font>
+							<textcolor>FF0B0E13</textcolor>
+							<align>center</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+							<visible>!Control.HasFocus(700) + !String.IsEmpty(ListItem.Property(on))</visible>
+						</control>
+						<control type="label">
+							<left>14</left>
+							<top>0</top>
+							<width>296</width>
+							<height>56</height>
+							<font>af3_font_mini_bold</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+							<align>center</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+							<visible>!Control.HasFocus(700) + !!String.IsEmpty(ListItem.Property(on))</visible>
+						</control>
+					</focusedlayout>
+				</control>
+				<control type="panel" id="300">
+					<left>384</left>
+					<top>342</top>
+					<width>1168</width>
+					<height>550</height>
+					<orientation>vertical</orientation>
+					<onleft>200</onleft>
+					<onright>300</onright>
+					<onup>700</onup>
+					<ondown>300</ondown>
+					<scrolltime tween="cubic" easing="out">200</scrolltime>
+					<preloaditems>2</preloaditems>
+					<itemlayout width="384" height="292">
+						<control type="group">
+							<left>8</left>
+							<top>8</top>
+							<width>362</width>
+							<height>270</height>
+							<control type="image">
+								<left>0</left>
+								<top>0</top>
+								<width>362</width>
+								<height>270</height>
+								<texture border="16" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface_card)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+							</control>
+							<control type="image">
+								<left>16</left>
+								<top>16</top>
+								<width>104</width>
+								<height>156</height>
+								<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+								<visible>String.IsEmpty(ListItem.Art(cover))</visible>
+							</control>
+							<control type="image">
+								<left>16</left>
+								<top>16</top>
+								<width>104</width>
+								<height>156</height>
+								<aspectratio>scale</aspectratio>
+								<texture background="true">$INFO[ListItem.Art(p1)]</texture>
+								<visible>String.IsEmpty(ListItem.Art(cover))</visible>
+							</control>
+							<control type="image">
+								<left>128</left>
+								<top>16</top>
+								<width>104</width>
+								<height>156</height>
+								<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+								<visible>String.IsEmpty(ListItem.Art(cover))</visible>
+							</control>
+							<control type="image">
+								<left>128</left>
+								<top>16</top>
+								<width>104</width>
+								<height>156</height>
+								<aspectratio>scale</aspectratio>
+								<texture background="true">$INFO[ListItem.Art(p2)]</texture>
+								<visible>String.IsEmpty(ListItem.Art(cover))</visible>
+							</control>
+							<control type="image">
+								<left>240</left>
+								<top>16</top>
+								<width>104</width>
+								<height>156</height>
+								<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+								<visible>String.IsEmpty(ListItem.Art(cover))</visible>
+							</control>
+							<control type="image">
+								<left>240</left>
+								<top>16</top>
+								<width>104</width>
+								<height>156</height>
+								<aspectratio>scale</aspectratio>
+								<texture background="true">$INFO[ListItem.Art(p3)]</texture>
+								<visible>String.IsEmpty(ListItem.Art(cover))</visible>
+							</control>
+							<control type="image">
+								<left>16</left>
+								<top>16</top>
+								<width>330</width>
+								<height>156</height>
+								<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+								<visible>!String.IsEmpty(ListItem.Art(cover))</visible>
+							</control>
+							<control type="image">
+								<left>16</left>
+								<top>16</top>
+								<width>330</width>
+								<height>156</height>
+								<aspectratio>scale</aspectratio>
+								<texture background="true">$INFO[ListItem.Art(cover)]</texture>
+								<visible>String.IsEqual(ListItem.Property(cshape),wide)</visible>
+							</control>
+							<control type="image">
+								<left>16</left>
+								<top>16</top>
+								<width>330</width>
+								<height>156</height>
+								<aspectratio>keep</aspectratio>
+								<texture background="true">$INFO[ListItem.Art(cover)]</texture>
+								<visible>String.IsEqual(ListItem.Property(cshape),tall)</visible>
+							</control>
+							<control type="image">
+								<left>300</left>
+								<top>22</top>
+								<width>40</width>
+								<height>40</height>
+								<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_circle.png</texture>
+								<visible>!String.IsEmpty(ListItem.Property(sel))</visible>
+							</control>
+							<control type="image">
+								<left>308</left>
+								<top>30</top>
+								<width>24</width>
+								<height>24</height>
+								<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/sel_check.png</texture>
+								<visible>!String.IsEmpty(ListItem.Property(sel))</visible>
+							</control>
+							<control type="label">
+								<left>16</left>
+								<top>186</top>
+								<width>270</width>
+								<height>38</height>
+								<font>af3_font_mini_bold</font>
+								<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+								<align>left</align>
+								<aligny>center</aligny>
+								<label>$INFO[ListItem.Label]</label>
+							</control>
+							<control type="label">
+								<left>16</left>
+								<top>224</top>
+								<width>270</width>
+								<height>30</height>
+								<font>af3_font_tiny</font>
+								<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
+								<align>left</align>
+								<aligny>center</aligny>
+								<label>$INFO[ListItem.Label2]</label>
+							</control>
+							<control type="image">
+								<left>296</left>
+								<top>194</top>
+								<width>50</width>
+								<height>50</height>
+								<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_circle.png</texture>
+								<visible>!String.IsEmpty(ListItem.Property(added))</visible>
+							</control>
+							<control type="label">
+								<left>296</left>
+								<top>194</top>
+								<width>50</width>
+								<height>50</height>
+								<font>af3_font_tiny</font>
+								<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]</textcolor>
+								<align>center</align>
+								<aligny>center</aligny>
+								<label>$INFO[ListItem.Property(added)]</label>
+								<visible>!String.IsEmpty(ListItem.Property(added))</visible>
+							</control>
+						</control>
+					</itemlayout>
+					<focusedlayout width="384" height="292">
+						<control type="group">
+							<left>8</left>
+							<top>8</top>
+							<width>362</width>
+							<height>270</height>
+							<animation effect="zoom" start="100" end="104" time="160" center="auto" tween="cubic" easing="out" condition="Control.HasFocus(300)">Conditional</animation>
+							<control type="image">
+								<left>0</left>
+								<top>0</top>
+								<width>362</width>
+								<height>270</height>
+								<texture border="16" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface_card)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+							</control>
+							<control type="image">
+								<left>16</left>
+								<top>16</top>
+								<width>104</width>
+								<height>156</height>
+								<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+								<visible>String.IsEmpty(ListItem.Art(cover))</visible>
+							</control>
+							<control type="image">
+								<left>16</left>
+								<top>16</top>
+								<width>104</width>
+								<height>156</height>
+								<aspectratio>scale</aspectratio>
+								<texture background="true">$INFO[ListItem.Art(p1)]</texture>
+								<visible>String.IsEmpty(ListItem.Art(cover))</visible>
+							</control>
+							<control type="image">
+								<left>128</left>
+								<top>16</top>
+								<width>104</width>
+								<height>156</height>
+								<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+								<visible>String.IsEmpty(ListItem.Art(cover))</visible>
+							</control>
+							<control type="image">
+								<left>128</left>
+								<top>16</top>
+								<width>104</width>
+								<height>156</height>
+								<aspectratio>scale</aspectratio>
+								<texture background="true">$INFO[ListItem.Art(p2)]</texture>
+								<visible>String.IsEmpty(ListItem.Art(cover))</visible>
+							</control>
+							<control type="image">
+								<left>240</left>
+								<top>16</top>
+								<width>104</width>
+								<height>156</height>
+								<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+								<visible>String.IsEmpty(ListItem.Art(cover))</visible>
+							</control>
+							<control type="image">
+								<left>240</left>
+								<top>16</top>
+								<width>104</width>
+								<height>156</height>
+								<aspectratio>scale</aspectratio>
+								<texture background="true">$INFO[ListItem.Art(p3)]</texture>
+								<visible>String.IsEmpty(ListItem.Art(cover))</visible>
+							</control>
+							<control type="image">
+								<left>16</left>
+								<top>16</top>
+								<width>330</width>
+								<height>156</height>
+								<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+								<visible>!String.IsEmpty(ListItem.Art(cover))</visible>
+							</control>
+							<control type="image">
+								<left>16</left>
+								<top>16</top>
+								<width>330</width>
+								<height>156</height>
+								<aspectratio>scale</aspectratio>
+								<texture background="true">$INFO[ListItem.Art(cover)]</texture>
+								<visible>String.IsEqual(ListItem.Property(cshape),wide)</visible>
+							</control>
+							<control type="image">
+								<left>16</left>
+								<top>16</top>
+								<width>330</width>
+								<height>156</height>
+								<aspectratio>keep</aspectratio>
+								<texture background="true">$INFO[ListItem.Art(cover)]</texture>
+								<visible>String.IsEqual(ListItem.Property(cshape),tall)</visible>
+							</control>
+							<control type="image">
+								<left>300</left>
+								<top>22</top>
+								<width>40</width>
+								<height>40</height>
+								<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_circle.png</texture>
+								<visible>!String.IsEmpty(ListItem.Property(sel))</visible>
+							</control>
+							<control type="image">
+								<left>308</left>
+								<top>30</top>
+								<width>24</width>
+								<height>24</height>
+								<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/sel_check.png</texture>
+								<visible>!String.IsEmpty(ListItem.Property(sel))</visible>
+							</control>
+							<control type="label">
+								<left>16</left>
+								<top>186</top>
+								<width>270</width>
+								<height>38</height>
+								<font>af3_font_mini_bold</font>
+								<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+								<align>left</align>
+								<aligny>center</aligny>
+								<scroll>true</scroll>
+								<label>$INFO[ListItem.Label]</label>
+							</control>
+							<control type="label">
+								<left>16</left>
+								<top>224</top>
+								<width>270</width>
+								<height>30</height>
+								<font>af3_font_tiny</font>
+								<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
+								<align>left</align>
+								<aligny>center</aligny>
+								<label>$INFO[ListItem.Label2]</label>
+							</control>
+							<control type="image">
+								<left>296</left>
+								<top>194</top>
+								<width>50</width>
+								<height>50</height>
+								<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_circle.png</texture>
+								<visible>!String.IsEmpty(ListItem.Property(added))</visible>
+							</control>
+							<control type="label">
+								<left>296</left>
+								<top>194</top>
+								<width>50</width>
+								<height>50</height>
+								<font>af3_font_tiny</font>
+								<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]</textcolor>
+								<align>center</align>
+								<aligny>center</aligny>
+								<label>$INFO[ListItem.Property(added)]</label>
+								<visible>!String.IsEmpty(ListItem.Property(added))</visible>
+							</control>
+							<control type="image">
+								<left>-4</left>
+								<top>-4</top>
+								<width>370</width>
+								<height>278</height>
+								<texture border="24" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/ring.png</texture>
+								<visible>Control.HasFocus(300)</visible>
+							</control>
+						</control>
+					</focusedlayout>
+				</control>
+				<control type="label">
+					<left>392</left>
+					<top>390</top>
+					<width>1152</width>
+					<height>120</height>
+					<font>af3_font_main_bold</font>
+					<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
+					<align>center</align>
+					<aligny>top</aligny>
+					<label>$INFO[Window.Property(cm.msg)]</label>
+					<visible>!String.IsEmpty(Window.Property(cm.msg))</visible>
+				</control>
+			</control>
+			<control type="group">
+				<visible>!String.IsEmpty(Window.Property(cm.detail))</visible>
+				<control type="label">
+					<left>56</left>
+					<top>164</top>
+					<width>1488</width>
+					<height>30</height>
+					<font>af3_font_tiny</font>
+					<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
+					<align>left</align>
+					<aligny>center</aligny>
+					<label>$INFO[Window.Property(cm.d.path)]</label>
+				</control>
+				<control type="label">
+					<left>56</left>
+					<top>194</top>
+					<width>1488</width>
+					<height>66</height>
+					<font>af3_font_head_bold</font>
+					<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+					<align>left</align>
+					<aligny>center</aligny>
+					<label>$INFO[Window.Property(cm.d.title)]</label>
+				</control>
+				<control type="label">
+					<left>56</left>
+					<top>260</top>
+					<width>1488</width>
+					<height>34</height>
+					<font>af3_font_mini</font>
+					<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
+					<align>left</align>
+					<aligny>center</aligny>
+					<label>$INFO[Window.Property(cm.d.line)]</label>
+				</control>
+				<control type="list" id="500">
+					<left>56</left>
+					<top>310</top>
+					<width>900</width>
+					<height>56</height>
+					<orientation>horizontal</orientation>
+					<onleft>500</onleft>
+					<onright>500</onright>
+					<onup>600</onup>
+					<ondown>400</ondown>
+					<scrolltime>0</scrolltime>
+					<itemlayout width="300" height="56">
+						<control type="image">
+							<left>0</left>
+							<top>0</top>
+							<width>284</width>
+							<height>56</height>
+							<texture border="16" colordiffuse="14FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						</control>
+						<control type="image">
+							<left>0</left>
+							<top>0</top>
+							<width>284</width>
+							<height>56</height>
+							<texture border="16" colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+							<visible>!String.IsEmpty(ListItem.Property(on))</visible>
+						</control>
+						<control type="label">
+							<left>14</left>
+							<top>0</top>
+							<width>256</width>
+							<height>56</height>
+							<font>af3_font_mini_bold</font>
+							<textcolor>FF0B0E13</textcolor>
+							<align>center</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+							<visible>!String.IsEmpty(ListItem.Property(on))</visible>
+						</control>
+						<control type="label">
+							<left>14</left>
+							<top>0</top>
+							<width>256</width>
+							<height>56</height>
+							<font>af3_font_mini_bold</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+							<align>center</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+							<visible>!!String.IsEmpty(ListItem.Property(on))</visible>
+						</control>
+					</itemlayout>
+					<focusedlayout width="300" height="56">
+						<control type="image">
+							<left>0</left>
+							<top>0</top>
+							<width>284</width>
+							<height>56</height>
+							<texture border="16" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+							<visible>Control.HasFocus(500)</visible>
+						</control>
+						<control type="image">
+							<left>0</left>
+							<top>0</top>
+							<width>284</width>
+							<height>56</height>
+							<texture border="16" colordiffuse="26FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+							<visible>!Control.HasFocus(500)</visible>
+						</control>
+						<control type="image">
+							<left>0</left>
+							<top>0</top>
+							<width>284</width>
+							<height>56</height>
+							<texture border="16" colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+							<visible>!String.IsEmpty(ListItem.Property(on)) + !Control.HasFocus(500)</visible>
+						</control>
+						<control type="label">
+							<left>14</left>
+							<top>0</top>
+							<width>256</width>
+							<height>56</height>
+							<font>af3_font_mini_bold</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]</textcolor>
+							<align>center</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+							<visible>Control.HasFocus(500)</visible>
+						</control>
+						<control type="label">
+							<left>14</left>
+							<top>0</top>
+							<width>256</width>
+							<height>56</height>
+							<font>af3_font_mini_bold</font>
+							<textcolor>FF0B0E13</textcolor>
+							<align>center</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+							<visible>!Control.HasFocus(500) + !String.IsEmpty(ListItem.Property(on))</visible>
+						</control>
+						<control type="label">
+							<left>14</left>
+							<top>0</top>
+							<width>256</width>
+							<height>56</height>
+							<font>af3_font_mini_bold</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+							<align>center</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+							<visible>!Control.HasFocus(500) + !!String.IsEmpty(ListItem.Property(on))</visible>
+						</control>
+					</focusedlayout>
+				</control>
+				<control type="list" id="400">
+					<left>44</left>
+					<top>392</top>
+					<width>1512</width>
+					<height>508</height>
+					<orientation>vertical</orientation>
+					<onleft>400</onleft>
+					<onright>400</onright>
+					<onup>500</onup>
+					<ondown>400</ondown>
+					<scrolltime tween="cubic" easing="out">220</scrolltime>
+					<itemlayout width="1512" height="288">
+						<control type="label">
+							<left>24</left>
+							<top>8</top>
+							<width>992</width>
+							<height>44</height>
+							<font>af3_font_main_bold</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+							<align>left</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+						</control>
+						<control type="label">
+							<left>1012</left>
+							<top>8</top>
+							<width>480</width>
+							<height>44</height>
+							<font>af3_font_tiny</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
+							<align>right</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label2]</label>
+						</control>
+						<control type="image">
+							<left>24</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						</control>
+						<control type="image">
+							<left>24</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<aspectratio>scale</aspectratio>
+							<texture background="true">$INFO[ListItem.Art(p1)]</texture>
+						</control>
+						<control type="image">
+							<left>174</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						</control>
+						<control type="image">
+							<left>174</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<aspectratio>scale</aspectratio>
+							<texture background="true">$INFO[ListItem.Art(p2)]</texture>
+						</control>
+						<control type="image">
+							<left>324</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						</control>
+						<control type="image">
+							<left>324</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<aspectratio>scale</aspectratio>
+							<texture background="true">$INFO[ListItem.Art(p3)]</texture>
+						</control>
+						<control type="image">
+							<left>474</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						</control>
+						<control type="image">
+							<left>474</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<aspectratio>scale</aspectratio>
+							<texture background="true">$INFO[ListItem.Art(p4)]</texture>
+						</control>
+						<control type="image">
+							<left>624</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						</control>
+						<control type="image">
+							<left>624</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<aspectratio>scale</aspectratio>
+							<texture background="true">$INFO[ListItem.Art(p5)]</texture>
+						</control>
+						<control type="image">
+							<left>774</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						</control>
+						<control type="image">
+							<left>774</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<aspectratio>scale</aspectratio>
+							<texture background="true">$INFO[ListItem.Art(p6)]</texture>
+						</control>
+						<control type="image">
+							<left>924</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						</control>
+						<control type="image">
+							<left>924</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<aspectratio>scale</aspectratio>
+							<texture background="true">$INFO[ListItem.Art(p7)]</texture>
+						</control>
+						<control type="image">
+							<left>1074</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						</control>
+						<control type="image">
+							<left>1074</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<aspectratio>scale</aspectratio>
+							<texture background="true">$INFO[ListItem.Art(p8)]</texture>
+						</control>
+						<control type="image">
+							<left>1224</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						</control>
+						<control type="image">
+							<left>1224</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<aspectratio>scale</aspectratio>
+							<texture background="true">$INFO[ListItem.Art(p9)]</texture>
+						</control>
+						<control type="label">
+							<left>40</left>
+							<top>258</top>
+							<width>1432</width>
+							<height>32</height>
+							<font>af3_font_tiny</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]</textcolor>
+							<align>left</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Property(added)]</label>
+							<visible>!String.IsEmpty(ListItem.Property(added))</visible>
+						</control>
+						<control type="label">
+							<left>40</left>
+							<top>258</top>
+							<width>1432</width>
+							<height>32</height>
+							<font>af3_font_tiny</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
+							<align>left</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Property(hint)]</label>
+							<visible>!!String.IsEmpty(ListItem.Property(added))</visible>
+						</control>
+					</itemlayout>
+					<focusedlayout width="1512" height="288">
+						<control type="image">
+							<left>0</left>
+							<top>0</top>
+							<width>1512</width>
+							<height>270</height>
+							<texture border="16" colordiffuse="14FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+							<visible>Control.HasFocus(400)</visible>
+						</control>
+						<control type="label">
+							<left>24</left>
+							<top>8</top>
+							<width>992</width>
+							<height>44</height>
+							<font>af3_font_main_bold</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+							<align>left</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label]</label>
+						</control>
+						<control type="label">
+							<left>1012</left>
+							<top>8</top>
+							<width>480</width>
+							<height>44</height>
+							<font>af3_font_tiny</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
+							<align>right</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Label2]</label>
+						</control>
+						<control type="image">
+							<left>24</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						</control>
+						<control type="image">
+							<left>24</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<aspectratio>scale</aspectratio>
+							<texture background="true">$INFO[ListItem.Art(p1)]</texture>
+						</control>
+						<control type="image">
+							<left>174</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						</control>
+						<control type="image">
+							<left>174</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<aspectratio>scale</aspectratio>
+							<texture background="true">$INFO[ListItem.Art(p2)]</texture>
+						</control>
+						<control type="image">
+							<left>324</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						</control>
+						<control type="image">
+							<left>324</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<aspectratio>scale</aspectratio>
+							<texture background="true">$INFO[ListItem.Art(p3)]</texture>
+						</control>
+						<control type="image">
+							<left>474</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						</control>
+						<control type="image">
+							<left>474</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<aspectratio>scale</aspectratio>
+							<texture background="true">$INFO[ListItem.Art(p4)]</texture>
+						</control>
+						<control type="image">
+							<left>624</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						</control>
+						<control type="image">
+							<left>624</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<aspectratio>scale</aspectratio>
+							<texture background="true">$INFO[ListItem.Art(p5)]</texture>
+						</control>
+						<control type="image">
+							<left>774</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						</control>
+						<control type="image">
+							<left>774</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<aspectratio>scale</aspectratio>
+							<texture background="true">$INFO[ListItem.Art(p6)]</texture>
+						</control>
+						<control type="image">
+							<left>924</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						</control>
+						<control type="image">
+							<left>924</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<aspectratio>scale</aspectratio>
+							<texture background="true">$INFO[ListItem.Art(p7)]</texture>
+						</control>
+						<control type="image">
+							<left>1074</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						</control>
+						<control type="image">
+							<left>1074</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<aspectratio>scale</aspectratio>
+							<texture background="true">$INFO[ListItem.Art(p8)]</texture>
+						</control>
+						<control type="image">
+							<left>1224</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<texture border="16" colordiffuse="1AFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+						</control>
+						<control type="image">
+							<left>1224</left>
+							<top>60</top>
+							<width>132</width>
+							<height>198</height>
+							<aspectratio>scale</aspectratio>
+							<texture background="true">$INFO[ListItem.Art(p9)]</texture>
+						</control>
+						<control type="image">
+							<left>24</left>
+							<top>260</top>
+							<width>6</width>
+							<height>28</height>
+							<texture border="0,3,0,3" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_vbar.png</texture>
+							<visible>Control.HasFocus(400)</visible>
+						</control>
+						<control type="label">
+							<left>40</left>
+							<top>258</top>
+							<width>1432</width>
+							<height>32</height>
+							<font>af3_font_tiny</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]</textcolor>
+							<align>left</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Property(added)]</label>
+							<visible>!String.IsEmpty(ListItem.Property(added))</visible>
+						</control>
+						<control type="label">
+							<left>40</left>
+							<top>258</top>
+							<width>1432</width>
+							<height>32</height>
+							<font>af3_font_tiny</font>
+							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
+							<align>left</align>
+							<aligny>center</aligny>
+							<label>$INFO[ListItem.Property(hint)]</label>
+							<visible>!!String.IsEmpty(ListItem.Property(added))</visible>
+						</control>
+					</focusedlayout>
+				</control>
+			</control>
+		</control>
+	</controls>
+</window>

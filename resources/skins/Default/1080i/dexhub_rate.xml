@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- v5.10.153: "How was it?" after a movie (or a season's last episode).
+     tracking_ui.RatePrompt fills it and closes it by itself. -->
+<window>
+	<defaultcontrol always="true">200</defaultcontrol>
+	<animation effect="fade" start="0" end="100" time="200">WindowOpen</animation>
+	<animation effect="fade" start="100" end="0" time="160">WindowClose</animation>
+	<controls>
+		<control type="group">
+			<left>1080</left><top>636</top>
+			<animation effect="slide" start="0,60" end="0,0" time="240" tween="cubic" easing="out">WindowOpen</animation>
+			<control type="image">
+				<left>-18</left><top>-18</top><width>796</width><height>400</height>
+				<texture border="40" colordiffuse="99000000">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/track/round.png</texture>
+			</control>
+			<control type="image">
+				<left>0</left><top>0</top><width>760</width><height>364</height>
+				<texture border="24" colordiffuse="F2101218">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/track/round.png</texture>
+			</control>
+			<control type="image">
+				<left>40</left><top>38</top><width>22</width><height>22</height>
+				<texture colordiffuse="FF6EE7A8">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/track/check.png</texture>
+				<visible>!String.IsEmpty(Window.Property(done))</visible>
+			</control>
+			<control type="label">
+				<left>72</left><top>30</top><width>650</width><height>38</height>
+				<font>font10</font><aligny>center</aligny><textcolor>FF6EE7A8</textcolor>
+				<label>[B]$INFO[Window.Property(done)][/B]</label>
+			</control>
+			<control type="label">
+				<left>40</left><top>72</top><width>680</width><height>62</height>
+				<font>font45</font><textcolor>FFF3F5F9</textcolor>
+				<label>[B]$INFO[Window.Property(title)][/B]</label>
+			</control>
+			<control type="list" id="200">
+				<left>40</left><top>150</top><width>690</width><height>72</height>
+				<orientation>horizontal</orientation>
+				<onup>noop</onup>
+				<ondown>10</ondown>
+				<onleft>noop</onleft>
+				<onright>noop</onright>
+				<scrolltime>0</scrolltime>
+				<itemlayout width="68" height="72">
+					<control type="image">
+						<left>0</left><top>0</top><width>60</width><height>68</height>
+						<texture border="12" colordiffuse="16FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/track/round.png</texture>
+					</control>
+					<control type="label">
+						<left>0</left><top>0</top><width>60</width><height>68</height>
+						<font>font13</font><align>center</align><aligny>center</aligny><textcolor>FFC7CDD8</textcolor>
+						<label>[B]$INFO[ListItem.Label][/B]</label>
+					</control>
+				</itemlayout>
+				<focusedlayout width="68" height="72">
+					<control type="image">
+						<left>0</left><top>0</top><width>60</width><height>68</height>
+						<texture border="12" colordiffuse="16FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/track/round.png</texture>
+						<visible>!Control.HasFocus(200)</visible>
+					</control>
+					<control type="image">
+						<left>0</left><top>0</top><width>60</width><height>68</height>
+						<texture border="12" colordiffuse="FFF5B428">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/track/round.png</texture>
+						<visible>Control.HasFocus(200)</visible>
+					</control>
+					<control type="image">
+						<left>0</left><top>0</top><width>60</width><height>68</height>
+						<texture border="12" colordiffuse="FFFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/track/ring.png</texture>
+						<visible>Control.HasFocus(200)</visible>
+					</control>
+					<control type="label">
+						<left>0</left><top>0</top><width>60</width><height>68</height>
+						<font>font13</font><align>center</align><aligny>center</aligny><textcolor>FF1A1204</textcolor>
+						<label>[B]$INFO[ListItem.Label][/B]</label>
+						<visible>Control.HasFocus(200)</visible>
+					</control>
+					<control type="label">
+						<left>0</left><top>0</top><width>60</width><height>68</height>
+						<font>font13</font><align>center</align><aligny>center</aligny><textcolor>FFC7CDD8</textcolor>
+						<label>[B]$INFO[ListItem.Label][/B]</label>
+						<visible>!Control.HasFocus(200)</visible>
+					</control>
+				</focusedlayout>
+			</control>
+			<control type="label">
+				<left>40</left><top>226</top><width>340</width><height>30</height>
+				<font>font10</font><textcolor>FF8A93A3</textcolor>
+				<label>$INFO[Window.Property(low)]</label>
+			</control>
+			<control type="label">
+				<left>380</left><top>226</top><width>342</width><height>30</height>
+				<font>font10</font><align>right</align><textcolor>FF8A93A3</textcolor>
+				<label>$INFO[Window.Property(high)]</label>
+			</control>
+			<control type="button" id="10">
+				<left>40</left><top>280</top><width>190</width><height>54</height>
+				<texturefocus border="16" colordiffuse="FFF3F5F9">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/track/round.png</texturefocus>
+				<texturenofocus border="16" colordiffuse="1FFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/track/round.png</texturenofocus>
+				<font>font12</font><align>center</align><aligny>center</aligny>
+				<textcolor>FFF3F5F9</textcolor><focusedcolor>FF101218</focusedcolor>
+				<label>[B]$INFO[Window.Property(skip)][/B]</label>
+				<onup>200</onup>
+				<onleft>noop</onleft><onright>noop</onright><ondown>noop</ondown>
+			</control>
+			<control type="label">
+				<left>250</left><top>280</top><width>240</width><height>54</height>
+				<font>font10</font><aligny>center</aligny><textcolor>FFA3ABB9</textcolor>
+				<label>$INFO[Window.Property(closes)]</label>
+			</control>
+			<control type="progress" id="20">
+				<left>496</left><top>304</top><width>170</width><height>6</height>
+				<texturebg border="3" colordiffuse="1FFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/track/round.png</texturebg>
+				<midtexture border="3" colordiffuse="FFA3ABB9">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/track/round.png</midtexture>
+			</control>
+			<control type="label">
+				<left>676</left><top>280</top><width>50</width><height>54</height>
+				<font>font10</font><align>right</align><aligny>center</aligny><textcolor>FFA3ABB9</textcolor>
+				<label>$INFO[Window.Property(left)]</label>
+			</control>
+		</control>
+	</controls>
+</window>

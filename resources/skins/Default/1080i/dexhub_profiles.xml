@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- v5.10.162: "Who's watching?" (Nuvio's own profile screen): each profile
+     as its avatar in a circle with its name, the one in use ticked.
+     homeui/profiles.ProfilePicker fills it and centres the row. -->
+<window>
+	<defaultcontrol always="true">100</defaultcontrol>
+	<animation effect="fade" start="0" end="100" time="200">WindowOpen</animation>
+	<animation effect="fade" start="100" end="0" time="160">WindowClose</animation>
+	<controls>
+		<control type="image">
+			<left>0</left><top>0</top><width>1920</width><height>1080</height>
+			<texture colordiffuse="FF07080C">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture>
+		</control>
+		<control type="group">
+			<animation effect="slide" start="0,30" end="0,0" time="320" tween="cubic" easing="out">WindowOpen</animation>
+			<control type="label">
+				<left>0</left><top>250</top><width>1920</width><height>40</height>
+				<font>font12</font><align>center</align><textcolor>FF8A93A3</textcolor>
+				<label>[B]$INFO[Window.Property(kicker)][/B]</label>
+			</control>
+			<control type="label">
+				<left>0</left><top>292</top><width>1920</width><height>80</height>
+				<font>font45</font><align>center</align><textcolor>FFF3F5F9</textcolor>
+				<label>[B]$INFO[Window.Property(title)][/B]</label>
+			</control>
+			<control type="label">
+				<left>0</left><top>374</top><width>1920</width><height>36</height>
+				<font>font12</font><align>center</align><textcolor>FFA3ABB9</textcolor>
+				<label>$INFO[Window.Property(sub)]</label>
+			</control>
+
+			<control type="list" id="100">
+				<left>0</left><top>450</top><width>1920</width><height>360</height>
+				<orientation>horizontal</orientation>
+				<onup>noop</onup>
+				<ondown>noop</ondown>
+				<scrolltime tween="cubic" easing="out">220</scrolltime>
+				<itemlayout width="300" height="360">
+					<control type="image">
+						<left>70</left><top>40</top><width>160</width><height>160</height>
+						<texture colordiffuse="$INFO[ListItem.Property(color)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/profiles/mask.png</texture>
+						<visible>String.IsEmpty(ListItem.Art(thumb))</visible>
+					</control>
+					<control type="label">
+						<left>70</left><top>40</top><width>160</width><height>160</height>
+						<font>font45</font><align>center</align><aligny>center</aligny><textcolor>E6FFFFFF</textcolor>
+						<label>[B]$INFO[ListItem.Property(initial)][/B]</label>
+						<visible>String.IsEmpty(ListItem.Art(thumb))</visible>
+					</control>
+					<control type="image">
+						<left>70</left><top>40</top><width>160</width><height>160</height>
+						<aspectratio>scale</aspectratio>
+						<texture colordiffuse="B3FFFFFF">$INFO[ListItem.Art(thumb)]</texture>
+						<visible>!String.IsEmpty(ListItem.Art(thumb))</visible>
+					</control>
+					<control type="image">
+						<!-- the corners in the page colour: the picture shows as a circle -->
+						<left>69</left><top>39</top><width>162</width><height>162</height>
+						<texture colordiffuse="FF07080C">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/profiles/frame.png</texture>
+						<visible>!String.IsEmpty(ListItem.Art(thumb))</visible>
+					</control>
+					<control type="image">
+						<left>186</left><top>44</top><width>40</width><height>40</height>
+						<texture colordiffuse="CCFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/profiles/check.png</texture>
+						<visible>!String.IsEmpty(ListItem.Property(current))</visible>
+					</control>
+					<control type="label">
+						<left>10</left><top>224</top><width>280</width><height>40</height>
+						<font>font12</font><align>center</align><textcolor>FF8A93A3</textcolor>
+						<label>$INFO[ListItem.Label]</label>
+					</control>
+				</itemlayout>
+				<focusedlayout width="300" height="360">
+					<control type="group">
+						<animation effect="zoom" start="80" end="100" center="150,120" time="200" tween="cubic" easing="out">Focus</animation>
+						<control type="image">
+							<left>50</left><top>20</top><width>200</width><height>200</height>
+							<texture colordiffuse="$INFO[ListItem.Property(color)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/profiles/mask.png</texture>
+							<visible>String.IsEmpty(ListItem.Art(thumb))</visible>
+						</control>
+						<control type="label">
+							<left>50</left><top>20</top><width>200</width><height>200</height>
+							<font>font45</font><align>center</align><aligny>center</aligny><textcolor>FFFFFFFF</textcolor>
+							<label>[B]$INFO[ListItem.Property(initial)][/B]</label>
+							<visible>String.IsEmpty(ListItem.Art(thumb))</visible>
+						</control>
+						<control type="image">
+							<left>50</left><top>20</top><width>200</width><height>200</height>
+							<aspectratio>scale</aspectratio>
+							<texture>$INFO[ListItem.Art(thumb)]</texture>
+							<visible>!String.IsEmpty(ListItem.Art(thumb))</visible>
+						</control>
+						<control type="image">
+							<left>49</left><top>19</top><width>202</width><height>202</height>
+							<texture colordiffuse="FF07080C">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/profiles/frame.png</texture>
+							<visible>!String.IsEmpty(ListItem.Art(thumb))</visible>
+						</control>
+						<control type="image">
+							<left>40</left><top>10</top><width>220</width><height>220</height>
+							<texture colordiffuse="FFF3F5F9">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/profiles/ring.png</texture>
+						</control>
+						<control type="image">
+							<left>196</left><top>22</top><width>46</width><height>46</height>
+							<texture>$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/profiles/check.png</texture>
+							<visible>!String.IsEmpty(ListItem.Property(current))</visible>
+						</control>
+					</control>
+					<control type="label">
+						<left>0</left><top>240</top><width>300</width><height>44</height>
+						<font>font12</font><align>center</align><textcolor>FFFFFFFF</textcolor>
+						<label>[B]$INFO[ListItem.Label][/B]</label>
+					</control>
+					<control type="label">
+						<left>0</left><top>284</top><width>300</width><height>32</height>
+						<font>font10</font><align>center</align><textcolor>FF8A93A3</textcolor>
+						<label>$INFO[ListItem.Label2]</label>
+					</control>
+				</focusedlayout>
+			</control>
+		</control>
+
+		<control type="label">
+			<left>0</left><top>960</top><width>1920</width><height>34</height>
+			<font>font10</font><align>center</align><textcolor>FF6E7685</textcolor>
+			<label>$INFO[Window.Property(hint)]</label>
+		</control>
+	</controls>
+</window>

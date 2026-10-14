@@ -1,0 +1,80 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Dex Hub 5.10.28 first-run welcome.
+
+     One screen, shown once per major identity release: the new mark on the
+     brand fanart, three short lines, one button. Contract with welcome.py:
+       controls  9000 continue
+       props     title, line1, line2, line3, button_label, version --><window>
+    <defaultcontrol always="true">9000</defaultcontrol>
+    <controls>
+        <control type="image">
+            <left>0</left><top>0</top><width>1920</width><height>1080</height>
+            <texture>$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/fanart.jpg</texture>
+        </control>
+        <control type="image">
+            <left>0</left><top>0</top><width>1920</width><height>1080</height>
+            <texture colordiffuse="66000000">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/black.png</texture>
+        </control>
+        <!-- glass card -->
+        <control type="image">
+            <left>560</left><top>190</top><width>800</width><height>700</height>
+            <texture border="26" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.card_glass)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture>
+        </control>
+        <control type="image">
+            <left>560</left><top>190</top><width>800</width><height>700</height>
+            <texture border="26" colordiffuse="30FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture>
+        </control>
+        <control type="image">
+            <left>563</left><top>193</top><width>794</width><height>694</height>
+            <texture border="24" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture>
+        </control>
+        <!-- mark -->
+        <control type="image">
+            <left>800</left><top>230</top><width>320</width><height>320</height>
+            <aspectratio>keep</aspectratio>
+            <texture>$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/dexhub_infinity.png</texture>
+        </control>
+        <control type="label">
+            <left>600</left><top>560</top><width>720</width><height>60</height>
+            <font>font_head_bold</font><align>center</align>
+            <textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+            <label>$INFO[Window.Property(title)]</label>
+        </control>
+        <control type="image">
+            <left>860</left><top>626</top><width>200</width><height>4</height>
+            <texture>$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/brand_bar.png</texture>
+        </control>
+        <control type="label">
+            <left>620</left><top>650</top><width>680</width><height>40</height>
+            <font>font_mini</font><align>center</align>
+            <textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+            <label>$INFO[Window.Property(line1)]</label>
+        </control>
+        <control type="label">
+            <left>620</left><top>692</top><width>680</width><height>40</height>
+            <font>font_mini</font><align>center</align>
+            <textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
+            <label>$INFO[Window.Property(line2)]</label>
+        </control>
+        <control type="label">
+            <left>620</left><top>734</top><width>680</width><height>40</height>
+            <font>font_mini</font><align>center</align>
+            <textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
+            <label>$INFO[Window.Property(line3)]</label>
+        </control>
+        <control type="button" id="9000">
+            <left>760</left><top>800</top><width>400</width><height>64</height>
+            <font>font_main</font><align>center</align><aligny>center</aligny>
+            <textcolor>FFFFFFFF</textcolor><focusedcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]</focusedcolor>
+            <texturenofocus border="26" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent_dim)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturenofocus>
+            <texturefocus border="26" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturefocus>
+            <label>$INFO[Window.Property(button_label)]</label>
+        </control>
+        <control type="label">
+            <left>600</left><top>860</top><width>720</width><height>24</height>
+            <font>font_tiny</font><align>center</align>
+            <textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
+            <label>$INFO[Window.Property(version)]</label>
+        </control>
+    </controls>
+</window>

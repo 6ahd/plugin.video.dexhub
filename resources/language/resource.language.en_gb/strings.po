@@ -17,44 +17,6 @@ msgctxt "#30000"
 msgid "Playback mode"
 msgstr "Playback mode"
 
-msgctxt "#30001"
-msgid "Choose source"
-msgstr "Choose source"
-
-# ── Categories ────────────────────────────────────────────────────────
-msgctxt "#30100"
-msgid "General"
-msgstr "General"
-
-msgctxt "#30101"
-msgid "Metadata"
-msgstr "Metadata"
-
-msgctxt "#30102"
-msgid "Sources"
-msgstr "Sources"
-
-msgctxt "#30103"
-msgid "Subtitles"
-msgstr "Subtitles"
-
-msgctxt "#30104"
-msgid "Plex / Emby"
-msgstr "Plex / Emby"
-
-msgctxt "#30105"
-msgid "Trakt"
-msgstr "Trakt"
-
-msgctxt "#30106"
-msgid "TMDb Helper"
-msgstr "TMDb Helper"
-
-msgctxt "#30107"
-msgid "Performance"
-msgstr "Performance"
-
-# ── General settings ──────────────────────────────────────────────────
 msgctxt "#30110"
 msgid "Language / اللغة"
 msgstr "Language / اللغة"
@@ -63,25 +25,9 @@ msgctxt "#30111"
 msgid "Request timeout (seconds)"
 msgstr "Request timeout (seconds)"
 
-msgctxt "#30112"
-msgid "Use direct player (recommended)"
-msgstr "Use direct player (recommended)"
-
 msgctxt "#30113"
 msgid "Show playback loading screen"
 msgstr "Show playback loading screen"
-
-msgctxt "#30114"
-msgid "Home screen"
-msgstr "Home screen"
-
-msgctxt "#30115"
-msgid "Show Next Up on the home screen"
-msgstr "Show Next Up on the home screen"
-
-msgctxt "#30116"
-msgid "Show Favorites on the home screen"
-msgstr "Show Favorites on the home screen"
 
 msgctxt "#30117"
 msgid "Show catalog facets as folders (Genre / Year)"
@@ -90,22 +36,6 @@ msgstr "Show catalog facets as folders (Genre / Year)"
 msgctxt "#30118"
 msgid "Hide empty collection entries"
 msgstr "Hide empty collection entries"
-
-msgctxt "#30119"
-msgid "DexWorld Pro: force folder view for internal catalogs"
-msgstr "DexWorld Pro: force folder view for internal catalogs"
-
-msgctxt "#30120"
-msgid "Add custom home folder..."
-msgstr "Add custom home folder..."
-
-msgctxt "#30121"
-msgid "Manage home folders..."
-msgstr "Manage home folders..."
-
-msgctxt "#30122"
-msgid "Click behavior"
-msgstr "Click behavior"
 
 msgctxt "#30123"
 msgid "When pressing an item in the catalog"
@@ -128,10 +58,6 @@ msgctxt "#30132"
 msgid "Full metadata enrichment for listings (slower)"
 msgstr "Full metadata enrichment for listings (slower)"
 
-msgctxt "#30133"
-msgid "Artwork enrichment (Fanart.tv)"
-msgstr "Artwork enrichment (Fanart.tv)"
-
 msgctxt "#30134"
 msgid "Enrich artwork from Fanart.tv (clearart, banner, discart, multi-language clearlogo)"
 msgstr "Enrich artwork from Fanart.tv (clearart, banner, discart, multi-language clearlogo)"
@@ -139,10 +65,6 @@ msgstr "Enrich artwork from Fanart.tv (clearart, banner, discart, multi-language
 msgctxt "#30135"
 msgid "Fanart.tv personal API key (optional — built-in key used if blank)"
 msgstr "Fanart.tv personal API key (optional — built-in key used if blank)"
-
-msgctxt "#30136"
-msgid "API keys (used by Discover, People, Calendar)"
-msgstr "API keys (used by Discover, People, Calendar)"
 
 msgctxt "#30137"
 msgid "TMDb API key (required for People search and TMDb-direct lookups)"
@@ -156,11 +78,6 @@ msgctxt "#30139"
 msgid "DexWorld API key (for AI subtitles + quality feedback)"
 msgstr "DexWorld API key (for AI subtitles + quality feedback)"
 
-msgctxt "#30140"
-msgid "Clear metadata cache now"
-msgstr "Clear metadata cache now"
-
-# ── Sources settings ──────────────────────────────────────────────────
 msgctxt "#30150"
 msgid "Minimum source quality"
 msgstr "Minimum source quality"
@@ -182,16 +99,8 @@ msgid "Prefer Atmos / DTS-X / TrueHD"
 msgstr "Prefer Atmos / DTS-X / TrueHD"
 
 msgctxt "#30155"
-msgid "Remember the last selected source for each movie/episode"
-msgstr "Remember the last selected source for each movie/episode"
-
-msgctxt "#30156"
-msgid "Diagnose sources (test response time)..."
-msgstr "Diagnose sources (test response time)..."
-
-msgctxt "#30157"
-msgid "Posters &amp; overlays"
-msgstr "Posters & overlays"
+msgid "Replay the last version played for this title"
+msgstr "Replay the last version played for this title"
 
 msgctxt "#30158"
 msgid "Decorated poster handling (RPDB, BetterPosters, TOP Posters)"
@@ -207,8 +116,8 @@ msgid "When choosing a source"
 msgstr "When choosing a source"
 
 msgctxt "#30162"
-msgid "Subtitle broker timeout (seconds)"
-msgstr "Subtitle broker timeout (seconds)"
+msgid "Subtitle search window while choosing a source (seconds)"
+msgstr "Subtitle search window while choosing a source (seconds)"
 
 msgctxt "#30163"
 msgid "Preferred subtitle languages (comma-separated, e.g. ar,en)"
@@ -236,26 +145,6 @@ msgctxt "#30180"
 msgid "Enable Trakt integration"
 msgstr "Enable Trakt integration"
 
-msgctxt "#30181"
-msgid "Link via PIN"
-msgstr "Link via PIN"
-
-msgctxt "#30182"
-msgid "Connect Trakt via PIN"
-msgstr "Connect Trakt via PIN"
-
-msgctxt "#30183"
-msgid "Disconnect Trakt"
-msgstr "Disconnect Trakt"
-
-msgctxt "#30184"
-msgid "Import Trakt progress now"
-msgstr "Import Trakt progress now"
-
-msgctxt "#30185"
-msgid "Sync"
-msgstr "Sync"
-
 msgctxt "#30186"
 msgid "Send playback activity to Trakt (scrobble)"
 msgstr "Send playback activity to Trakt (scrobble)"
@@ -276,18 +165,9 @@ msgctxt "#30190"
 msgid "Background Trakt sync interval (minutes)"
 msgstr "Background Trakt sync interval (minutes)"
 
-msgctxt "#30191"
-msgid "Advanced"
-msgstr "Advanced"
-
-# ── TMDb Helper ───────────────────────────────────────────────────────
 msgctxt "#30200"
 msgid "Register Dex Hub as a TMDb Helper player"
 msgstr "Register Dex Hub as a TMDb Helper player"
-
-msgctxt "#30201"
-msgid "Remove Dex Hub from TMDb Helper players"
-msgstr "Remove Dex Hub from TMDb Helper players"
 
 msgctxt "#30202"
 msgid "Auto-play the first source when called from TMDb Helper"
@@ -306,10 +186,6 @@ msgctxt "#30212"
 msgid "Use gzip compression (faster)"
 msgstr "Use gzip compression (faster)"
 
-msgctxt "#30213"
-msgid "HTTP cache"
-msgstr "HTTP cache"
-
 msgctxt "#30214"
 msgid "Catalog cache TTL (seconds)"
 msgstr "Catalog cache TTL (seconds)"
@@ -323,157 +199,6 @@ msgid "Clear HTTP cache now"
 msgstr "Clear HTTP cache now"
 
 # ── Home folder titles (used by plugin code via tr() lookup) ──────────
-msgctxt "#30300"
-msgid "Movies"
-msgstr "Movies"
-
-msgctxt "#30301"
-msgid "Series"
-msgstr "Series"
-
-msgctxt "#30302"
-msgid "Anime"
-msgstr "Anime"
-
-msgctxt "#30303"
-msgid "Arabic"
-msgstr "Arabic"
-
-msgctxt "#30304"
-msgid "Turkish"
-msgstr "Turkish"
-
-msgctxt "#30305"
-msgid "Korean"
-msgstr "Korean"
-
-msgctxt "#30306"
-msgid "Live TV"
-msgstr "Live TV"
-
-msgctxt "#30307"
-msgid "Other catalogs"
-msgstr "Other catalogs"
-
-msgctxt "#30308"
-msgid "Continue watching"
-msgstr "Continue watching"
-
-msgctxt "#30309"
-msgid "Search"
-msgstr "Search"
-
-msgctxt "#30310"
-msgid "Sources"
-msgstr "Sources"
-
-msgctxt "#30311"
-msgid "Collection"
-msgstr "Collection"
-
-msgctxt "#30312"
-msgid "Watchlist"
-msgstr "Watchlist"
-
-msgctxt "#30313"
-msgid "Favorites"
-msgstr "Favorites"
-
-msgctxt "#30314"
-msgid "Next Up"
-msgstr "Next Up"
-
-msgctxt "#30315"
-msgid "Discover"
-msgstr "Discover"
-
-msgctxt "#30316"
-msgid "People"
-msgstr "People"
-
-msgctxt "#30317"
-msgid "Calendar"
-msgstr "Calendar"
-
-msgctxt "#30318"
-msgid "4K"
-msgstr "4K"
-
-msgctxt "#30319"
-msgid "Kids"
-msgstr "Kids"
-
-msgctxt "#30320"
-msgid "Documentary"
-msgstr "Documentary"
-
-# ── Dialog / status common strings ────────────────────────────────────
-msgctxt "#30400"
-msgid "CONNECTING"
-msgstr "CONNECTING"
-
-msgctxt "#30401"
-msgid "Press Back to cancel"
-msgstr "Press Back to cancel"
-
-msgctxt "#30402"
-msgid "Loading..."
-msgstr "Loading..."
-
-msgctxt "#30403"
-msgid "Searching sources..."
-msgstr "Searching sources..."
-
-msgctxt "#30404"
-msgid "No sources found"
-msgstr "No sources found"
-
-msgctxt "#30405"
-msgid "Cancel"
-msgstr "Cancel"
-
-msgctxt "#30406"
-msgid "OK"
-msgstr "OK"
-
-msgctxt "#30407"
-msgid "Yes"
-msgstr "Yes"
-
-msgctxt "#30408"
-msgid "No"
-msgstr "No"
-
-# ── Sub folder management ─────────────────────────────────────────────
-msgctxt "#30420"
-msgid "Add a sub folder inside this folder"
-msgstr "Add a sub folder inside this folder"
-
-msgctxt "#30421"
-msgid "Manage sub folders for this folder"
-msgstr "Manage sub folders for this folder"
-
-msgctxt "#30422"
-msgid "Add a new home folder"
-msgstr "Add a new home folder"
-
-msgctxt "#30423"
-msgid "Manage home folders"
-msgstr "Manage home folders"
-
-msgctxt "#30424"
-msgid "Remove this folder from home"
-msgstr "Remove this folder from home"
-
-# ── Library Index (v3.9.27) ────────────────────────────────────────────
-msgctxt "#30220"
-msgid "Library"
-msgstr "Library"
-
-msgctxt "#30221"
-msgid "Local index"
-msgstr "Local index"
-
 msgctxt "#30222"
 msgid "Performance mode"
 msgstr "Performance mode"
@@ -481,24 +206,6 @@ msgstr "Performance mode"
 msgctxt "#30223"
 msgid "Background sync interval (hours)"
 msgstr "Background sync interval (hours)"
-
-msgctxt "#30224"
-msgid "Refresh library now"
-msgstr "Refresh library now"
-
-msgctxt "#30225"
-msgid "View library status"
-msgstr "View library status"
-
-msgctxt "#30226"
-msgid "Clear library"
-msgstr "Clear library"
-
-# ── Community bilingual settings (v3.9.81) ───────────────────────
-
-msgctxt "#30227"
-msgid "Lightweight / community mode"
-msgstr "Lightweight / community mode"
 
 msgctxt "#30228"
 msgid "Enable lightweight mode (hide aggregated home folders, disable index sync, speed up startup)"
@@ -511,18 +218,6 @@ msgstr "Disable the pre-playback loading window to reduce crashes"
 msgctxt "#30230"
 msgid "Source playback routing"
 msgstr "Source playback routing"
-
-msgctxt "#30231"
-msgid "Source priority order (optional text override)"
-msgstr "Source priority order (optional text override)"
-
-msgctxt "#30232"
-msgid "Trakt Client ID (bundled)"
-msgstr "Trakt Client ID (bundled)"
-
-msgctxt "#30233"
-msgid "Trakt Client Secret (bundled)"
-msgstr "Trakt Client Secret (bundled)"
 
 msgctxt "#30234"
 msgid "Fetch all sources in parallel before showing results"
@@ -631,3 +326,1184 @@ msgstr "Hybrid (recommended)"
 msgctxt "#30274"
 msgid "Fast Index"
 msgstr "Fast Index"
+
+# v3.9.88 — settings reorganization (new string IDs)
+
+msgctxt "#30280"
+msgid "Clean catalog view (hide inline + Add; use long-press)"
+msgstr ""
+
+msgctxt "#30281"
+msgid "Hide pagination \"More\" entries"
+msgstr ""
+
+msgctxt "#30322"
+msgid "Profile"
+msgstr ""
+
+msgctxt "#30323"
+msgid "Balanced (recommended)"
+msgstr ""
+
+msgctxt "#30324"
+msgid "Best"
+msgstr ""
+
+msgctxt "#30325"
+msgid "Data saver"
+msgstr ""
+
+msgctxt "#30326"
+msgid "Custom"
+msgstr ""
+
+msgctxt "#30327"
+msgid "Like Nuvio (add-on order)"
+msgstr ""
+
+msgctxt "#30328"
+msgid "Verbose logging (show silent errors in kodi.log)"
+msgstr ""
+
+msgctxt "#30425"
+msgid "Show all sources (bypass every filter)"
+msgstr "Show all sources (bypass every filter)"
+
+msgctxt "#30426"
+msgid "Pre-cache next episode sources (instant binge)"
+msgstr "Pre-cache next episode sources (instant binge)"
+
+msgctxt "#30427"
+msgid "DexWorld server URL"
+msgstr "DexWorld server URL"
+
+msgctxt "#30431"
+msgid "Elite badges JSON URL"
+msgstr "Elite badges JSON URL"
+
+msgctxt "#30432"
+msgid "Show source picker for TMDb Helper playback"
+msgstr "Show source picker for TMDb Helper playback"
+
+msgctxt "#30439"
+msgid "Show Plex copies in source results"
+msgstr "Show Plex copies in source results"
+
+msgctxt "#30440"
+msgid "Show Emby copies in source results"
+msgstr "Show Emby copies in source results"
+
+msgctxt "#30443"
+msgid "Kodi 22: minimal playback item (crash guard)"
+msgstr "Kodi 22: minimal playback item (crash guard)"
+
+msgctxt "#30444"
+msgid "Search: max seconds to wait for sources"
+msgstr "Search: max seconds to wait for sources"
+
+msgctxt "#30446"
+msgid "Remove duplicate sources"
+msgstr "Remove duplicate sources"
+
+msgctxt "#30447"
+msgid "Single best copy"
+msgstr "Single best copy"
+
+msgctxt "#30448"
+msgid "One per addon"
+msgstr "One per addon"
+
+msgctxt "#30449"
+msgid "Off"
+msgstr "Off"
+
+msgctxt "#30450"
+msgid "Anime: map IDs so anime addons answer (Kitsu/MAL/AniList)"
+msgstr "Anime: map IDs so anime addons answer (Kitsu/MAL/AniList)"
+
+msgctxt "#30451"
+msgid "Plex/Emby: max seconds per server lookup"
+msgstr "Plex/Emby: max seconds per server lookup"
+
+msgctxt "#30452"
+msgid "Plex/Emby: use TMDb posters (lighter, shares TMDb Helper cache)"
+msgstr "Plex/Emby: use TMDb posters (lighter, shares TMDb Helper cache)"
+
+
+
+
+
+msgctxt "#30760"
+msgid "Hide AV1 sources (device cannot decode AV1)"
+msgstr "Hide AV1 sources (device cannot decode AV1)"
+
+msgctxt "#30761"
+msgid "Hide Dolby Vision sources (device cannot decode DV)"
+msgstr "Hide Dolby Vision sources (device cannot decode DV)"
+
+msgctxt "#30762"
+msgid "Hide HEVC/H.265 sources (device cannot decode HEVC)"
+msgstr "Hide HEVC/H.265 sources (device cannot decode HEVC)"
+
+msgctxt "#30802"
+msgid "Enable Nuvio account sync"
+msgstr "Enable Nuvio account sync"
+
+msgctxt "#30803"
+msgid "Enable Stremio account sync"
+msgstr "Enable Stremio account sync"
+
+msgctxt "#30804"
+msgid "Sync direction (this service)"
+msgstr "Sync direction (this service)"
+
+msgctxt "#30805"
+msgid "Global sync direction"
+msgstr "Global sync direction"
+
+msgctxt "#30810"
+msgid "Follow global"
+msgstr "Follow global"
+
+msgctxt "#30811"
+msgid "Two-way"
+msgstr "Two-way"
+
+msgctxt "#30812"
+msgid "Upload only"
+msgstr "Upload only"
+
+msgctxt "#30813"
+msgid "Download only"
+msgstr "Download only"
+
+msgctxt "#30816"
+msgid "Email"
+msgstr "Email"
+
+msgctxt "#30817"
+msgid "Password"
+msgstr "Password"
+
+msgctxt "#30820"
+msgid "Stremio sources"
+msgstr "Stremio sources"
+
+msgctxt "#30821"
+msgid "Delay before showing first results"
+msgstr "Delay before showing first results"
+
+msgctxt "#30822"
+msgid "Poster mode"
+msgstr "Poster mode"
+
+msgctxt "#30825"
+msgid "Never auto-download or enable AI subtitles"
+msgstr "Never auto-download or enable AI subtitles"
+
+msgctxt "#30828"
+msgid "Unified"
+msgstr "Unified"
+
+msgctxt "#30829"
+msgid "Custom"
+msgstr "Custom"
+
+# ── v4.1.0: Simkl + MDBList account sync ─────────────────────────────
+msgctxt "#30841"
+msgid "Enable Simkl"
+msgstr "Enable Simkl"
+
+msgctxt "#30845"
+msgid "Mark watched on Simkl at playback end"
+msgstr "Mark watched on Simkl at playback end"
+
+msgctxt "#30846"
+msgid "Watched threshold (%)"
+msgstr "Watched threshold (%)"
+
+msgctxt "#30849"
+msgid "Sync Simkl automatically in the background"
+msgstr "Sync Simkl automatically in the background"
+
+msgctxt "#30850"
+msgid "Merge Simkl plan-to-watch into the watchlist"
+msgstr "Merge Simkl plan-to-watch into the watchlist"
+
+msgctxt "#30851"
+msgid "Merge the MDBList watchlist into the watchlist"
+msgstr "Merge the MDBList watchlist into the watchlist"
+
+msgctxt "#30853"
+msgid "Continue Watching artwork style"
+msgstr "Continue Watching artwork style"
+
+msgctxt "#30854"
+msgid "Poster"
+msgstr "Poster"
+
+msgctxt "#30855"
+msgid "Banner (landscape)"
+msgstr "Banner (landscape)"
+
+
+# ── v4.4.0: theme presets + fanart look + XML home ──────────────────
+msgctxt "#30856"
+msgid "Theme"
+msgstr "Theme"
+
+msgctxt "#30857"
+msgid "Auto (follow skin)"
+msgstr "Auto (follow skin)"
+
+msgctxt "#30858"
+msgid "Dex Crimson"
+msgstr "Dex Crimson"
+
+msgctxt "#30859"
+msgid "Midnight Ocean"
+msgstr "Midnight Ocean"
+
+msgctxt "#30860"
+msgid "Royal Violet"
+msgstr "Royal Violet"
+
+msgctxt "#30861"
+msgid "Emerald Noir"
+msgstr "Emerald Noir"
+
+msgctxt "#30862"
+msgid "Amber Cinema"
+msgstr "Amber Cinema"
+
+msgctxt "#30863"
+msgid "Slate Mono"
+msgstr "Slate Mono"
+
+msgctxt "#30870"
+msgid "Open results after"
+msgstr "Open results after"
+
+msgctxt "#30871"
+msgid "10 unique results"
+msgstr "10 unique results"
+
+msgctxt "#30872"
+msgid "20 unique results"
+msgstr "20 unique results"
+
+msgctxt "#30873"
+msgid "40 unique results"
+msgstr "40 unique results"
+
+msgctxt "#30874"
+msgid "Wait for every source"
+msgstr "Wait for every source"
+
+msgctxt "#30875"
+msgid "Maximum wait before showing partial results"
+msgstr "Maximum wait before showing partial results"
+
+msgctxt "#30876"
+msgid "Search results style"
+msgstr "Search results style"
+
+msgctxt "#30877"
+msgid "DexHub cinematic"
+msgstr "DexHub cinematic"
+
+msgctxt "#30878"
+msgid "Classic directory"
+msgstr "Classic directory"
+
+msgctxt "#30882"
+msgid "Sync saved library (favourites) with Nuvio"
+msgstr "Sync saved library (favourites) with Nuvio"
+
+msgctxt "#30883"
+msgid "Continuous sync (keep Nuvio in sync all the time)"
+msgstr "Continuous sync (keep Nuvio in sync all the time)"
+
+msgctxt "#30901"
+msgid "Sync collections (folder layout) with Nuvio"
+msgstr "Sync collections (folder layout) with Nuvio"
+
+
+msgctxt "#30902"
+msgid "Sync installed add-ons with Nuvio"
+msgstr "Sync installed add-ons with Nuvio"
+
+
+msgctxt "#30903"
+msgid "Sync watch progress with Nuvio"
+msgstr "Sync watch progress with Nuvio"
+
+
+msgctxt "#30905"
+msgid "Sync watch progress and library with Stremio"
+msgstr "Sync watch progress and library with Stremio"
+
+
+msgctxt "#30908"
+msgid "How often DexHub pulls from the cloud. Continuous also pushes your changes within seconds."
+msgstr "How often DexHub pulls from the cloud. Continuous also pushes your changes within seconds."
+
+msgctxt "#30930"
+msgid "Appearance & Theme"
+msgstr "Appearance & Theme"
+
+msgctxt "#30931"
+msgid "Player & Playback"
+msgstr "Player & Playback"
+
+msgctxt "#30933"
+msgid "Accounts & Sources"
+msgstr "Accounts & Sources"
+
+msgctxt "#30934"
+msgid "Metadata & Artwork"
+msgstr "Metadata & Artwork"
+
+msgctxt "#30935"
+msgid "Subtitles"
+msgstr "Subtitles"
+
+msgctxt "#30936"
+msgid "Performance & Maintenance"
+msgstr "Performance & Maintenance"
+
+msgctxt "#30937"
+msgid "Advanced Settings"
+msgstr "Advanced Settings"
+
+msgctxt "#30944"
+msgid "Quick lightweight setup"
+msgstr "Quick lightweight setup"
+
+msgctxt "#30945"
+msgid "Quality & filters"
+msgstr "Quality & filters"
+
+msgctxt "#30947"
+msgid "Next episode from the same source"
+msgstr "Next episode from the same source"
+
+msgctxt "#30948"
+msgid "TIDB manual skip buttons"
+msgstr "TIDB manual skip buttons"
+
+msgctxt "#30949"
+msgid "Connect & sync Nuvio"
+msgstr "Connect & sync Nuvio"
+
+msgctxt "#30950"
+msgid "Other accounts"
+msgstr "Other accounts"
+
+msgctxt "#30951"
+msgid "Plex / Emby / Jellyfin libraries"
+msgstr "Plex / Emby / Jellyfin libraries"
+
+msgctxt "#30952"
+msgid "Nuvio Home & Collections"
+msgstr "Nuvio Home & Collections"
+
+msgctxt "#30953"
+msgid "BetterPosters settings"
+msgstr "BetterPosters settings"
+
+msgctxt "#30954"
+msgid "Diagnostics"
+msgstr "Diagnostics"
+
+msgctxt "#30955"
+msgid "Backup & restore"
+msgstr "Backup & restore"
+
+msgctxt "#30956"
+msgid "Source switch shortcut"
+msgstr "Source switch shortcut"
+
+msgctxt "#30957"
+msgid "Continue Watching & Next Up"
+msgstr "Continue Watching & Next Up"
+
+msgctxt "#30958"
+msgid "Install / refresh TMDb Helper player"
+msgstr "Install / refresh TMDb Helper player"
+
+msgctxt "#30959"
+msgid "Library export folder"
+msgstr "Library export folder"
+
+msgctxt "#30961"
+msgid "Sources & playback behavior"
+msgstr "Sources & playback behavior"
+
+msgctxt "#30962"
+msgid "Episode & skip controls"
+msgstr "Episode & skip controls"
+
+msgctxt "#30963"
+msgid "Subtitle preferences"
+msgstr "Subtitle preferences"
+
+msgctxt "#30964"
+msgid "Fanart.tv & ClearLogo"
+msgstr "Fanart.tv & ClearLogo"
+
+msgctxt "#30965"
+msgid "Self-Hosted fallback"
+msgstr "Self-Hosted fallback"
+
+msgctxt "#30966"
+msgid "Trakt account & sync"
+msgstr "Trakt account & sync"
+
+msgctxt "#30967"
+msgid "Use Up Next (service.upnext) for TV shows"
+msgstr "Use Up Next (service.upnext) for TV shows"
+
+msgctxt "#30968"
+msgid "Open Up Next add-on settings"
+msgstr "Open Up Next add-on settings"
+
+msgctxt "#30969"
+msgid "Up Next data encoding"
+msgstr "Up Next data encoding"
+
+msgctxt "#30970"
+msgid "Install Up Next add-on (service.upnext)"
+msgstr "Install Up Next add-on (service.upnext)"
+
+msgctxt "#30971"
+msgid "Dex Infinity"
+msgstr "Dex Infinity"
+
+msgctxt "#31081"
+msgid "OLED Black"
+msgstr "OLED Black"
+
+msgctxt "#31082"
+msgid "Graphite"
+msgstr "Graphite"
+
+msgctxt "#31083"
+msgid "Deep Teal"
+msgstr "Deep Teal"
+
+msgctxt "#31084"
+msgid "Rose Noir"
+msgstr "Rose Noir"
+
+msgctxt "#31085"
+msgid "Nordic Night"
+msgstr "Nordic Night"
+
+msgctxt "#31086"
+msgid "Nuvio Black"
+msgstr "Nuvio Black"
+
+msgctxt "#31087"
+msgid "Pure Black"
+msgstr "Pure Black"
+
+msgctxt "#31088"
+msgid "Black Gold"
+msgstr "Black Gold"
+
+msgctxt "#31089"
+msgid "Black Aqua"
+msgstr "Black Aqua"
+
+msgctxt "#30972"
+msgid "Metadata & artwork source for everything (one choice)"
+msgstr "Metadata & artwork source for everything (one choice)"
+
+msgctxt "#30973"
+msgid "Apply to all (ignore section overrides)"
+msgstr "Apply to all (ignore section overrides)"
+
+msgctxt "#30974"
+msgid "Poster source for all"
+msgstr "Poster source for all"
+
+
+msgctxt "#30976"
+msgid "Keep the selected source's metadata for (days)"
+msgstr "Keep the selected source's metadata for (days)"
+
+msgctxt "#30977"
+msgid "Preload a page's metadata from the selected source"
+msgstr "Preload a page's metadata from the selected source"
+
+msgctxt "#30978"
+msgid "Clear metadata cache and reload"
+msgstr "Clear metadata cache and reload"
+
+msgctxt "#30979"
+msgid "Speed profile (search and playback), one tap"
+msgstr "Speed profile (search and playback), one tap"
+
+msgctxt "#30980"
+msgid "Quick play from the item's source (including Continue Watching)"
+msgstr "Quick play from the item's source (including Continue Watching)"
+
+msgctxt "#30981"
+msgid "Library playback"
+msgstr "Library playback"
+
+msgctxt "#30982"
+msgid "Direct from library source"
+msgstr "Direct from library source"
+
+msgctxt "#30983"
+msgid "Search sources through Dex Hub"
+msgstr "Search sources through Dex Hub"
+
+msgctxt "#30984"
+msgid "Search"
+msgstr "Search"
+
+msgctxt "#30985"
+msgid "Continue Watching: play known sources directly"
+msgstr "Continue Watching: play known sources directly"
+
+msgctxt "#30986"
+msgid "Dex Hub: Search sources"
+msgstr "Dex Hub: Search sources"
+
+msgctxt "#30987"
+msgid "Dex Hub: Play directly"
+msgstr "Dex Hub: Play directly"
+
+# ── Dex Hub Home (5.10.96) ──
+
+msgctxt "#31000"
+msgid "Home & Widgets"
+msgstr "Home & Widgets"
+
+msgctxt "#31001"
+msgid "Open Dex Hub Home when the add-on starts"
+msgstr "Open Dex Hub Home when the add-on starts"
+
+msgctxt "#31002"
+msgid "Background trailers"
+msgstr "Background trailers"
+
+msgctxt "#31003"
+msgid "Seconds before a trailer starts (0 starts it at once)"
+msgstr "Seconds before a trailer starts (0 starts it at once)"
+
+msgctxt "#31004"
+msgid "Play trailer sound"
+msgstr "Play trailer sound"
+
+msgctxt "#31005"
+msgid "Trailer quality"
+msgstr "Trailer quality"
+
+msgctxt "#31006"
+msgid "Hide rows while a trailer plays"
+msgstr "Hide rows while a trailer plays"
+
+msgctxt "#31007"
+msgid "Animated backdrop"
+msgstr "Animated backdrop"
+
+msgctxt "#31008"
+msgid "Featured banner"
+msgstr "Featured banner"
+
+msgctxt "#31009"
+msgid "Seconds per banner item"
+msgstr "Seconds per banner item"
+
+msgctxt "#31010"
+msgid "Animated collection art"
+msgstr "Animated collection art"
+
+msgctxt "#31011"
+msgid "Continue Watching row"
+msgstr "Continue Watching row"
+
+msgctxt "#31012"
+msgid "Next Up row"
+msgstr "Next Up row"
+
+msgctxt "#31013"
+msgid "Open Dex Hub Home"
+msgstr "Open Dex Hub Home"
+
+msgctxt "#31040"
+msgid "Nothing to show yet"
+msgstr "Nothing to show yet"
+
+msgctxt "#31041"
+msgid "Connect Nuvio or add a Stremio source from the menu."
+msgstr "Connect Nuvio or add a Stremio source from the menu."
+
+msgctxt "#31042"
+msgid "Muted"
+msgstr "Muted"
+
+msgctxt "#31043"
+msgid "Nothing here"
+msgstr "Nothing here"
+
+msgctxt "#31014"
+msgid "Dex Hub Home: detailed log"
+msgstr "Dex Hub Home: detailed log"
+
+msgctxt "#31044"
+msgid "Back: player  •  Hold Back: leave"
+msgstr "Back: player  •  Hold Back: leave"
+
+msgctxt "#31045"
+msgid "Background play"
+msgstr "Background play"
+
+msgctxt "#31046"
+msgid "Paused"
+msgstr "Paused"
+
+msgctxt "#31047"
+msgid "Ask before leaving Dex Hub"
+msgstr "Ask before leaving Dex Hub"
+
+msgctxt "#31015"
+msgid "Open Dex Hub Home when Kodi starts"
+msgstr "Open Dex Hub Home when Kodi starts"
+
+msgctxt "#31016"
+msgid "Arrange Home rows"
+msgstr "Arrange Home rows"
+
+msgctxt "#31017"
+msgid "Accounts & Sources"
+msgstr "Accounts & Sources"
+
+msgctxt "#31018"
+msgid "Open movies and shows in"
+msgstr "Open movies and shows in"
+
+msgctxt "#31019"
+msgid "Dex Hub page"
+msgstr "Dex Hub page"
+
+msgctxt "#31020"
+msgid "TMDb Helper"
+msgstr "TMDb Helper"
+
+msgctxt "#31021"
+msgid "Classic listing"
+msgstr "Classic listing"
+
+msgctxt "#31022"
+msgid "Live TV: play the channel in the background"
+msgstr "Live TV: play the channel in the background"
+
+msgctxt "#31023"
+msgid "Dex Hub screensaver"
+msgstr "Dex Hub screensaver"
+
+msgctxt "#31048"
+msgid "Interface size"
+msgstr "Interface size"
+
+msgctxt "#31049"
+msgid "Normal"
+msgstr "Normal"
+
+msgctxt "#31050"
+msgid "Large"
+msgstr "Large"
+
+msgctxt "#31051"
+msgid "Extra large"
+msgstr "Extra large"
+
+msgctxt "#31052"
+msgid "Dex Hub in Arctic Fuse 3: install or update (the skin is backed up first)"
+msgstr "Dex Hub in Arctic Fuse 3: install or update (the skin is backed up first)"
+
+msgctxt "#31053"
+msgid "Dex Hub in Arctic Fuse 3: remove and restore the skin as it was"
+msgstr "Dex Hub in Arctic Fuse 3: remove and restore the skin as it was"
+
+msgctxt "#31054"
+msgid "Dex Hub skin: use it (installed from the repository when missing)"
+msgstr "Dex Hub skin: use it (installed from the repository when missing)"
+
+msgctxt "#31055"
+msgid "Dex Hub skin: back to the skin used before it"
+msgstr "Dex Hub skin: back to the skin used before it"
+
+msgctxt "#31060"
+msgid "IPTV, VOD & Servers"
+msgstr "IPTV, VOD & Servers"
+
+msgctxt "#31061"
+msgid "Sources and add-ons (accounts, add-ons, servers)"
+msgstr ""
+
+msgctxt "#31062"
+msgid "Add a source (a Stremio or Nuvio add-on link)"
+msgstr ""
+
+msgctxt "#31064"
+msgid "Plex, Emby, Jellyfin and Silo servers"
+msgstr ""
+
+msgctxt "#31065"
+msgid "Live TV (IPTV)"
+msgstr ""
+
+msgctxt "#31066"
+msgid "Metadata and posters source"
+msgstr ""
+
+msgctxt "#31068"
+msgid "Catalogs without posters"
+msgstr ""
+
+msgctxt "#31069"
+msgid "Tell me when a catalog comes without posters"
+msgstr ""
+
+msgctxt "#31070"
+msgid "AutoSync: fit subtitles to the timing of the subtitle the video carries"
+msgstr ""
+
+msgctxt "#31071"
+msgid "AutoSync any external subtitle (any add-on, or a file next to the video)"
+msgstr ""
+
+msgctxt "#31072"
+msgid "Lowest match to apply a sync (%)"
+msgstr ""
+
+msgctxt "#31073"
+msgid "Say when a subtitle was synced"
+msgstr ""
+
+msgctxt "#31074"
+msgid "Say why when a sync could not apply"
+msgstr ""
+
+msgctxt "#31075"
+msgid "Sync AI subtitles too"
+msgstr ""
+
+msgctxt "#31076"
+msgid "Change skin (Kodi takes it at once)"
+msgstr ""
+
+msgctxt "#31077"
+msgid "Light performance mode (load covers on focus)"
+msgstr "Light performance mode (load covers on focus)"
+
+msgctxt "#31078"
+msgid "Metadata language"
+msgstr "Metadata language"
+
+msgctxt "#31079"
+msgid "Scroll long plots automatically"
+msgstr "Scroll long plots automatically"
+
+msgctxt "#31080"
+msgid "Follow profile / interface"
+msgstr "Follow profile / interface"
+
+msgctxt "#31100"
+msgid "Automatically rebuild AF3 layout"
+msgstr "Automatically rebuild AF3 layout"
+
+msgctxt "#31090"
+msgid "Nuvio White"
+msgstr "Nuvio White"
+
+msgctxt "#31091"
+msgid "Nuvio Crimson"
+msgstr "Nuvio Crimson"
+
+msgctxt "#31092"
+msgid "Nuvio Ocean"
+msgstr "Nuvio Ocean"
+
+msgctxt "#31093"
+msgid "Nuvio Violet"
+msgstr "Nuvio Violet"
+
+msgctxt "#31094"
+msgid "Nuvio Emerald"
+msgstr "Nuvio Emerald"
+
+msgctxt "#31095"
+msgid "Nuvio Amber"
+msgstr "Nuvio Amber"
+
+msgctxt "#31096"
+msgid "Nuvio Rose"
+msgstr "Nuvio Rose"
+
+msgctxt "#31097"
+msgid "Nuvio Gold"
+msgstr "Nuvio Gold"
+
+msgctxt "#31098"
+msgid "Nuvio Jade"
+msgstr "Nuvio Jade"
+
+msgctxt "#31099"
+msgid "Nuvio Rose Gold"
+msgstr "Nuvio Rose Gold"
+
+msgctxt "#31101"
+msgid "Nuvio Arctic Blue"
+msgstr "Nuvio Arctic Blue"
+
+msgctxt "#31102"
+msgid "Nuvio Graphite"
+msgstr "Nuvio Graphite"
+
+msgctxt "#31111"
+msgid "Organized settings"
+msgstr ""
+
+msgctxt "#31112"
+msgid "Player badges / Badger pack"
+msgstr ""
+
+msgctxt "#31113"
+msgid "Home, widgets & trailers"
+msgstr ""
+
+msgctxt "#31114"
+msgid "Favorites & Lists"
+msgstr ""
+
+msgctxt "#31115"
+msgid "Favorites layout"
+msgstr ""
+
+msgctxt "#31116"
+msgid "Lists by source"
+msgstr ""
+
+msgctxt "#31117"
+msgid "Merged"
+msgstr ""
+
+msgctxt "#31118"
+msgid "Player appearance"
+msgstr ""
+
+msgctxt "#31120"
+msgid "Work logo in player"
+msgstr ""
+
+msgctxt "#31121"
+msgid "Work logo position"
+msgstr ""
+
+msgctxt "#31122"
+msgid "Plot in player"
+msgstr ""
+
+msgctxt "#31123"
+msgid "Metadata in player"
+msgstr ""
+
+msgctxt "#31124"
+msgid "Ratings in player"
+msgstr ""
+
+msgctxt "#31125"
+msgid "Network logo in player"
+msgstr ""
+
+msgctxt "#31126"
+msgid "Supplement ratings & network logo"
+msgstr ""
+
+msgctxt "#31127"
+msgid "Above work details"
+msgstr ""
+
+msgctxt "#31128"
+msgid "Top left"
+msgstr ""
+
+msgctxt "#31129"
+msgid "Top right"
+msgstr ""
+
+msgctxt "#31130"
+msgid "Sections & guide"
+msgstr ""
+
+msgctxt "#31131"
+msgid "Programme guide EPG"
+msgstr ""
+
+msgctxt "#31132"
+msgid "IPTV channels section"
+msgstr ""
+
+msgctxt "#31133"
+msgid "VOD section"
+msgstr ""
+
+msgctxt "#31134"
+msgid "VOD movies"
+msgstr ""
+
+msgctxt "#31135"
+msgid "VOD series"
+msgstr ""
+
+msgctxt "#31136"
+msgid "Dim unfocused rows"
+msgstr ""
+
+msgctxt "#31137"
+msgid "Light"
+msgstr ""
+
+msgctxt "#31138"
+msgid "Off"
+msgstr ""
+
+msgctxt "#31139"
+msgid "Strong"
+msgstr ""
+
+msgctxt "#31140"
+msgid "Quality Badges"
+msgstr "Quality Badges"
+
+msgctxt "#31141"
+msgid "In the player"
+msgstr ""
+
+msgctxt "#31142"
+msgid "Badge style: framed, packs, your folder or words"
+msgstr ""
+
+msgctxt "#31143"
+msgid "Packs from the repository (Kometa, jmxd and more)"
+msgstr ""
+
+msgctxt "#31144"
+msgid "Servers page"
+msgstr ""
+
+msgctxt "#31145"
+msgid "Badges instead of the file line"
+msgstr ""
+
+msgctxt "#31146"
+msgid "Badges on each link"
+msgstr ""
+
+msgctxt "#31147"
+msgid "Use the player's pack"
+msgstr ""
+
+msgctxt "#31148"
+msgid "Badges from a JSON link"
+msgstr ""
+
+msgctxt "#31149"
+msgid "Open the Badges section (every change applies at once)"
+msgstr ""
+
+msgctxt "#31150"
+msgid "Sources page"
+msgstr ""
+
+msgctxt "#31151"
+msgid "Badges on every link, not only the selected one"
+msgstr ""
+
+
+msgctxt "#32910"
+msgid "Library & Lists"
+msgstr "Library & Lists"
+
+
+msgctxt "#32912"
+msgid "Servers section"
+msgstr "Servers section"
+
+
+msgctxt "#32913"
+msgid "Playback method"
+msgstr "Playback method"
+
+
+msgctxt "#32914"
+msgid "Format source labels"
+msgstr "Format source labels"
+
+
+msgctxt "#32915"
+msgid "Follow the AIOStreams formatter"
+msgstr "Follow the AIOStreams formatter"
+
+
+msgctxt "#32916"
+msgid "Fallback Dex Hub formatter template"
+msgstr "Fallback Dex Hub formatter template"
+
+msgctxt "#31152"
+msgid "Card titles"
+msgstr "Card titles"
+
+msgctxt "#31153"
+msgid "On the picture"
+msgstr "On the picture"
+
+msgctxt "#31154"
+msgid "Under the picture"
+msgstr "Under the picture"
+
+msgctxt "#31155"
+msgid "No titles (the hero shows the logo)"
+msgstr "No titles (the hero shows the logo)"
+
+msgctxt "#31156"
+msgid "Hide the plot on the Home"
+msgstr "Hide the plot on the Home"
+
+
+msgctxt "#31157"
+msgid "Focus motion"
+msgstr "Focus motion"
+
+msgctxt "#31158"
+msgid "Soft zoom"
+msgstr "Soft zoom"
+
+msgctxt "#31159"
+msgid "Lift"
+msgstr "Lift"
+
+msgctxt "#31160"
+msgid "Pop"
+msgstr "Pop"
+
+msgctxt "#31161"
+msgid "Glow only"
+msgstr "Glow only"
+
+msgctxt "#31165"
+msgid "Tab names in the top bar"
+msgstr "Tab names in the top bar"
+
+msgctxt "#31170"
+msgid "Dex Community (ready catalogs)"
+msgstr ""
+
+msgctxt "#31171"
+msgid "Servers' metadata (Plex, Emby, Jellyfin, Silo)"
+msgstr ""
+
+msgctxt "#31172"
+msgid "From the server first, gaps from the chosen source"
+msgstr ""
+
+msgctxt "#31173"
+msgid "From the chosen source, like the catalogs"
+msgstr ""
+
+msgctxt "#31174"
+msgid "Add-ons searched for sources"
+msgstr ""
+
+msgctxt "#32917"
+msgid "Set up from your phone (QR code)"
+msgstr ""
+
+msgctxt "#32918"
+msgid "IPTV films and series in Continue Watching"
+msgstr ""
+
+
+msgctxt "#32919"
+msgid "Back in the player keeps the video playing behind"
+msgstr ""
+
+msgctxt "#32920"
+msgid "Attach subtitles before playing"
+msgstr ""
+
+msgctxt "#31200"
+msgid "Trailer volume (0–100)"
+msgstr "Trailer volume (0–100)"
+
+msgctxt "#31201"
+msgid "Trailer presentation"
+msgstr "Trailer presentation"
+
+msgctxt "#31202"
+msgid "Background"
+msgstr "Background"
+
+msgctxt "#31203"
+msgid "Inside a wide banner"
+msgstr "Inside a wide banner"
+
+msgctxt "#31204"
+msgid "Home layout"
+msgstr "Home layout"
+
+msgctxt "#31205"
+msgid "Wide row with Spotlight"
+msgstr "Hero and rows"
+
+msgctxt "#31206"
+msgid "Two rows"
+msgstr "Compact hero and two rows"
+
+msgctxt "#31207"
+msgid "Spotlight and posters"
+msgstr "Spotlight and posters"
+
+msgctxt "#31208"
+msgid "Sections position"
+msgstr "Section tabs position"
+
+msgctxt "#31209"
+msgid "Top"
+msgstr "Top"
+
+msgctxt "#31210"
+msgid "Side"
+msgstr "Side"
+
+msgctxt "#31300"
+msgid "Interface customization · AF3"
+msgstr "Interface customization · AF3"
+
+msgctxt "#31301"
+msgid "Poster size · Custom percentage"
+msgstr "Poster size · Custom percentage"
+
+msgctxt "#31305"
+msgid "Notifications"
+msgstr "Notifications"
+
+# v5.10.286: the new Home layouts
+msgctxt "#32921"
+msgid "Cinematic full screen"
+msgstr "Cinematic full screen"
+
+msgctxt "#32923"
+msgid "Wide card shelf"
+msgstr ""
+
+msgctxt "#32922"
+msgid "Hero with one row"
+msgstr "Hero with one row"

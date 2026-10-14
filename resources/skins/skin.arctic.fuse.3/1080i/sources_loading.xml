@@ -1,0 +1,280 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Dex Hub 4.6.1 source-search — cinematic editorial dashboard.
+
+     Full-bleed item fanart stays visible (no boxed panel): a left reading
+     scrim plus a bottom shelf gradient carry the text, and the provider
+     cards float as translucent glass over the art. Each provider shows its
+     stable identity colour, live result count and waiting/done/no-results
+     state from the first paint.
+
+     Contract kept with sources_loading.py (do not rename):
+       controls  5101 fanart · 5102 poster(compat) · 5103 clearlogo
+                 9001 show-now · 9002 keep-searching · 9000 cancel
+       props     status, counter_number, results_line, current_provider,
+                 progress_pct, progress_label, completed_count,
+                 provider_count, providers_short_label, counter_label,
+                 enough_state, enough_label, hint_line, elapsed_label,
+                 has_results, sufficient_label, continue_label,
+                 cancel_label, eyebrow, title, subtitle,
+                 pv1..pv8 _name/_count/_state/_coloridx, pv_more,
+                 pv_state_wait_label / _done_label / _zero_label
+
+     Progress bar: righttexture paints the REMAINDER at full control width
+     in Kodi — it must stay transparent, texturebg is the rail. --><window>
+    <defaultcontrol always="true">9000</defaultcontrol>
+    <controls>
+        <control type="image">
+            <left>0</left><top>0</top><width>1920</width><height>1080</height>
+            <texture colordiffuse="FF04070D">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/black.png</texture>
+        </control>
+        <control type="image" id="5101">
+            <left>-36</left><top>-24</top><width>1992</width><height>1128</height>
+            <aspectratio>scale</aspectratio>
+            <texture background="true">$INFO[Window.Property(dexhub.loading.fanart)]</texture>
+            <animation effect="fade" start="0" end="100" time="420" tween="sine">WindowOpen</animation>
+        </control>
+        <!-- v4.6.2: reading scrims — ONE soft global veil plus the bottom
+             shelf gradient. The 4.6.1 left scrim block drew a hard vertical
+             seam across the art; text legibility now comes from the shelf,
+             per-card backgrounds and heavy label shadows instead. -->
+        <!-- v5.10.165: the veil (60000000) and the shelf scrim (top 330) in one layer:
+             veil_loading.png is the two blended (the same picture, one full screen pass less) -->
+        <control type="image">
+            <left>0</left><top>0</top><width>1920</width><height>1080</height>
+            <texture>$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/veil_loading.png</texture>
+        </control>
+
+        <!-- Header -->
+        <control type="label">
+            <left>62</left><top>36</top><width>300</width><height>42</height>
+            <font>font_midi</font><textcolor>FFFFFFFF</textcolor>
+            <label>[B]DEX[/B] [COLOR $INFO[Window(Home).Property(dexhub.tvos.theme.accent)]][B]HUB[/B][/COLOR]</label>
+        </control>
+        <control type="label">
+            <left>356</left><top>39</top><width>680</width><height>38</height>
+            <font>font_mini</font><textcolor>FFC5CCD8</textcolor>
+            <label>|   $INFO[Window.Property(eyebrow)]</label>
+        </control>
+        <control type="label">
+            <left>1600</left><top>38</top><width>250</width><height>38</height>
+            <font>font_main</font><align>right</align><textcolor>FFE9EDF4</textcolor>
+            <label>$INFO[System.Time]</label>
+        </control>
+
+        <!-- Item identity -->
+        <control type="image" id="5103">
+            <left>70</left><top>96</top><width>900</width><height>240</height>
+            <aspectratio align="left" aligny="center">keep</aspectratio>
+            <texture background="true">$INFO[Window.Property(dexhub.loading.clearlogo)]</texture>
+            <visible>!String.IsEmpty(Window.Property(dexhub.loading.clearlogo))</visible>
+        </control>
+        <control type="label">
+            <left>70</left><top>120</top><width>1200</width><height>190</height>
+            <font>font_huge_bold</font><textcolor>FFFFFFFF</textcolor><shadowcolor>FF000000</shadowcolor>
+            <wrapmultiline>true</wrapmultiline>
+            <label>$INFO[Window.Property(title)]</label>
+            <visible>String.IsEmpty(Window.Property(dexhub.loading.clearlogo))</visible>
+        </control>
+        <control type="label">
+            <left>72</left><top>344</top><width>1200</width><height>32</height>
+            <font>font_mini</font><textcolor>FFD3D9E3</textcolor><shadowcolor>FF000000</shadowcolor>
+            <label>$INFO[Window.Property(subtitle)]</label>
+        </control>
+
+        <!-- Status block -->
+        <control type="label">
+            <left>70</left><top>400</top><width>1080</width><height>52</height>
+            <font>font_head_bold</font><textcolor>FFFFFFFF</textcolor><shadowcolor>EE000000</shadowcolor>
+            <label>$INFO[Window.Property(status)]</label>
+        </control>
+        <control type="label">
+            <left>72</left><top>454</top><width>1080</width><height>36</height>
+            <font>font_mini</font><textcolor>FFD7DCE5</textcolor><shadowcolor>EE000000</shadowcolor>
+            <label>[COLOR $INFO[Window(Home).Property(dexhub.tvos.theme.accent)]][B]$INFO[Window.Property(counter_number)][/B][/COLOR]  $INFO[Window.Property(results_line)]</label>
+        </control>
+        <control type="label">
+            <left>72</left><top>494</top><width>1080</width><height>30</height>
+            <font>font_mini</font><textcolor>FF9FC4D4</textcolor><shadowcolor>EE000000</shadowcolor>
+            <label>$INFO[Window.Property(current_provider)]</label>
+        </control>
+
+        <!-- v4.6.2: hand-drawn bar. Kodi's <progress> caps render at the
+             raw texture size and ignore transparent diffuse (the white block
+             bug) — so the rail is a plain image and the fill (5110) gets its
+             width set from sources_loading.py on every update. -->
+        <control type="image">
+            <left>70</left><top>542</top><width>1000</width><height>8</height>
+            <texture border="4" colordiffuse="9A262D45">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture>
+        </control>
+        <control type="image" id="5110">
+            <left>70</left><top>542</top><width>10</width><height>8</height>
+            <!-- v5.10.28: identity gradient (blue → violet → pink) instead of a flat accent fill -->
+            <texture>$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/brand_bar.png</texture>
+        </control>
+        <control type="label">
+            <left>1090</left><top>528</top><width>760</width><height>34</height>
+            <font>font_mini</font><textcolor>FFE9EDF4</textcolor><shadowcolor>EE000000</shadowcolor>
+            <label>[B]$INFO[Window.Property(progress_label)][/B]   ·   $INFO[Window.Property(completed_count)] / $INFO[Window.Property(provider_count)] $INFO[Window.Property(providers_short_label)]   ·   $INFO[Window.Property(elapsed_label)]</label>
+        </control>
+
+        <!-- Provider dashboard cards (4 x 2), floating over the art -->
+        <control type="group">
+            <left>70</left><top>584</top>
+            <visible>!String.IsEmpty(Window.Property(pv1_name))</visible>
+            <control type="image"><left>0</left><top>0</top><width>416</width><height>132</height><texture border="18" colordiffuse="D8101724">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control>
+            <control type="image"><left>0</left><top>0</top><width>416</width><height>132</height><texture border="18" colordiffuse="26FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF22D3EE">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv1_coloridx),1)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFF59E0B">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv1_coloridx),2)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFA78BFA">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv1_coloridx),3)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF34D399">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv1_coloridx),4)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFF472B6">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv1_coloridx),5)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF60A5FA">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv1_coloridx),6)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFE879F9">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv1_coloridx),7)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF818CF8">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv1_coloridx),8)</visible></control>
+            <control type="label"><left>26</left><top>14</top><width>272</width><height>32</height><font>font_mini_bold</font><textcolor>FFF3F5F9</textcolor><shadowcolor>DD000000</shadowcolor><label>$INFO[Window.Property(pv1_name)]</label></control>
+            <control type="label"><left>286</left><top>10</top><width>112</width><height>46</height><font>font_head_bold</font><align>right</align><textcolor>FFFFFFFF</textcolor><shadowcolor>DD000000</shadowcolor><label>$INFO[Window.Property(pv1_count)]</label><visible>!String.IsEmpty(Window.Property(pv1_count))</visible></control>
+            <control type="group"><left>26</left><top>82</top><visible>String.IsEqual(Window.Property(pv1_state),wait)</visible><control type="image"><left>0</left><top>9</top><width>14</width><height>14</height><texture colordiffuse="FF6B7280">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control><control type="label"><left>24</left><top>0</top><width>250</width><height>32</height><font>font_tiny</font><textcolor>FF9AA3B2</textcolor><shadowcolor>CC000000</shadowcolor><label>$INFO[Window.Property(pv_state_wait_label)]</label></control></control>
+            <control type="group"><left>26</left><top>82</top><visible>String.IsEqual(Window.Property(pv1_state),done)</visible><control type="image"><left>0</left><top>9</top><width>14</width><height>14</height><texture colordiffuse="FF34D399">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control><control type="label"><left>24</left><top>0</top><width>250</width><height>32</height><font>font_tiny</font><textcolor>FF34D399</textcolor><shadowcolor>CC000000</shadowcolor><label>$INFO[Window.Property(pv_state_done_label)]</label></control></control>
+            <control type="group"><left>26</left><top>82</top><visible>String.IsEqual(Window.Property(pv1_state),zero)</visible><control type="image"><left>0</left><top>9</top><width>14</width><height>14</height><texture colordiffuse="FF7A5C5C">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control><control type="label"><left>24</left><top>0</top><width>250</width><height>32</height><font>font_tiny</font><textcolor>FFB08A8A</textcolor><shadowcolor>CC000000</shadowcolor><label>$INFO[Window.Property(pv_state_zero_label)]</label></control></control>
+        </control>
+        <control type="group">
+            <left>506</left><top>584</top>
+            <visible>!String.IsEmpty(Window.Property(pv2_name))</visible>
+            <control type="image"><left>0</left><top>0</top><width>416</width><height>132</height><texture border="18" colordiffuse="D8101724">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control>
+            <control type="image"><left>0</left><top>0</top><width>416</width><height>132</height><texture border="18" colordiffuse="26FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF22D3EE">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv2_coloridx),1)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFF59E0B">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv2_coloridx),2)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFA78BFA">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv2_coloridx),3)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF34D399">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv2_coloridx),4)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFF472B6">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv2_coloridx),5)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF60A5FA">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv2_coloridx),6)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFE879F9">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv2_coloridx),7)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF818CF8">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv2_coloridx),8)</visible></control>
+            <control type="label"><left>26</left><top>14</top><width>272</width><height>32</height><font>font_mini_bold</font><textcolor>FFF3F5F9</textcolor><shadowcolor>DD000000</shadowcolor><label>$INFO[Window.Property(pv2_name)]</label></control>
+            <control type="label"><left>286</left><top>10</top><width>112</width><height>46</height><font>font_head_bold</font><align>right</align><textcolor>FFFFFFFF</textcolor><shadowcolor>DD000000</shadowcolor><label>$INFO[Window.Property(pv2_count)]</label><visible>!String.IsEmpty(Window.Property(pv2_count))</visible></control>
+            <control type="group"><left>26</left><top>82</top><visible>String.IsEqual(Window.Property(pv2_state),wait)</visible><control type="image"><left>0</left><top>9</top><width>14</width><height>14</height><texture colordiffuse="FF6B7280">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control><control type="label"><left>24</left><top>0</top><width>250</width><height>32</height><font>font_tiny</font><textcolor>FF9AA3B2</textcolor><shadowcolor>CC000000</shadowcolor><label>$INFO[Window.Property(pv_state_wait_label)]</label></control></control>
+            <control type="group"><left>26</left><top>82</top><visible>String.IsEqual(Window.Property(pv2_state),done)</visible><control type="image"><left>0</left><top>9</top><width>14</width><height>14</height><texture colordiffuse="FF34D399">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control><control type="label"><left>24</left><top>0</top><width>250</width><height>32</height><font>font_tiny</font><textcolor>FF34D399</textcolor><shadowcolor>CC000000</shadowcolor><label>$INFO[Window.Property(pv_state_done_label)]</label></control></control>
+            <control type="group"><left>26</left><top>82</top><visible>String.IsEqual(Window.Property(pv2_state),zero)</visible><control type="image"><left>0</left><top>9</top><width>14</width><height>14</height><texture colordiffuse="FF7A5C5C">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control><control type="label"><left>24</left><top>0</top><width>250</width><height>32</height><font>font_tiny</font><textcolor>FFB08A8A</textcolor><shadowcolor>CC000000</shadowcolor><label>$INFO[Window.Property(pv_state_zero_label)]</label></control></control>
+        </control>
+        <control type="group">
+            <left>942</left><top>584</top>
+            <visible>!String.IsEmpty(Window.Property(pv3_name))</visible>
+            <control type="image"><left>0</left><top>0</top><width>416</width><height>132</height><texture border="18" colordiffuse="D8101724">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control>
+            <control type="image"><left>0</left><top>0</top><width>416</width><height>132</height><texture border="18" colordiffuse="26FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF22D3EE">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv3_coloridx),1)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFF59E0B">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv3_coloridx),2)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFA78BFA">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv3_coloridx),3)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF34D399">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv3_coloridx),4)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFF472B6">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv3_coloridx),5)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF60A5FA">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv3_coloridx),6)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFE879F9">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv3_coloridx),7)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF818CF8">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv3_coloridx),8)</visible></control>
+            <control type="label"><left>26</left><top>14</top><width>272</width><height>32</height><font>font_mini_bold</font><textcolor>FFF3F5F9</textcolor><shadowcolor>DD000000</shadowcolor><label>$INFO[Window.Property(pv3_name)]</label></control>
+            <control type="label"><left>286</left><top>10</top><width>112</width><height>46</height><font>font_head_bold</font><align>right</align><textcolor>FFFFFFFF</textcolor><shadowcolor>DD000000</shadowcolor><label>$INFO[Window.Property(pv3_count)]</label><visible>!String.IsEmpty(Window.Property(pv3_count))</visible></control>
+            <control type="group"><left>26</left><top>82</top><visible>String.IsEqual(Window.Property(pv3_state),wait)</visible><control type="image"><left>0</left><top>9</top><width>14</width><height>14</height><texture colordiffuse="FF6B7280">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control><control type="label"><left>24</left><top>0</top><width>250</width><height>32</height><font>font_tiny</font><textcolor>FF9AA3B2</textcolor><shadowcolor>CC000000</shadowcolor><label>$INFO[Window.Property(pv_state_wait_label)]</label></control></control>
+            <control type="group"><left>26</left><top>82</top><visible>String.IsEqual(Window.Property(pv3_state),done)</visible><control type="image"><left>0</left><top>9</top><width>14</width><height>14</height><texture colordiffuse="FF34D399">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control><control type="label"><left>24</left><top>0</top><width>250</width><height>32</height><font>font_tiny</font><textcolor>FF34D399</textcolor><shadowcolor>CC000000</shadowcolor><label>$INFO[Window.Property(pv_state_done_label)]</label></control></control>
+            <control type="group"><left>26</left><top>82</top><visible>String.IsEqual(Window.Property(pv3_state),zero)</visible><control type="image"><left>0</left><top>9</top><width>14</width><height>14</height><texture colordiffuse="FF7A5C5C">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control><control type="label"><left>24</left><top>0</top><width>250</width><height>32</height><font>font_tiny</font><textcolor>FFB08A8A</textcolor><shadowcolor>CC000000</shadowcolor><label>$INFO[Window.Property(pv_state_zero_label)]</label></control></control>
+        </control>
+        <control type="group">
+            <left>1378</left><top>584</top>
+            <visible>!String.IsEmpty(Window.Property(pv4_name))</visible>
+            <control type="image"><left>0</left><top>0</top><width>416</width><height>132</height><texture border="18" colordiffuse="D8101724">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control>
+            <control type="image"><left>0</left><top>0</top><width>416</width><height>132</height><texture border="18" colordiffuse="26FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF22D3EE">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv4_coloridx),1)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFF59E0B">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv4_coloridx),2)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFA78BFA">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv4_coloridx),3)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF34D399">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv4_coloridx),4)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFF472B6">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv4_coloridx),5)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF60A5FA">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv4_coloridx),6)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFE879F9">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv4_coloridx),7)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF818CF8">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv4_coloridx),8)</visible></control>
+            <control type="label"><left>26</left><top>14</top><width>272</width><height>32</height><font>font_mini_bold</font><textcolor>FFF3F5F9</textcolor><shadowcolor>DD000000</shadowcolor><label>$INFO[Window.Property(pv4_name)]</label></control>
+            <control type="label"><left>286</left><top>10</top><width>112</width><height>46</height><font>font_head_bold</font><align>right</align><textcolor>FFFFFFFF</textcolor><shadowcolor>DD000000</shadowcolor><label>$INFO[Window.Property(pv4_count)]</label><visible>!String.IsEmpty(Window.Property(pv4_count))</visible></control>
+            <control type="group"><left>26</left><top>82</top><visible>String.IsEqual(Window.Property(pv4_state),wait)</visible><control type="image"><left>0</left><top>9</top><width>14</width><height>14</height><texture colordiffuse="FF6B7280">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control><control type="label"><left>24</left><top>0</top><width>250</width><height>32</height><font>font_tiny</font><textcolor>FF9AA3B2</textcolor><shadowcolor>CC000000</shadowcolor><label>$INFO[Window.Property(pv_state_wait_label)]</label></control></control>
+            <control type="group"><left>26</left><top>82</top><visible>String.IsEqual(Window.Property(pv4_state),done)</visible><control type="image"><left>0</left><top>9</top><width>14</width><height>14</height><texture colordiffuse="FF34D399">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control><control type="label"><left>24</left><top>0</top><width>250</width><height>32</height><font>font_tiny</font><textcolor>FF34D399</textcolor><shadowcolor>CC000000</shadowcolor><label>$INFO[Window.Property(pv_state_done_label)]</label></control></control>
+            <control type="group"><left>26</left><top>82</top><visible>String.IsEqual(Window.Property(pv4_state),zero)</visible><control type="image"><left>0</left><top>9</top><width>14</width><height>14</height><texture colordiffuse="FF7A5C5C">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control><control type="label"><left>24</left><top>0</top><width>250</width><height>32</height><font>font_tiny</font><textcolor>FFB08A8A</textcolor><shadowcolor>CC000000</shadowcolor><label>$INFO[Window.Property(pv_state_zero_label)]</label></control></control>
+        </control>
+        <control type="group">
+            <left>70</left><top>732</top>
+            <visible>!String.IsEmpty(Window.Property(pv5_name))</visible>
+            <control type="image"><left>0</left><top>0</top><width>416</width><height>132</height><texture border="18" colordiffuse="D8101724">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control>
+            <control type="image"><left>0</left><top>0</top><width>416</width><height>132</height><texture border="18" colordiffuse="26FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF22D3EE">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv5_coloridx),1)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFF59E0B">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv5_coloridx),2)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFA78BFA">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv5_coloridx),3)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF34D399">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv5_coloridx),4)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFF472B6">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv5_coloridx),5)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF60A5FA">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv5_coloridx),6)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFE879F9">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv5_coloridx),7)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF818CF8">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv5_coloridx),8)</visible></control>
+            <control type="label"><left>26</left><top>14</top><width>272</width><height>32</height><font>font_mini_bold</font><textcolor>FFF3F5F9</textcolor><shadowcolor>DD000000</shadowcolor><label>$INFO[Window.Property(pv5_name)]</label></control>
+            <control type="label"><left>286</left><top>10</top><width>112</width><height>46</height><font>font_head_bold</font><align>right</align><textcolor>FFFFFFFF</textcolor><shadowcolor>DD000000</shadowcolor><label>$INFO[Window.Property(pv5_count)]</label><visible>!String.IsEmpty(Window.Property(pv5_count))</visible></control>
+            <control type="group"><left>26</left><top>82</top><visible>String.IsEqual(Window.Property(pv5_state),wait)</visible><control type="image"><left>0</left><top>9</top><width>14</width><height>14</height><texture colordiffuse="FF6B7280">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control><control type="label"><left>24</left><top>0</top><width>250</width><height>32</height><font>font_tiny</font><textcolor>FF9AA3B2</textcolor><shadowcolor>CC000000</shadowcolor><label>$INFO[Window.Property(pv_state_wait_label)]</label></control></control>
+            <control type="group"><left>26</left><top>82</top><visible>String.IsEqual(Window.Property(pv5_state),done)</visible><control type="image"><left>0</left><top>9</top><width>14</width><height>14</height><texture colordiffuse="FF34D399">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control><control type="label"><left>24</left><top>0</top><width>250</width><height>32</height><font>font_tiny</font><textcolor>FF34D399</textcolor><shadowcolor>CC000000</shadowcolor><label>$INFO[Window.Property(pv_state_done_label)]</label></control></control>
+            <control type="group"><left>26</left><top>82</top><visible>String.IsEqual(Window.Property(pv5_state),zero)</visible><control type="image"><left>0</left><top>9</top><width>14</width><height>14</height><texture colordiffuse="FF7A5C5C">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control><control type="label"><left>24</left><top>0</top><width>250</width><height>32</height><font>font_tiny</font><textcolor>FFB08A8A</textcolor><shadowcolor>CC000000</shadowcolor><label>$INFO[Window.Property(pv_state_zero_label)]</label></control></control>
+        </control>
+        <control type="group">
+            <left>506</left><top>732</top>
+            <visible>!String.IsEmpty(Window.Property(pv6_name))</visible>
+            <control type="image"><left>0</left><top>0</top><width>416</width><height>132</height><texture border="18" colordiffuse="D8101724">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control>
+            <control type="image"><left>0</left><top>0</top><width>416</width><height>132</height><texture border="18" colordiffuse="26FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF22D3EE">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv6_coloridx),1)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFF59E0B">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv6_coloridx),2)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFA78BFA">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv6_coloridx),3)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF34D399">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv6_coloridx),4)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFF472B6">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv6_coloridx),5)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF60A5FA">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv6_coloridx),6)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FFE879F9">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv6_coloridx),7)</visible></control>
+            <control type="image"><left>0</left><top>10</top><width>7</width><height>112</height><texture colordiffuse="FF818CF8">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture><visible>String.IsEqual(Window.Property(pv6_coloridx),8)</visible></control>
+            <control type="label"><left>26</left><top>14</top><width>272</width><height>32</height><font>font_mini_bold</font><textcolor>FFF3F5F9</textcolor><shadowcolor>DD000000</shadowcolor><label>$INFO[Window.Property(pv6_name)]</label></control>
+            <control type="label"><left>286</left><top>10</top><width>112</width><height>46</height><font>font_head_bold</font><align>right</align><textcolor>FFFFFFFF</textcolor><shadowcolor>DD000000</shadowcolor><label>$INFO[Window.Property(pv6_count)]</label><visible>!String.IsEmpty(Window.Property(pv6_count))</visible></control>
+            <control type="group"><left>26</left><top>82</top><visible>String.IsEqual(Window.Property(pv6_state),wait)</visible><control type="image"><left>0</left><top>9</top><width>14</width><height>14</height><texture colordiffuse="FF6B7280">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control><control type="label"><left>24</left><top>0</top><width>250</width><height>32</height><font>font_tiny</font><textcolor>FF9AA3B2</textcolor><shadowcolor>CC000000</shadowcolor><label>$INFO[Window.Property(pv_state_wait_label)]</label></control></control>
+            <control type="group"><left>26</left><top>82</top><visible>String.IsEqual(Window.Property(pv6_state),done)</visible><control type="image"><left>0</left><top>9</top><width>14</width><height>14</height><texture colordiffuse="FF34D399">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control><control type="label"><left>24</left><top>0</top><width>250</width><height>32</height><font>font_tiny</font><textcolor>FF34D399</textcolor><shadowcolor>CC000000</shadowcolor><label>$INFO[Window.Property(pv_state_done_label)]</label></control></control>
+            <control type="group"><left>26</left><top>82</top><visible>String.IsEqual(Window.Property(pv6_state),zero)</visible><control type="image"><left>0</left><top>9</top><width>14</width><height>14</height><texture colordiffuse="FF7A5C5C">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control><control type="label"><left>24</left><top>0</top><width>250</width><height>32</height><font>font_tiny</font><textcolor>FFB08A8A</textcolor><shadowcolor>CC000000</shadowcolor><label>$INFO[Window.Property(pv_state_zero_label)]</label></control></control>
+        </control>
+        <control type="label">
+            <left>1760</left><top>874</top><width>90</width><height>30</height>
+            <font>font_tiny</font><align>right</align><textcolor>FFB9C1CE</textcolor>
+            <label>$INFO[Window.Property(pv_more)]</label>
+            <visible>!String.IsEmpty(Window.Property(pv_more))</visible>
+        </control>
+
+        <!-- Actions -->
+        <control type="button" id="9001">
+            <left>70</left><top>884</top><width>420</width><height>72</height>
+            <font>font_main</font><align>center</align><aligny>center</aligny>
+            <textcolor>FF0C0F16</textcolor><focusedcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]</focusedcolor>
+            <texturenofocus border="24" colordiffuse="C4B07A1E">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturenofocus>
+            <texturefocus border="24" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturefocus>
+            <label>$INFO[Window.Property(sufficient_label)]</label>
+            <onleft>9000</onleft><onright>9002</onright><onup>9001</onup><ondown>9001</ondown>
+        </control>
+        <control type="button" id="9002">
+            <left>510</left><top>884</top><width>380</width><height>72</height>
+            <font>font_mini</font><align>center</align><aligny>center</aligny>
+            <textcolor>FFE5E7EB</textcolor><focusedcolor>FFFFFFFF</focusedcolor>
+            <texturenofocus border="24" colordiffuse="CC1C2432">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturenofocus>
+            <texturefocus border="24" colordiffuse="FF2E4B5E">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturefocus>
+            <label>$INFO[Window.Property(continue_label)]</label>
+            <onleft>9001</onleft><onright>9000</onright><onup>9002</onup><ondown>9002</ondown>
+        </control>
+        <control type="button" id="9000">
+            <left>910</left><top>884</top><width>300</width><height>72</height>
+            <font>font_mini</font><align>center</align><aligny>center</aligny>
+            <textcolor>FFC7CDD8</textcolor><focusedcolor>FFFFFFFF</focusedcolor>
+            <texturenofocus border="24" colordiffuse="AA272E3A">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturenofocus>
+            <texturefocus border="24" colordiffuse="FF8E4646">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturefocus>
+            <label>$INFO[Window.Property(cancel_label)]</label>
+            <onleft>9002</onleft><onright>9001</onright><onup>9000</onup><ondown>9000</ondown>
+        </control>
+
+        <control type="label">
+            <left>70</left><top>974</top><width>1690</width><height>34</height>
+            <font>font_tiny</font><textcolor>FF9AA3B2</textcolor><shadowcolor>CC000000</shadowcolor>
+            <label>$INFO[Window.Property(hint_line)]</label>
+        </control>
+
+        <!-- Retained as a hidden compatibility control for direct setImage(). -->
+        <control type="image" id="5102"><left>0</left><top>0</top><width>1</width><height>1</height><visible>false</visible></control>
+    </controls>
+</window>

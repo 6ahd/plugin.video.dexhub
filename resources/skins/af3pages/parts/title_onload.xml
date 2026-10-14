@@ -1,0 +1,9 @@
+    <onload condition="!String.IsEmpty(ListItem.Property(dhs.id))">ClearProperty(dhs.tp.touched,home)</onload>
+    <onload condition="!String.IsEmpty(ListItem.Property(dhs.id))">ClearProperty(dhs.tp.ep_touched,home)</onload>
+    <onload condition="!String.IsEmpty(ListItem.Property(dhs.id))">ClearProperty(dhs.tp.none.seasons,home)</onload>
+    <onload condition="!String.IsEmpty(ListItem.Property(dhs.id))">ClearProperty(dhs.tp.none.episodes,home)</onload>
+    <onload condition="!String.IsEmpty(ListItem.Property(dhs.id))">ClearProperty(dhs.tp.none.cast,home)</onload>
+    <onload condition="!String.IsEmpty(ListItem.Property(dhs.id))">ClearProperty(dhs.tp.none.related,home)</onload>
+    <onload condition="!String.IsEmpty(ListItem.Property(dhs.id))">SetFocus(8101)</onload>
+    <onload condition="!String.IsEmpty(ListItem.Property(dhs.id))">SetProperty(dhs.tp.open,1,home)</onload>
+    <onunload>ClearProperty(dhs.tp.open,home)</onunload>

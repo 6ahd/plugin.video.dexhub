@@ -1,0 +1,310 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The bell's inbox (Dex Hub 5.10.218): written by gen_inbox_xml.py -->
+<window>
+	<defaultcontrol always="true">300</defaultcontrol>
+	<animation effect="fade" start="0" end="100" time="220">WindowOpen</animation>
+	<animation effect="fade" start="100" end="0" time="160">WindowClose</animation>
+	<controls>
+		<control type="image">
+			<left>0</left>
+			<top>0</top>
+			<width>1920</width>
+			<height>1080</height>
+			<texture colordiffuse="99000000">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture>
+		</control>
+		<control type="group">
+			<animation effect="slide" start="0,-40" end="0,0" time="260" tween="cubic" easing="out">WindowOpen</animation>
+			<animation effect="zoom" start="96" end="100" center="1844,104" time="260" tween="cubic" easing="out">WindowOpen</animation>
+			<control type="image">
+				<left>1076</left>
+				<top>104</top>
+				<width>768</width>
+				<height>880</height>
+				<texture border="16" colordiffuse="F2111318">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+			</control>
+			<control type="image">
+				<left>1072</left>
+				<top>100</top>
+				<width>776</width>
+				<height>888</height>
+				<texture border="24" colordiffuse="1FFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/ring.png</texture>
+			</control>
+			<control type="label">
+				<left>1108</left>
+				<top>126</top>
+				<width>568</width>
+				<height>52</height>
+				<font>af3_font_midi_bold</font>
+				<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+				<align>left</align>
+				<aligny>center</aligny>
+				<label>[B]$INFO[Window.Property(ib.head)][/B]</label>
+			</control>
+			<control type="label">
+				<left>1694</left>
+				<top>126</top>
+				<width>118</width>
+				<height>52</height>
+				<font>af3_font_mini_bold</font>
+				<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]</textcolor>
+				<align>right</align>
+				<aligny>center</aligny>
+				<label>$INFO[Window.Property(ib.count)]</label>
+			</control>
+			<control type="label">
+				<left>1108</left>
+				<top>304</top>
+				<width>704</width>
+				<height>60</height>
+				<font>af3_font_main</font>
+				<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
+				<align>center</align>
+				<aligny>center</aligny>
+				<label>$INFO[Window.Property(ib.empty)]</label>
+				<visible>!Integer.IsGreater(Container(300).NumItems,0)</visible>
+			</control>
+			<control type="list" id="300">
+				<left>1100</left>
+				<top>196</top>
+				<width>720</width>
+				<height>664</height>
+				<orientation>vertical</orientation>
+				<onleft>300</onleft>
+				<onright>300</onright>
+				<onup>300</onup>
+				<ondown>100</ondown>
+				<scrolltime tween="cubic" easing="out">200</scrolltime>
+				<itemlayout width="720" height="166">
+					<control type="image">
+						<left>0</left>
+						<top>0</top>
+						<width>720</width>
+						<height>150</height>
+						<texture border="16" colordiffuse="FF1A1D24">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+					</control>
+					<control type="image">
+						<left>0</left>
+						<top>0</top>
+						<width>720</width>
+						<height>150</height>
+						<aspectratio>scale</aspectratio>
+						<texture background="true">$INFO[ListItem.Art(fanart)]</texture>
+						<fadetime>200</fadetime>
+					</control>
+					<control type="image">
+						<left>0</left>
+						<top>0</top>
+						<width>720</width>
+						<height>150</height>
+						<texture colordiffuse="F20B0D12">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/grad_left.png</texture>
+					</control>
+					<control type="image">
+						<left>0</left>
+						<top>0</top>
+						<width>720</width>
+						<height>150</height>
+						<texture colordiffuse="66000000">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture>
+					</control>
+					<control type="image">
+						<left>16</left>
+						<top>12</top>
+						<width>84</width>
+						<height>126</height>
+						<aspectratio>scale</aspectratio>
+						<texture background="true">$INFO[ListItem.Art(poster)]</texture>
+						<fadetime>200</fadetime>
+					</control>
+					<control type="label">
+						<left>124</left>
+						<top>16</top>
+						<width>570</width>
+						<height>30</height>
+						<font>af3_font_tiny</font>
+						<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]</textcolor>
+						<align>left</align>
+						<aligny>center</aligny>
+						<label>[B]$INFO[ListItem.Property(kicker)][/B]</label>
+					</control>
+					<control type="label">
+						<left>124</left>
+						<top>46</top>
+						<width>570</width>
+						<height>48</height>
+						<font>af3_font_main_bold</font>
+						<textcolor>FFFFFFFF</textcolor>
+						<align>left</align>
+						<aligny>center</aligny>
+						<label>[B]$INFO[ListItem.Label][/B]</label>
+					</control>
+					<control type="label">
+						<left>124</left>
+						<top>94</top>
+						<width>570</width>
+						<height>36</height>
+						<font>af3_font_mini</font>
+						<textcolor>D9FFFFFF</textcolor>
+						<align>left</align>
+						<aligny>center</aligny>
+						<label>$INFO[ListItem.Label2]</label>
+					</control>
+				</itemlayout>
+				<focusedlayout width="720" height="166">
+					<control type="image">
+						<left>0</left>
+						<top>0</top>
+						<width>720</width>
+						<height>150</height>
+						<texture border="16" colordiffuse="FF1A1D24">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture>
+					</control>
+					<control type="image">
+						<left>0</left>
+						<top>0</top>
+						<width>720</width>
+						<height>150</height>
+						<aspectratio>scale</aspectratio>
+						<texture background="true">$INFO[ListItem.Art(fanart)]</texture>
+						<fadetime>200</fadetime>
+					</control>
+					<control type="image">
+						<left>0</left>
+						<top>0</top>
+						<width>720</width>
+						<height>150</height>
+						<texture colordiffuse="F20B0D12">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/grad_left.png</texture>
+					</control>
+					<control type="image">
+						<left>0</left>
+						<top>0</top>
+						<width>720</width>
+						<height>150</height>
+						<texture colordiffuse="66000000">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture>
+					</control>
+					<control type="image">
+						<left>16</left>
+						<top>12</top>
+						<width>84</width>
+						<height>126</height>
+						<aspectratio>scale</aspectratio>
+						<texture background="true">$INFO[ListItem.Art(poster)]</texture>
+						<fadetime>200</fadetime>
+					</control>
+					<control type="label">
+						<left>124</left>
+						<top>16</top>
+						<width>570</width>
+						<height>30</height>
+						<font>af3_font_tiny</font>
+						<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]</textcolor>
+						<align>left</align>
+						<aligny>center</aligny>
+						<label>[B]$INFO[ListItem.Property(kicker)][/B]</label>
+					</control>
+					<control type="label">
+						<left>124</left>
+						<top>46</top>
+						<width>570</width>
+						<height>48</height>
+						<font>af3_font_main_bold</font>
+						<textcolor>FFFFFFFF</textcolor>
+						<align>left</align>
+						<aligny>center</aligny>
+						<label>[B]$INFO[ListItem.Label][/B]</label>
+						<scroll>true</scroll>
+					</control>
+					<control type="label">
+						<left>124</left>
+						<top>94</top>
+						<width>570</width>
+						<height>36</height>
+						<font>af3_font_mini</font>
+						<textcolor>D9FFFFFF</textcolor>
+						<align>left</align>
+						<aligny>center</aligny>
+						<label>$INFO[ListItem.Label2]</label>
+					</control>
+					<control type="image">
+						<left>-4</left>
+						<top>-4</top>
+						<width>728</width>
+						<height>158</height>
+						<texture border="24" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/ring.png</texture>
+						<visible>Control.HasFocus(300)</visible>
+					</control>
+				</focusedlayout>
+			</control>
+			<control type="list" id="100">
+				<left>1100</left>
+				<top>888</top>
+				<width>300</width>
+				<height>72</height>
+				<orientation>horizontal</orientation>
+				<onleft>100</onleft>
+				<onright>100</onright>
+				<onup>300</onup>
+				<ondown>100</ondown>
+				<itemlayout width="300" height="72">
+					<control type="image">
+						<left>0</left>
+						<top>6</top>
+						<width>260</width>
+						<height>60</height>
+						<texture border="30" colordiffuse="26FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/pill.png</texture>
+					</control>
+					<control type="label">
+						<left>0</left>
+						<top>6</top>
+						<width>260</width>
+						<height>60</height>
+						<font>af3_font_mini_bold</font>
+						<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+						<align>center</align>
+						<aligny>center</aligny>
+						<label>$INFO[ListItem.Label]</label>
+					</control>
+				</itemlayout>
+				<focusedlayout width="300" height="72">
+					<control type="image">
+						<left>0</left>
+						<top>6</top>
+						<width>260</width>
+						<height>60</height>
+						<texture border="30" colordiffuse="26FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/pill.png</texture>
+						<visible>!Control.HasFocus(100)</visible>
+					</control>
+					<control type="image">
+						<left>0</left>
+						<top>6</top>
+						<width>260</width>
+						<height>60</height>
+						<texture border="30" colordiffuse="FFFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/pill.png</texture>
+						<visible>Control.HasFocus(100)</visible>
+					</control>
+					<control type="label">
+						<left>0</left>
+						<top>6</top>
+						<width>260</width>
+						<height>60</height>
+						<font>af3_font_mini_bold</font>
+						<textcolor>FF0B0E13</textcolor>
+						<align>center</align>
+						<aligny>center</aligny>
+						<label>[B]$INFO[ListItem.Label][/B]</label>
+						<visible>Control.HasFocus(100)</visible>
+					</control>
+					<control type="label">
+						<left>0</left>
+						<top>6</top>
+						<width>260</width>
+						<height>60</height>
+						<font>af3_font_mini_bold</font>
+						<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
+						<align>center</align>
+						<aligny>center</aligny>
+						<label>$INFO[ListItem.Label]</label>
+						<visible>!Control.HasFocus(100)</visible>
+					</control>
+				</focusedlayout>
+			</control>
+		</control>
+	</controls>
+</window>

@@ -1,0 +1,6 @@
+pairing_blur.jpg is the unmodified coal_blur.jpg texture from Arctic Fuse 3
+5.10.23 by jurialmunkey, supplied as a design reference.
+Source: https://github.com/jurialmunkey/skin.arctic.fuse.3
+License: Creative Commons Attribution-NonCommercial-ShareAlike 4.0.
+https://creativecommons.org/licenses/by-nc-sa/4.0/
+This license applies to this texture. Other Dex Hub files retain their licenses.

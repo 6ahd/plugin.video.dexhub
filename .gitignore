@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Dex Hub: the add-on code lives in resources/lib
+!resources/lib/
+!resources/lib/**
