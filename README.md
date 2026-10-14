@@ -6,8 +6,8 @@
 
 Stremio & Nuvio add-ons · Plex, Emby, Jellyfin & Silo · Live TV · Native Trakt, Simkl & MDBList · Arabic-first UI · TMDb Helper integration
 
-[![Version](https://img.shields.io/badge/version-5.10.294-7c3aed)]()
-[![Skin](https://img.shields.io/badge/skin-3.28.41-ffd23f)]()
+[![Version](https://img.shields.io/badge/version-5.10.300-7c3aed)]()
+[![Skin](https://img.shields.io/badge/skin-3.28.45-ffd23f)]()
 [![Kodi](https://img.shields.io/badge/Kodi-21%20Omega%20%7C%2022%20Piers-33d8f7)]()
 [![License](https://img.shields.io/badge/license-all%20rights%20reserved-ef4444)](LICENSE.txt)
 [![Ko-fi](https://img.shields.io/badge/support-Ko--fi-ff5e5b)](https://ko-fi.com/dexworld)
@@ -20,7 +20,7 @@ Stremio & Nuvio add-ons · Plex, Emby, Jellyfin & Silo · Live TV · Native Trak
 
 ## What's new
 
-**Dex Hub 5.10.294 · Dex Hub skin 3.28.41**
+**Dex Hub 5.10.300 · Dex Hub skin 3.28.45**
 
 * **Home layouts:** Cinematic full screen, Hero with one row, Compact hero and two rows, Wide card shelf, Hero and rows, and Spotlight and posters, each with a preview in the picker.
 * **Home size from 50% to 200%,** a sidebar that can show icons only, and a top bar that hides while you scroll.
