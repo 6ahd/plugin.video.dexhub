@@ -437,7 +437,8 @@ class HeadlessTitle(object):
         props.update({'dhs.tp.season': season, 'dhs.tp.season_idx': str(season_idx), 'dhs.tp.ep_idx': str(ep_idx)})
         from ..homeui import ratings as RB
         from ..ui_preferences import enabled
-        props.update(RB.props(self.hero.get('ratings') if enabled('metadata_badges') else {}, prefix='dhs.tp.ratings.'))
+        props.update(RB.props(self.hero.get('ratings') if enabled('metadata_badges') else {}, prefix='dhs.tp.ratings.',
+                              limit=len(RB.ORDER)))
         C.set_prop('dhs.tp.id', '')
         for key, value in props.items():
             C.set_prop(key, value)

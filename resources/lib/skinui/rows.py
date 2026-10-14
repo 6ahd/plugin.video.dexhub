@@ -723,7 +723,8 @@ def _store(tab, spec, tiles, more, enriched=False, old=None, src=None):
                 item.setdefault('props', {})['rank'] = str(index + 1)
     # v5.10.173: Continue Watching and big banner rows show each title's
     # logo, so they get the TMDb pass too (with or without a TMDb language)
-    logo_pass = bool(spec.get('own') or spec.get('shape') in LOGO_SHAPES or tab in ('library', 'servers'))
+    # v5.10.297: a collection's page (fold) shows each title's logo too
+    logo_pass = bool(spec.get('own') or spec.get('shape') in LOGO_SHAPES or tab in ('library', 'servers', 'fold'))
     carried = _carry_enrichment(items, old, ctx.language or ('-' if logo_pass else ''), ctx)
     # See all: the row's whole listing in a grid, with its Sort, Genre and
     # Filter. v5.10.286: only when the source has more than the row shows

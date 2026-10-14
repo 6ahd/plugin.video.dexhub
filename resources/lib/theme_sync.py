@@ -171,6 +171,7 @@ def tick(force=False):
     """Every couple of seconds while skin.dexhub is in use (the skin's own
     look options, a few info labels, at every call: a focus colour or text
     picked in its settings shows at once, v5.10.132)."""
+    T.ensure_theme()     # v5.10.298: a skin reload can drop the Home properties
     now = time.time()
     if not force and now - _state['at'] < _EVERY:
         if _idle():

@@ -40,10 +40,6 @@ SECTION_LIST = (
     ('home', 'house', 'الرئيسية', 'ترتيب صفحتك وما يظهر فيها', (
         ('phone', 'open', 'mobile', 'إعداد من الجوال', 'امسح الباركود وجهّز كل شي من جوالك', ''),
         ('search', 'open', 'search', 'بحث', 'أفلام ومسلسلات وأشخاص من كل مصادرك', ''),
-        ('home_layout_mode', 'pick', 'display', 'وضع الواجهة', 'صف واسع أو صفّان أو Spotlight مع بوسترات', 'skin'),
-        ('nav_position', 'pick', 'list-ul', 'مكان تبويبات الأقسام', 'خيار مستقل: شريط علوي أو قائمة جانبية', 'skin'),
-        ('nav_icons', 'toggle', 'bars', 'القائمة الجانبية أيقونات فقط', 'ما تنفتح بالكلمات لما تروح لها', 'skin'),  # v5.10.288
-        ('nav_autohide', 'toggle', 'eye-slash', 'إخفاء الشريط العلوي عند التمرير', 'يختفي لما تنزل للصفوف ويرجع لما تطلع', 'skin'),
         ('layout', 'open', 'table-cells-large', 'ترتيب الصفحة الرئيسية', 'الصفوف وترتيبها وشكل كل صف', ''),
         ('new_rows', 'toggle', 'circle-xmark', 'صفوف جديدة مخفية',
          'تنتظرك في ترتيب الصفحة', ''),
@@ -51,11 +47,59 @@ SECTION_LIST = (
          '«لأنك شاهدت» في صف واحد', ''),
         ('community', 'open', 'users', 'Dex Community', 'كتالوجات جاهزة تضيفها بضغطة', ''),
         ('refresh', 'open', 'arrows-rotate', 'تحديث الرئيسية', 'جلب الصفوف من جديد', ''),
-        ('size', 'open', 'up-right-and-down-left-from-center', 'حجم الواجهة', 'عادي أو كبير أو كبير جداً', ''),
+        ('screensaver', 'open', 'moon', 'شاشة التوقف', 'الخلفيات ووقت التشغيل', ''),
+    )),
+    # v5.10.299: one Appearance place, in three steps (colours, the Home's
+    # shape, motion); every choice shows at once, the skin's settings page
+    # opens here too
+    ('look_theme', 'palette', 'المظهر: الثيم والألوان', 'كل تغيير يظهر فورًا في السكين ونوافذ كودي', (
+        ('theme', 'open', 'palette', 'الثيم', 'ألوان السكين كلها بضغطة', 'skin'),
+        ('focus_colour', 'run', 'palette', 'لون التحديد', 'لون المؤشر في السكين ونوافذ كودي', 'skin'),
+        ('focus_text', 'pick', 'tags', 'الكتابة على التحديد', 'تلقائي حسب اللون أو أبيض أو داكن', 'skin'),
+        ('kodi_focus', 'pick', 'sliders', 'شكل التحديد', 'بلون التحديد أو أبيض مثل Nuvio، في الواجهة ونوافذ كودي', 'skin'),
+        ('amoled', 'toggle', 'moon', 'أسود كامل AMOLED', 'خلفية الصفحات سوداء تمامًا', 'skin'),
+        ('glow', 'pick', 'wand-magic-sparkles', 'إضاءة الصفحات', 'هادئة أو قوية أو بدون', 'skin'),
+        ('focus_glow', 'toggle', 'wand-magic-sparkles', 'إضاءة حول البطاقة المحددة', 'هالة خفيفة بلون التحديد', 'skin'),
+    )),
+    ('look_layout', 'display', 'المظهر: الواجهة والبطاقات', 'شكل الرئيسية والقوائم والبطاقات', (
+        ('home_layout_mode', 'pick', 'display', 'وضع الواجهة', 'هيرو وصفوف أو سينمائي أو رف بطاقات أو غيرها', 'skin'),
+        ('nav_position', 'pick', 'list-ul', 'مكان تبويبات الأقسام', 'شريط علوي أو قائمة جانبية', 'skin'),
+        ('nav_icons', 'toggle', 'bars', 'القائمة الجانبية أيقونات فقط', 'ما تنفتح بالكلمات لما تروح لها', 'skin'),
+        ('nav_autohide', 'toggle', 'eye-slash', 'إخفاء الشريط العلوي عند التمرير', 'يختفي لما تنزل للصفوف ويرجع لما تطلع', 'skin'),
+        ('nav_names', 'toggle', 'list-ul', 'أسماء الأقسام', 'أسماء بجانب أيقونات الشريط', ''),
+        ('size', 'open', 'up-right-and-down-left-from-center', 'حجم الواجهة والبطاقات', 'من 50% إلى 200%', ''),
+        ('card_style', 'pick', 'layer-group', 'عناوين البطاقات', 'على الصورة أو تحتها أو بدون', ''),
+        ('title_style', 'pick', 'image', 'عنوان العمل', 'شعار العمل أو نص', ''),
+        ('background_style', 'pick', 'display', 'نمط الخلفية', 'سينمائي أو هادئ أو داكن', ''),
+        ('row_dim', 'pick', 'display', 'تعتيم الصفوف', 'الصفوف غير المحددة', ''),
+        ('row_source', 'toggle', 'tags', 'إظهار مصدر الصف', 'From بجانب عنوان الصف', ''),
+        ('season_names', 'toggle', 'tags', 'أسماء المواسم', 'الموسم 1: Murder House بدل الموسم 1', ''),
+    )),
+    ('look_motion', 'wand-magic-sparkles', 'المظهر: الحركة والتريلرات', 'التحديد والخلفيات والتريلر', (
+        ('focus_motion', 'pick', 'wand-magic-sparkles', 'حركة التحديد', 'تكبير أو رفع أو قفزة أو إضاءة', ''),
+        ('kenburns', 'toggle', 'image', 'تحريك الخلفيات', 'حركة بطيئة للصورة خلف العمل', ''),
+        ('focus_gif', 'toggle', 'film', 'الصور المتحركة', 'صور GIF للأعمال اللي فيها', ''),
+        ('carousel', 'toggle', 'clapperboard', 'تدوير البانر', 'التنقل التلقائي بين الأعمال', ''),
+        ('plot_scroll', 'toggle', 'sliders', 'تحريك النبذة', 'تمرير النبذة الطويلة', ''),
+        ('hide_plot', 'toggle', 'eye-slash', 'إخفاء النبذة', 'واجهة أبسط مع عنوان العمل وتفاصيله', ''),
         ('trailers', 'pick', 'clapperboard', 'التريلرات', 'متى يبدأ تريلر العمل المحدد', ''),
         ('trailer_sound', 'toggle', 'film', 'صوت التريلر', 'التريلر بصوته أو صامت', ''),
         ('trailer_volume', 'pick', 'film', 'مستوى صوت التريلر', 'من 0 إلى 100؛ يرجع صوت المشاهدة بعد التريلر', ''),
-        ('screensaver', 'open', 'moon', 'شاشة التوقف', 'الخلفيات ووقت التشغيل', ''),
+    )),
+    ('player', 'circle-play', 'المشغل', 'التشغيل والرموز والترجمة', (
+        ('player', 'open', 'circle-play', 'خيارات المشغل', 'الشعار والتقييمات وسطر المعلومات', 'player'),
+        ('osd_buttons', 'open', 'circle-play', 'أزرار المشغل وشكله', 'الأزرار وترتيبها مع معاينة النمط واللون', 'player'),
+        ('osd_style', 'pick', 'display', 'نمط شريط المشغل', 'كلاسيكي أو زجاجي أو سينمائي أو بسيط', 'player'),
+        ('osd_dim', 'pick', 'sliders', 'تعتيم خلفية المشغل', 'من 30% إلى 95%', 'player'),
+        ('osd_accent', 'pick', 'palette', 'لون المشغل', 'أبيض أو لون الثيم أو يتبع العمل المشغّل', 'player'),
+        ('badges_visible', 'toggle', 'sliders', 'إظهار رموز الجودة في المشغّل', 'إخفاؤها أو إرجاعها دون تغيير حزمة الرموز', ''),
+        ('badges_brightness', 'pick', 'sliders', 'وضوح رموز الجودة', 'واضح بلا تعتيم أو هادئ', ''),
+        ('badges', 'open', 'tags', 'رموز الجودة', 'في المشغل والسيرفرات والروابط', ''),
+        ('playback', 'open', 'gauge-high', 'طريقة التشغيل', 'أول رابط أو قائمة المصادر', ''),
+        ('source_behavior', 'open', 'list-check', 'المصادر وسلوك التشغيل', 'الترتيب والفلترة والاستئناف', ''),
+        ('source_addons', 'open', 'list-check', 'إضافات البحث عن المصادر', 'الإضافات اللي يسألها البحث', ''),
+        ('subtitles', 'open', 'closed-captioning', 'الترجمة', 'اللغة والمزامنة التلقائية', ''),
+        ('episodes', 'open', 'forward-step', 'الحلقات والتخطي', 'الحلقة التالية وتخطي المقدمة', ''),
     )),
     ('following', 'list-check', 'مكتبتي', 'المحفوظات وقوائم المشاهدة والتقدم', (
         ('library', 'open', 'list-check', 'فتح مكتبتي', 'كل المحفوظات وقوائم المشاهدة حسب المصدر', ''),
@@ -92,46 +136,12 @@ SECTION_LIST = (
         ('nuvio', 'open', 'id-card', 'مزامنة Nuvio', 'الهوم والمجموعات ومتابعة المشاهدة', ''),
         ('trakt', 'open', 'clock-rotate-left', 'Trakt', 'سجل المشاهدة والمزامنة', ''),
     )),
-    ('player', 'circle-play', 'المشغل', 'التشغيل والرموز والترجمة', (
-        ('player', 'open', 'circle-play', 'خيارات المشغل', 'الشعار والتقييمات وسطر المعلومات', 'player'),
-        ('badges_visible', 'toggle', 'sliders', 'إظهار رموز الجودة في المشغّل', 'إخفاؤها أو إرجاعها دون تغيير حزمة الرموز', ''),
-        ('badges_brightness', 'pick', 'sliders', 'وضوح رموز الجودة', 'واضح بلا تعتيم أو هادئ', ''),
-        ('badges', 'open', 'tags', 'رموز الجودة', 'في المشغل والسيرفرات والروابط', ''),
-        ('playback', 'open', 'gauge-high', 'طريقة التشغيل', 'أول رابط أو قائمة المصادر', ''),
-        ('source_behavior', 'open', 'list-check', 'المصادر وسلوك التشغيل', 'الترتيب والفلترة والاستئناف', ''),
-        ('source_addons', 'open', 'list-check', 'إضافات البحث عن المصادر', 'الإضافات اللي يسألها البحث', ''),
-        ('subtitles', 'open', 'closed-captioning', 'الترجمة', 'اللغة والمزامنة التلقائية', ''),
-        ('episodes', 'open', 'forward-step', 'الحلقات والتخطي', 'الحلقة التالية وتخطي المقدمة', ''),
-    )),
-    ('look', 'palette', 'المظهر', 'السكين والألوان وشكل البطاقات', (
-        ('focus_colour', 'run', 'palette', 'لون المؤشر', 'لون التحديد في السكين', 'skin'),
-        ('card_style', 'pick', 'layer-group', 'عناوين البطاقات', 'على الصورة أو تحتها أو بدون', ''),
-        # v5.10.286: the Home row's source line, also here beside the other card options
-        ('row_source', 'toggle', 'tags', 'إظهار مصدر الصف', 'إظهار أو إخفاء From بجانب عنوان الصف', ''),
-        ('focus_motion', 'pick', 'wand-magic-sparkles', 'حركة التحديد', 'كيف تتحرك البطاقة المحددة', ''),
-        ('row_dim', 'pick', 'display', 'تعتيم الصفوف', 'الصفوف غير المحددة', ''),
-        ('nav_names', 'toggle', 'list-ul', 'أسماء الأقسام', 'أسماء بجانب أيقونات الشريط', ''),
-        ('season_names', 'toggle', 'tags', 'أسماء المواسم', 'الموسم 1: Murder House بدل الموسم 1', ''),
+    ('system', 'gears', 'النظام', 'الإعدادات والسكين والتشخيص', (
+        ('settings', 'open', 'sliders', 'إعدادات Dex Hub', 'مركز الإعداد', ''),
         ('skin_pick', 'open', 'brush', 'تغيير السكين', 'أي سكين مثبت على طول', ''),
         ('skin_back', 'open', 'arrow-rotate-left', 'الرجوع للسكين السابق', 'السكين اللي كان قبل Dex Hub', 'skin'),
         ('skin', 'open', 'brush', 'سكين Dex Hub', 'يصير Dex Hub سكين كودي', 'addon'),
         ('classic', 'open', 'list-ul', 'قائمة Dex Hub', 'كل أقسام الإضافة في قائمة', ''),
-    )),
-    ('customize', 'wand-magic-sparkles', 'تخصيص الواجهة · AF3', 'خيارات العرض والتفاصيل والحركة', (
-        ('poster_scale', 'run', 'up-right-and-down-left-from-center', 'حجم البوستر المخصص', 'نسبة من 50% إلى 200% بخطوة 1%', 'skin'),
-        ('home_layout_mode', 'pick', 'display', 'وضع الواجهة', 'Spotlight أو صفّان أو بوسترات', 'skin'),
-        ('nav_position', 'pick', 'list-ul', 'مكان تبويبات الأقسام', 'القائمة والأدوات في مكان واحد', 'skin'),
-        ('title_style', 'pick', 'image', 'عنوان العمل', 'شعار العمل أو نص', ''),
-        ('background_style', 'pick', 'display', 'نمط الخلفية', 'سينمائي أو هادئ أو داكن', ''),
-        ('row_source', 'toggle', 'tags', 'إظهار مصدر الصف', 'إظهار أو إخفاء From بجانب عنوان الصف', ''),
-        ('focus_motion', 'pick', 'wand-magic-sparkles', 'حركة التحديد', 'التكبير والرفع والإضاءة', ''),
-        ('row_dim', 'pick', 'display', 'تعتيم الصفوف', 'تحكم بوضوح الصفوف غير المحددة', ''),
-        ('carousel', 'toggle', 'clapperboard', 'تدوير Spotlight', 'التنقل التلقائي بين الأعمال', ''),
-        ('plot_scroll', 'toggle', 'sliders', 'تحريك النبذة', 'تمرير النبذة الطويلة', ''),
-        ('hide_plot', 'toggle', 'sliders', 'إخفاء النبذة', 'واجهة أبسط مع عنوان العمل وتفاصيله', ''),
-    )),
-    ('system', 'gears', 'النظام', 'الإعدادات والتشخيص والتشغيل', (
-        ('settings', 'open', 'sliders', 'إعدادات Dex Hub', 'مركز الإعداد', ''),
         ('kodi', 'open', 'kodi', 'إعدادات كودي', 'النظام والصوت والشاشة', ''),
         ('speed', 'open', 'bolt', 'وضع السرعة', 'إعداد الخفة للبحث والتشغيل بضغطة', ''),
         ('diagnostics', 'open', 'stethoscope', 'التشخيص', 'حالة المصادر والاتصال', ''),
@@ -162,6 +172,7 @@ ROUTES = {
     'diagnostics': 'setup_diagnostics',
     'backup': 'backup_menu',
     'clear_cache': 'clear_cache',
+    'osd_buttons': 'osd_buttons',     # v5.10.299
 }
 
 TRAILER_STEPS = ((0, 'فوري'), (1, 'بعد ثانية'), (2, 'بعد ثانيتين'), (3, 'بعد 3 ثوانٍ'),
@@ -197,8 +208,29 @@ PICKS = {
     # v5.10.214
     'episode_titles': ('episode_titles', (('all', 'كل الحلقات'), ('started', 'الحلقات اللي بدأتها'),
                                           ('off', 'الرقم فقط'))),
+    # v5.10.299: the player bar's look (osd_look.py)
+    'osd_style': ('player_osd_style', (('classic', 'كلاسيكي'), ('glass', 'زجاجي'), ('cinematic', 'سينمائي'),
+                                       ('minimal', 'بسيط'))),
+    'osd_dim': ('player_osd_dim', (('30', '30%'), ('50', '50%'), ('70', '70%'), ('85', '85%'), ('95', '95%'))),
+    'osd_accent': ('player_osd_accent', (('white', 'أبيض'), ('theme', 'لون الثيم'), ('artwork', 'يتبع العمل المشغّل'),
+                                         ('violet', 'بنفسجي'), ('blue', 'أزرق'), ('cyan', 'سماوي'), ('green', 'أخضر'),
+                                         ('gold', 'ذهبي'), ('orange', 'برتقالي'), ('red', 'أحمر'), ('pink', 'وردي'))),
+}
+# v5.10.299: the skin's own looks (skin strings; the theme is published again at once)
+#   key: (skin string, ((value, label), ...)); '' is the skin's default (Skin.Reset)
+SKIN_PICKS = {
+    'focus_text': ('dh.ontext', (('', 'تلقائي حسب اللون'), ('white', 'أبيض'), ('dark', 'داكن'))),
+    'glow': ('dh.glow', (('', 'هادئة'), ('vivid', 'قوية'), ('off', 'بدون'))),
+    'kodi_focus': ('dh.kodifocus', (('', 'بلون التحديد'), ('white', 'أبيض مثل Nuvio'))),
+}
+#   key: (skin string, its value when on, on by default)
+SKIN_TOGGLES = {
+    'amoled': ('dh.amoled', 'on', False),
+    'focus_glow': ('dh.focusglow', '', True),     # off is the string 'off'
 }
 PICK_LINES = {
+    'osd_accent': '«يتبع العمل» ياخذ لون من صورة العمل اللي تشغله',
+    'osd_dim': 'خلفية شريط المشغل: كل ما زادت النسبة صارت أغمق',
     'server_meta': 'السيرفر يعطي العنوان والقصة والصور، والناقص مثل الشعار من مصدرك',
     'meta_lang': 'القصص والشعارات بهذه اللغة إذا كانت متوفرة',
     'follow_order': 'صف متابعة المشاهدة في الرئيسية وأول قسم في متابعتي',
@@ -213,7 +245,8 @@ TOGGLES = {'library_split': ('library_split_media', 'true'), 'badges_visible': (
            'nav_names': ('homeui_nav_names', 'false'), 'follow_merge': ('follow_merge', 'true'),
            'trakt_smart': ('trakt_smart_sync', 'true'), 'season_names': ('season_names', 'true'),
            'reminders': ('episode_reminders', 'true'),
-           'new_rows': ('home_hide_new_rows', 'false'), 'group_recs': ('home_group_recs', 'false')}
+           'new_rows': ('home_hide_new_rows', 'false'), 'group_recs': ('home_group_recs', 'false'),
+           'kenburns': ('homeui_kenburns', 'true'), 'focus_gif': ('homeui_focus_gif', 'true')}
 SIZES = {'': 'عادي', 'large': 'كبير', 'xlarge': 'كبير جداً',
          'normal': 'عادي', 'extra large': 'كبير جداً'}
 _SETTINGS = ('homeui_nav_icons_only', 'homeui_nav_autohide', 'library_split_media', 'player_badges_visible', 'player_badges_brightness', 'homeui_poster_scale', 'homeui_show_row_source', 'homeui_title_style', 'homeui_background_style', 'homeui_plot_scroll', 'homeui_hide_plot', 'homeui_carousel', 'homeui_layout_mode', 'homeui_nav_position', 'homeui_metadata_language', 'server_metadata', 'homeui_card_style', 'homeui_focus_motion',
@@ -221,7 +254,8 @@ _SETTINGS = ('homeui_nav_icons_only', 'homeui_nav_autohide', 'library_split_medi
              'homeui_trailer_delay', 'homeui_trailer_volume', 'homeui_size', 'global_meta_source_id', 'global_meta_source_all',
              'tmdb_api_key', 'global_poster_source_id', 'follow_order', 'library_sort', 'follow_merge',
              'trakt_smart_sync', 'continue_episode_art', 'season_names', 'episode_titles', 'episode_reminders', 'credits_panel',
-             'home_hide_new_rows', 'home_group_recs')
+             'home_hide_new_rows', 'home_group_recs', 'homeui_kenburns', 'homeui_focus_gif',
+             'player_osd_style', 'player_osd_dim', 'player_osd_accent')
 
 
 def _addon():
@@ -276,6 +310,28 @@ def write(setting, value):
         invalidate()
         from ..ui_preferences import publish
         publish()
+    except Exception:
+        pass
+
+
+def _skin_on(key):
+    string, on_value, default = SKIN_TOGGLES[key]
+    value = (xbmc.getInfoLabel('Skin.String(%s)' % string) or '').strip().lower()
+    if key == 'focus_glow':
+        return value != 'off'
+    return value == on_value if value else default
+
+
+def set_skin_string(string, value):
+    """v5.10.299: one of the skin's looks, shown at once: the string, then
+    the theme published again (the skin and Dex Hub's windows read it)."""
+    if value:
+        xbmc.executebuiltin('Skin.SetString(%s,%s)' % (string, value), True)
+    else:
+        xbmc.executebuiltin('Skin.Reset(%s)' % string, True)
+    try:
+        from .. import skin_theme
+        skin_theme.publish_theme()
     except Exception:
         pass
 
@@ -441,6 +497,15 @@ class ControlCentre(xbmcgui.WindowXMLDialog):
         if key == 'focus_colour':
             name = xbmc.getInfoLabel('Skin.String(dh.accent.name)') or ''
             return name or tr('لون الثيم'), ''
+        if key in SKIN_PICKS:
+            string, options = SKIN_PICKS[key]
+            current = (xbmc.getInfoLabel('Skin.String(%s)' % string) or '').strip().lower()
+            return tr(next((label for value, label in options if value == current), options[0][1])), ''
+        if key in SKIN_TOGGLES:
+            on = _skin_on(key)
+            return (tr('شغال') if on else tr('مطفأ')), ('on' if on else 'off')
+        if key == 'theme':
+            return xbmc.getInfoLabel('Skin.CurrentColourTheme') or '', ''
         return '', ''
 
     def _slow_values(self):
@@ -621,6 +686,16 @@ class ControlCentre(xbmcgui.WindowXMLDialog):
     def _pick(self, key):
         from .options import choose
         tr = self.tr
+        if key in SKIN_PICKS:
+            string, options = SKIN_PICKS[key]
+            current = (xbmc.getInfoLabel('Skin.String(%s)' % string) or '').strip().lower()
+            preselect = next((i for i, (value, _l) in enumerate(options) if value == current), 0)
+            title = next((e[3] for sec in self.sections for e in sec[4] if e[0] == key), '')
+            choice = choose(tr(title), [tr(label) for _v, label in options], preselect=preselect)
+            if choice < 0 or choice == preselect:
+                return False
+            set_skin_string(string, options[choice][0])
+            return True
         if key == 'trailers':
             labels = [tr(label) for _seconds, label in TRAILER_STEPS] + [tr('إيقاف التريلرات')]
             values = [seconds for seconds, _label in TRAILER_STEPS] + [None]
@@ -674,6 +749,13 @@ class ControlCentre(xbmcgui.WindowXMLDialog):
         return True
 
     def _toggle(self, key):
+        if key in SKIN_TOGGLES:
+            string, on_value, _default = SKIN_TOGGLES[key]
+            if key == 'focus_glow':
+                set_skin_string(string, 'off' if _skin_on(key) else '')
+            else:
+                set_skin_string(string, '' if _skin_on(key) else on_value)
+            return True
         setting, default = TOGGLES[key]
         on = (self.snap.get(setting) or default).lower() == 'true'
         # v5.10.286: the write and its follow-ups live in apply_entry

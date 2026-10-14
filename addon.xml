@@ -1,10 +1,11 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addon id="plugin.video.dexhub" name="Dex Hub" version="5.10.294" provider-name="Dex Hub">
+<addon id="plugin.video.dexhub" name="Dex Hub" version="5.10.300" provider-name="Dex Hub">
     <requires>
   <import addon="xbmc.python" version="3.0.0" />
         <import addon="script.module.urllib3" version="1.26.0" optional="true" />
         <import addon="plugin.video.tidb" optional="true" />
         <import addon="service.upnext" version="1.1.0" optional="true" />
+        <import addon="script.module.pil" optional="true" />
     </requires>
     <extension point="xbmc.python.pluginsource" library="default.py">
         <provides>video</provides>
@@ -35,7 +36,7 @@
         <description lang="ar">Dex Hub نسخة مستقلة لـ Kodi. أضف روابط Stremio، واستخدم مصادر Plex وEmby/Jellyfin وSilo الأصلية، وشغّل الترجمات الخارجية، واربط Trakt، واستخدم Dex Hub كمشغّل لـ TMDb Helper، وحافظ على قائمة متابعة موحّدة محلياً.</description>
         <disclaimer lang="en_GB">The author of this addon does not host any of the content which is found and has no affiliation with any of the content providers. The author is in no way affiliated with Kodi, Team Kodi, or the XBMC Foundation.</disclaimer>
         <disclaimer lang="ar">مؤلّف هذه الإضافة لا يستضيف أيًّا من المحتوى الذي يتم العثور عليه، وليس له أي ارتباط بأي من مزوّدي المحتوى. لا يرتبط المؤلّف بأي شكل مع Kodi أو فريق Kodi أو مؤسّسة XBMC.</disclaimer>
-        <news>Player Sources panel: each row reads as in the sources window. The second line is the row's own identity (AIOStreams formatter line, service and indexer) with the size, instead of the add-on's name on every row; quality and Ready / Not ready come from the same facts as the window. Lists saved by an older version still show. Pairs with skin 3.28.41. CoreELEC native OSD, PPI and VS10 controls are retained.</news>
+        <news>The Home's cursor (the top bar and side bar tabs, the hero's chips, the title page buttons, the folder pages) takes the focus colour you pick; Focus style in Appearance keeps the white of Nuvio when you want it. Every new Appearance and player option is translated to English. The one Appearance place from 5.10.299 is kept. Pairs with skin 3.28.45. CoreELEC native OSD, PPI and VS10 controls are retained.</news>
         <source>https://github.com/6ahd/plugin.video.dexhub</source>
         <website>https://dexworld.cc</website>
         <assets>

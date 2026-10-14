@@ -163,6 +163,10 @@ def osd(action, params, handle):
             C.log('%s failed:\n%s' % (action, traceback.format_exc()), xbmc.LOGWARNING)
         # like the skin's widgets: no interpreter left for another panel's call
         raise SystemExit
+    if action == 'skin_osd_sources_sort':
+        # v5.10.297: the Sources panel's sort row
+        from . import osd_sources
+        return osd_sources.cycle_sort(params)
     if action == 'skin_osd_stream':
         return O.set_stream(params)
     if action == 'skin_osd_playnext':

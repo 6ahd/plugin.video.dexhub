@@ -99,6 +99,46 @@ def set_state(state):
     C.home().setProperty('dexhub.osd.rev', stamp)
 
 
+# v5.10.297: Nuvio-style rows. Kodi's fonts draw no colour emoji, so the
+# add-on's pictographs are dropped and its words, dots and numbers kept.
+_EMOJI = re.compile('[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F\u200D\u20E3\U000E0000-\U000E007F]')
+_SORT = 'dexhub.osd.sources.sort'
+_SORTS = ('default', 'size', 'quality')
+_SORT_LABEL = {'default': ('افتراضي', 'Default'), 'size': ('الحجم', 'Size'), 'quality': ('الجودة', 'Quality')}
+_RANK = {'4K': 4, '1080p': 3, '720p': 2, 'SD': 1}
+
+
+def _plain(text):
+    text = _TAGS.sub('', _EMOJI.sub('', str(text or '')))
+    text = re.sub(r'(^|\s)[\u00b7|]\s*(?=[\u00b7|]|$)', ' ', text)
+    return re.sub(r'[ \t]{2,}', ' ', text).strip(' \u00b7|')
+
+
+def _bytes(size):
+    match = re.search(r'([\d.]+)\s*([KMGT])I?B', str(size or ''), re.I)
+    if not match:
+        return 0
+    return float(match.group(1)) * 1024 ** ' KMGT'.index(match.group(2).upper())
+
+
+def sort_mode():
+    mode = C.home().getProperty(_SORT) or 'default'
+    return mode if mode in _SORTS else 'default'
+
+
+def cycle_sort(params=None):
+    """skin_osd_sources_sort: Default, Size, Quality, and the list reloads."""
+    import time
+    mode = _SORTS[(_SORTS.index(sort_mode()) + 1) % len(_SORTS)]
+    C.home().setProperty(_SORT, mode)
+    stamp = '%d' % (time.time() * 1000)
+    for window_id in (11149, 1149):
+        try:
+            xbmcgui.Window(window_id).setProperty('UID', stamp)
+        except Exception:
+            pass
+
+
 def _quality(text):
     low = text.lower()
     for needle, label in _QUALITY:
@@ -135,19 +175,70 @@ def sources(params, handle):
         from ..playback.session import load_session
         ctx = load_session() or {}
         item = _item_key(ctx.get('canonical_id'), ctx.get('season'), ctx.get('episode'))
+        # v5.10.297: the sort row, then the list in that order (the playing
+        # source stays first, as before)
+        mode = sort_mode()
+        try:
+            from ..settings_cache import cached_addon
+            arabic = (cached_addon().getSetting('ui_language') or '').strip().lower().startswith('ar')
+        except Exception:
+            arabic = False
+        label = _SORT_LABEL[mode][0 if arabic else 1]
+        li = xbmcgui.ListItem(label=('الترتيب: %s' if arabic else 'Sort: %s') % label,
+                              label2=' / '.join(_SORT_LABEL[m][0 if arabic else 1] for m in _SORTS),
+                              offscreen=True)
+        li.setProperties({'pos': 'sort', 'sort': mode, 'isfolder': 'false'})
+        entries.append((C.url('skin_osd_sources_sort'), li, False))
+        if mode != 'default' and listed:
+            head = [r for r in listed[:1] if r.get('current')]
+            rest = listed[len(head):]
+            if mode == 'size':
+                rest = sorted(rest, key=lambda r: -_bytes(r.get('s')))
+            else:
+                rest = sorted(rest, key=lambda r: (-_RANK.get(_quality(str(r.get('q') or '')) or
+                                                              _quality(str(r.get('n') or r.get('l') or '')), 0),
+                                                   -_bytes(r.get('s'))))
+            listed = head + rest
         for pos, row in enumerate(listed[:60]):
             name = _TAGS.sub('', str(row.get('l') or '?')).replace('\n', ' ').strip()
             name = re.sub(r'\s{2,}', '  ', name)
-            if 'id' in row:
+            if row.get('n'):
+                # v5.10.297: as Nuvio shows it: the add-on's own name line on
+                # top, its description under it, and the size
+                name = _plain(row.get('n')) or name
+                desc = [_plain(part) for part in str(row.get('d') or '').splitlines()]
+                size = str(row.get('s') or '').strip()
+                if size == '--':
+                    size = ''
+                line = '  \u00b7  '.join(part for part in desc if part)
+                low = (name + ' ' + line).lower()
+                props = {'pos': str(pos), 'provider': _plain(row.get('p') or ''),
+                         'quality': _quality(str(row.get('q') or '')) or _quality(name + ' ' + line),
+                         'isfolder': 'false'}
+                if size:
+                    props['size'] = size
+                if row.get('lib') or row.get('c') is True:
+                    props['cache'] = 'cached'
+                elif row.get('c') is False:
+                    props['cache'] = 'uncached'
+            elif 'id' in row:
                 # v5.10.294: the sources window's own line (the add-on's or
                 # AIOStreams formatter identity, not the add-on's name)
                 ident = _TAGS.sub('', str(row.get('id') or '')).replace('\n', ' ').strip()
                 size = str(row.get('s') or '').strip()
                 if size == '--':
                     size = ''
-                line = '  ·  '.join(p for p in (ident, size) if p)
+                # v5.10.296: the add-on's name first, exactly as the sources
+                # window shows it, then that window's identity line and size
+                addon_name = _TAGS.sub('', str(row.get('p') or '')).replace('\n', ' ').strip()
+                parts = [addon_name] if addon_name else []
+                if ident and ident.casefold() != addon_name.casefold():
+                    parts.append(ident)
+                if size:
+                    parts.append(size)
+                line = '  ·  '.join(parts)
                 low = (name + ' ' + line).lower()
-                props = {'pos': str(pos), 'provider': ident,
+                props = {'pos': str(pos), 'provider': addon_name or ident,
                          'quality': _quality(str(row.get('q') or '')) or _quality(name + ' ' + line),
                          'isfolder': 'false'}
                 if size:

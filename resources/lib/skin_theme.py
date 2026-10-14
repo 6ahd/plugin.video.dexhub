@@ -545,6 +545,12 @@ def publish_theme(window=None, log=None):
         except Exception:  # pylint: disable=broad-except
             pass
 
+    try:
+        from . import osd_look      # v5.10.298: a player bar in the theme's colour follows it
+        osd_look.publish()
+    except Exception:  # pylint: disable=broad-except
+        pass
+
     if log:
         try:
             log('skin_theme: skin=%s accent=%s source=%s'
@@ -553,6 +559,26 @@ def publish_theme(window=None, log=None):
             pass
 
     return palette
+
+
+def ensure_theme():
+    """v5.10.298: publish the theme when the Home window lost it.
+
+    Dex Hub's windows colour every card and label from these properties; when
+    they are missing (a skin reload, a service that has not ticked yet) the
+    cards draw plain white and the white text vanishes on them. Cheap: three
+    property reads when the theme is there."""
+    try:
+        if (HOME.getProperty('dexhub.tvos.theme.ready') and HOME.getProperty('dexhub.tvos.theme.text')
+                and HOME.getProperty('dexhub.tvos.theme.surface_card') and HOME.getProperty('dexhub.assetroot')):
+            return False
+    except Exception:  # pylint: disable=broad-except
+        pass
+    try:
+        publish_theme()
+        return True
+    except Exception:  # pylint: disable=broad-except
+        return False
 
 
 

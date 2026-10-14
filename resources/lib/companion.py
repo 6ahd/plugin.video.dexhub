@@ -964,6 +964,12 @@ def _publish_playback_artwork(ctx):
                     win.setProperty(key, value)
                 except Exception:
                     pass
+        # v5.10.298: the player bar in the title's colour (when chosen)
+        try:
+            from . import osd_look
+            osd_look.follow_playing(fanart or None)
+        except Exception:
+            pass
     except Exception:
         pass
 
@@ -982,6 +988,11 @@ def _is_internal_navigation_path(path):
 
 class CompanionPlayer(xbmc.Player):
     def onAVStarted(self):
+        try:
+            from . import osd_look      # v5.10.298: the bar follows the playing title's colours
+            osd_look.follow_playing()
+        except Exception:
+            pass
         # v5.10.177: real playback (a channel, a film) and a trailer with
         # sound never start at a volume a silent preview left at zero
         try:

@@ -29,6 +29,13 @@ def current():
 def xml(name):
     """The window file for the chosen size ('dexhub_browse.xml' ->
     'dexhub_browse_l.xml' on the large size)."""
+    try:
+        # v5.10.298: every Dex Hub window opens through here; make sure the
+        # colours it is drawn with exist (white cards with no text otherwise)
+        from .. import skin_theme
+        skin_theme.ensure_theme()
+    except Exception:
+        pass
     suffix = SUFFIX[current()]
     if not suffix or not name.endswith('.xml'):
         return name

@@ -152,7 +152,9 @@ class HeroFocus(threading.Thread):
                         self.publish(current, ratings)
                 # the title page asks at once, a hero once the cursor rests
                 wait = 0.0 if current[4] else NETWORK_AFTER
-                extra_ratings = current[4] or guistate.active() != guistate.HOME
+                # v5.10.297: the Home hero too (once the cursor rests), so the
+                # platforms beside the star match the sources window
+                extra_ratings = True
                 if (extra_ratings and rested >= max(SETTLE, wait)
                         and key not in self.netted and self.wants_network(key)):
                     self.netted.add(key)
@@ -211,7 +213,8 @@ class HeroFocus(threading.Thread):
         home.setProperty(PREFIX + 'id', '')
         if not enabled('metadata_badges'):
             ratings = {}
-        for name, value in RB.props(ratings, prefix=PREFIX).items():
+        # v5.10.297: every platform the sources window shows (not six)
+        for name, value in RB.props(ratings, prefix=PREFIX, limit=len(RB.ORDER)).items():
             home.setProperty(name, value)
         self.publish_badges(key)
         logo, chip = self.studios.get(key) or ('', False)

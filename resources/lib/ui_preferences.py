@@ -35,6 +35,11 @@ OPTIONS = {
     'player_badges_place': ('seekbar', ('seekbar', 'info'), 'مكان الرموز في المشغّل', 'Badges place in the player'),
     # v5.10.286 (issue #18): the badges at full opacity by default; 85 or 70 % on request
     'player_badges_opacity': ('100', ('100', '85', '70'), 'شفافية رموز الجودة', 'Badge opacity'),
+    # v5.10.298: the player bar's look (osd_look.py): style, darkness, colour
+    'player_osd_style': ('classic', ('classic', 'glass', 'cinematic', 'minimal'), 'نمط شريط المشغّل', 'Player bar style'),
+    'player_osd_dim': ('70', ('30', '50', '70', '85', '95'), 'تعتيم خلفية المشغّل', 'Player background darkness'),
+    'player_osd_accent': ('white', ('white', 'theme', 'artwork', 'violet', 'blue', 'cyan', 'green', 'gold', 'orange', 'red', 'pink'),
+                          'لون المشغّل', 'Player colour'),
     'player_show_clearlogo': ('true', None, 'شعار العمل في المشغّل', 'Work logo in player'),
     'player_logo_position': ('above_info', ('above_info', 'top_left', 'top_right'), 'مكان شعار العمل', 'Work logo position'),
     'player_show_plot': ('true', None, 'النبذة في المشغّل', 'Plot in player'),
@@ -142,6 +147,11 @@ def publish():
         osd_buttons.publish()
     except Exception:
         pass
+    try:
+        from . import osd_look
+        osd_look.publish()
+    except Exception:
+        pass
 
 
 def sync_skin_place():
@@ -245,6 +255,9 @@ def edit(key, txt):
     shown = [labels.get(v, v + txt(' ثوانٍ', ' seconds') if key.endswith(('delay', 'interval')) else v) for v in choices]
     if key == 'player_badges_opacity':  # v5.10.286
         shown = [v + '%' for v in choices]
+    if key in ('player_osd_style', 'player_osd_dim', 'player_osd_accent'):  # v5.10.298
+        from . import osd_look
+        shown = osd_look.labels(key, txt)
     pick = xbmcgui.Dialog().select(txt(ar, en), shown, preselect=choices.index(current))
     return set_value(key, choices[pick]) if pick >= 0 else True
 
@@ -255,7 +268,8 @@ def player_dialog(txt):
     while True:
         labels = [txt('شكل رموز الجودة · صور ومعاينة', 'Quality badge style · preview')]
         display = {'true': txt('مفعّل', 'On'), 'false': txt('مطفأ', 'Off'), 'above_info': txt('فوق البيانات', 'Above details'), 'top_left': txt('أعلى اليسار', 'Top left'), 'top_right': txt('أعلى اليمين', 'Top right'), 'seekbar': txt('فوق شريط التقدم', 'Above the seek bar'), 'info': txt('تحت البيانات', 'Under the details')}
-        labels += [txt(OPTIONS[k][2], OPTIONS[k][3]) + ' · ' + display.get(value(k), value(k)) + ('%' if k == 'player_badges_opacity' else '') for k in keys]
+        from . import osd_look
+        labels += [txt(OPTIONS[k][2], OPTIONS[k][3]) + ' · ' + (osd_look.label(k, value(k), txt) if k in osd_look.KEYS else display.get(value(k), value(k))) + ('%' if k == 'player_badges_opacity' else '') for k in keys]
         pick = xbmcgui.Dialog().select(txt('مظهر المشغّل', 'Player appearance'), labels)
         if pick < 0:
             return True

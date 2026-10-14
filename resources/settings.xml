@@ -141,6 +141,10 @@
 		<setting id="player_badges_place" type="text" default="seekbar" visible="false" />
 		<!-- v5.10.286 (issue #18): the player badges opacity, 100 % by default -->
 		<setting id="player_badges_opacity" type="text" default="100" visible="false" />
+		<!-- v5.10.298: the player bar's look (osd_look.py) -->
+		<setting id="player_osd_style" type="text" default="classic" visible="false" />
+		<setting id="player_osd_dim" type="text" default="70" visible="false" />
+		<setting id="player_osd_accent" type="text" default="white" visible="false" />
 		<!-- v5.10.288: the player bar's buttons in order, a hidden one as -key (osd_buttons.py) -->
 		<setting id="osd_buttons" type="text" default="" visible="false" />
 		<setting type="lsep" label="31144" />

@@ -163,6 +163,7 @@ def summary(entries=None):
 A_BACK = {9, 10, 92, 216, 247, 257, 275, 61448, 61467}
 A_LEFT, A_RIGHT = 1, 2
 LIST, RESTORE, DONE = 100, 301, 302
+LOOK_STYLE, LOOK_DIM, LOOK_ACCENT = 303, 304, 305     # v5.10.298: the Look row
 
 
 class EditorWindow(xbmcgui.WindowXMLDialog):
@@ -199,8 +200,56 @@ class EditorWindow(xbmcgui.WindowXMLDialog):
             props['ob.left.%d' % n] = '%s/resources/media/osdbar/%s.png' % (self.root, name)
         for prop, value in props.items():
             self.setProperty(prop, value)
+        self._look()
         self._fill(0)
         self.setFocusId(LIST)
+
+    def _look(self):
+        """v5.10.298: the Look row's labels and the preview in the chosen
+        look (style, darkness, colour), as the player will wear it."""
+        from . import osd_look
+        txt = self.txt
+        osd_look.publish()
+        props = osd_look.props()
+        style, dim, accent = (osd_look.value(k) for k in osd_look.KEYS)
+        fanart = (xbmc.getInfoLabel('Player.Art(fanart)') or xbmc.getInfoLabel('Player.Art(tvshow.fanart)')
+                  or xbmcgui.Window(10000).getProperty('dexhub.source.fanart')
+                  or '%s/resources/media/bp_popular_movie.jpg' % self.root)
+        values = {
+            'ob.style': style,
+            'ob.fanart': fanart,
+            'ob.c.bg': props['dhs.osd.bg'],
+            'ob.c.glass': props['dhs.osd.glass'],
+            'ob.c.accent': props['dhs.osd.accent'],
+            'ob.c.onaccent': props['dhs.osd.on_accent'],
+            'ob.look.style': '%s:  [B]%s[/B]' % (txt('النمط', 'Style'), osd_look.label(osd_look.STYLE, style, txt)),
+            'ob.look.dim': '%s:  [B]%s%%[/B]' % (txt('التعتيم', 'Darkness'), dim),
+            'ob.look.accent': '%s:  [B]%s[/B]' % (txt('اللون', 'Colour'), osd_look.label(osd_look.ACCENT, accent, txt)),
+        }
+        for prop, value in values.items():
+            self.setProperty(prop, value)
+
+    def _cycle(self, key):
+        from . import osd_look, ui_preferences
+        choices = osd_look.CHOICES[key]
+        current = osd_look.value(key)
+        if key == osd_look.ACCENT:
+            names = osd_look.labels(key, self.txt)
+            if 'artwork' in choices and not osd_look.has_pil():
+                at = choices.index('artwork')
+                names[at] += self.txt('  (يحتاج Pillow، وإلا لون الثيم)', '  (needs Pillow, else the theme colour)')
+            pick = xbmcgui.Dialog().select(self.txt('لون المشغّل', 'Player colour'), names,
+                                           preselect=choices.index(current) if current in choices else 0)
+            if pick < 0:
+                return
+            chosen = choices[pick]
+        else:
+            at = choices.index(current) if current in choices else 0
+            chosen = choices[(at + 1) % len(choices)]
+        ui_preferences.set_value(key, chosen)
+        if key == osd_look.ACCENT and chosen == 'artwork':
+            osd_look.follow_playing()
+        self._look()
 
     def _fill(self, select):
         """The list and the bar from self.entries; the focus on row select."""
@@ -265,6 +314,10 @@ class EditorWindow(xbmcgui.WindowXMLDialog):
             self.setFocusId(LIST)
         elif control_id == DONE:
             self.close()
+        elif control_id in (LOOK_STYLE, LOOK_DIM, LOOK_ACCENT):
+            from . import osd_look
+            self._cycle({LOOK_STYLE: osd_look.STYLE, LOOK_DIM: osd_look.DIM,
+                         LOOK_ACCENT: osd_look.ACCENT}[control_id])
 
     def onAction(self, action):
         aid = action.getId()

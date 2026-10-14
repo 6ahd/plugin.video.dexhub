@@ -2499,6 +2499,18 @@ def _resolve_meta_art_fast(provider, media_type, meta, fallback_art=None):
               or fb.get('fanart') or '')
     # v5.10.97: never the provider's logo (see _without_title_logo)
     logo   = (meta or {}).get('clearlogo') or (meta or {}).get('logo') or ''
+    if not logo:
+        # v5.10.297: collections and Nuvio rows take this path; the title's
+        # logo from TMDb Helper's local art database (no network)
+        try:
+            _ids = extract_ids(meta or {})
+            if _ids.get('tmdb_id') or _ids.get('imdb_id'):
+                logo = (_tmdb_art_db.get_art_bundle_from_db(
+                    tmdb_id=_ids.get('tmdb_id') or '',
+                    media_type='tv' if str(media_type or '').lower() in ('series', 'tv', 'show', 'anime') else 'movie',
+                    imdb_id=_ids.get('imdb_id') or '') or {}).get('clearlogo') or ''
+        except Exception:
+            logo = ''
     art = {
         'poster':   poster,
         'fanart':   fanart,
@@ -2508,6 +2520,9 @@ def _resolve_meta_art_fast(provider, media_type, meta, fallback_art=None):
         'landscape': fanart,
         'clearlogo': logo,
     }
+    if logo:
+        art['logo'] = logo
+        art['tvshow.clearlogo'] = logo
     if not _meta_art_is_strict(meta):
         try:
             art = _apply_poster_reliability(art, meta)
@@ -14733,7 +14748,10 @@ def _stream_facts(row, provider_name, provider_origin=''):
                         formatted.get('title') or _stream_display_name(row))
         video_bits = _formatter_fact_list(formatted.get('video'))
         audio_bits = _formatter_fact_list(formatted.get('audio'))
-        size = _extract_size(formatted.get('size')) or str(formatted.get('size') or '').strip()
+        size = (_extract_size(formatted.get('size')) or str(formatted.get('size') or '').strip()
+                # v5.10.297: a formatter without a size field still sends the bytes
+                or _extract_size(hints.get('videoSize') if isinstance(hints, dict) else None,
+                                 row.get('size'), row.get('videoSize')))
         addon_name = _normalize_ascii(formatted.get('source') or formatted.get('addon') or '')
         addon_name = addon_name.upper() if addon_name else _extract_addon_name(row, provider_name, texts=[])
         indexer_name = _normalize_ascii(formatted.get('indexer') or '').upper()
@@ -16764,6 +16782,9 @@ def _append_stream_entries_from_data(entries, data, provider, request_id, media_
                                      facts.get('origin_line') or provider_name),
             'upstream_formatter_preview': _aio_preview,
             'upstream_formatter_text': _aio_description,
+            # v5.10.297: the add-on's own row text, shown as Nuvio shows it
+            'stream_name_raw': str(row.get('name') or '')[:400],
+            'stream_desc_raw': str(row.get('description') or row.get('title') or '')[:900],
             'cached': _ready_state(row, facts),
             'in_library': _library_state(row),
             'size_label': size or '--',
@@ -18841,6 +18862,42 @@ def _local_resume_lookup(media_type, canonical_id, video_id='', season=None, epi
     return 0.0, 0.0
 
 
+def _autopick_active(pick_dialog=False):
+    """v5.10.295: the faster autoplay only runs in "Best quality automatically"."""
+    return (not pick_dialog) and _default_playback_mode() == 'autoplay'
+
+
+def _autopick_pool():
+    from .dexhub.client import _get_pool
+    return _get_pool(8, 'streams')
+
+
+def _autopick_collect(targets, fetch, append, entries):
+    from . import autopick
+    return autopick.collect_early(targets, fetch, append, _autopick_pool(), xbmc=xbmc,
+                                  has_rows=lambda: bool(entries))
+
+
+def _autopick_play(entries, resume_seconds, resume_percent, show_key=''):
+    """Play the best row that answers; remember a series' stream family."""
+    from . import autopick
+    index = 0
+    try:
+        def _headers_for(entry):
+            ctx = cache_store.get('stream', entry.get('stream_key')) or {}
+            return ctx.get('request_headers')
+        index = autopick.verify_pick(entries, _autopick_pool(), headers_for=_headers_for, xbmc=xbmc)
+    except Exception as exc:
+        xbmc.log('[DexHub] autopick verify skipped: %s' % exc, xbmc.LOGWARNING)
+        index = 0
+    if show_key:
+        try:
+            autopick.remember_show(_profile_path(), show_key, entries[index])
+        except Exception:
+            pass
+    return play(entries[index]['stream_key'], resume_seconds=resume_seconds, resume_percent=resume_percent)
+
+
 def _auto_play_first_movie(canonical_id, title='', seed_ids=None, preferred_provider_name='', resume_seconds=0.0, resume_percent=0.0, source_provider_id='', source_mode='', pick_dialog=False, ui_seed=None, source_server_id=''):
     # v5.10.172: play_item's quick-same path passes the server like the
     # episode path does; a movie took no such argument and Resume failed
@@ -18858,7 +18915,17 @@ def _auto_play_first_movie(canonical_id, title='', seed_ids=None, preferred_prov
         best_meta, _cached = _fast_meta_for_sources('movie', canonical_id, providers,
             title=title, source_provider_id=source_provider_id, seed_ids=seed_ids)
     else:
-        best_meta = _best_meta_for_item('movie', canonical_id, providers, source_provider_id=source_provider_id)
+        best_meta, _cached = None, False
+        if _autopick_active(pick_dialog):
+            # v5.10.295: the picker already opens from cached metadata; autoplay
+            # waited for a network meta fetch before asking any add-on.
+            try:
+                best_meta, _cached = _fast_meta_for_sources('movie', canonical_id, providers,
+                    title=title, source_provider_id=source_provider_id, seed_ids=seed_ids)
+            except Exception:
+                best_meta, _cached = None, False
+        if not _cached:
+            best_meta = _best_meta_for_item('movie', canonical_id, providers, source_provider_id=source_provider_id)
     if ui_seed:
         best_meta = _merge_ui_seed_into_meta(best_meta, ui_seed)
     provider_fb = _item_fallback_art(providers[0] if providers else {}, 'movie')
@@ -18891,11 +18958,18 @@ def _auto_play_first_movie(canonical_id, title='', seed_ids=None, preferred_prov
     def _fetch(t):
         return _fetch_stream_payload(t, 'movie')
 
-    for target, data in run_parallel(_fetch, targets):
-        if isinstance(data, Exception) or not data:
-            continue
+    def _append(target, data):
         p, rid = target
         _append_stream_entries_from_data(entries, data, p, rid, 'movie', canonical_id, best_meta, art, bg, ids, title=title, resume_seconds=resume_seconds, resume_percent=resume_percent)
+
+    _fast = _autopick_active(pick_dialog)
+    if _fast:
+        _autopick_collect(targets, _fetch, _append, entries)
+    else:
+        for target, data in run_parallel(_fetch, targets):
+            if isinstance(data, Exception) or not data:
+                continue
+            _append(target, data)
     if not entries and fallback_targets:
         for target, data in run_parallel(_fetch, fallback_targets):
             if isinstance(data, Exception) or not data:
@@ -18936,6 +19010,8 @@ def _auto_play_first_movie(canonical_id, title='', seed_ids=None, preferred_prov
                     pass
             return
         return play(entries[choice]['stream_key'], resume_seconds=resume_seconds, resume_percent=resume_percent)
+    if _fast:
+        return _autopick_play(entries, resume_seconds, resume_percent)
     return play(entries[0]['stream_key'], resume_seconds=resume_seconds, resume_percent=resume_percent)
 
 
@@ -18952,7 +19028,17 @@ def _auto_play_first_episode(canonical_id, video_id, season, episode, title='', 
         best_meta, _cached = _fast_meta_for_sources('series', canonical_id, providers,
             title=title, source_provider_id=source_provider_id, seed_ids=seed_ids)
     else:
-        best_meta = _best_meta_for_item('series', canonical_id, providers, source_provider_id=source_provider_id)
+        best_meta, _cached = None, False
+        if _autopick_active(pick_dialog):
+            # v5.10.295: the picker already opens from cached metadata; autoplay
+            # waited for a network meta fetch before asking any add-on.
+            try:
+                best_meta, _cached = _fast_meta_for_sources('series', canonical_id, providers,
+                    title=title, source_provider_id=source_provider_id, seed_ids=seed_ids)
+            except Exception:
+                best_meta, _cached = None, False
+        if not _cached:
+            best_meta = _best_meta_for_item('series', canonical_id, providers, source_provider_id=source_provider_id)
     if ui_seed:
         best_meta = _merge_ui_seed_into_meta(best_meta, ui_seed)
     provider_fb = _item_fallback_art(providers[0] if providers else {}, 'series')
@@ -18994,11 +19080,18 @@ def _auto_play_first_episode(canonical_id, video_id, season, episode, title='', 
     def _fetch(t):
         return _fetch_stream_payload(t, 'series')
 
-    for target, data in run_parallel(_fetch, targets):
-        if isinstance(data, Exception) or not data:
-            continue
+    def _append(target, data):
         p, rid = target
         _append_stream_entries_from_data(entries, data, p, rid, 'series', canonical_id, best_meta, art, bg, ids, title=title, video_id=video_id, season=season, episode=episode, resume_seconds=resume_seconds, resume_percent=resume_percent)
+
+    _fast = _autopick_active(pick_dialog)
+    if _fast:
+        _autopick_collect(targets, _fetch, _append, entries)
+    else:
+        for target, data in run_parallel(_fetch, targets):
+            if isinstance(data, Exception) or not data:
+                continue
+            _append(target, data)
     if not entries and fallback_targets:
         for target, data in run_parallel(_fetch, fallback_targets):
             if isinstance(data, Exception) or not data:
@@ -19013,6 +19106,12 @@ def _auto_play_first_episode(canonical_id, video_id, season, episode, title='', 
         error(tr('لم يتم العثور على روابط تشغيل'))
         return end_dir()
     entries = _finalize_stream_entries(entries, media_type='series', canonical_id=canonical_id, video_id=video_id)
+    if not source_affinity and _fast:
+        try:
+            from . import autopick as _autopick
+            source_affinity = _autopick.show_affinity(_profile_path(), 'series|%s' % (canonical_id or '')) or None
+        except Exception:
+            source_affinity = None
     if source_affinity:
         entries = _binge_source.prioritize_entries(entries, source_affinity)
     if pick_dialog:
@@ -19041,6 +19140,9 @@ def _auto_play_first_episode(canonical_id, video_id, season, episode, title='', 
                     pass
             return
         return play(entries[choice]['stream_key'], resume_seconds=resume_seconds, resume_percent=resume_percent)
+    if _fast:
+        return _autopick_play(entries, resume_seconds, resume_percent,
+                              show_key='series|%s' % (canonical_id or ''))
     return play(entries[0]['stream_key'], resume_seconds=resume_seconds, resume_percent=resume_percent)
 
 
@@ -26779,7 +26881,12 @@ def _publish_last_streams_index(canonical_id, season, episode, entries, poster='
                      # the player's Sources panel reads the same
                      'id': str(e.get('source_identity_line') or e.get('origin_line')
                                or e.get('provider') or ''),
+                     # v5.10.296: the add-on name the sources window shows
+                     'p': str(e.get('provider') or e.get('provider_name_raw') or ''),
                      's': str(e.get('size_label') or ''),
+                     # v5.10.297: Nuvio-style row and sort keys
+                     'n': str(e.get('stream_name_raw') or ''),
+                     'd': str(e.get('stream_desc_raw') or ''),
                      'q': str(e.get('quality') or ''),
                      'c': e.get('cached') if e.get('cached') in (True, False) else None,
                      'lib': bool(e.get('in_library'))})

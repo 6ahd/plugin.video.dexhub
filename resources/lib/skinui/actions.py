@@ -198,10 +198,13 @@ def menu(params, handle):
     the skin's Settings page names an entry at once (key=...)."""
     tr = _tr
     key = params.get('key') or ''
-    if not key or key == 'customize':
+    # v5.10.299: the skin's settings page opens the one Appearance place
+    looks = {'customize': 'look_layout', 'look': 'look_theme', 'look_theme': 'look_theme',
+             'look_layout': 'look_layout', 'look_motion': 'look_motion'}
+    if not key or key in looks:
         from ..homeui import control
-        if key == 'customize':
-            xbmcgui.Window(10000).setProperty(control.LAST_PROP, 'customize')
+        if key in looks:
+            xbmcgui.Window(10000).setProperty(control.LAST_PROP, looks[key])
         tab = C.prop('dhs.tab') or 'all'
         key = control.open_centre(tr=tr, media=tab)
         if key is None:
@@ -251,6 +254,8 @@ def menu(params, handle):
         settings_cards()
     elif key == 'kodi':
         launch('ActivateWindow(Settings)')
+    elif key == 'theme':
+        launch('ActivateWindow(1191)')          # v5.10.299: the skin's theme gallery
     elif key == 'skin_pick':
         from . import switch
         switch.pick({})
