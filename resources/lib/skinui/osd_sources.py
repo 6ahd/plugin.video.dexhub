@@ -137,19 +137,39 @@ def sources(params, handle):
         item = _item_key(ctx.get('canonical_id'), ctx.get('season'), ctx.get('episode'))
         for pos, row in enumerate(listed[:60]):
             name = _TAGS.sub('', str(row.get('l') or '?')).replace('\n', ' ').strip()
-            line = _TAGS.sub('', str(row.get('l2') or '')).strip()
-            parts = [p.strip() for p in line.split('·') if p.strip()]
+            name = re.sub(r'\s{2,}', '  ', name)
+            if 'id' in row:
+                # v5.10.294: the sources window's own line (the add-on's or
+                # AIOStreams formatter identity, not the add-on's name)
+                ident = _TAGS.sub('', str(row.get('id') or '')).replace('\n', ' ').strip()
+                size = str(row.get('s') or '').strip()
+                if size == '--':
+                    size = ''
+                line = '  ·  '.join(p for p in (ident, size) if p)
+                low = (name + ' ' + line).lower()
+                props = {'pos': str(pos), 'provider': ident,
+                         'quality': _quality(str(row.get('q') or '')) or _quality(name + ' ' + line),
+                         'isfolder': 'false'}
+                if size:
+                    props['size'] = size
+                if row.get('lib') or row.get('c') is True:
+                    props['cache'] = 'cached'
+                elif row.get('c') is False:
+                    props['cache'] = 'uncached'
+            else:
+                line = _TAGS.sub('', str(row.get('l2') or '')).strip()
+                parts = [p.strip() for p in line.split('·') if p.strip()]
+                low = (name + ' ' + line).lower()
+                props = {'pos': str(pos), 'provider': parts[0] if parts else '',
+                         'quality': _quality(name + ' ' + line), 'isfolder': 'false'}
+                size = next((p for p in parts if re.search(r'\d\s*(?:gb|mb)\b', p, re.I)), '')
+                if size:
+                    props['size'] = size
+                if 'uncached' in low or 'not ready' in low:
+                    props['cache'] = 'uncached'
+                elif 'cached' in low or '⚡' in name or 'ready' in low or 'in library' in low:
+                    props['cache'] = 'cached'
             li = xbmcgui.ListItem(label=name, label2=line, offscreen=True)
-            low = (name + ' ' + line).lower()
-            props = {'pos': str(pos), 'provider': parts[0] if parts else '',
-                     'quality': _quality(name + ' ' + line), 'isfolder': 'false'}
-            size = next((p for p in parts if re.search(r'\d\s*(?:gb|mb)\b', p, re.I)), '')
-            if size:
-                props['size'] = size
-            if 'uncached' in low or 'not ready' in low:
-                props['cache'] = 'uncached'
-            elif 'cached' in low or '⚡' in name or 'ready' in low or 'in library' in low:
-                props['cache'] = 'cached'
             if row.get('current'):
                 props['iscurrent'] = 'true'
             li.setProperties(props)

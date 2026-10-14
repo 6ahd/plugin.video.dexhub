@@ -26774,7 +26774,15 @@ def _publish_last_streams_index(canonical_id, season, episode, entries, poster='
             continue
         rows.append({'k': k,
                      'l': e.get('name') or e.get('stream_title') or '?',
-                     'l2': _entry_second_line(e)})
+                     'l2': _entry_second_line(e),
+                     # v5.10.294: what the sources window shows on the row, so
+                     # the player's Sources panel reads the same
+                     'id': str(e.get('source_identity_line') or e.get('origin_line')
+                               or e.get('provider') or ''),
+                     's': str(e.get('size_label') or ''),
+                     'q': str(e.get('quality') or ''),
+                     'c': e.get('cached') if e.get('cached') in (True, False) else None,
+                     'lib': bool(e.get('in_library'))})
     payload = {
         'item': _streams_item_key(canonical_id, season, episode),
         'poster': poster or '',

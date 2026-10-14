@@ -6,7 +6,7 @@
 
 Stremio & Nuvio add-ons · Plex, Emby, Jellyfin & Silo · Live TV · Native Trakt, Simkl & MDBList · Arabic-first UI · TMDb Helper integration
 
-[![Version](https://img.shields.io/badge/version-5.10.293-7c3aed)]()
+[![Version](https://img.shields.io/badge/version-5.10.294-7c3aed)]()
 [![Skin](https://img.shields.io/badge/skin-3.28.41-ffd23f)]()
 [![Kodi](https://img.shields.io/badge/Kodi-21%20Omega%20%7C%2022%20Piers-33d8f7)]()
 [![License](https://img.shields.io/badge/license-all%20rights%20reserved-ef4444)](LICENSE.txt)
@@ -20,7 +20,7 @@ Stremio & Nuvio add-ons · Plex, Emby, Jellyfin & Silo · Live TV · Native Trak
 
 ## What's new
 
-**Dex Hub 5.10.293 · Dex Hub skin 3.28.41**
+**Dex Hub 5.10.294 · Dex Hub skin 3.28.41**
 
 * **Home layouts:** Cinematic full screen, Hero with one row, Compact hero and two rows, Wide card shelf, Hero and rows, and Spotlight and posters, each with a preview in the picker.
 * **Home size from 50% to 200%,** a sidebar that can show icons only, and a top bar that hides while you scroll.
@@ -30,6 +30,8 @@ Stremio & Nuvio add-ons · Plex, Emby, Jellyfin & Silo · Live TV · Native Trak
 * **Player bar:** choose, hide and order the buttons, plus **Sync subtitle** and **Next subtitle** (works on its own, and uses DexSubtitles when it's installed). Codec badges at full strength with an opacity choice.
 * **Library:** Films and series filter, lists split into movies and series, and a cleaner header.
 * **Phone setup page:** link accounts, pick the layout, arrange rows, themes, trailers and player options from your phone.
+* **Player Sources panel** reads like the sources window: each row shows its own source line (AIOStreams formatter, service and indexer) with the size and Ready / Not ready, not the add-on name on every row.
+* **Nuvio profiles fixed:** choosing a profile no longer asks you to sign in again, and a profile opened for the first time keeps your settings, Home order and Like Nuvio metadata.
 * **Fixes from your reports:** missing artwork and plot for Nuvio-synced Continue Watching (#7, #17), trailers stuck behind the interface (#14), dim badges (#18), and more.
 
 Full history in [changelog.txt](changelog.txt).
