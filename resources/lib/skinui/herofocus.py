@@ -179,8 +179,8 @@ class HeroFocus(threading.Thread):
         try:
             if self.busy():
                 return False
-            from .. import mdblist
-            return bool(mdblist.configured())
+            # v5.10.301: TMDb, Cinemeta and TMDb Helper's keys need no key of ours
+            return True
         except Exception:
             return False
 

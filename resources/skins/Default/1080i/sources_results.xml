@@ -422,6 +422,27 @@
                 <onup>2300</onup><ondown>2000</ondown><onleft>2000</onleft><onright>2000</onright>
                 <scrolltime tween="cubic" easing="out">55</scrolltime>
                 <orientation>Vertical</orientation>
+                <itemlayout height="236" width="1440" condition="String.IsEqual(Window(Home).Property(dhs.pref.sources_row_style),full)">
+                    <!-- v5.10.301: Nuvio's rows: the add-on's own lines, all of them -->
+                    <control type="image"><left>0</left><top>5</top><width>1440</width><height>226</height><texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface_card)]" border="20">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control>
+                    <control type="image"><left>8</left><top>30</top><width>4</width><height>176</height><texture colordiffuse="$INFO[ListItem.Property(qtone)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture></control>
+                    <control type="label"><left>28</left><top>14</top><width>1180</width><height>66</height><font>font13</font><textcolor>FFF8FAFD</textcolor><shadowcolor>FF000000</shadowcolor><wrapmultiline>true</wrapmultiline><aligny>top</aligny><label>$INFO[ListItem.Property(raw_name)]</label></control>
+                    <control type="label"><left>1220</left><top>14</top><width>196</width><height>30</height><font>font12</font><align>right</align><textcolor>FFF0F3F8</textcolor><label>[B]$INFO[ListItem.Property(size_label)][/B]</label></control>
+                    <control type="label"><left>1220</left><top>46</top><width>196</width><height>28</height><font>font12</font><align>right</align><textcolor>FFD4DAE5</textcolor><label>$INFO[ListItem.Property(source_type_label)]</label></control>
+                    <control type="textbox"><left>28</left><top>84</top><width>1388</width><height>112</height><font>font12</font><textcolor>FFB9C1CE</textcolor><shadowcolor>FF000000</shadowcolor><label>$INFO[ListItem.Property(raw_desc)]</label></control>
+                    <control type="label"><left>28</left><top>198</top><width>1388</width><height>26</height><font>font12</font><textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.secondary)]</textcolor><label>[COLOR $INFO[ListItem.Property(qtone)]][B]$INFO[ListItem.Property(quality)][/B][/COLOR]  ·  $INFO[ListItem.Property(provider)]</label></control>
+                </itemlayout>
+                <focusedlayout height="236" width="1440" condition="String.IsEqual(Window(Home).Property(dhs.pref.sources_row_style),full)">
+                    <!-- v5.10.301: Nuvio's rows: the add-on's own lines, all of them -->
+                    <control type="image"><left>0</left><top>5</top><width>1440</width><height>226</height><texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface_card)]" border="20">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control>
+                    <control type="image"><left>0</left><top>5</top><width>1440</width><height>226</height><texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent_dim)]" border="20">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control>
+                    <control type="image"><left>8</left><top>30</top><width>4</width><height>176</height><texture colordiffuse="$INFO[ListItem.Property(qtone)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture></control>
+                    <control type="label"><left>28</left><top>14</top><width>1180</width><height>66</height><font>font13</font><textcolor>FFF8FAFD</textcolor><shadowcolor>FF000000</shadowcolor><wrapmultiline>true</wrapmultiline><aligny>top</aligny><label>$INFO[ListItem.Property(raw_name)]</label></control>
+                    <control type="label"><left>1220</left><top>14</top><width>196</width><height>30</height><font>font12</font><align>right</align><textcolor>FFF0F3F8</textcolor><label>[B]$INFO[ListItem.Property(size_label)][/B]</label></control>
+                    <control type="label"><left>1220</left><top>46</top><width>196</width><height>28</height><font>font12</font><align>right</align><textcolor>FFD4DAE5</textcolor><label>$INFO[ListItem.Property(source_type_label)]</label></control>
+                    <control type="textbox"><left>28</left><top>84</top><width>1388</width><height>112</height><font>font12</font><textcolor>FFE3E8F0</textcolor><shadowcolor>FF000000</shadowcolor><autoscroll delay="2500" time="2200" repeat="6000">true</autoscroll><label>$INFO[ListItem.Property(raw_desc)]</label></control>
+                    <control type="label"><left>28</left><top>198</top><width>1388</width><height>26</height><font>font12</font><textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.secondary)]</textcolor><label>[COLOR $INFO[ListItem.Property(qtone)]][B]$INFO[ListItem.Property(quality)][/B][/COLOR]  ·  $INFO[ListItem.Property(provider)]</label></control>
+                </focusedlayout>
                 <itemlayout height="122" width="1440">
                     <!-- v5.10.151: the same parts in the same places on every row; the focused one only lights up -->
                     <control type="image"><left>0</left><top>5</top><width>1440</width><height>112</height><texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface_card)]" border="20">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texture></control>

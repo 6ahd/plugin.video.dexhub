@@ -19,6 +19,19 @@ restore_startup()
 from resources.lib.profile_scope import initialize as initialize_profiles
 initialize_profiles()
 
+# v5.10.301: one settings snapshot for the service's watchers (they built a
+# fresh xbmcaddon.Addon every second or two; on Apple TV each one reads and
+# parses the whole settings file)
+from resources.lib.settings_cache import install_shared as _install_shared_settings
+_install_shared_settings(60.0)
+
+# v5.10.301: the shipped default metadata source becomes TMDb in one language
+try:
+    from resources.lib.meta_mode import migrate_to_tmdb as _migrate_to_tmdb
+    _migrate_to_tmdb()
+except Exception:
+    pass
+
 import xbmcgui
 
 
@@ -657,7 +670,32 @@ def _stop_threads(budget=2.0):
         pass
 
 
+def _retire_apple_tv_addon():
+    """v5.10.305: Dex Hub (Apple TV) belongs to the Apple TV app. Installed
+    here beside Dex Hub, its service ran a second Home worker, theme writer
+    and keymap writer (the CoreELEC log: two 'companion service started', one
+    at 5.10.278, two accent colours fighting, the player keymap read half
+    written). Off the Apple TV it is turned off, once, and said in the log."""
+    other = 'plugin.video.dexhub.tvos'
+    try:
+        if xbmc.getCondVisibility('System.Platform.Darwin | System.Platform.TVOS'):
+            return
+        if not xbmc.getCondVisibility('System.HasAddon(%s)' % other):
+            return
+        if not xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % other):
+            return
+        import json as _json
+        answer = xbmc.executeJSONRPC(_json.dumps({
+            'jsonrpc': '2.0', 'id': 1, 'method': 'Addons.SetAddonEnabled',
+            'params': {'addonid': other, 'enabled': False}}))
+        xbmc.log('[DexHub] Dex Hub (Apple TV) found on this device and turned off (it is for the '
+                 'Apple TV app and ran a second service here): %s' % (answer or '')[:120], xbmc.LOGINFO)
+    except Exception as exc:
+        xbmc.log('[DexHub] Apple TV add-on check: %s' % exc, xbmc.LOGWARNING)
+
+
 if __name__ == '__main__':
+    _retire_apple_tv_addon()
     try:
         import xbmcaddon
         _service_addon = xbmcaddon.Addon()

@@ -11,6 +11,10 @@ ALIASES = {'plot': ('plot', 'description', 'overview'), 'genre': ('genre', 'genr
 
 
 def cached(source, ids, kind):
+    if source == 'tmdb':
+        # v5.10.301: TMDb in the one metadata language (a miss is fetched
+        # in the background for the next render)
+        return meta_source._fetch_from_tmdb(ids, kind, cache_only=True) or {}
     if source == 'tmdb_helper':
         return tmdbhelper.get_meta_bundle_from_db(tmdb_id=ids.get('tmdb_id') or '',
             imdb_id=ids.get('imdb_id') or '', media_type=kind) or {}
@@ -138,6 +142,9 @@ def _source_meta(source, ids, kind, network):
     """(meta dict, asked the network)."""
     if source == 'tmdb_helper':
         return cached('tmdb_helper', ids, kind), False
+    if source == 'tmdb':
+        data = meta_source._fetch_from_tmdb(ids, kind, cache_only=not network) or {}
+        return data, bool(network)
     data = meta_source._fetch_from_stremio(source, kind, ids, cache_only=True) or {}
     if data or not network:
         return data, False

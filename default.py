@@ -12,6 +12,11 @@ install_tvos_compat()
 from resources.lib.profile_scope import initialize as initialize_profiles
 initialize_profiles()
 
+# v5.10.301: one settings snapshot per two seconds instead of a full settings
+# read for every xbmcaddon.Addon() (the skin's rows built dozens a second)
+from resources.lib.settings_cache import install_shared as _install_shared_settings
+_install_shared_settings(2.0)
+
 from resources.lib.tvos_assets import publish_asset_root
 publish_asset_root()
 

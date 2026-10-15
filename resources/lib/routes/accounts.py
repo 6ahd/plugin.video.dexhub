@@ -196,6 +196,19 @@ def sync_now(addon, tr, only=None, direction=None):
     if not targets:
         dlg.ok('Dex Hub', tr('فعّل حساب Nuvio أو Stremio وسجّل الدخول أولاً.'))
         return False
+    # v5.10.304: Nuvio syncs one profile; with none chosen yet the profile
+    # screen comes first (one profile is taken at once), never five errors
+    if 'nuvio' in targets and not sync.Nuvio.has_profile():
+        try:
+            nuvio_profile_picker(addon, tr, force=False)
+        except Exception:
+            pass
+        if not sync.Nuvio.has_profile():
+            targets = [t for t in targets if t != 'nuvio']
+            if not targets:
+                dlg.notification('Dex Hub', tr('اختر بروفايل Nuvio أولاً، وبعدها تبدأ المزامنة'),
+                                 xbmcgui.NOTIFICATION_INFO, 5000)
+                return False
     pd = xbmcgui.DialogProgressBG()
     pd.create('Dex Hub', tr('مزامنة الحسابات…'))
     _syncing(only or ','.join(targets))

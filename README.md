@@ -6,8 +6,8 @@
 
 Stremio & Nuvio add-ons · Plex, Emby, Jellyfin & Silo · Live TV · Native Trakt, Simkl & MDBList · Arabic-first UI · TMDb Helper integration
 
-[![Version](https://img.shields.io/badge/version-5.10.300-7c3aed)]()
-[![Skin](https://img.shields.io/badge/skin-3.28.45-ffd23f)]()
+[![Version](https://img.shields.io/badge/version-5.10.306-7c3aed)]()
+[![Skin](https://img.shields.io/badge/skin-3.28.49-ffd23f)]()
 [![Kodi](https://img.shields.io/badge/Kodi-21%20Omega%20%7C%2022%20Piers-33d8f7)]()
 [![License](https://img.shields.io/badge/license-all%20rights%20reserved-ef4444)](LICENSE.txt)
 [![Ko-fi](https://img.shields.io/badge/support-Ko--fi-ff5e5b)](https://ko-fi.com/dexworld)
@@ -20,19 +20,15 @@ Stremio & Nuvio add-ons · Plex, Emby, Jellyfin & Silo · Live TV · Native Trak
 
 ## What's new
 
-**Dex Hub 5.10.300 · Dex Hub skin 3.28.45**
+**Dex Hub 5.10.306 · Dex Hub skin 3.28.49**
 
-* **Home layouts:** Cinematic full screen, Hero with one row, Compact hero and two rows, Wide card shelf, Hero and rows, and Spotlight and posters, each with a preview in the picker.
-* **Home size from 50% to 200%,** a sidebar that can show icons only, and a top bar that hides while you scroll.
-* **Row styles:** 18 styles with live previews, a switch to hide the "from <source>" line, and See all only on rows that really have more.
-* **Nuvio profiles:** each profile keeps its own Home rows, collections, sources and settings. A profile opened for the first time starts from the one you come from.
-* **Like Nuvio everywhere:** metadata, Continue Watching art and the new **Like Nuvio** source order (each add-on's results exactly as the add-on returned them).
-* **Player bar:** choose, hide and order the buttons, plus **Sync subtitle** and **Next subtitle** (works on its own, and uses DexSubtitles when it's installed). Codec badges at full strength with an opacity choice.
-* **Library:** Films and series filter, lists split into movies and series, and a cleaner header.
-* **Phone setup page:** link accounts, pick the layout, arrange rows, themes, trailers and player options from your phone.
-* **Player Sources panel** reads like the sources window: each row shows its own source line (AIOStreams formatter, service and indexer) with the size and Ready / Not ready, not the add-on name on every row.
-* **Nuvio profiles fixed:** choosing a profile no longer asks you to sign in again, and a profile opened for the first time keeps your settings, Home order and Like Nuvio metadata.
-* **Fixes from your reports:** missing artwork and plot for Nuvio-synced Continue Watching (#7, #17), trailers stuck behind the interface (#14), dim badges (#18), and more.
+* **Sources page as an island,** after nuvio-native-legacy: about six sources on screen, the focus ring whole on every side, quality badges under every card, size, add-on and Ready on the right, and the focused card grows to show every line of the add-on's text. Or the exact **Nuvio TV** look: logo and episode on the left, add-on tabs on top, SIZE and Ready chips.
+* **Like Nuvio, for real:** with Nuvio as the metadata source Dex Hub follows your Nuvio profile exactly: its TMDb settings and language on the Home, hero and title page, and its custom poster pattern (RPDB, top-posters, AIOMetadata) on the Home, collections, search and Continue Watching.
+* **Player looks:** Nuvio, Apple TV, Netflix, Infuse, Plex, Disney+, Artwork colours, Clean and Theme. Shade above and below in any colour or none, button backing, dot and see-through focus shapes. Every button and panel follows the player colour; the title as the bar heading; the progress bar across the width with the times under it.
+* **Chapters panel:** Kodi never draws a chapter picture for a stream from the internet, so every chapter came as an empty card. Each chapter now shows the title's backdrop, its number, time and name, with the chapter playing marked.
+* **Home and Library:** the clear logo of the title you browse stays on the hero while a video plays behind it; Library gets Type (All, Movies, Series) and Sort chips.
+* **Nuvio sign in keeps your profile:** signing in again no longer drops it (the five "Select a Nuvio profile" errors are gone); an account with several profiles picks one on the phone page after the approval.
+* **Faster and steadier:** Continue Watching cards kept in memory between Home refreshes, a Plex server that stops answering left out of source searches for five minutes, the player keymap written whole, and the Apple TV add-on turned off automatically when it is installed on another device.
 
 Full history in [changelog.txt](changelog.txt).
 

@@ -248,8 +248,12 @@ def install():
             pass
         if not same:
             os.makedirs(folder, exist_ok=True)
-            with open(path, 'w', encoding='utf-8') as handle:
+            # v5.10.305: written whole then moved in place; Kodi reading the
+            # file half written logged "Error loading keymap ... Line 0"
+            temp = path + '.tmp'
+            with open(temp, 'w', encoding='utf-8') as handle:
                 handle.write(_content())
+            os.replace(temp, path)
         if not same or _loaded() != 'on':
             _reload()
     except Exception as exc:

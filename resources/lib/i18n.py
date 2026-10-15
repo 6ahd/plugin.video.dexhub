@@ -3374,3 +3374,75 @@ STRINGS.update({
     'بدون هيرو: بطاقات عريضة كبيرة ثم الصفوف': 'No hero: big wide cards, then the rows',
     'عمل بارز وصفوف بوسترات': 'A featured title and rows of posters',
 })
+
+STRINGS.update({
+    'شكل صفوف المصادر': 'Source rows',
+    'كاملة مثل نوفيو أو مختصرة': 'Full like Nuvio, or compact',
+    'كاملة مثل نوفيو': 'Full, like Nuvio',
+    'مختصرة': 'Compact',
+})
+
+STRINGS.update({
+    'شكل المؤشر في المشغل': 'Player cursor shape',
+    'دائرة أو مربع مثل Apple TV أو حلقة أو خط': 'Circle, rounded square like Apple TV, ring or line',
+    'دائرة': 'Circle',
+    'مربع مثل Apple TV': 'Rounded square, like Apple TV',
+    'حلقة': 'Ring',
+    'خط تحت الأيقونة': 'Line under the icon',
+})
+
+STRINGS.update({
+    'TMDb: لغة وحدة لكل الأقسام': 'TMDb: one language everywhere',
+})
+
+# v5.10.302: the player's ready looks, its shades and buttons, the Nuvio sources page
+STRINGS.update({
+    'شكل جاهز للمشغل': 'Ready player look',
+    'Nuvio وApple TV وNetflix وغيرها بضغطة': 'Nuvio, Apple TV, Netflix and more in one press',
+    'من شفاف بدون ظل إلى 95%': 'From transparent with no shade to 95%',
+    'مكان ظل المشغل': 'Player shade place',
+    'تحت الشريط أو فوق وتحت أو بدون': 'Below the bar, above and below, or none',
+    'لون ظل المشغل': 'Player shade colour',
+    'أسود أو لون الثيم أو العمل أو لون تختاره': 'Black, the theme, the title or a colour you pick',
+    'خلفية أزرار المشغل': 'Player button backing',
+    'بدون أو شكل خفيف أو إطار': 'None, a soft shape or an outline',
+    'دائرة أو مربع أو حلقة أو خط أو نقطة أو شفاف': 'Circle, square, ring, line, dot or see-through',
+    'نقطة تحت الأيقونة': 'Dot under the icon',
+    'دائرة شفافة': 'See-through circle',
+    'شفاف بدون ظل': 'Transparent, no shade',
+    '80% مثل Nuvio': '80%, like Nuvio',
+    'تحت الشريط فقط': 'Below the bar only',
+    'فوق وتحت مثل Nuvio': 'Above and below, like Nuvio',
+    'بدون ظل · شفاف': 'None · transparent',
+    'أسود بلمسة من لون المشغل': 'Black with a touch of the bar colour',
+    'أسود': 'Black',
+    'لون خلفية الثيم': 'The theme background',
+    'يتبع ألوان العمل المشغّل': 'Follow the playing title',
+    'كحلي': 'Navy',
+    'بنفسجي غامق': 'Plum',
+    'عنابي': 'Wine',
+    'أخضر غامق': 'Forest',
+    'رمادي أزرق': 'Slate',
+    'بني دافئ': 'Warm brown',
+    'بدون خلفية': 'No background',
+    'شكل خفيف خلف كل زر': 'A soft shape behind each button',
+    'إطار حول كل زر': 'An outline around each button',
+    'مخصص (اختياراتك)': 'Custom (your choices)',
+    'على طريقة Netflix': 'Netflix style',
+    'على طريقة Infuse': 'Infuse style',
+    'على طريقة Plex': 'Plex style',
+    'على طريقة Disney+': 'Disney+ style',
+    'ألوان العمل': "The title's colours",
+    'شفاف ونظيف': 'Clean and transparent',
+    'ألوان الثيم': "The theme's colours",
+    'خلفية شريط المشغل: كل ما زادت النسبة صارت أغمق، وشفاف بدون ظل أبدًا': 'The player bar background: the higher, the darker; transparent has no shade at all',
+    'يغير النمط والظل واللون والمؤشر والأزرار مرة وحدة، وتقدر تعدل كل واحد بعدها': 'Sets the style, shade, colour, cursor and buttons at once; each stays editable after',
+    'الظل اللي فوق وتحت الشريط': 'The shade above and below the bar',
+    'مثل Nuvio TV': 'Like Nuvio TV',
+    'مثل Nuvio TV أو صفوف مختصرة': 'Like Nuvio TV or compact rows',
+})
+
+# v5.10.304: a Nuvio sign in waits for its profile before the sync
+STRINGS.update({
+    'اختر بروفايل Nuvio أولاً، وبعدها تبدأ المزامنة': 'Choose a Nuvio profile first, then the sync starts',
+})

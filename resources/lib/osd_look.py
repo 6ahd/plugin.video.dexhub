@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
 """The player bar's look (v5.10.298): style, background darkness and colour.
 
+v5.10.302: the shades above and below the bar can be any colour or none at
+all (transparent), the buttons can sit on a soft shape or an outline, two
+more cursor shapes (a dot under the icon, a soft see-through fill), and
+ready looks that set all of it at once (player_osd_preset).
+
 Three settings (ui_preferences.OPTIONS, shown in the player buttons editor,
 the appearance menu and the phone setup page):
 
@@ -34,7 +39,12 @@ import xbmcgui
 STYLE = 'player_osd_style'
 DIM = 'player_osd_dim'
 ACCENT = 'player_osd_accent'
-KEYS = (STYLE, DIM, ACCENT)
+SHAPE = 'player_osd_shape'       # v5.10.301: the cursor's shape
+SCRIM = 'player_osd_scrim'       # v5.10.302: the shades' colour
+AREA = 'player_osd_area'         # v5.10.302: below only, above and below, none
+BUTTONS = 'player_osd_buttons'   # v5.10.302: what the buttons sit on
+PRESET = 'player_osd_preset'     # v5.10.302: a ready look (sets the others)
+KEYS = (STYLE, DIM, ACCENT, SHAPE, SCRIM, AREA, BUTTONS, PRESET)
 
 STYLES = (
     ('classic', 'كلاسيكي', 'Classic'),
@@ -42,12 +52,70 @@ STYLES = (
     ('cinematic', 'سينمائي', 'Cinematic'),
     ('minimal', 'بسيط', 'Minimal'),
 )
+SHAPES = (
+    ('circle', 'دائرة', 'Circle'),
+    ('square', 'مربع مثل Apple TV', 'Rounded square, like Apple TV'),
+    ('ring', 'حلقة', 'Ring'),
+    ('line', 'خط تحت الأيقونة', 'Line under the icon'),
+    ('dot', 'نقطة تحت الأيقونة', 'Dot under the icon'),
+    ('soft', 'دائرة شفافة', 'See-through circle'),
+)
 DIMS = (
+    ('0', 'شفاف · بدون ظل', 'Transparent · no shade'),
+    ('15', 'خفيف جداً · 15%', 'Barely there · 15%'),
     ('30', 'فاتح جداً · 30%', 'Very light · 30%'),
     ('50', 'فاتح · 50%', 'Light · 50%'),
+    ('60', 'هادئ · 60%', 'Soft · 60%'),
     ('70', 'متوسط · 70%', 'Medium · 70%'),
+    ('80', 'مثل Nuvio · 80%', 'Like Nuvio · 80%'),
     ('85', 'داكن · 85%', 'Dark · 85%'),
     ('95', 'داكن جداً · 95%', 'Very dark · 95%'),
+)
+SCRIMS = (
+    ('auto', 'أسود بلمسة من لون المشغّل', 'Black with a touch of the bar colour'),
+    ('black', 'أسود', 'Black'),
+    ('theme', 'لون خلفية الثيم', 'The theme background'),
+    ('artwork', 'يتبع ألوان العمل المشغّل', 'Follow the playing title'),
+    ('navy', 'كحلي', 'Navy'),
+    ('plum', 'بنفسجي غامق', 'Plum'),
+    ('wine', 'عنابي', 'Wine'),
+    ('forest', 'أخضر غامق', 'Forest'),
+    ('slate', 'رمادي أزرق', 'Slate'),
+    ('warm', 'بني دافئ', 'Warm brown'),
+)
+SCRIM_RGB = {'black': (0, 0, 0), 'navy': (8, 20, 46), 'plum': (34, 16, 52), 'wine': (52, 10, 22),
+             'forest': (10, 34, 22), 'slate': (22, 30, 44), 'warm': (44, 26, 12)}
+AREAS = (
+    ('bottom', 'تحت الشريط فقط', 'Below the bar only'),
+    ('both', 'فوق وتحت مثل Nuvio', 'Above and below, like Nuvio'),
+    ('none', 'بدون ظل · شفاف', 'None · transparent'),
+)
+BUTTON_BGS = (
+    ('none', 'بدون خلفية', 'No background'),
+    ('soft', 'شكل خفيف خلف كل زر', 'A soft shape behind each button'),
+    ('outline', 'إطار حول كل زر', 'An outline around each button'),
+)
+# v5.10.302: ready looks: (key, ar, en, {setting: value})
+PRESETS = (
+    ('custom', 'مخصص (اختياراتك)', 'Custom (your choices)', {}),
+    ('nuvio', 'Nuvio', 'Nuvio',
+     {STYLE: 'classic', DIM: '80', ACCENT: 'white', SHAPE: 'circle', SCRIM: 'black', AREA: 'both', BUTTONS: 'none'}),
+    ('appletv', 'Apple TV', 'Apple TV',
+     {STYLE: 'glass', DIM: '50', ACCENT: 'white', SHAPE: 'square', SCRIM: 'black', AREA: 'bottom', BUTTONS: 'soft'}),
+    ('netflix', 'على طريقة Netflix', 'Netflix style',
+     {STYLE: 'cinematic', DIM: '85', ACCENT: 'red', SHAPE: 'line', SCRIM: 'black', AREA: 'both', BUTTONS: 'none'}),
+    ('infuse', 'على طريقة Infuse', 'Infuse style',
+     {STYLE: 'classic', DIM: '70', ACCENT: 'orange', SHAPE: 'soft', SCRIM: 'black', AREA: 'bottom', BUTTONS: 'none'}),
+    ('plex', 'على طريقة Plex', 'Plex style',
+     {STYLE: 'classic', DIM: '85', ACCENT: 'gold', SHAPE: 'square', SCRIM: 'black', AREA: 'both', BUTTONS: 'none'}),
+    ('disney', 'على طريقة Disney+', 'Disney+ style',
+     {STYLE: 'glass', DIM: '60', ACCENT: 'blue', SHAPE: 'ring', SCRIM: 'navy', AREA: 'bottom', BUTTONS: 'outline'}),
+    ('artwork', 'ألوان العمل', 'The title\'s colours',
+     {STYLE: 'cinematic', DIM: '85', ACCENT: 'artwork', SHAPE: 'soft', SCRIM: 'artwork', AREA: 'both', BUTTONS: 'soft'}),
+    ('clean', 'شفاف ونظيف', 'Clean and transparent',
+     {STYLE: 'minimal', DIM: '0', ACCENT: 'white', SHAPE: 'dot', SCRIM: 'black', AREA: 'none', BUTTONS: 'none'}),
+    ('theme', 'ألوان الثيم', 'The theme\'s colours',
+     {STYLE: 'classic', DIM: '85', ACCENT: 'theme', SHAPE: 'square', SCRIM: 'theme', AREA: 'both', BUTTONS: 'outline'}),
 )
 COLOURS = {
     'violet': 'FF9B6BFF', 'blue': 'FF3B82F6', 'cyan': 'FF22D3EE', 'green': 'FF22C55E',
@@ -70,9 +138,16 @@ CHOICES = {
     STYLE: tuple(v for v, _, _ in STYLES),
     DIM: tuple(v for v, _, _ in DIMS),
     ACCENT: tuple(v for v, _, _ in ACCENTS),
+    SHAPE: tuple(v for v, _, _ in SHAPES),
+    SCRIM: tuple(v for v, _, _ in SCRIMS),
+    AREA: tuple(v for v, _, _ in AREAS),
+    BUTTONS: tuple(v for v, _, _ in BUTTON_BGS),
+    PRESET: tuple(p[0] for p in PRESETS),
 }
-DEFAULTS = {STYLE: 'classic', DIM: '70', ACCENT: 'white'}
-ROWS = {STYLE: STYLES, DIM: DIMS, ACCENT: ACCENTS}
+DEFAULTS = {STYLE: 'classic', DIM: '70', ACCENT: 'white', SHAPE: 'circle',
+            SCRIM: 'auto', AREA: 'bottom', BUTTONS: 'none', PRESET: 'custom'}
+ROWS = {STYLE: STYLES, DIM: DIMS, ACCENT: ACCENTS, SHAPE: SHAPES, SCRIM: SCRIMS, AREA: AREAS,
+        BUTTONS: BUTTON_BGS, PRESET: tuple(p[:3] for p in PRESETS)}
 
 PROP_ART = 'dhs.osd.art_color'
 PROP_ART_KEY = 'dhs.osd.art_key'
@@ -159,27 +234,128 @@ def props():
     """The Home properties for the current settings."""
     style = value(STYLE)
     try:
-        dim = max(10, min(100, int(value(DIM))))
+        dim = max(0, min(100, int(value(DIM))))   # v5.10.302: 0 is transparent
     except (TypeError, ValueError):
         dim = 70
     accent = accent_colour()
-    alpha = int(round(255 * dim / 100.0))
-    if accent == 'FFFFFFFF':
-        tint = (0, 0, 0)
+    area = value(AREA)
+    if area not in CHOICES[AREA]:
+        area = 'bottom'
+    alpha = 0 if area == 'none' else int(round(255 * max(0, dim) / 100.0))
+    tint = scrim_rgb(accent)
+    shape = value(SHAPE)
+    if shape not in CHOICES[SHAPE]:
+        shape = 'circle'
+    # the icon on the cursor: dark or white on a filled shape, white inside
+    # the ring and on the see-through circle, the colour itself over the
+    # line and the dot
+    focus = accent
+    if shape in ('ring', 'soft'):
+        ink = 'FFFFFFFF'
+    elif shape in ('line', 'dot'):
+        ink = accent
     else:
-        # a faint shade of the colour in the dark: the bar belongs to it
-        r, g, b = _rgb(accent)
-        tint = (int(r * 0.12), int(g * 0.12), int(b * 0.12))
-    glass_alpha = max(0x40, min(0xE6, int(alpha * 0.8)))
+        ink = _on(accent)
+    if shape == 'soft':
+        focus = '66' + accent[2:]
+    glass_alpha = max(0x40, min(0xE6, int(max(alpha, 0x60) * 0.8)))
     glass_tint = tuple(min(255, c + 18) for c in tint)
+    buttons = value(BUTTONS)
+    if buttons not in CHOICES[BUTTONS]:
+        buttons = 'none'
+    square = shape == 'square'
+    if buttons == 'soft':
+        btn, btn_tex = '24FFFFFF', ('dexhub/osdfocus_square.png' if square else 'af3/common/circle.png')
+    elif buttons == 'outline':
+        btn, btn_tex = '4DFFFFFF', ('dexhub/osdfocus_square_ring.png' if square else 'dexhub/osdfocus_ring.png')
+    else:
+        btn, btn_tex = '00FFFFFF', 'af3/common/circle.png'
+    top = area == 'both' or (style == 'cinematic' and area != 'none')
     return {
         'dhs.osd.style': style,
         'dhs.osd.bg': _argb(alpha, tint),
         'dhs.osd.glass': _argb(glass_alpha, glass_tint),
         'dhs.osd.accent': accent,
-        'dhs.osd.on_accent': _on(accent),
+        'dhs.osd.focus': focus,
+        'dhs.osd.on_accent': ink,
+        # v5.10.303: ink on a row filled with the colour (the player's panels)
+        'dhs.osd.on_fill': _on(accent),
+        'dhs.osd.shape': shape,
         'dhs.osd.bar': accent,
+        'dhs.osd.top': '1' if top else '0',
+        'dhs.osd.btn': btn,
+        'dhs.osd.btn_tex': btn_tex,
     }
+
+
+def scrim_rgb(accent=None):
+    """v5.10.302: the colour of the shades above and below the bar."""
+    choice = value(SCRIM)
+    if choice in SCRIM_RGB:
+        return SCRIM_RGB[choice]
+    if choice == 'theme':
+        surface = _hex(_HOME.getProperty('dexhub.tvos.theme.surface'))
+        if surface:
+            return _rgb(surface)
+        return (0, 0, 0)
+    if choice == 'artwork':
+        art = _hex(_HOME.getProperty(PROP_ART))
+        if art:
+            r, g, b = _rgb(art)
+            return (int(r * 0.22), int(g * 0.22), int(b * 0.22))
+        return (0, 0, 0)
+    accent = accent or accent_colour()
+    if accent == 'FFFFFFFF':
+        return (0, 0, 0)
+    # auto: a faint shade of the colour in the dark: the bar belongs to it
+    r, g, b = _rgb(accent)
+    return (int(r * 0.12), int(g * 0.12), int(b * 0.12))
+
+
+def after_write(key, val):
+    """v5.10.302: a player look setting was written (the centre, the phone
+    page or the editor): a ready look writes its parts, a part makes the
+    look custom again."""
+    try:
+        if key == PRESET:
+            if val and val != 'custom':
+                apply_preset(val)
+            return
+        if key in KEYS and value(PRESET) != 'custom':
+            import xbmcaddon
+            xbmcaddon.Addon().setSetting(PRESET, 'custom')
+            from .settings_cache import invalidate
+            invalidate()
+        if val == 'artwork' and key in (ACCENT, SCRIM):
+            follow_playing()
+        publish()
+    except Exception as exc:
+        _log('after write %s: %s' % (key, exc))
+
+
+def apply_preset(name):
+    """v5.10.302: write a ready look's settings (the choices stay editable
+    one by one; changing one makes the look "custom" again)."""
+    for key, _, _, values in PRESETS:
+        if key == name:
+            break
+    else:
+        return False
+    try:
+        import xbmcaddon
+        addon = xbmcaddon.Addon()
+        for setting, val in values.items():
+            addon.setSetting(setting, val)
+        addon.setSetting(PRESET, name)
+        from .settings_cache import invalidate
+        invalidate()
+    except Exception as exc:
+        _log('preset %s failed: %s' % (name, exc))
+        return False
+    if values.get(ACCENT) == 'artwork' or values.get(SCRIM) == 'artwork':
+        follow_playing()
+    publish()
+    return True
 
 
 def publish():
@@ -343,7 +519,7 @@ def _playing_art():
 def follow_playing(art=None):
     """Playback started (or the art arrived): with "artwork" chosen, the
     bar takes the title's colour. Runs on a small thread."""
-    if value(ACCENT) != 'artwork':
+    if value(ACCENT) != 'artwork' and value(SCRIM) != 'artwork':
         return
 
     def run():

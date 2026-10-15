@@ -90,14 +90,14 @@ def _nuvio_apply_collection_meta(meta, media_type, meta_target=''):
     row = dict(meta or {})
     try:
         from . import meta_source as _ms
-        explicit = _ms.get_explicit_meta_source_for(meta_target) if meta_target else ''
+        explicit = _ms.nuvio_override_for(meta_target) if meta_target else ''
         if explicit:
             return _ms.override_virtual_meta(
                 meta_target, media_type, row, cache_only=True)
     except Exception:
         pass
     try:
-        return (_plugin._apply_nuvio_metadata_preferences(media_type, [row]) or [row])[0]
+        return (_plugin._apply_nuvio_metadata_preferences(media_type, [row], screen='collections') or [row])[0]
     except Exception:
         return row
 
@@ -1210,7 +1210,7 @@ def _render_nuvio_idlist_work_rows(folder, rows, more_url='', title='', meta_tar
         # Per-collection picker is the only override above Nuvio's profile.
         try:
             from . import meta_source as _ms
-            if meta_target and _ms.get_explicit_meta_source_for(meta_target):
+            if meta_target and _ms.nuvio_override_for(meta_target):
                 local_meta = _ms.override_virtual_meta(
                     meta_target, media_type, local_meta, cache_only=True)
         except Exception:

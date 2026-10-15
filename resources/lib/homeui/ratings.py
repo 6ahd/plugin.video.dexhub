@@ -42,7 +42,7 @@ def collect(tmdb_id='', imdb_id='', media_type='movie', network=False):
     try:
         from .. import mdblist
         extra = mdblist.cached_ratings(imdb_id=imdb_id, media_type=media_type, tmdb_id=tmdb_id) or {}
-        if not extra and network and len(found) < 3 and mdblist.configured():
+        if not extra and network and len(found) < 3 and mdblist.ratings_key():
             extra = mdblist.fetch_ratings(imdb_id=imdb_id, media_type=media_type,
                                           tmdb_id=tmdb_id, timeout=6) or {}
         for key, value in extra.items():
@@ -50,6 +50,14 @@ def collect(tmdb_id='', imdb_id='', media_type='movie', network=False):
                 found[key] = value
     except Exception:
         pass
+    if network and len([k for k in ORDER if found.get(k)]) < 4:
+        try:
+            for key, value in free_ratings(tmdb_id=tmdb_id, imdb_id=imdb_id, media_type=media_type,
+                                           have=found).items():
+                if value and not found.get(key):
+                    found[key] = value
+        except Exception:
+            pass
     return dict((key, str(found[key])) for key in ORDER if found.get(key))
 
 
@@ -93,4 +101,86 @@ def props(ratings, prefix='dh.rating.', limit=LIMIT):
     out[prefix + 'metacritic.color'] = color
     out[prefix + 'metacritic.dark'] = '1' if color == 'FFFFCC33' else ''
     out[prefix + 'any'] = '1' if shown else ''
+    return out
+
+
+# v5.10.301: ratings without an MDBList key of Dex Hub's own. The Home hero
+# showed none for most titles: its only sources were TMDb Helper's local DB
+# (titles TMDb Helper had looked up) and MDBList (a key few set). Now, in this
+# order, until the row is full: TMDb's own score, IMDb's from Cinemeta (no
+# key), and Rotten Tomatoes and Metacritic from OMDb or MDBList with the key
+# TMDb Helper already has.
+_FREE_CACHE = {}
+_FREE_MAX = 500
+
+
+def _json(url, timeout=4):
+    import json as _j
+    import urllib.request
+    req = urllib.request.Request(url, headers={'User-Agent': 'DexHub (Kodi)', 'Accept': 'application/json'})
+    with urllib.request.urlopen(req, timeout=timeout) as response:
+        return _j.loads(response.read(512 * 1024).decode('utf-8', 'replace'))
+
+
+def _helper_key(name):
+    try:
+        import xbmcaddon
+        return (xbmcaddon.Addon('plugin.video.themoviedb.helper').getSetting(name) or '').strip()
+    except Exception:
+        return ''
+
+
+def free_ratings(tmdb_id='', imdb_id='', media_type='movie', have=None):
+    """{key: value} from the keyless sources (and TMDb Helper's own keys)."""
+    have = dict(have or {})
+    series = str(media_type or '').lower() in ('series', 'tv', 'tvshow', 'show')
+    key = '%s|%s|%s' % ('tv' if series else 'movie', tmdb_id, imdb_id)
+    if key in _FREE_CACHE:
+        return dict(_FREE_CACHE[key])
+    out = {}
+    if not imdb_id and tmdb_id:
+        try:
+            from .. import tmdb_direct
+            imdb_id = tmdb_direct.imdb_id_for(tmdb_id, 'tv' if series else 'movie', timeout=4) or ''
+        except Exception:
+            imdb_id = ''
+    if not have.get('tmdb') and tmdb_id:
+        try:
+            from .. import tmdb_direct
+            data = tmdb_direct._request('/%s/%s' % ('tv' if series else 'movie', tmdb_id), timeout=4,
+                                        max_attempts=1) or {}
+            score = float(data.get('vote_average') or 0)
+            if score > 0 and int(data.get('vote_count') or 0) >= 5:
+                out['tmdb'] = '%.1f' % score
+        except Exception:
+            pass
+    if not have.get('imdb') and str(imdb_id).startswith('tt'):
+        try:
+            meta = (_json('https://v3-cinemeta.strem.io/meta/%s/%s.json'
+                          % ('series' if series else 'movie', imdb_id)) or {}).get('meta') or {}
+            score = float(str(meta.get('imdbRating') or 0).replace(',', '.') or 0)
+            if score > 0:
+                out['imdb'] = '%.1f' % score
+        except Exception:
+            pass
+    wants = [k for k in ('rt_crit', 'metacritic', 'imdb') if not have.get(k) and not out.get(k)]
+    omdb = _helper_key('omdb_apikey') if wants and str(imdb_id).startswith('tt') else ''
+    if omdb:
+        try:
+            import urllib.parse
+            data = _json('https://www.omdbapi.com/?' + urllib.parse.urlencode({'i': imdb_id, 'apikey': omdb})) or {}
+            for row in data.get('Ratings') or []:
+                source, value = str(row.get('Source') or ''), str(row.get('Value') or '')
+                if source == 'Rotten Tomatoes' and value.endswith('%'):
+                    out.setdefault('rt_crit', value.rstrip('%'))
+                elif source == 'Metacritic' and '/' in value:
+                    out.setdefault('metacritic', value.split('/')[0])
+            imdb_score = str(data.get('imdbRating') or '')
+            if imdb_score and imdb_score != 'N/A':
+                out.setdefault('imdb', imdb_score)
+        except Exception:
+            pass
+    if len(_FREE_CACHE) > _FREE_MAX:
+        _FREE_CACHE.clear()
+    _FREE_CACHE[key] = dict(out)
     return out

@@ -15,7 +15,7 @@ def generation():
 
 
 def enqueue(source, ids, kind):
-    if source in ('', 'auto', 'native', 'same', 'tmdb_helper', 'betterposters'):
+    if source in ('', 'auto', 'native', 'same', 'tmdb_helper', 'tmdb', 'betterposters'):
         return
     candidates = meta_source._candidate_ids(ids)
     if not candidates:

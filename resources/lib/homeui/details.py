@@ -326,6 +326,14 @@ class DetailsWindow(W._BaseWindow):
     def _tmdb_lang(self):
         language = self._tmdb_language() or ('ar' if self.s.arabic else 'en')
         try:
+            # v5.10.302: Like Nuvio: the page in the profile's TMDb language
+            from ..meta_policy import nuvio_details_prefs
+            prefs = nuvio_details_prefs()
+            if prefs:
+                language = str(prefs.get('language') or 'en')
+        except Exception:
+            pass
+        try:
             from .. import tmdb_direct as T
             return T._normalize_nuvio_tmdb_language(language)
         except Exception:
@@ -572,6 +580,9 @@ class DetailsWindow(W._BaseWindow):
                         provider_id=self.source_provider_id)
         # the hero shows what the page knows now (TMDb text, genres, runtime)
         hero.pop('_enriched', None)
+        if source_hero is not None and self._nuvio_parity_hero(source_hero):
+            self.show_hero(hero, animate=False)
+            return
         if source_hero is not None:
             # v5.10.286 (GitHub #7/#17): the source's own text and art stay,
             # but a field the card lacks keeps what TMDb found (it was
@@ -590,6 +601,64 @@ class DetailsWindow(W._BaseWindow):
                 except Exception:
                     pass
         self.show_hero(hero, animate=False)
+
+    def _nuvio_parity_hero(self, source_hero):
+        """v5.10.302: Like Nuvio: the title page as Nuvio shows it for the
+        signed-in profile. The source's own text and art first; with the
+        profile's TMDb on, TMDb's backdrop and logo (Artwork), its name, plot
+        and genres (Basic info) in the profile's language replace them, the
+        poster stays the source's. Returns False without Like Nuvio."""
+        from ..meta_policy import nuvio_parity, nuvio_details_prefs
+        if not nuvio_parity():
+            return False
+        hero = self.hero
+        for field in ('title', 'plot', 'tagline', 'genres', 'year', 'rating', 'duration',
+                      'poster', 'fanart', 'landscape', 'clearlogo'):
+            if source_hero.get(field):
+                hero[field] = source_hero[field]
+        prefs = nuvio_details_prefs()
+        if not prefs:
+            return True
+        try:
+            from .. import tmdb_direct as T
+            query = dict(tmdb_id=str(self.tmdb_id or hero.get('tmdb_id') or ''),
+                         imdb_id=str(hero.get('imdb_id') or ''),
+                         media_type='series' if self.series else 'movie',
+                         title='', year='', language_override=str(prefs.get('language') or 'en'),
+                         nuvio_exact=True)
+            found = T.meta_for_cached_only(**query) or T.meta_for(**query) or {}
+        except Exception:
+            found = {}
+        if not found:
+            return True
+        if prefs.get('use_basic_info', True):
+            name = str(found.get('title') or found.get('name') or '').strip()
+            if name:
+                hero['title'] = name
+            overview = str(found.get('overview') or found.get('description') or '').strip()
+            if overview:
+                hero['plot'] = overview
+            genres = [str(g) for g in (found.get('genres') or []) if g]
+            if genres:
+                hero['genres'] = genres[:3]
+        if prefs.get('use_artwork', True):
+            fanart = str(found.get('fanart') or '').strip()
+            if fanart:
+                hero['fanart'] = fanart
+                hero['landscape'] = fanart
+            logo = str(found.get('clearlogo') or '').strip()
+            if logo.lower().endswith('.svg'):
+                logo = logo[:-4] + '.png'
+            if logo:
+                hero['clearlogo'] = logo
+        if prefs.get('use_details', True):
+            try:
+                runtime = int(found.get('runtime') or 0)
+            except Exception:
+                runtime = 0
+            if runtime and not self.series:
+                hero['duration'] = runtime * 60
+        return True
 
     def _tmdb_tile(self, tmdb_id, media, title, row, date):
         canonical = 'tmdb:%s' % tmdb_id

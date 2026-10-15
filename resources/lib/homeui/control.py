@@ -88,9 +88,15 @@ SECTION_LIST = (
     )),
     ('player', 'circle-play', 'المشغل', 'التشغيل والرموز والترجمة', (
         ('player', 'open', 'circle-play', 'خيارات المشغل', 'الشعار والتقييمات وسطر المعلومات', 'player'),
+        ('sources_style', 'pick', 'list-ul', 'صفحة المصادر', 'مثل Nuvio TV أو صفوف مختصرة', ''),
         ('osd_buttons', 'open', 'circle-play', 'أزرار المشغل وشكله', 'الأزرار وترتيبها مع معاينة النمط واللون', 'player'),
+        ('osd_preset', 'pick', 'wand-magic-sparkles', 'شكل جاهز للمشغل', 'Nuvio وApple TV وNetflix وغيرها بضغطة', 'player'),
         ('osd_style', 'pick', 'display', 'نمط شريط المشغل', 'كلاسيكي أو زجاجي أو سينمائي أو بسيط', 'player'),
-        ('osd_dim', 'pick', 'sliders', 'تعتيم خلفية المشغل', 'من 30% إلى 95%', 'player'),
+        ('osd_dim', 'pick', 'sliders', 'تعتيم خلفية المشغل', 'من شفاف بدون ظل إلى 95%', 'player'),
+        ('osd_area', 'pick', 'sliders', 'مكان ظل المشغل', 'تحت الشريط أو فوق وتحت أو بدون', 'player'),
+        ('osd_scrim', 'pick', 'palette', 'لون ظل المشغل', 'أسود أو لون الثيم أو العمل أو لون تختاره', 'player'),
+        ('osd_buttons_bg', 'pick', 'circle-dot', 'خلفية أزرار المشغل', 'بدون أو شكل خفيف أو إطار', 'player'),
+        ('osd_shape', 'pick', 'circle-dot', 'شكل المؤشر في المشغل', 'دائرة أو مربع أو حلقة أو خط أو نقطة أو شفاف', 'player'),
         ('osd_accent', 'pick', 'palette', 'لون المشغل', 'أبيض أو لون الثيم أو يتبع العمل المشغّل', 'player'),
         ('badges_visible', 'toggle', 'sliders', 'إظهار رموز الجودة في المشغّل', 'إخفاؤها أو إرجاعها دون تغيير حزمة الرموز', ''),
         ('badges_brightness', 'pick', 'sliders', 'وضوح رموز الجودة', 'واضح بلا تعتيم أو هادئ', ''),
@@ -208,10 +214,26 @@ PICKS = {
     # v5.10.214
     'episode_titles': ('episode_titles', (('all', 'كل الحلقات'), ('started', 'الحلقات اللي بدأتها'),
                                           ('off', 'الرقم فقط'))),
+    # v5.10.301: the sources window's rows
+    'sources_style': ('sources_row_style', (('full', 'مثل Nuvio TV'), ('compact', 'مختصرة'))),
     # v5.10.299: the player bar's look (osd_look.py)
     'osd_style': ('player_osd_style', (('classic', 'كلاسيكي'), ('glass', 'زجاجي'), ('cinematic', 'سينمائي'),
                                        ('minimal', 'بسيط'))),
-    'osd_dim': ('player_osd_dim', (('30', '30%'), ('50', '50%'), ('70', '70%'), ('85', '85%'), ('95', '95%'))),
+    'osd_shape': ('player_osd_shape', (('circle', 'دائرة'), ('square', 'مربع مثل Apple TV'), ('ring', 'حلقة'),
+                                       ('line', 'خط تحت الأيقونة'), ('dot', 'نقطة تحت الأيقونة'),
+                                       ('soft', 'دائرة شفافة'))),
+    'osd_dim': ('player_osd_dim', (('0', 'شفاف بدون ظل'), ('15', '15%'), ('30', '30%'), ('50', '50%'), ('60', '60%'),
+                                   ('70', '70%'), ('80', '80% مثل Nuvio'), ('85', '85%'), ('95', '95%'))),
+    # v5.10.302: the shades and the buttons' backing; ready looks set all of it
+    'osd_area': ('player_osd_area', (('bottom', 'تحت الشريط فقط'), ('both', 'فوق وتحت مثل Nuvio'), ('none', 'بدون ظل · شفاف'))),
+    'osd_scrim': ('player_osd_scrim', (('auto', 'أسود بلمسة من لون المشغل'), ('black', 'أسود'), ('theme', 'لون خلفية الثيم'),
+                                       ('artwork', 'يتبع ألوان العمل المشغّل'), ('navy', 'كحلي'), ('plum', 'بنفسجي غامق'),
+                                       ('wine', 'عنابي'), ('forest', 'أخضر غامق'), ('slate', 'رمادي أزرق'), ('warm', 'بني دافئ'))),
+    'osd_buttons_bg': ('player_osd_buttons', (('none', 'بدون خلفية'), ('soft', 'شكل خفيف خلف كل زر'), ('outline', 'إطار حول كل زر'))),
+    'osd_preset': ('player_osd_preset', (('custom', 'مخصص (اختياراتك)'), ('nuvio', 'Nuvio'), ('appletv', 'Apple TV'),
+                                         ('netflix', 'على طريقة Netflix'), ('infuse', 'على طريقة Infuse'), ('plex', 'على طريقة Plex'),
+                                         ('disney', 'على طريقة Disney+'), ('artwork', 'ألوان العمل'), ('clean', 'شفاف ونظيف'),
+                                         ('theme', 'ألوان الثيم'))),
     'osd_accent': ('player_osd_accent', (('white', 'أبيض'), ('theme', 'لون الثيم'), ('artwork', 'يتبع العمل المشغّل'),
                                          ('violet', 'بنفسجي'), ('blue', 'أزرق'), ('cyan', 'سماوي'), ('green', 'أخضر'),
                                          ('gold', 'ذهبي'), ('orange', 'برتقالي'), ('red', 'أحمر'), ('pink', 'وردي'))),
@@ -230,7 +252,9 @@ SKIN_TOGGLES = {
 }
 PICK_LINES = {
     'osd_accent': '«يتبع العمل» ياخذ لون من صورة العمل اللي تشغله',
-    'osd_dim': 'خلفية شريط المشغل: كل ما زادت النسبة صارت أغمق',
+    'osd_dim': 'خلفية شريط المشغل: كل ما زادت النسبة صارت أغمق، وشفاف بدون ظل أبدًا',
+    'osd_preset': 'يغير النمط والظل واللون والمؤشر والأزرار مرة وحدة، وتقدر تعدل كل واحد بعدها',
+    'osd_scrim': 'الظل اللي فوق وتحت الشريط',
     'server_meta': 'السيرفر يعطي العنوان والقصة والصور، والناقص مثل الشعار من مصدرك',
     'meta_lang': 'القصص والشعارات بهذه اللغة إذا كانت متوفرة',
     'follow_order': 'صف متابعة المشاهدة في الرئيسية وأول قسم في متابعتي',
@@ -255,7 +279,8 @@ _SETTINGS = ('homeui_nav_icons_only', 'homeui_nav_autohide', 'library_split_medi
              'tmdb_api_key', 'global_poster_source_id', 'follow_order', 'library_sort', 'follow_merge',
              'trakt_smart_sync', 'continue_episode_art', 'season_names', 'episode_titles', 'episode_reminders', 'credits_panel',
              'home_hide_new_rows', 'home_group_recs', 'homeui_kenburns', 'homeui_focus_gif',
-             'player_osd_style', 'player_osd_dim', 'player_osd_accent')
+             'player_osd_style', 'player_osd_dim', 'player_osd_accent', 'player_osd_shape', 'sources_row_style',
+             'player_osd_scrim', 'player_osd_area', 'player_osd_buttons', 'player_osd_preset')
 
 
 def _addon():
@@ -364,6 +389,13 @@ def apply_entry(key, value):
         if value not in [v for v, _l in options]:
             raise ValueError('bad value')
         write(setting, value)
+        if setting.startswith('player_osd_'):
+            # v5.10.302: a ready look writes its parts; a part makes it custom
+            try:
+                from .. import osd_look
+                osd_look.after_write(setting, value)
+            except Exception:
+                pass
         if key == 'episode_titles':
             try:
                 from .. import episode_titles

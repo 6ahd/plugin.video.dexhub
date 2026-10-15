@@ -1095,7 +1095,69 @@ def hashlib_digest(text):
     return hashlib.sha1(str(text).encode('utf-8')).hexdigest()[:12]
 
 
+# v5.10.305: a server that let a whole page run past its budget (DexMedia in
+# the log: "took too long to answer", then every source search kept a thread
+# on it for over a minute and found nothing) is left out of source searches
+# for a few minutes. Opening the server by hand still asks it.
+_SLOW_TTL = 300.0
+_SLOW_AFTER = 8.0
+_SLOW = {}
+
+
+def _slow_prop(server):
+    return 'dexhub.plex.slow.%s' % hashlib_digest(server.get('id') or server.get('uri') or server.get('name') or '')
+
+
+def _slow_until(server):
+    prop = _slow_prop(server)
+    until = _SLOW.get(prop, 0.0)
+    if until <= time.time():
+        try:
+            until = float(xbmcgui.Window(10000).getProperty(prop) or 0.0)
+        except Exception:
+            until = 0.0
+        _SLOW[prop] = until
+    return until
+
+
+def _mark_slow(server, spent):
+    until = time.time() + _SLOW_TTL
+    prop = _slow_prop(server)
+    _SLOW[prop] = until
+    try:
+        xbmcgui.Window(10000).setProperty(prop, '%.0f' % until)
+    except Exception:
+        pass
+    xbmc.log('[DexHub] Plex %s gave no answer in %.0fs: left out of source searches for %d min'
+             % (server.get('name') or '?', spent, int(_SLOW_TTL // 60)), xbmc.LOGINFO)
+
+
+def _timed_out(exc):
+    if isinstance(exc, PlexTimeout):
+        return True
+    text = str(exc or '')
+    return 'timed out' in text or 'Timeout' in text
+
+
 def _server_xml(server, path, params=None):
+    searching = bool((server or {}).get('_should_stop'))
+    if searching and _slow_until(server) > time.time():
+        if not server.get('_slow_logged'):
+            server['_slow_logged'] = True
+            xbmc.log('[DexHub] Plex %s skipped in this search: it gave no answer lately'
+                     % (server.get('name') or '?'), xbmc.LOGINFO)
+        raise PlexTimeout(tr('انتهت مهلة خادم Plex'))
+    started = time.monotonic()
+    try:
+        return _server_xml_inner(server, path, params)
+    except PlexError as exc:
+        spent = time.monotonic() - started
+        if spent >= _SLOW_AFTER and _timed_out(exc) and not _refused(exc):
+            _mark_slow(server, spent)
+        raise
+
+
+def _server_xml_inner(server, path, params=None):
     refusal_key = _refusal_key(server)
     hit = _REFUSED.get(refusal_key)
     if not (hit and time.time() < hit[0]):

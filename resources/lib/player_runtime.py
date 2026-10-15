@@ -5723,6 +5723,12 @@ def _publish_playback_art_properties(ctx):
                 home.clearProperty('ArcticFuse.Player.ShowTitle')
     except Exception:
         pass
+    # 5.10.302: the Home's now-playing logo (kept until playback stops)
+    try:
+        from . import nowplaying as _np
+        _np.publish(ctx, lookup=False)
+    except Exception:
+        pass
 
 def _refresh_native_playback_context(ctx):
     """Refresh server-owned playback URLs immediately before handoff.
@@ -6779,6 +6785,11 @@ def _append_stream_entries_from_data(entries, data, provider, request_id, media_
                                      facts.get('origin_line') or provider_name),
             'upstream_formatter_preview': _aio_preview,
             'upstream_formatter_text': _aio_description,
+            # v5.10.302: the add-on's own row text, shown as Nuvio shows it
+            # (5.10.297 put it in plugin.py only; this is the builder in use)
+            'stream_name_raw': str(row.get('name') or '')[:400],
+            'stream_desc_raw': str(row.get('description') or row.get('title') or '')[:900],
+            'stream_video_size': ((row.get('behaviorHints') or {}).get('videoSize') if isinstance(row.get('behaviorHints'), dict) else '') or '',
             'cached': _ready_state(row, facts),
             'in_library': _library_state(row),
             'size_label': size or '--',

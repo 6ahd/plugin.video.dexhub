@@ -195,6 +195,58 @@ def _bidi_anchor(text):
     return text
 
 
+_NUVIO_EMOJI = None
+
+
+def _nuvio_text(text, lines=3):
+    """v5.10.301: a stream's own name or description, clean for Kodi's fonts:
+    the pictographs dropped (the TV fonts have none), each line kept."""
+    global _NUVIO_EMOJI
+    import re as _re
+    if _NUVIO_EMOJI is None:
+        _NUVIO_EMOJI = _re.compile(
+            '[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F\u200D\u20E3\u2190-\u21FF\u2300-\u23FF\u25A0-\u25FF]')
+    out = []
+    for line in str(text or '').replace('\r', '').split('\n'):
+        line = _NUVIO_EMOJI.sub('', line)
+        line = _re.sub(r'\s{2,}', ' ', line).strip(' \t|·•-')
+        if line:
+            out.append(_kodi_safe_text(line))
+        if len(out) >= lines:
+            break
+    return '\n'.join(out)
+
+
+def _nuvio_size(value):
+    """v5.10.302: Nuvio's SIZE chip text from the add-on's videoSize (bytes):
+    GB with one decimal from 1 GiB, whole MB under it."""
+    try:
+        size = float(value or 0)
+    except (TypeError, ValueError):
+        return ''
+    if size <= 0:
+        return ''
+    gib = size / (1024.0 ** 3)
+    if gib >= 1:
+        return ('%.1f GB' % gib).replace('.0 GB', ' GB')
+    return '%d MB' % int(round(size / (1024.0 ** 2)))
+
+
+def _nuvio_line_count(text, per_line):
+    """How many lines Kodi will wrap this text into (v5.10.303, an estimate
+    from the characters a card line holds)."""
+    count = 0
+    for line in str(text or '').split('\n'):
+        line = line.strip()
+        if line:
+            count += max(1, -(-len(line) // max(1, per_line)))
+    return count
+
+
+def _nuvio_lines(text):
+    return '[CR]'.join(_bidi_anchor(x) for x in str(text or '').split('\n') if x)
+
+
 def _fit_label(text, max_chars=52):
     """v4.3.2: pre-truncate long UI strings in code, keeping the START.
 
@@ -1174,12 +1226,17 @@ def _source_badge_shape(path):
     return shape
 
 
+# v5.10.303: the Nuvio page draws the badge row 1.3 times larger after the
+# quality label in an 892 px text column, so it packs to 610 px of its scale
+SOURCE_BADGE_LIMIT = [1170]
+
+
 def _source_badge_layout(images):
     result, used = [], 0
     for image in images[:10]:
         shape = _source_badge_shape(image)
         width = int(shape[1:]) * SOURCE_BADGE_HEIGHT / 4.0
-        if used + width > 1170:
+        if used + width > SOURCE_BADGE_LIMIT[0]:
             break
         result.append((image, shape))
         # Round the next origin up to four pixels; gap stays within 8..11 px.
@@ -1678,6 +1735,7 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         self.setProperty('nav_hint_title', tr('اختصارات الريموت'))
         # v5.10.149: the best pick card and the group headers
         self.setProperty('best_label', tr('مقترح'))
+        self.setProperty('nv_ready', tr('جاهز'))   # v5.10.302: the Nuvio page's Ready chip
         self.setProperty('play_label', tr('OK للتشغيل'))
         self.setProperty('nav_hint_updown', tr('أعلى / أسفل: اختيار النسخة'))
         # v5.10.105: Right and Left switch the group in place; Left on "All"
@@ -1767,6 +1825,10 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             home.setProperty('dexhub.source.key', _source_art_identity_key(self.meta))
         except Exception as _silent_exc:
             log.silent('RESULTS_WIN', _silent_exc)
+        try:
+            self._nuvio_header(_title)
+        except Exception as _silent_exc:
+            log.silent('RESULTS_WIN', _silent_exc)
         self.setProperty('filters_visible', 'false')
         # Belt-and-braces: also push the poster image directly. Harmless
         # if the XML uses $INFO; covers skins that only honor setImage.
@@ -1789,6 +1851,48 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             self.setFocusId(2000)
         except Exception as _silent_exc:
             log.silent('RESULTS_WIN', _silent_exc)
+    def _nuvio_header(self, title):
+        """v5.10.302: the left side of Nuvio TV's sources page: the show's
+        name, then "S1 E3", the episode's name and its length, or for a film
+        its genres and year joined with a dot."""
+        meta = self.meta or {}
+        show = _kodi_safe_meta_text(meta.get('show_title') or meta.get('tvshowtitle') or '', '')
+        self.setProperty('nv_title', show or title or '')
+        season = str(meta.get('season') or '').strip()
+        episode = str(meta.get('episode') or '').strip()
+        l1 = l2 = l3 = ''
+        if season and episode and season != '-1':
+            l1 = 'S%s E%s' % (season.lstrip('0') or '0', episode.lstrip('0') or '0')
+            name = (meta.get('episode_title') or meta.get('episode_name') or
+                    (meta.get('title') if show and meta.get('title') != show else ''))
+            l2 = _kodi_safe_meta_text(name or '', '')
+            mins = 0
+            for key in ('runtime', 'duration', 'episode_runtime'):
+                try:
+                    value = float(meta.get(key) or 0)
+                except (TypeError, ValueError):
+                    value = 0
+                if value:
+                    mins = int(value / 60) if value > 600 else int(value)
+                    break
+            if mins:
+                l3 = ('%dh %dm' % (mins // 60, mins % 60)) if mins >= 60 else '%dm' % mins
+        else:
+            genre = meta.get('genre') or ''
+            if isinstance(genre, (list, tuple)):
+                genres = [str(g).strip() for g in genre if str(g).strip()]
+            else:
+                genres = [g.strip() for g in str(genre).replace(' / ', ',').replace('/', ',').split(',') if g.strip()]
+            parts = genres[:4]
+            year = str(meta.get('year') or '').strip()
+            if year:
+                parts.append(year[:4])
+            l1 = '  •  '.join(_kodi_safe_meta_text(x, '') for x in parts if x)
+        self.setProperty('nv_l1', l1)
+        self.setProperty('nv_l2', l2)
+        self.setProperty('nv_l3', l3)
+        self.setProperty('nv_episode', '1' if l2 or (season and episode) else '')
+
     def _show_studio_logos(self, rows=None):
         """Up to two studio logos in the header (v5.10.105).
 
@@ -2577,6 +2681,47 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                 _bidi_anchor(_kodi_safe_text(
                     row.get('origin_line') or row.get('provider') or '')),
             )
+        # v5.10.301: the add-on's own lines, as Nuvio shows them (the rows'
+        # full style, Window(Home).Property(dhs.pref.sources_row_style) full)
+        raw_name = _nuvio_text(row.get('stream_name_raw') or row.get('name') or '')
+        raw_desc = _nuvio_text(row.get('stream_desc_raw') or '', lines=6)
+        if not raw_desc:
+            raw_desc = _nuvio_text(row.get('source_identity_line') or row.get('origin_line') or '')
+        li.setProperty('raw_name', _bidi_anchor(raw_name.replace('\n', '  ·  ')))
+        li.setProperty('raw_desc', raw_desc)
+        # v5.10.302: Nuvio TV's card: the add-on's name (two lines at most),
+        # every line of its description, the SIZE chip from its videoSize
+        try:
+            _nv_name = _nuvio_text(str(row.get('stream_name_raw') or '').strip() or
+                                   row.get('name') or '', lines=2)
+            _nv_desc = _nuvio_text(row.get('stream_desc_raw') or '', lines=8)
+            if _nv_desc.replace('\n', ' ').strip() == _nv_name.replace('\n', ' ').strip():
+                _nv_desc = ''
+            li.setProperty('nv_name', _nuvio_lines(_nv_name))
+            _nv_name_lines = _nuvio_line_count(_nv_name, 55)
+            li.setProperty('nv_two', '1' if _nv_name_lines > 1 else '')
+            # v5.10.303: the focused card grows to its text: the height step
+            # (a focused layout per step of 58 px from 140, chosen by the
+            # container from the focused row's nv_fh; sources_nuvio.xml)
+            _nv_desc_lines = _nuvio_line_count(_nv_desc, 68)
+            _h = (58 if _nv_name_lines < 2 else 94) + 29 * min(14, _nv_desc_lines) + 52
+            li.setProperty('nv_fh', str(max(0, min(7, -(-(_h - 140) // 58)))))
+            li.setProperty('nv_desc', _nuvio_lines(_nv_desc))
+            # single line forms for the resting card (v5.10.303)
+            li.setProperty('nv_name1', _bidi_anchor('  ·  '.join(x for x in _nv_name.split('\n') if x)))
+            li.setProperty('nv_desc1', _bidi_anchor((_nv_desc.split('\n') or [''])[0]))
+            _nv_size = _nuvio_size(row.get('stream_video_size'))
+            if not _nv_size:
+                _sl = str(row.get('size_label') or '').strip()
+                _nv_size = '' if _sl in ('', '--', '0', '0 B') else _sl
+            _nv_chip = ('%s %s' % (tr('الحجم').upper(), _nv_size)) if _nv_size else ''
+            li.setProperty('nv_size', _nv_chip)
+            li.setProperty('nv_gb', _nv_size)       # the card's size column (v5.10.303)
+            li.setProperty('nv_szw', 's' if len(_nv_chip) <= 11 else ('m' if len(_nv_chip) <= 14 else 'l'))
+            li.setProperty('nv_addon', _kodi_safe_text(row.get('addon') or row.get('provider_name_raw') or
+                                                         row.get('provider') or ''))
+        except Exception as _silent_exc:
+            log.silent('RESULTS_WIN', _silent_exc)
         li.setProperty('video_bits', ' | '.join(row.get('video_bits') or []))
         li.setProperty('audio_bits', ' | '.join(row.get('audio_bits') or []))
 
@@ -3262,6 +3407,14 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
 
 def open_sources_window(results, meta, play_mode=MODE_ASK, session_key='', retry_source=None):
     skin_xml = 'sources_results.xml'
+    # v5.10.302: Nuvio TV's sources page unless the compact rows are chosen
+    try:
+        from .ui_preferences import value as _pref
+        if _pref('sources_row_style') != 'compact':
+            skin_xml = 'sources_nuvio.xml'
+    except Exception:
+        skin_xml = 'sources_nuvio.xml'
+    SOURCE_BADGE_LIMIT[0] = 610 if skin_xml == 'sources_nuvio.xml' else 1170
     try:
         xbmc.log('[DexHub] scan-ui results window: opening with %d row(s)' % len(results or []), xbmc.LOGINFO)
     except Exception:

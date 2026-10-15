@@ -140,6 +140,19 @@ def api_key():
     return (_setting('mdblist_api_key', '') or '').strip()
 
 
+def ratings_key():
+    """v5.10.301: for ratings only, the key TMDb Helper already has when
+    Dex Hub has none (the sources window's ratings came from it, the Home's
+    did not). Lists and scrobbling keep Dex Hub's own key."""
+    own = api_key()
+    if own:
+        return own
+    try:
+        return (xbmcaddon.Addon('plugin.video.themoviedb.helper').getSetting('mdblist_apikey') or '').strip()
+    except Exception:
+        return ''
+
+
 def configured():
     return bool(api_key())
 
@@ -536,7 +549,8 @@ def fetch_ratings(imdb_id='', media_type='movie', timeout=6, tmdb_id=''):
     imdb_id = str(imdb_id or '').strip()
     if imdb_id and not imdb_id.startswith('tt'):
         imdb_id = 'tt%s' % imdb_id
-    if not configured() or not (tmdb_id or imdb_id):
+    key = ratings_key()
+    if not key or not (tmdb_id or imdb_id):
         return {}
     hit = cached_ratings(imdb_id=imdb_id, media_type=media_type, tmdb_id=tmdb_id)
     if hit:
@@ -548,7 +562,7 @@ def fetch_ratings(imdb_id='', media_type='movie', timeout=6, tmdb_id=''):
             path = '/tmdb/%s/%s' % (kind, tmdb_id)      # TMDb Helper's own path
         else:
             path = '/imdb/%s/%s' % (kind, imdb_id)
-        data, _ = _request(path, timeout=timeout)
+        data, _ = _request(path, params={'apikey': key}, timeout=timeout)
         data = data or {}
         for row in data.get('ratings') or []:
             source = str(row.get('source') or '').strip().lower()

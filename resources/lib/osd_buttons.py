@@ -164,6 +164,7 @@ A_BACK = {9, 10, 92, 216, 247, 257, 275, 61448, 61467}
 A_LEFT, A_RIGHT = 1, 2
 LIST, RESTORE, DONE = 100, 301, 302
 LOOK_STYLE, LOOK_DIM, LOOK_ACCENT = 303, 304, 305     # v5.10.298: the Look row
+LOOK_SHAPE = 306                                        # v5.10.301: the cursor's shape
 
 
 class EditorWindow(xbmcgui.WindowXMLDialog):
@@ -211,7 +212,8 @@ class EditorWindow(xbmcgui.WindowXMLDialog):
         txt = self.txt
         osd_look.publish()
         props = osd_look.props()
-        style, dim, accent = (osd_look.value(k) for k in osd_look.KEYS)
+        style, dim, accent, shape = (osd_look.value(k) for k in (
+            osd_look.STYLE, osd_look.DIM, osd_look.ACCENT, osd_look.SHAPE))
         fanart = (xbmc.getInfoLabel('Player.Art(fanart)') or xbmc.getInfoLabel('Player.Art(tvshow.fanart)')
                   or xbmcgui.Window(10000).getProperty('dexhub.source.fanart')
                   or '%s/resources/media/bp_popular_movie.jpg' % self.root)
@@ -220,10 +222,12 @@ class EditorWindow(xbmcgui.WindowXMLDialog):
             'ob.fanart': fanart,
             'ob.c.bg': props['dhs.osd.bg'],
             'ob.c.glass': props['dhs.osd.glass'],
-            'ob.c.accent': props['dhs.osd.accent'],
+            'ob.c.accent': props.get('dhs.osd.focus') or props['dhs.osd.accent'],
             'ob.c.onaccent': props['dhs.osd.on_accent'],
+            'ob.c.shape': '%s/resources/media/osdshape/osdfocus_%s.png' % (self.root, props.get('dhs.osd.shape') or 'circle'),
+            'ob.look.shape': '%s:  [B]%s[/B]' % (txt('المؤشر', 'Cursor'), osd_look.label(osd_look.SHAPE, shape, txt)),
             'ob.look.style': '%s:  [B]%s[/B]' % (txt('النمط', 'Style'), osd_look.label(osd_look.STYLE, style, txt)),
-            'ob.look.dim': '%s:  [B]%s%%[/B]' % (txt('التعتيم', 'Darkness'), dim),
+            'ob.look.dim': '%s:  [B]%s[/B]' % (txt('التعتيم', 'Darkness'), osd_look.label(osd_look.DIM, dim, txt)),
             'ob.look.accent': '%s:  [B]%s[/B]' % (txt('اللون', 'Colour'), osd_look.label(osd_look.ACCENT, accent, txt)),
         }
         for prop, value in values.items():
@@ -314,10 +318,10 @@ class EditorWindow(xbmcgui.WindowXMLDialog):
             self.setFocusId(LIST)
         elif control_id == DONE:
             self.close()
-        elif control_id in (LOOK_STYLE, LOOK_DIM, LOOK_ACCENT):
+        elif control_id in (LOOK_STYLE, LOOK_DIM, LOOK_ACCENT, LOOK_SHAPE):
             from . import osd_look
             self._cycle({LOOK_STYLE: osd_look.STYLE, LOOK_DIM: osd_look.DIM,
-                         LOOK_ACCENT: osd_look.ACCENT}[control_id])
+                         LOOK_ACCENT: osd_look.ACCENT, LOOK_SHAPE: osd_look.SHAPE}[control_id])
 
     def onAction(self, action):
         aid = action.getId()

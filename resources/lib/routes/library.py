@@ -179,6 +179,11 @@ def favs(media=''):
     return _render(rows, _content_of(rows), source='local')
 
 
+SORTS = (('added', 'آخر إضافة', 'Recently added'), ('title', 'الاسم', 'A to Z'),
+         ('year', 'الأحدث سنة', 'Newest year'), ('oldest', 'الأقدم إضافة', 'Oldest added'))
+TYPES = (('all', 'الكل', 'All'), ('movie', 'أفلام', 'Movies'), ('series', 'مسلسلات', 'Series'))
+
+
 def _sorted(rows):
     order = (ADDON.getSetting('library_sort') or 'added').strip()
     pins = _pins()
@@ -186,6 +191,8 @@ def _sorted(rows):
         rows = sorted(rows, key=lambda r: (r.get('title') or '').lower())
     elif order == 'year':
         rows = sorted(rows, key=lambda r: _safe_year(r.get('year')), reverse=True)
+    elif order == 'oldest':
+        rows = list(reversed(rows))
     return sorted(rows, key=lambda r: 0 if '%s|%s' % (r.get('media_type'), r.get('canonical_id')) in pins else 1)
 
 
@@ -488,6 +495,64 @@ def _merge_watchlists(specs):
     return out
 
 
+def _type():
+    value = (_setting('library_type') or 'all').strip()
+    return value if value in ('movie', 'series') else 'all'
+
+
+def _type_filter(specs):
+    """v5.10.303: the Library's Type chip (nuvio-native-legacy's filter
+    chips): only films or only series in every row of the tab."""
+    kind = _type()
+    if kind == 'all':
+        return specs
+    other = 'series' if kind == 'movie' else 'movie'
+    out = []
+    for key, title, shape, params in specs:
+        if key.endswith(':' + other) or key == ('continue_shows' if kind == 'movie' else 'continue_movies'):
+            continue
+        if key == 'nextup' and kind == 'movie':
+            continue
+        if key.endswith(':' + kind) or key.startswith('continue') or key == 'nextup':
+            out.append((key, title, shape, params))
+            continue
+        if params.get('action') in ('lib_favs', 'lib_watchlist', 'lib_floppy', 'lib_floppy_list') and not params.get('media'):
+            label = _t('أفلام', 'Movies') if kind == 'movie' else _t('مسلسلات', 'Series')
+            out.append((key + ':' + kind, title + ' · ' + label, shape, dict(params, media=kind)))
+            continue
+        out.append((key, title, shape, params))
+    return out
+
+
+def cycle(what):
+    """The Type or Sort chip was clicked: its next value, the rows again."""
+    from ..skinui import common as C
+    rows = TYPES if what == 'type' else SORTS
+    setting = 'library_type' if what == 'type' else 'library_sort'
+    keys = [k for k, _a, _e in rows]
+    current = (ADDON.getSetting(setting) or keys[0]).strip()
+    value = keys[(keys.index(current) + 1) % len(keys)] if current in keys else keys[1]
+    ADDON.setSetting(setting, value)
+    try:
+        from ..settings_cache import invalidate
+        invalidate()
+    except Exception:
+        pass
+    _chip_labels(_win())
+    C.ask_republish('library %s' % what)
+
+
+def _chip_labels(win):
+    sort = (ADDON.getSetting('library_sort') or 'added').strip()
+    kind = (ADDON.getSetting('library_type') or 'all').strip()
+    sort_label = next((_t(a, e) for k, a, e in SORTS if k == sort), SORTS[0][2])
+    type_label = next((_t(a, e) for k, a, e in TYPES if k == kind), TYPES[0][2])
+    win.setProperty('dhs.lib.type.label', _t('النوع', 'Type'))
+    win.setProperty('dhs.lib.type.value', type_label)
+    win.setProperty('dhs.lib.sort.label', _t('الترتيب', 'Sort'))
+    win.setProperty('dhs.lib.sort.value', sort_label)
+
+
 def tab_specs(linked, src):
     """The rows of one chip of the Library (skin.dexhub's tab and the add-on's
     page), with the Following and library choices applied."""
@@ -497,7 +562,9 @@ def tab_specs(linked, src):
         specs = _merge_watchlists(_specs(linked))
     else:
         specs = _filtered(_specs(linked), src)
-    return _apply_follow_settings(specs)
+    if src == 'follow':
+        return _apply_follow_settings(specs)
+    return _type_filter(_apply_follow_settings(specs))
 
 
 def _specs(linked):
@@ -691,6 +758,7 @@ def _publish_header(linked):
         win.setProperty('dhs.lib.chip.%d.label' % n, label)
         win.setProperty('dhs.lib.chip.%d.count' % n, str(count or '') if label else '')
     real.setProperty('dhs.lib.src', current_source(linked))     # a chip sets it too
+    _chip_labels(win)     # v5.10.303: the Type and Sort chips
     # v5.10.208: the first chip opens My watching (homeui/follow.py; skin.dexhub 3.27.8)
     win.setProperty('dhs.lib.follow', _t('متابعتي', 'My watching'))
 
@@ -752,6 +820,8 @@ def dispatch(action, params):
         return rate_mode()
     if action == 'lib_src':
         return set_source(params.get('src', 'all'))
+    if action == 'lib_cycle':
+        return cycle(params.get('what', 'sort'))
     if action == 'lib_pin':
         return pin(params)
     if action == 'track_panel':

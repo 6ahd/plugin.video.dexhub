@@ -133,6 +133,45 @@ def on_color(accent_hex, dark='FF0B0E1C'):
     return 'FFFFFFFF' if (1.05 / (light + 0.05)) >= 3.0 else dark
 
 
+def _contrast(first, second):
+    """WCAG contrast ratio of two AARRGGBB colours."""
+    a, b = _parse_hex(first), _parse_hex(second)
+    if not a or not b:
+        return 21.0
+    la, lb = sorted((_relative_luminance(a), _relative_luminance(b)))
+    return (lb + 0.05) / (la + 0.05)
+
+
+def _refine(palette):
+    """v5.10.301: every theme legible the same way. The cards stood barely
+    off the page (1.10 to 1.16:1, Nuvio's are about 1.25), and a dark accent
+    hid on its page (Nuvio Violet 2.8:1): the card is lifted toward the text
+    colour and the accent toward white just enough, nothing else changes."""
+    surface, card = palette.get('surface'), palette.get('surface_card')
+    text = _parse_hex(palette.get('text')) or (255, 243, 245, 255)
+    if _parse_hex(surface) and _parse_hex(card):
+        step = 0
+        while _contrast(card, surface) < 1.24 and step < 12:
+            step += 1
+            card = _mix(_parse_hex(palette['surface_card']), text[1:], 0.02 * step)
+        palette['surface_card'] = card
+    accent = palette.get('accent')
+    if _parse_hex(accent) and _parse_hex(surface):
+        step, lifted = 0, accent
+        while _contrast(lifted, surface) < 3.0 and step < 15:
+            step += 1
+            lifted = _mix(_parse_hex(accent), (255, 255, 255), 0.03 * step)
+        if lifted != accent:
+            a = _parse_hex(lifted)
+            palette['accent'] = lifted
+            palette['accent_soft'] = _with_alpha(a, 0xB3)
+            palette['accent_dim'] = _with_alpha(a, 0x47)
+            palette['glow'] = _with_alpha(a, 0x26)
+    if _parse_hex(palette.get('accent')):
+        palette['on_accent'] = on_color(palette['accent'], dark=surface if _parse_hex(surface) else 'FF0B0E1C')
+    return palette
+
+
 def _complement(argb):
     """A pleasing secondary: rotate toward a cooler/warmer partner.
 
@@ -359,7 +398,7 @@ def _preset_palette(key, accent=None):
         palette[token] = preset[token]
     palette['on_accent'] = on_color(palette['accent'], dark=preset['surface'])
     palette['name'] = preset['name']
-    return palette
+    return _refine(palette)
 
 
 # --------------------------------------------------------------------------- #

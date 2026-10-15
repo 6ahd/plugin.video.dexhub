@@ -162,6 +162,7 @@ def _bind_classes():
                                       '_progress_loader', '_catalog_loader').items():
         setattr(HeadlessHome, name, fn)
     for name, fn in _window_functions('tmdb_settings', '_tmdb_language', '_enrich_now', '_tmdb_localize',
+                                      '_nuvio_parity_pass',
                                       '_helper_localized', '_show_status', '_studio_badge', '_rating_badges', '_supplement_badges').items():
         setattr(HeadlessEnricher, name, fn)
     HeadlessHome._bound = True
@@ -754,7 +755,7 @@ def _store(tab, spec, tiles, more, enriched=False, old=None, src=None):
     if not C.poster_choice_active() or not any(_poster_item(item) for item in items[:ENRICH_ITEMS]):
         data['pg'] = C.poster_gen()
     from ..meta_policy import source_appearance
-    if source_appearance():
+    if source_appearance() and not ctx.language:
         # Source text/art need no row-wide TMDb or badge pass; only a show's
         # seasons and status (v5.10.228) are looked up
         data['enriched'] = not _needs_status(items)
@@ -1591,7 +1592,8 @@ def enrich(tab, row_id, limit=ENRICH_ITEMS, stop=None, batch=6):
     if not data or (is_enriched(data) and data.get('lang') == ctx.language):
         return posters
     from ..meta_policy import source_appearance
-    if source_appearance():
+    if source_appearance() and not ctx.language:
+        # (v5.10.302: Like Nuvio with Nuvio's Home on TMDb takes the pass below)
         return _status_pass(path, data, ctx, stop, batch) or posters
     # without a TMDb language the titles still get the art their catalog
     # lacks (logo, backdrop) and the badges (v5.10.114)

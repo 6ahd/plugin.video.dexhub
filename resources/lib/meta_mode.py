@@ -35,6 +35,7 @@ from .dexhub import store as _store
 SOURCE_AUTO = 'auto'
 SOURCE_NATIVE = 'native'
 SOURCE_HELPER = 'tmdb_helper'
+SOURCE_TMDB = 'tmdb'               # v5.10.301: TMDb in one language everywhere
 HELPER_ADDON_ID = 'plugin.video.themoviedb.helper'
 
 _AIO_MANIFEST_IDS = ('aio-metadata', 'aiometadata', 'com.aiometadata', 'org.aiometadata')
@@ -238,6 +239,8 @@ def current_source():
         return SOURCE_AUTO, _txt('تلقائي (ذكي)', 'Auto (smart)')
     if selected == SOURCE_HELPER:
         return SOURCE_HELPER, _txt('TMDb Helper (محلي)', 'TMDb Helper (local)')
+    if selected == SOURCE_TMDB:
+        return SOURCE_TMDB, _txt('TMDb • لغة وحدة لكل الأقسام', 'TMDb • one language everywhere')
     if selected == SOURCE_NATIVE:
         return SOURCE_NATIVE, _txt('مثل Nuvio • بيانات وبوسترات المصدر', 'Like Nuvio • source metadata & posters')
     row = _store.get_provider(selected)
@@ -301,7 +304,7 @@ def apply_source(source_id, notify=True):
     source_id = str(source_id or SOURCE_AUTO).strip() or SOURCE_AUTO
     addon = _addon()
     row = None
-    if source_id not in (SOURCE_AUTO, SOURCE_NATIVE, SOURCE_HELPER):
+    if source_id not in (SOURCE_AUTO, SOURCE_NATIVE, SOURCE_HELPER, SOURCE_TMDB):
         row = _store.get_provider(source_id)
         if not row:
             _notify(_txt('المصدر غير موجود', 'Source not found'))
@@ -336,7 +339,14 @@ def apply_source(source_id, notify=True):
             _set(key, value)
         if not (addon.getSetting('meta_source_cache_days') or '').strip():
             _set('meta_source_cache_days', '7')
-        if source_id == SOURCE_HELPER:
+        if source_id == SOURCE_TMDB:
+            # v5.10.301: every section (and the servers' missing art) from
+            # TMDb, in the metadata language
+            _set('server_art_from_tmdb', 'true')
+            _set('meta_source_warm_pages', 'true')
+            _set('default_meta_source', _LEGACY_LABEL[SOURCE_HELPER])
+            label = _txt('TMDb • لغة وحدة لكل الأقسام', 'TMDb • one language everywhere')
+        elif source_id == SOURCE_HELPER:
             # Plex/Emby rows take their posters from TMDb Helper's own DB
             # (tier 1 of _server_tmdb_art): local, shared texture cache.
             _set('server_art_from_tmdb', 'true')
@@ -378,6 +388,7 @@ def _options():
         names[str(row.get('name') or '').lower()] = names.get(str(row.get('name') or '').lower(), 0) + 1
     options = []
     helper_note = '' if helper_installed() else _txt(' (غير مثبت)', ' (not installed)')
+    options.append((SOURCE_TMDB, _txt('TMDb • لغة وحدة لكل الأقسام (الموصى به)', 'TMDb • one language everywhere (recommended)')))
     options.append((SOURCE_NATIVE, _txt('مثل Nuvio • بيانات وبوسترات المصدر', 'Like Nuvio • source metadata & posters')))
     options.append((SOURCE_HELPER, _txt('TMDb Helper • محلي، بدون شبكة، الأسرع', 'TMDb Helper • local, no network, fastest') + helper_note))
     aio_seen = False
@@ -408,8 +419,10 @@ def pick():
     current_id, _ = current_source()
     preselect = next((i for i, (key, _) in enumerate(options) if key == current_id), 0)
     descriptions = {
-        SOURCE_NATIVE: _txt('نفس البيانات والبوسترات والخلفيات من كل مصدر، حسب لغته. بدون استبدالها بصور TMDb أو BetterPosters.',
-                            'Use each source’s own metadata, posters, backgrounds and language. No TMDb or BetterPosters replacement.'),
+        SOURCE_TMDB: _txt('العنوان والقصة والبوستر والخلفية والشعار من TMDb بلغة واحدة (لغة الواجهة أو اللي تختارها) في الرئيسية والكتالوجات والمجموعات والمتابعة.',
+                          'Title, plot, poster, backdrop and logo from TMDb in one language (the interface\'s or the one you pick) on the Home, catalogs, collections and Continue Watching.'),
+        SOURCE_NATIVE: _txt('مثل Nuvio تمامًا لملفك الشخصي: بوسترات المصدر (أو قالب البوسترات اللي في Nuvio مثل RPDB)، وTMDb للخلفية والشعار والقصة بلغة الملف بس إذا كان مفعّل في Nuvio. بدون حساب Nuvio: بيانات وصور كل مصدر كما هي.',
+                            'Exactly like Nuvio for your profile: the source posters (or the poster pattern set in Nuvio, such as RPDB), and TMDb for the backdrop, logo and plot in the profile\'s language only when Nuvio has it on. Without a Nuvio account: each source\'s own metadata and art as they are.'),
         SOURCE_HELPER: _txt('بيانات وصور موحّدة من TMDb Helper عند توفرها في الكاش المحلي؛ قد تختلف عن Nuvio.',
                             'Use unified metadata and artwork from TMDb Helper’s local cache when available; appearance can differ from Nuvio.'),
         SOURCE_AUTO: _txt('يكمل القصة والتصنيفات والتقييم والصور الناقصة من الكاش ثم TMDb ومصادر الميتاداتا، مع الحفاظ على بيانات العمل الموجودة.',
@@ -433,7 +446,7 @@ def pick():
         xbmcgui.Dialog().ok('Dex Hub', _txt('TMDb Helper غير مثبت. ثبته أولاً ثم اختر هذا المصدر.',
                                             'TMDb Helper is not installed. Install it first, then pick this source.'))
         return False
-    if key not in (SOURCE_AUTO, SOURCE_NATIVE, SOURCE_HELPER):
+    if key not in (SOURCE_AUTO, SOURCE_NATIVE, SOURCE_HELPER, SOURCE_TMDB):
         row = _store.get_provider(key)
         if row is not None and not _reachable(row):
             if not xbmcgui.Dialog().yesno('Dex Hub', _txt('ما قدرت أوصل لـ %s الحين. أطبق الاختيار على كل حال؟',
@@ -515,3 +528,22 @@ def clear_metadata_caches(notify=True, reload_ui=True):
     if notify:
         _notify(_txt('تم مسح كاش الميتاداتا وإعادة التحميل ✓', 'Metadata cache cleared, reloading ✓'))
     return cleared
+
+
+def migrate_to_tmdb():
+    """v5.10.301, once: who still has the shipped default (TMDb Helper's
+    database, every section) moves to TMDb in one language, which fills
+    what TMDb Helper never looked up instead of showing each add-on's own
+    poster, title and language. A source picked by hand stays."""
+    addon = _addon()
+    try:
+        if (addon.getSetting('meta_tmdb_default_v1') or '') == 'done':
+            return False
+        addon.setSetting('meta_tmdb_default_v1', 'done')
+        if (addon.getSetting('global_meta_source_id') or SOURCE_HELPER) != SOURCE_HELPER:
+            return False
+        if (addon.getSetting('global_meta_source_all') or 'true') != 'true':
+            return False
+    except Exception:
+        return False
+    return apply_source(SOURCE_TMDB, notify=False)

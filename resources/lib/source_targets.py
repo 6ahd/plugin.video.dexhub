@@ -146,6 +146,19 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
                 if _clean and _clean.casefold() not in [x.casefold() for x in _pl_titles]:
                     _pl_titles.append(_clean)
             _plex_servers = api._plex_servers_budgeted()
+            # v5.10.306: a server that gave no answer lately is no target (the
+            # log: it was asked on every id anyway, each refused at once, and
+            # the search then reported "no match" for a server never reached)
+            try:
+                from . import plex_client as _pc
+                _now = api.time.time() if hasattr(api, 'time') else __import__('time').time()
+                _slow = [s for s in _plex_servers if _pc._slow_until(s) > _now]
+                if _slow:
+                    api.xbmc.log('[DexHub] Plex left out of this search (no answer lately): %s'
+                                 % ', '.join(str(s.get('name') or '?') for s in _slow), api.xbmc.LOGINFO)
+                    _plex_servers = [s for s in _plex_servers if s not in _slow]
+            except Exception:
+                pass
             api.xbmc.log('[DexHub] Plex Native targets: servers=%d title=%s ids=%s' % (
                 len(_plex_servers), _pl_title,
                 ','.join('%s=%s' % (key, _pl_ids.get(key))

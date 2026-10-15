@@ -488,6 +488,13 @@ class Session(object):
             row = {'name': name, 'kind': kind, 'linked': _linked(key)}
             with self.lock:
                 pending = dict(self.codes.get(key) or {})
+            if key == 'nuvio' and row['linked']:
+                # v5.10.304: signed in with no profile chosen yet: the phone
+                # shows the profiles, and the account counts as linked after
+                choices = self._nuvio_choices(pick=False)
+                if choices:
+                    row['linked'] = False
+                    pending = {'status': 'profile', 'profiles': choices}
             if pending and not row['linked']:
                 row['pairing'] = pending
             services[key] = row
@@ -553,7 +560,41 @@ class Session(object):
         if row is None or not Nuvio.select_profile(row):
             raise ValueError('Profile is unavailable')
         failed = profiles.pull(xbmcaddon.Addon(ADDON_ID), _log)
+        with self.lock:
+            linking = (self.codes.get('nuvio') or {}).get('status') == 'profile'
+            if linking or body.get('link'):
+                self.codes.pop('nuvio', None)
+        if linking or body.get('link'):
+            # v5.10.304: the profile picked on the phone right after the sign in
+            _set('nuvio_sync_enabled', 'true')
+            _log('nuvio linked from the phone (%s)' % (Nuvio.profile_name() or wanted))
+            _republish('accounts')
         return {'ok': True, 'partial': failed, 'profile': _scope.status()}
+
+    def _nuvio_choices(self, pick=True):
+        """v5.10.304: [] once a Nuvio profile is in use (or the account has
+        one, taken at once when pick is set); else the profiles to choose."""
+        try:
+            from .dexhub.nuvio_stremio_sync import Nuvio
+            if Nuvio.has_profile():
+                return []
+            if pick and Nuvio.auto_profile():
+                return []
+            rows = Nuvio.profiles() or []
+        except Exception as exc:
+            _log('nuvio profiles: %s' % exc, xbmc.LOGWARNING)
+            return []
+        out = []
+        for r in rows:
+            if not isinstance(r, dict):
+                continue
+            try:
+                index = int(r.get('profile_index', r.get('profileIndex', r.get('index'))))
+            except (TypeError, ValueError):
+                continue
+            if index > 0:
+                out.append({'index': index, 'name': str(r.get('name') or r.get('title') or ('Profile %d' % index))})
+        return out
 
     def set(self, body):
         key, value = str(body.get('key') or ''), body.get('value')
@@ -872,10 +913,21 @@ class Session(object):
             with self.lock:
                 self.codes.pop(service, None)
             return
+        if status == 'ok' and service == 'nuvio':
+            _set('nuvio_sync_enabled', 'true')
+            choices = self._nuvio_choices()
+            if choices:
+                # v5.10.304: an account with several profiles: the phone asks
+                # which one before anything is synced (the sync used to start
+                # at once and fail five times with 'Select a Nuvio profile')
+                with self.lock:
+                    self.codes['nuvio'] = {'status': 'profile', 'profiles': choices}
+                _log('nuvio approved on the phone; waiting for the profile')
+                _republish('accounts')
+                return
         if status == 'ok':
             _log('%s linked from the phone' % service)
             if service == 'nuvio':
-                _set('nuvio_sync_enabled', 'true')
                 self._after_link('nuvio')
             elif service == 'plex':
                 try:

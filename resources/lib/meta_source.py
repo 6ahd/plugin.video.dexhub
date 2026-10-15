@@ -132,6 +132,21 @@ def get_explicit_meta_source_for(provider_id):
         return ''
 
 
+def nuvio_override_for(provider_id):
+    """v5.10.302: the choice that replaces a Nuvio row's own metadata. "Like
+    Nuvio" for every section (native, applied to all) is no replacement: the
+    rows keep Nuvio's own rules for the signed-in profile (its TMDb settings,
+    language and poster pattern), as Nuvio itself shows them. A section's
+    own long press choice still wins."""
+    choice = get_explicit_meta_source_for(provider_id)
+    try:
+        if choice == 'native' and ADDON.getSetting('global_meta_source_all') == 'true':
+            return ''
+    except Exception:
+        pass
+    return choice
+
+
 def get_meta_source_for(provider_id):
     """Return the configured meta source id for a given provider.
 
@@ -473,6 +488,7 @@ def list_available_meta_sources():
     sources = [
         {'id': 'auto', 'name': 'تلقائي (ذكي)', 'kind': 'special'},
         {'id': 'native', 'name': 'ميتاداتا الإضافة نفسها', 'kind': 'special'},
+        {'id': 'tmdb', 'name': 'TMDb: لغة وحدة لكل الأقسام', 'kind': 'builtin'},
         {'id': 'tmdb_helper', 'name': 'TMDb Helper (بدون API)', 'kind': 'builtin'},
     ]
     seen = set()
@@ -499,6 +515,8 @@ def source_display_name(source_id):
         return 'Addon metadata'
     if source_id == 'tmdb_helper':
         return 'TMDb Helper'
+    if source_id == 'tmdb':
+        return 'TMDb'
     prov = _store.get_provider(source_id)
     if prov:
         return prov.get('name') or source_id
@@ -883,6 +901,9 @@ def override_virtual_meta(target_key, media_type, meta, cache_only=False):
     elif source_id == 'tmdb_helper':
         replacement = _fetch_from_tmdb_helper(
             ids, meta, media_type, cache_only=cache_only)
+    elif source_id == 'tmdb':
+        # v5.10.301: TMDb in the one metadata language
+        replacement = _fetch_from_tmdb(ids, media_type, cache_only=cache_only)
     else:
         # Explicit source means explicit source: do not silently fall back to
         # TMDb Helper/API when the selected meta add-on has no artwork.
@@ -912,7 +933,12 @@ def override_virtual_metas_batch(target_key, media_type, metas, warm=False):
         if source_id in ('', 'auto') and _warm_allowed_here():
             from .auto_metadata import warm as warm_auto
             warm_auto(metas, media_type)
-        elif source_id not in ('', 'auto', 'native', 'tmdb_helper') and _warm_allowed_here():
+        elif source_id == 'tmdb' and _warm_allowed_here():
+            try:
+                warm_tmdb_metas(media_type, metas)
+            except Exception:
+                pass
+        elif source_id not in ('', 'auto', 'native', 'tmdb_helper', 'tmdb') and _warm_allowed_here():
             try:
                 warm_source_metas(source_id, media_type, metas)
             except Exception:
@@ -954,6 +980,9 @@ def override_meta(provider, media_type, meta, cache_only=False):
     elif source_id == 'tmdb_helper':
         replacement = _fetch_from_tmdb_helper(
             ids, meta, media_type, cache_only=cache_only)
+    elif source_id == 'tmdb':
+        # v5.10.301: TMDb in the one metadata language
+        replacement = _fetch_from_tmdb(ids, media_type, cache_only=cache_only)
     else:
         # Explicit source means explicit source: do not silently fall back to
         # TMDb Helper/API when the selected meta add-on has no artwork.
@@ -988,7 +1017,12 @@ def override_metas_batch(provider, media_type, metas, warm=False):
         warm_auto(metas, media_type, provider_id=provider.get('id') or '')
     # v5.10.67: for an explicit Stremio source, fill this page's cache misses
     # in one bounded parallel pass before the cache-only override below.
-    if warm and source_id not in ('', 'auto', 'native', 'tmdb_helper') and _warm_allowed_here():
+    if warm and source_id == 'tmdb' and _warm_allowed_here():
+        try:
+            warm_tmdb_metas(media_type, metas)
+        except Exception:
+            pass
+    elif warm and source_id not in ('', 'auto', 'native', 'tmdb_helper', 'tmdb') and _warm_allowed_here():
         try:
             warm_source_metas(source_id, media_type, metas)
         except Exception:
@@ -1004,3 +1038,121 @@ def override_metas_batch(provider, media_type, metas, warm=False):
     # Directory overrides are cache-only, so a small sequential pass is both
     # faster and lighter than allocating futures or contending on local DBs.
     return [_one(meta) for meta in (metas or [])]
+
+
+# --------------------------------------------------------------------------- #
+#  v5.10.301: "TMDb" as one source for every section, in one language         #
+#                                                                             #
+#  Before, the language was decided in five places (Nuvio's profile, TMDb     #
+#  Helper's own setting, the typed search, English first for art) and the    #
+#  default source (TMDb Helper's database) passed the add-on's own poster and #
+#  text through on every miss. "tmdb" reads TMDb's own localized title, plot, #
+#  poster, backdrop and logo (Nuvio's exact selection) from Dex Hub's TMDb    #
+#  cache in the metadata language; a miss keeps the card as it is for this   #
+#  render and is fetched in the background for the next one.                 #
+# --------------------------------------------------------------------------- #
+
+import threading as _thr
+
+_TMDB_WARM_LOCK = _thr.Lock()
+_TMDB_WARM_PENDING = set()
+_TMDB_WARM_MAX = 24
+_TMDB_POOL = None
+
+
+def meta_language():
+    """The one metadata language: Metadata language (Arabic, English), or on
+    Auto the interface language ('ar' / 'en')."""
+    try:
+        choice = (ADDON.getSetting('homeui_metadata_language') or 'Auto').strip().lower()
+    except Exception:
+        choice = 'auto'
+    if choice in ('arabic', 'ar'):
+        return 'ar'
+    if choice in ('english', 'en'):
+        return 'en'
+    try:
+        from .i18n import current_language
+        return 'ar' if current_language() == 'ar' else 'en'
+    except Exception:
+        return 'en'
+
+
+def _tmdb_request(ids, media_type):
+    is_tv = str(media_type or '').lower() in ('series', 'anime', 'show', 'tv', 'tvshow')
+    return {'tmdb_id': str(ids.get('tmdb_id') or '').strip(),
+            'imdb_id': str(ids.get('imdb_id') or '').strip(),
+            'media_type': 'tv' if is_tv else 'movie', 'title': '', 'year': '',
+            'language_override': meta_language(), 'nuvio_exact': True}
+
+
+def _tmdb_warm(request):
+    global _TMDB_POOL
+    key = (request['media_type'], request['tmdb_id'], request['imdb_id'], request['language_override'])
+    with _TMDB_WARM_LOCK:
+        if key in _TMDB_WARM_PENDING or len(_TMDB_WARM_PENDING) >= _TMDB_WARM_MAX:
+            return
+        _TMDB_WARM_PENDING.add(key)
+        if _TMDB_POOL is None:
+            from concurrent.futures import ThreadPoolExecutor
+            _TMDB_POOL = ThreadPoolExecutor(max_workers=2, thread_name_prefix='DexHubTmdbWarm')
+
+    def run():
+        try:
+            from . import tmdb_direct
+            tmdb_direct.meta_for(timeout=5, max_attempts=1, **request)
+        except Exception:
+            pass
+        finally:
+            with _TMDB_WARM_LOCK:
+                _TMDB_WARM_PENDING.discard(key)
+    try:
+        _TMDB_POOL.submit(run)
+    except Exception:
+        with _TMDB_WARM_LOCK:
+            _TMDB_WARM_PENDING.discard(key)
+
+
+def _fetch_from_tmdb(ids, media_type, cache_only=True):
+    """TMDb's own metadata for one title in the metadata language."""
+    request = _tmdb_request(ids or {}, media_type)
+    if not (request['tmdb_id'] or request['imdb_id'].startswith('tt')):
+        return None
+    from . import tmdb_direct
+    try:
+        hit = tmdb_direct.metas_for_cached_only([request])[0] or {}
+    except Exception:
+        hit = {}
+    if hit:
+        return hit
+    if cache_only:
+        _tmdb_warm(request)
+        return None
+    try:
+        return tmdb_direct.meta_for(timeout=5, max_attempts=1, **request) or None
+    except Exception:
+        return None
+
+
+def warm_tmdb_metas(media_type, metas, limit=24):
+    """A page the user opened: its cache misses fetched together (two at a
+    time, a few seconds at most) so the first render already shows TMDb."""
+    from . import tmdb_direct
+    requests = []
+    for meta in list(metas or [])[:limit]:
+        req = _tmdb_request(extract_ids(meta or {}), media_type)
+        if req['tmdb_id'] or req['imdb_id'].startswith('tt'):
+            requests.append(req)
+    if not requests:
+        return
+    try:
+        cached = tmdb_direct.metas_for_cached_only(requests)
+    except Exception:
+        cached = [{}] * len(requests)
+    missing = [r for r, c in zip(requests, cached) if not c]
+    if not missing:
+        return
+    from concurrent.futures import ThreadPoolExecutor, wait as _wait
+    with ThreadPoolExecutor(max_workers=4, thread_name_prefix='DexHubTmdbPage') as pool:
+        futures = [pool.submit(tmdb_direct.meta_for, timeout=4, max_attempts=1, **r) for r in missing]
+        _wait(futures, timeout=6)

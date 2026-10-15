@@ -292,6 +292,9 @@ def _http(url, payload=None, headers=None, method='GET', timeout=10):
     return {}
 
 
+NO_PROFILE = 'Select a Nuvio profile before synchronizing'
+
+
 def _jwt_sub(access):
     """v5.10.291: the Supabase account id (sub) carried inside the access token."""
     try:
@@ -467,17 +470,18 @@ class Nuvio:
         user = (body or {}).get('user') or session.get('user') or {}
         if not access:
             return {'status': 'exchange_failed', 'error': 'no access_token'}
-        Nuvio.save_token({
+        Nuvio.save_token(Nuvio._carry_profile({
             'access_token': access,
             'refresh_token': refresh,
             'expires_in': int((body or {}).get('expires_in') or session.get('expires_in') or 3600),
             'created_at': int(time.time()),
             'user_id': (user or {}).get('id'),
             'email': (user or {}).get('email') or '',
-        })
-        # Resolve the default profile immediately so subsequent sync is ready.
+        }))
+        # v5.10.304: the profile is settled here when there is nothing to
+        # choose (the old line only asked for one and threw the answer away)
         try:
-            Nuvio._profile_id()
+            Nuvio.auto_profile()
         except Exception:
             pass
         return {'status': 'ok'}
@@ -573,6 +577,54 @@ class Nuvio:
         return str(Nuvio.token().get('profile_name') or '')
 
     @staticmethod
+    def has_profile():
+        try:
+            return int(Nuvio.token().get('profile_index') or 0) > 0
+        except (TypeError, ValueError):
+            return False
+
+    @staticmethod
+    def _carry_profile(fresh):
+        """v5.10.304: signing in again to the same account (from the phone or
+        the TV) saved a token with no profile, so the Home moved to the
+        account's empty space and every sync section failed with 'Select a
+        Nuvio profile before synchronizing'. The profile in use now stays
+        when the account is the same one."""
+        fresh = dict(fresh or {})
+        previous = Nuvio.token()
+        owner = str(fresh.get('user_id') or _jwt_sub(fresh.get('access_token')) or '')
+        if not owner or str(previous.get('user_id') or '') != owner:
+            return fresh
+        try:
+            if int(previous.get('profile_index') or 0) <= 0:
+                return fresh
+        except (TypeError, ValueError):
+            return fresh
+        for key in ('profile_index', 'profile_name', 'profile_id', 'profile_avatar'):
+            if previous.get(key) not in (None, '') and fresh.get(key) in (None, ''):
+                fresh[key] = previous[key]
+        return fresh
+
+    @staticmethod
+    def auto_profile():
+        """v5.10.304: after a sign in, the profile when there is no choice to
+        make (the account has one). True once a profile is in use."""
+        if Nuvio.has_profile():
+            return True
+        try:
+            rows = Nuvio.profiles(fresh=True)
+        except Exception as exc:
+            _log('profiles after sign in: %s' % exc)
+            return False
+        if len(rows) != 1:
+            return False
+        try:
+            return bool(Nuvio.select_profile(rows[0])) and Nuvio.has_profile()
+        except Exception as exc:
+            _log('profile auto select: %s' % exc)
+            return False
+
+    @staticmethod
     def login(email, password):
         """Exchange email+password for a Supabase session. Stores the token."""
         body = _http(
@@ -581,14 +633,18 @@ class Nuvio:
             headers={'apikey': NUVIO_ANON}, method='POST')
         if not body.get('access_token'):
             raise RuntimeError('login failed: no access_token')
-        Nuvio.save_token({
+        Nuvio.save_token(Nuvio._carry_profile({
             'access_token': body.get('access_token'),
             'refresh_token': body.get('refresh_token'),
             'expires_in': int(body.get('expires_in') or 3600),
             'created_at': int(time.time()),
             'user_id': (body.get('user') or {}).get('id'),
             'email': email,
-        })
+        }))
+        try:
+            Nuvio.auto_profile()
+        except Exception:
+            pass
         return True
 
     @staticmethod
@@ -649,7 +705,7 @@ class Nuvio:
                 return index
         except (ValueError, TypeError):
             pass
-        raise RuntimeError('Select a Nuvio profile before synchronizing')
+        raise RuntimeError(NO_PROFILE)
 
     # ── mappers: DexHub ⇄ Nuvio ──
     @staticmethod
@@ -1948,6 +2004,16 @@ def run_sync(direction=None, targets=None, force_full=False, sections=None, only
     targets = targets or enabled_targets()
     if not targets:
         return {'ok': False, 'error': 'no linked/enabled accounts'}
+    # v5.10.304: a Nuvio account with no profile chosen yet waits for one,
+    # with one line in the report instead of five failed sections
+    waiting = []
+    if 'nuvio' in targets and not Nuvio.has_profile():
+        _log('nuvio: no profile chosen yet; its sync waits for one')
+        targets = [t for t in targets if t != 'nuvio']
+        waiting.append({'service': 'nuvio', 'ok': False, 'direction': direction or '',
+                        'sections': {'profile': {'ok': False, 'error': NO_PROFILE}}})
+        if not targets:
+            return {'ok': False, 'error': NO_PROFILE, 'no_profile': True, 'report': waiting}
 
     svc_dir = dict((svc, direction or _direction_for(svc)) for svc in targets)
     if 'stremio' in svc_dir and not _setting_bool('stremio_progress_write_opt_in', False):
@@ -2116,6 +2182,7 @@ def run_sync(direction=None, targets=None, force_full=False, sections=None, only
     except Exception: pass
     _log('sync result: providers +%d collections +%d progress %d library %d'
          % (wb['providers'], wb['collections'], wb['progress'], wb['library']))
+    report.extend(waiting)
     return {'ok':ok,'report':report,'writeback':wb,
             'totals':{'addons':len(merged_addons),'collections':len(merged_collections),
                       'progress':len(merged_progress),'library':len(merged_library)}}

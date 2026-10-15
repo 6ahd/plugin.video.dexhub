@@ -963,12 +963,17 @@ function cardBody(id){
   }
   if(s.kind==='code'){
     const p=s.pairing;
+    if(p&&p.status==='profile'&&(p.profiles||[]).length){
+      return `<p class="hint">وافقت ✓ اختر البروفايل اللي يشتغل على التلفزيون:</p>
+        <div class="profs">${p.profiles.map(x=>`<button type="button" class="prof" data-act="nvprof" data-index="${Number(x.index)}"><span class="av">${esc(String(x.name||'?').slice(0,1).toUpperCase())}</span><b dir="auto">${esc(x.name)}</b></button>`).join('')}</div>
+        <p class="hint">المزامنة تبدأ بعد ما تختار.</p>`;
+    }
     if(p&&p.status==='pending'){
       return `${p.code?`<div class="code"><div class="c">${esc(p.code)}</div><button class="btn g s" data-act="copy" data-code="${esc(p.code)}" type="button">انسخ</button></div>`:''}
         <div class="row"><a class="btn p" href="${esc(p.url)}" target="_blank" rel="noopener">افتح صفحة ${esc(s.name)}</a></div>
         ${m.note?`<p class="hint">${m.note}</p>`:''}<p class="hint">بعد الموافقة يتحول هنا لـ "مربوط" لحاله.</p>`;
     }
-    const again=p&&p.status&&p.status!=='pending'?'<p class="hint">انتهى الرمز قبل الموافقة، ابدأ من جديد.</p>':'';
+    const again=p&&p.status&&!['pending','profile'].includes(p.status)?'<p class="hint">انتهى الرمز قبل الموافقة، ابدأ من جديد.</p>':'';
     return `${again}<div class="row"><button class="btn p" data-act="code" data-id="${id}" type="button">ابدأ الربط</button></div>
       ${m.note?`<p class="hint">${m.note}</p>`:''}
       <button class="btn g s" data-act="tv" data-id="${id}" type="button">أو اربطه من التلفزيون</button>`;
@@ -1017,7 +1022,7 @@ function renderAcc(){
   const list=ORDER.filter(id=>chosen.has(id));
   $('#acc').innerHTML=list.map(id=>{
     const s=svc(id);
-    const st=s.linked?'<span class="pill on">مربوط</span>':(s.pairing&&s.pairing.status==='pending'?'<span class="pill wait">ينتظر موافقتك</span>':'<span class="pill">غير مربوط</span>');
+    const st=s.linked?'<span class="pill on">مربوط</span>':(s.pairing&&s.pairing.status==='pending'?'<span class="pill wait">ينتظر موافقتك</span>':(s.pairing&&s.pairing.status==='profile'?'<span class="pill wait">اختر البروفايل</span>':'<span class="pill">غير مربوط</span>'));
     return `<div class="card" id="c-${id}"><div class="ch">${ico(id)}<div class="n"><b>${esc(s.name)}</b><span>${(SVC_META[id]||{}).sub||''}</span></div>${st}</div>${cardBody(id)}</div>`}).join('');
   $('#accEmpty').hidden=list.length>0;
   const n=list.filter(id=>svc(id).linked).length;
@@ -1053,6 +1058,13 @@ document.addEventListener('click',async e=>{
     if(j.ok&&j.url){svc('silo').pairing={code:j.code,url:j.url,status:'pending'};renderAcc();pollAccounts();
       if(w){try{w.location.href=j.url}catch(e){w=null}}if(!w)window.location.href=j.url;}
     else{if(w)try{w.close()}catch(e){}renderAcc()}
+    return}
+  if(a.dataset.act==='nvprof'){
+    document.querySelectorAll('[data-act="nvprof"]').forEach(b=>b.disabled=true);
+    a.setAttribute('aria-pressed','true');
+    const j=await post('profile',{index:Number(a.dataset.index),link:true},true);
+    if(j&&j.ok){toast('Nuvio انربط ✓');if(j.partial&&j.partial.length)toast('بعض البيانات تنتظر المزامنة');await refresh();}
+    else{renderAcc()}
     return}
   if(a.dataset.act==='silopick'){siloPick=a.dataset.pid;renderAcc();const pin=$('#pin-silo');if(pin)pin.focus();return}
   if(a.dataset.act==='siloprof'){
@@ -1511,8 +1523,14 @@ const OPTS={
   O('player_badges_place','p','seg','مكان الرموز','Badges place',['تغييره يعيد تحميل السكين على التلفزيون','Changing it reloads the skin on the TV'],[['seekbar','فوق شريط التقدم','Above seek bar'],['info','تحت البيانات','Under details']]),
  ],
  player:[
+  O('sources_row_style','p','seg','شكل صفوف المصادر','Source rows',['كاملة: سطور الإضافة نفسها مثل نوفيو. مختصرة: شكل Dex Hub','Full: the add-on\'s own lines like Nuvio. Compact: Dex Hub\'s rows'],[['full','كاملة','Full'],['compact','مختصرة','Compact']]),
+  O('player_osd_preset','p','seg','شكل جاهز للمشغل','Ready player look',['يغير النمط والظل واللون والمؤشر والأزرار مرة وحدة','Sets the style, shade, colour, cursor and buttons at once'],[['custom','مخصص','Custom'],['nuvio','Nuvio','Nuvio'],['appletv','Apple TV','Apple TV'],['netflix','Netflix','Netflix'],['infuse','Infuse','Infuse'],['plex','Plex','Plex'],['disney','Disney+','Disney+'],['artwork','ألوان العمل','Title colours'],['clean','شفاف','Clean'],['theme','الثيم','Theme']]),
   O('player_osd_style','p','seg','نمط شريط المشغل','Player bar style',['كلاسيكي، زجاجي، سينمائي أو بسيط. يتغير فورًا حتى أثناء التشغيل','Classic, glass, cinematic or minimal. Changes at once, even while playing'],[['classic','كلاسيكي','Classic'],['glass','زجاجي','Glass'],['cinematic','سينمائي','Cinematic'],['minimal','بسيط','Minimal']]),
-  O('player_osd_dim','p','seg','تعتيم خلفية المشغل','Player background darkness',null,[['30','30%','30%'],['50','50%','50%'],['70','70%','70%'],['85','85%','85%'],['95','95%','95%']]),
+  O('player_osd_shape','p','seg','شكل المؤشر في المشغل','Player cursor shape',null,[['circle','دائرة','Circle'],['square','مربع Apple TV','Apple TV square'],['ring','حلقة','Ring'],['line','خط','Line'],['dot','نقطة','Dot'],['soft','شفافة','See-through']]),
+  O('player_osd_dim','p','seg','تعتيم خلفية المشغل','Player background darkness',null,[['0','شفاف','Clear'],['15','15%','15%'],['30','30%','30%'],['50','50%','50%'],['60','60%','60%'],['70','70%','70%'],['80','80%','80%'],['85','85%','85%'],['95','95%','95%']]),
+  O('player_osd_area','p','seg','مكان ظل المشغل','Player shade place',null,[['bottom','تحت فقط','Below only'],['both','فوق وتحت','Above and below'],['none','بدون','None']]),
+  O('player_osd_scrim','p','seg','لون ظل المشغل','Player shade colour',null,[['auto','تلقائي','Auto'],['black','أسود','Black'],['theme','الثيم','Theme'],['artwork','يتبع العمل','Follow title'],['navy','كحلي','Navy'],['plum','بنفسجي غامق','Plum'],['wine','عنابي','Wine'],['forest','أخضر غامق','Forest'],['slate','رمادي أزرق','Slate'],['warm','بني دافئ','Warm']]),
+  O('player_osd_buttons','p','seg','خلفية أزرار المشغل','Player button backing',null,[['none','بدون','None'],['soft','شكل خفيف','Soft shape'],['outline','إطار','Outline']]),
   O('player_osd_accent','p','seg','لون المشغل','Player colour',['يتبع العمل: لون من صورة العمل المشغّل','Follow the title: a colour from the playing title\'s picture'],[['white','أبيض','White'],['theme','الثيم','Theme'],['artwork','يتبع العمل','Follow title'],['violet','بنفسجي','Violet'],['blue','أزرق','Blue'],['cyan','سماوي','Cyan'],['green','أخضر','Green'],['gold','ذهبي','Gold'],['orange','برتقالي','Orange'],['red','أحمر','Red'],['pink','وردي','Pink']]),
   O('player_show_clearlogo','p','sw','شعار العمل في المشغل','Work logo in player',null),
   O('player_logo_position','p','seg','مكان شعار العمل','Work logo position',null,[['above_info','فوق البيانات','Above details'],['top_left','أعلى اليسار','Top left'],['top_right','أعلى اليمين','Top right']]),

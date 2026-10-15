@@ -988,6 +988,12 @@ def _is_internal_navigation_path(path):
 
 class CompanionPlayer(xbmc.Player):
     def onAVStarted(self):
+        if not self._foreign_active:
+            try:
+                from . import nowplaying   # 5.10.302: the Home keeps the playing title's logo
+                nowplaying.from_session(load_session() or {})
+            except Exception:
+                pass
         try:
             from . import osd_look      # v5.10.298: the bar follows the playing title's colours
             osd_look.follow_playing()
@@ -2148,6 +2154,11 @@ class CompanionPlayer(xbmc.Player):
             # movie's position for a 100ms dummy clip.
             self._foreign_active = False
             return
+        try:
+            from . import nowplaying
+            nowplaying.clear()
+        except Exception:
+            pass
         self._back_keymap_async(False)
         _clear_tmdbh_handoff_flag()
         sess_for_reopen = load_session() or {}
@@ -2281,6 +2292,11 @@ class CompanionPlayer(xbmc.Player):
             # See onPlayBackStopped: foreign playback must end silently.
             self._foreign_active = False
             return
+        try:
+            from . import nowplaying
+            nowplaying.clear()
+        except Exception:
+            pass
         self._back_keymap_async(False)
         _clear_tmdbh_handoff_flag()
         dur = self._duration_ms()

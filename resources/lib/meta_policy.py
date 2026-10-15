@@ -18,6 +18,45 @@ def source_appearance():
     return 'native' in (addon.getSetting('default_meta_source') or '').lower()
 
 
+def nuvio_parity():
+    """v5.10.302: "Like Nuvio" for every section with a Nuvio profile synced:
+    the titles follow Nuvio's own rules for that profile (its TMDb switches,
+    language and poster pattern), not Dex Hub's fills."""
+    if not source_appearance():
+        return False
+    try:
+        from .dexhub import nuvio_profile_prefs
+        return bool(nuvio_profile_prefs.load().get('synced'))
+    except Exception:
+        return False
+
+
+def nuvio_home_prefs():
+    """The profile's TMDb settings when Nuvio's Home uses TMDb (TMDb on, and
+    on the Modern layout its own Home switch too); None otherwise."""
+    if not nuvio_parity():
+        return None
+    try:
+        from .dexhub import nuvio_profile_prefs
+        prefs = nuvio_profile_prefs.normalized_tmdb() or {}
+    except Exception:
+        return None
+    return prefs if prefs.get('home_enabled') else None
+
+
+def nuvio_details_prefs():
+    """The profile's TMDb settings when Nuvio's title pages use TMDb (its
+    TMDb switch); None otherwise or without Like Nuvio."""
+    if not nuvio_parity():
+        return None
+    try:
+        from .dexhub import nuvio_profile_prefs
+        prefs = nuvio_profile_prefs.normalized_tmdb() or {}
+    except Exception:
+        return None
+    return prefs if prefs.get('enabled') else None
+
+
 def server_first():
     """v5.10.198: a server's titles (Plex, Emby, Jellyfin, Silo) keep their
     server's title, plot, artwork and logo; the chosen metadata source fills

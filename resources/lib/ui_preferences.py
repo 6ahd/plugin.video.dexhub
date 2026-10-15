@@ -35,9 +35,18 @@ OPTIONS = {
     'player_badges_place': ('seekbar', ('seekbar', 'info'), 'مكان الرموز في المشغّل', 'Badges place in the player'),
     # v5.10.286 (issue #18): the badges at full opacity by default; 85 or 70 % on request
     'player_badges_opacity': ('100', ('100', '85', '70'), 'شفافية رموز الجودة', 'Badge opacity'),
+    # v5.10.301: the sources window's rows: the add-on's own lines as Nuvio
+    # shows them (full) or Dex Hub's compact rows
+    'sources_row_style': ('full', ('full', 'compact'), 'شكل صفوف المصادر', 'Source rows'),
     # v5.10.298: the player bar's look (osd_look.py): style, darkness, colour
     'player_osd_style': ('classic', ('classic', 'glass', 'cinematic', 'minimal'), 'نمط شريط المشغّل', 'Player bar style'),
-    'player_osd_dim': ('70', ('30', '50', '70', '85', '95'), 'تعتيم خلفية المشغّل', 'Player background darkness'),
+    'player_osd_dim': ('70', ('0', '15', '30', '50', '60', '70', '80', '85', '95'), 'تعتيم خلفية المشغّل', 'Player background darkness'),
+    'player_osd_shape': ('circle', ('circle', 'square', 'ring', 'line', 'dot', 'soft'), 'شكل المؤشر في المشغّل', 'Player cursor shape'),
+    # v5.10.302: the shades' colour and place, the buttons' backing, ready looks
+    'player_osd_scrim': ('auto', ('auto', 'black', 'theme', 'artwork', 'navy', 'plum', 'wine', 'forest', 'slate', 'warm'), 'لون ظل المشغّل', 'Player shade colour'),
+    'player_osd_area': ('bottom', ('bottom', 'both', 'none'), 'مكان ظل المشغّل', 'Player shade place'),
+    'player_osd_buttons': ('none', ('none', 'soft', 'outline'), 'خلفية أزرار المشغّل', 'Player button backing'),
+    'player_osd_preset': ('custom', ('custom', 'nuvio', 'appletv', 'netflix', 'infuse', 'plex', 'disney', 'artwork', 'clean', 'theme'), 'شكل جاهز للمشغّل', 'Ready player look'),
     'player_osd_accent': ('white', ('white', 'theme', 'artwork', 'violet', 'blue', 'cyan', 'green', 'gold', 'orange', 'red', 'pink'),
                           'لون المشغّل', 'Player colour'),
     'player_show_clearlogo': ('true', None, 'شعار العمل في المشغّل', 'Work logo in player'),
@@ -198,6 +207,13 @@ def set_value(key, selected):
             pass
     if key.startswith('player_') and xbmc.getSkinDir() == 'skin.dexhub':
         xbmc.executebuiltin('Skin.SetBool(OSD.DisplayInfoOnControls)')
+    if key.startswith('player_osd_'):
+        # v5.10.302: a ready look writes its parts; a part makes it custom
+        try:
+            from . import osd_look
+            osd_look.after_write(key, selected)
+        except Exception:
+            pass
     if key == 'homeui_show_row_source':
         # v5.10.286: skin.dexhub publishes its rows again with or without the source line
         try:
@@ -251,11 +267,13 @@ def edit(key, txt):
         'pop': txt('قفزة', 'Pop'),
         'glow': txt('إضاءة فقط', 'Glow only'),
         'stage': txt('خلف الصفحة، ثم ملء الشاشة', 'Behind the page, then full screen'),
+        'full': txt('مثل Nuvio TV', 'Like Nuvio TV'),
+        'compact': txt('مختصرة', 'Compact'),
     }
     shown = [labels.get(v, v + txt(' ثوانٍ', ' seconds') if key.endswith(('delay', 'interval')) else v) for v in choices]
     if key == 'player_badges_opacity':  # v5.10.286
         shown = [v + '%' for v in choices]
-    if key in ('player_osd_style', 'player_osd_dim', 'player_osd_accent'):  # v5.10.298
+    if key.startswith('player_osd_'):  # v5.10.298, v5.10.302: every player look key
         from . import osd_look
         shown = osd_look.labels(key, txt)
     pick = xbmcgui.Dialog().select(txt(ar, en), shown, preselect=choices.index(current))

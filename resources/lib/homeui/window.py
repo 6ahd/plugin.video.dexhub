@@ -689,7 +689,17 @@ class _BaseWindow(xbmcgui.WindowXML):
             prefs = npp.normalized_tmdb() or {}
         except Exception:
             prefs = {}
-        if prefs.get('synced'):
+        try:
+            from ..meta_source import ADDON as _MA, meta_language as _meta_language
+            one_language = (_MA.getSetting('global_meta_source_id') or '') == 'tmdb'
+        except Exception:
+            one_language = False
+        if one_language:
+            # v5.10.301: TMDb in one language everywhere: the Home's text and
+            # logos too, whatever a synced Nuvio profile says, with the title
+            settings = {'language': _meta_language(), 'use_artwork': True, 'use_basic_info': True,
+                        'use_details': True, 'localized_title_on_home': True}
+        elif prefs.get('synced'):
             settings = dict(prefs) if prefs.get('enabled') else None
         else:
             settings = {'language': 'ar' if self.s.arabic else 'en', 'use_artwork': True,
@@ -798,7 +808,11 @@ class _BaseWindow(xbmcgui.WindowXML):
     def _tmdb_language(self):
         from ..meta_policy import source_appearance
         if source_appearance():
-            return ''
+            # v5.10.302: Like Nuvio: the profile's language when Nuvio's Home
+            # uses TMDb, none (the catalog's own text and art) when it does not
+            from ..meta_policy import nuvio_home_prefs
+            prefs = nuvio_home_prefs()
+            return str(prefs.get('language') or 'en') if prefs else ''
         settings = self.tmdb_settings()
         return str((settings or {}).get('language') or '') if settings else ''
 
@@ -816,7 +830,7 @@ class _BaseWindow(xbmcgui.WindowXML):
         if not tile or tile.get('kind') != 'work':
             return
         from ..meta_policy import source_appearance
-        if source_appearance():
+        if source_appearance() and not self._tmdb_language():
             from ..ui_preferences import enabled
             if not focus or not enabled('metadata_badges'):
                 return
@@ -892,6 +906,10 @@ class _BaseWindow(xbmcgui.WindowXML):
 
     def _enrich_now(self, tile, language=''):
         from ..meta_policy import source_appearance
+        if source_appearance() and language:
+            # v5.10.302: Like Nuvio with Nuvio's Home on TMDb
+            self._nuvio_parity_pass(tile, language)
+            return
         if source_appearance():
             from ..home_art import repair_missing_poster
             repair_missing_poster(tile)
@@ -949,6 +967,70 @@ class _BaseWindow(xbmcgui.WindowXML):
                     tile['imdb_id'] = str(imdb)
             except Exception:
                 pass
+
+    def _nuvio_parity_pass(self, tile, language):
+        """v5.10.302: a title as Nuvio's Home shows it for the signed-in
+        profile (merge_home_preview's rules): TMDb's backdrop and logo replace
+        the catalog's with Artwork on, its plot and genres with Basic info on,
+        its name only on the Modern layout; the poster stays the catalog's."""
+        from ..meta_policy import nuvio_home_prefs
+        prefs = nuvio_home_prefs()
+        if not prefs:
+            return
+        media = 'series' if tile.get('media_type') in ('series', 'episode') else 'movie'
+        from ..tmdb_direct import meta_for, meta_for_cached_only
+        query = dict(tmdb_id=tile.get('tmdb_id') or '', imdb_id=tile.get('imdb_id') or '',
+                     media_type=media, title=tile.get('show') or tile.get('title') or '',
+                     year=tile.get('year') or '', language_override=language, nuvio_exact=True)
+        if not (query['tmdb_id'] or str(query['imdb_id']).startswith('tt')):
+            params = R.params_of(tile.get('path'))
+            canonical = str(params.get('canonical_id') or '')
+            if canonical.startswith('tt'):
+                query['imdb_id'] = canonical.split(':')[0]
+            elif canonical.startswith('tmdb:'):
+                query['tmdb_id'] = canonical.split(':')[1]
+            else:
+                return
+        found = meta_for_cached_only(**query) or meta_for(**query) or {}
+        if not found:
+            return
+        if not tile.get('tmdb_id') and found.get('tmdb_id'):
+            tile['tmdb_id'] = str(found['tmdb_id'])
+        if not tile.get('imdb_id') and str(found.get('imdb_id') or '').startswith('tt'):
+            tile['imdb_id'] = str(found['imdb_id'])
+        episode = tile.get('media_type') == 'episode'
+        if prefs.get('use_basic_info', True) and not episode:
+            overview = str(found.get('overview') or found.get('description') or '').strip()
+            if overview:
+                tile['plot'] = overview
+            genres = [str(g) for g in (found.get('genres') or []) if g]
+            if genres:
+                tile['genres'] = genres
+            if prefs.get('localized_title_on_home'):
+                name = str(found.get('title') or found.get('name') or '').strip()
+                if name:
+                    tile['title'] = name
+        if prefs.get('use_details', True) and not episode:
+            try:
+                runtime = int(found.get('runtime') or 0)
+            except Exception:
+                runtime = 0
+            if runtime:
+                tile['duration'] = runtime * 60
+        if prefs.get('use_artwork', True):
+            logo = R._clean_art(found.get('clearlogo'))
+            if logo and logo.lower().endswith('.svg'):
+                logo = logo[:-4] + '.png'       # Kodi cannot draw SVG
+            if logo:
+                tile['clearlogo'] = logo
+            fanart = R._clean_art(found.get('fanart'))
+            if fanart:
+                tile['fanart'] = fanart
+        if media == 'series':
+            if found.get('number_of_seasons'):
+                tile['seasons_count'] = int(found['number_of_seasons'])
+            if found.get('status'):
+                tile['tv_status'] = str(found['status'])
 
     def _tmdb_localize(self, tile, media, language):
         """Plot and title logo from TMDb in the chosen language (Nuvio's own rules).

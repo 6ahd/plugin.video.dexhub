@@ -2499,7 +2499,17 @@ def _resolve_meta_art_fast(provider, media_type, meta, fallback_art=None):
               or fb.get('fanart') or '')
     # v5.10.97: never the provider's logo (see _without_title_logo)
     logo   = (meta or {}).get('clearlogo') or (meta or {}).get('logo') or ''
-    if not logo:
+    if not logo and _meta_art_is_strict(meta):
+        # v5.10.302: Like Nuvio: no logo where Nuvio has none (its title text)
+        try:
+            from .meta_policy import nuvio_parity as _nv_parity
+            if _nv_parity():
+                logo = None
+        except Exception:
+            pass
+    if logo is None:
+        logo = ''
+    elif not logo:
         # v5.10.297: collections and Nuvio rows take this path; the title's
         # logo from TMDb Helper's local art database (no network)
         try:
@@ -2517,7 +2527,8 @@ def _resolve_meta_art_fast(provider, media_type, meta, fallback_art=None):
         'thumb':    poster,
         'icon':     poster,
         'banner':   fanart,
-        'landscape': fanart,
+        # v5.10.302: the Nuvio profile's landscape pattern when it has one
+        'landscape': ((meta or {}).get('landscape') if ((meta or {}).get('_nuvio_custom_poster') and (meta or {}).get('landscape')) else fanart),
         'clearlogo': logo,
     }
     if logo:
@@ -6176,6 +6187,18 @@ def _hub_search_unified_render(query, providers_list, include_tmdb=False, collec
                     except Exception:
                         pass
                     _ids = extract_ids(meta)
+                    # v5.10.302: Like Nuvio: the profile's poster pattern (screen search, like Nuvio)
+                    if type_key != 'person' and meta.get('_backend') not in SERVER_BACKENDS:
+                        try:
+                            from .meta_policy import nuvio_parity as _nv_parity
+                            if _nv_parity():
+                                from .dexhub import nuvio_poster as _nv_poster
+                                _nv_card = _nv_poster.apply(dict(meta, poster=art.get('poster') or ''), 'search',
+                                                            media_type=type_key, extra_ids=_ids)
+                                if _nv_card.get('_nuvio_custom_poster'):
+                                    art = dict(art, poster=_nv_card['poster'], thumb=_nv_card['poster'])
+                        except Exception:
+                            pass
                     if type_key == 'person':
                         _person_id = str(meta.get('person_id') or meta_id).split(':')[-1]
                         path = build_url(
@@ -11563,7 +11586,7 @@ def _nuvio_filter_unreleased(metas, treat_missing=False):
         return rows
 
 
-def _apply_nuvio_metadata_preferences(media_type, metas):
+def _apply_nuvio_metadata_preferences(media_type, metas, screen='home'):
     """Render a Nuvio catalog using Nuvio's synced TMDb preferences.
 
     If TMDb enrichment is disabled, native addon metadata/art is kept exactly.
@@ -11582,7 +11605,7 @@ def _apply_nuvio_metadata_preferences(media_type, metas):
             value = _nuvio_merge_tmdb_meta(meta, {}, prefs)
             value['_dexhub_art_strict'] = '1'
             out.append(value)
-        return _nuvio_filter_unreleased(out)
+        return _nuvio_custom_posters(_nuvio_filter_unreleased(out), screen, media_type)
 
     # Even before the first profile-settings sync, Nuvio Home should not be
     # silently restyled by Dex-specific metadata sources. Native is safest.
@@ -11628,7 +11651,28 @@ def _apply_nuvio_metadata_preferences(media_type, metas):
         # authority for this row. Never run Dex's poster substitution pass.
         value['_dexhub_art_strict'] = '1'
         merged.append(value)
-    return _nuvio_filter_unreleased(merged)
+    # v5.10.302: what the local cache lacks is fetched in the background (two
+    # at a time, in the profile's language), so the next look at the row has
+    # Nuvio's TMDb art; the page itself never waits for it
+    try:
+        from . import meta_source as _ms_warm
+        for idx, request in enumerate(requests):
+            if not (cached_rows[idx] if idx < len(cached_rows) else {}):
+                if request.get('tmdb_id') or str(request.get('imdb_id') or '').startswith('tt'):
+                    _ms_warm._tmdb_warm(request)
+    except Exception:
+        pass
+    return _nuvio_custom_posters(_nuvio_filter_unreleased(merged), screen, media_type)
+
+
+def _nuvio_custom_posters(rows, screen, media_type=''):
+    """v5.10.302: the Nuvio profile's own poster pattern (RPDB, top-posters
+    and the like) on the screens the profile turned it on for."""
+    try:
+        from .dexhub import nuvio_poster as _np
+        return _np.apply_all(rows, screen, media_type)
+    except Exception:
+        return rows
 
 
 def _listing_art_goes_remote(provider, meta):
@@ -11707,16 +11751,18 @@ def _enrich_listing_metas_batch(provider, media_type, metas, nuvio_mode=False, m
         # must not silently restyle Nuvio Home/Collections.
         try:
             from . import meta_source as _meta_source
-            target_choice = _meta_source.get_explicit_meta_source_for(meta_target) if meta_target else ''
+            target_choice = _meta_source.nuvio_override_for(meta_target) if meta_target else ''
             if target_choice:
                 return _meta_source.override_virtual_metas_batch(
                     meta_target, media_type, metas, warm=True)
-            provider_choice = _meta_source.get_explicit_meta_source_for((provider or {}).get('id') or '')
+            provider_choice = _meta_source.nuvio_override_for((provider or {}).get('id') or '')
             if provider_choice:
                 return _meta_source.override_metas_batch(provider, media_type, metas, warm=True)
         except Exception as exc:
             xbmc.log('[DexHub] Nuvio explicit metadata override failed: %s' % exc, xbmc.LOGWARNING)
-        return _apply_nuvio_metadata_preferences(media_type, metas)
+        return _apply_nuvio_metadata_preferences(
+            media_type, metas,
+            screen='collections' if str(meta_target or '').startswith('virtual.collection') else 'home')
 
     # Meta source override: Plex/Emby providers get their metadata
     # upgraded before the normal enrich path runs.
@@ -12306,7 +12352,11 @@ def catalog(provider_id, media_type, catalog_id, label='', page='0', genre='',
     _poster_report = None
     try:
         from . import poster_doctor as _poster_doctor
-        metas, _poster_report = _poster_doctor.rescue(sys.modules[__name__], provider, media_type, metas)
+        from .meta_policy import nuvio_parity as _nv_parity
+        # v5.10.302: Like Nuvio keeps a Nuvio row's poster as Nuvio has it
+        # (no other add-on's, TMDb Helper's or TMDb's in its place)
+        if not (nuvio_mode and _nv_parity()):
+            metas, _poster_report = _poster_doctor.rescue(sys.modules[__name__], provider, media_type, metas)
     except Exception as exc:
         xbmc.log('[DexHub] posters: rescue failed: %s' % exc, xbmc.LOGWARNING)
     if not nuvio_mode:
@@ -15671,6 +15721,12 @@ def _publish_playback_art_properties(ctx):
                 home.clearProperty('ArcticFuse.Player.ShowTitle')
     except Exception:
         pass
+    # 5.10.302: the Home's now-playing logo (kept until playback stops)
+    try:
+        from . import nowplaying as _np
+        _np.publish(ctx, lookup=False)
+    except Exception:
+        pass
 
 
 def _refresh_native_playback_context(ctx):
@@ -16785,6 +16841,7 @@ def _append_stream_entries_from_data(entries, data, provider, request_id, media_
             # v5.10.297: the add-on's own row text, shown as Nuvio shows it
             'stream_name_raw': str(row.get('name') or '')[:400],
             'stream_desc_raw': str(row.get('description') or row.get('title') or '')[:900],
+            'stream_video_size': ((row.get('behaviorHints') or {}).get('videoSize') if isinstance(row.get('behaviorHints'), dict) else '') or '',
             'cached': _ready_state(row, facts),
             'in_library': _library_state(row),
             'size_label': size or '--',
@@ -19566,8 +19623,45 @@ def _own_media(url):
     return bool(text) and 'plugin.video.dexhub' in text and '/resources/' in text
 
 
+_CW_FILL_MEMO = {}
+_CW_FILL_TTL = 600.0
+
+
+def _cw_fill_key(row):
+    try:
+        from . import meta_source as _ms
+        source = str(_ms.get_meta_source_for(_cw_target_key(row)) or 'auto')
+    except Exception:
+        source = 'auto'
+    return '|'.join(str(row.get(k) or '') for k in (
+        'media_type', 'canonical_id', 'video_id', 'season', 'episode', 'updated_at', 'position',
+        'poster', 'background', 'clearlogo', 'title', 'show_title', 'native_server_id')) + '|' + source
+
+
 def _lazy_fill_row_art(row):
-    """Fill Continue Watching artwork using the configured metadata target."""
+    """Fill Continue Watching artwork using the configured metadata target.
+
+    v5.10.306: the filled row is kept ten minutes in the skin worker (the
+    CoreELEC log: the same 24 cards cost 1.2 s on every republish, the Home
+    settling, a setting, an account, a video ending); unchanged rows with
+    their art are answered from memory."""
+    key = _cw_fill_key(row)
+    hit = _CW_FILL_MEMO.get(key)
+    now = time.time()
+    if hit and now - hit[0] < _CW_FILL_TTL:
+        return dict(hit[1])
+    out = _lazy_fill_row_art_now(row)
+    try:
+        if out.get('poster') and out.get('background'):
+            if len(_CW_FILL_MEMO) > 400:
+                _CW_FILL_MEMO.clear()
+            _CW_FILL_MEMO[key] = (now, dict(out))
+    except Exception:
+        pass
+    return out
+
+
+def _lazy_fill_row_art_now(row):
     row = _cw_fill_name(row)
     if any(_own_media(row.get(k)) for k in ('poster', 'background', 'clearlogo')):
         row = dict(row)
@@ -20167,6 +20261,34 @@ def _recent_show_art(row):
     return row
 
 
+def _cw_nuvio_poster(row, poster, is_episode):
+    """v5.10.302: with Like Nuvio, a Continue Watching card takes the Nuvio
+    profile's poster pattern (its screen continue_watching), filled with the
+    show's ids for an episode, as Nuvio does."""
+    try:
+        from .meta_policy import nuvio_parity
+        if not nuvio_parity():
+            return poster
+        from .dexhub import nuvio_poster as _np
+        pattern = _np.pattern_for('continue_watching')
+        if not pattern:
+            return poster
+        canonical = str(row.get('canonical_id') or '')
+        show_id = canonical.split(':')[0] if canonical.startswith('tt') else canonical
+        if canonical.startswith(('tmdb:', 'tvdb:', 'kitsu:', 'mal:', 'anilist:', 'anidb:')):
+            parts = canonical.split(':')
+            show_id = ':'.join(parts[:2])
+        ids = extract_ids({'id': canonical}) or {}
+        card = _np.apply({'id': show_id, 'poster': poster,
+                          'imdb_id': row.get('show_imdb_id') or ids.get('imdb_id') or '',
+                          'type': 'series' if is_episode else (row.get('media_type') or 'movie')},
+                         'continue_watching', pattern=pattern,
+                         extra_ids={'tmdb_id': row.get('show_tmdb_id') or ids.get('tmdb_id') or ''})
+        return card.get('poster') or poster
+    except Exception:
+        return poster
+
+
 def _cw_episode_poster(row):
     """SHOW poster for an episode row when the cache has one — cached only.
 
@@ -20501,6 +20623,8 @@ def continue_watching(page='0'):
                 row = _recent_show_art(row)
             _row_poster = (row.get('show_poster') or row.get('background')
                            or (_episode_picture(row, row_ids, started=True) if is_episode else '') or '')
+        # v5.10.302: Like Nuvio: the profile's poster pattern on Continue Watching
+        _row_poster = _cw_nuvio_poster(row, _row_poster, is_episode)
         _poster_art = _wrap_tokenized_url(_row_poster)
         _bg_art = _wrap_tokenized_url(row.get('background') or '') or addon_fanart()
         _logo_art = _wrap_tokenized_url(row.get('clearlogo') or '')

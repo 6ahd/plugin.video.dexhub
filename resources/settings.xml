@@ -143,8 +143,16 @@
 		<setting id="player_badges_opacity" type="text" default="100" visible="false" />
 		<!-- v5.10.298: the player bar's look (osd_look.py) -->
 		<setting id="player_osd_style" type="text" default="classic" visible="false" />
+		<setting id="sources_row_style" type="text" default="full" visible="false" />
+		<setting id="meta_tmdb_default_v1" type="text" default="" visible="false" />
 		<setting id="player_osd_dim" type="text" default="70" visible="false" />
 		<setting id="player_osd_accent" type="text" default="white" visible="false" />
+		<setting id="player_osd_shape" type="text" default="circle" visible="false" />
+		<!-- v5.10.302: the shades' colour and place, the buttons' backing, ready looks -->
+		<setting id="player_osd_scrim" type="text" default="auto" visible="false" />
+		<setting id="player_osd_area" type="text" default="bottom" visible="false" />
+		<setting id="player_osd_buttons" type="text" default="none" visible="false" />
+		<setting id="player_osd_preset" type="text" default="custom" visible="false" />
 		<!-- v5.10.288: the player bar's buttons in order, a hidden one as -key (osd_buttons.py) -->
 		<setting id="osd_buttons" type="text" default="" visible="false" />
 		<setting type="lsep" label="31144" />
@@ -253,6 +261,7 @@
 		<setting id="credits_panel" type="text" label="End of episode panel" default="auto" visible="false" />
 		<setting id="library_pins" type="text" label="Library pins" default="" visible="false" />
 		<setting id="library_src" type="text" label="Library source" default="all" visible="false" />
+		<setting id="library_type" type="text" label="Library type" default="all" visible="false" />
 		<setting id="plex_in_sources" type="bool" label="30439" default="true" visible="false" />
 		<setting id="emby_in_sources" type="bool" label="30440" default="true" visible="false" />
 		<setting id="silo_in_sources" type="bool" label="Silo in Sources" default="true" visible="false" />
