@@ -35,6 +35,11 @@ def listitem(item, tab='', row=''):
     if (item.get('props') or {}).get('kind') == 'work':
         from ..home_art import display_art
         art = display_art(art)
+        try:
+            from ..art_choice import apply_item    # v5.10.322: Change artwork
+            art = apply_item(item, art)
+        except Exception:
+            pass
     if str(item.get('path') or '').startswith('favourites://'):
         # a widget's click in its favourites form (widgetclick.py): Kodi must
         # not open that address as a video file for its details (it looked

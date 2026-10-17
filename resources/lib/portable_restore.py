@@ -98,6 +98,16 @@ def startup():
     if xbmc.getCondVisibility('System.Platform.TVOS'):
         return False
     from .full_backup import context, apply_core_restore
+    # v5.10.314: the settings of five add-ons were read at every start (and
+    # Kodi logged the missing ones as exceptions); only a pending restore
+    # needs them
+    try:
+        import xbmcvfs
+        if not os.path.isdir(os.path.join(xbmcvfs.translatePath('special://home/'), 'dexhub-restore-pending')):
+            apply_core_restore()
+            return False
+    except Exception:
+        pass
     home, roots, _settings, _core = context()
     pending = home / 'dexhub-restore-pending' / 'manifest.json'
     saved = json.loads(pending.read_text()).get('settings', {}) if pending.is_file() else {}

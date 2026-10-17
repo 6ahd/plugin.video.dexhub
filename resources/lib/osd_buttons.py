@@ -61,10 +61,10 @@ DOES = {
 }
 # the bar's icons, copies of the OSD's own (resources/media/osdbar)
 ICONS = {
-    'sources': 'network', 'episodes': 'list-ul', 'info': 'info2', 'audio': 'volume', 'subtitles': 'quote',
-    'subsync': 'subsync', 'nextsub': 'subnext', 'external': 'external', 'video': 'video', 'ppi': 'ppi',
+    'sources': 'layers', 'episodes': 'list-video', 'info': 'info', 'audio': 'audio-lines', 'subtitles': 'captions',
+    'subsync': 'subsync', 'nextsub': 'subnext', 'external': 'external', 'video': 'ratio', 'ppi': 'ppi',
 }
-LEFT_ICONS = ('pause', 'backward-step', 'forward-step', 'stop')
+LEFT_ICONS = ('pause-f', 'skip-back', 'skip-forward', 'stop-f')
 
 
 def _tvos():
@@ -165,6 +165,7 @@ A_LEFT, A_RIGHT = 1, 2
 LIST, RESTORE, DONE = 100, 301, 302
 LOOK_STYLE, LOOK_DIM, LOOK_ACCENT = 303, 304, 305     # v5.10.298: the Look row
 LOOK_SHAPE = 306                                        # v5.10.301: the cursor's shape
+LOOK_NAMES, LOOK_DESIGN, LOOK_TITLE = 307, 308, 309      # v5.10.309: the second Look row
 
 
 class EditorWindow(xbmcgui.WindowXMLDialog):
@@ -229,6 +230,9 @@ class EditorWindow(xbmcgui.WindowXMLDialog):
             'ob.look.style': '%s:  [B]%s[/B]' % (txt('النمط', 'Style'), osd_look.label(osd_look.STYLE, style, txt)),
             'ob.look.dim': '%s:  [B]%s[/B]' % (txt('التعتيم', 'Darkness'), osd_look.label(osd_look.DIM, dim, txt)),
             'ob.look.accent': '%s:  [B]%s[/B]' % (txt('اللون', 'Colour'), osd_look.label(osd_look.ACCENT, accent, txt)),
+            'ob.look.names': '%s:  [B]%s[/B]' % (txt('الاسم في الكبسولة', 'Name in pill'), osd_look.label(osd_look.NAMES, osd_look.value(osd_look.NAMES), txt)),
+            'ob.look.design': '%s:  [B]%s[/B]' % (txt('التصميم', 'Design'), osd_look.label(osd_look.DESIGN, osd_look.value(osd_look.DESIGN), txt)),
+            'ob.look.title': '%s:  [B]%s[/B]' % (txt('أزرار صفحة العمل', 'Title buttons'), osd_look.label(osd_look.TITLE, osd_look.value(osd_look.TITLE), txt)),
         }
         for prop, value in values.items():
             self.setProperty(prop, value)
@@ -318,10 +322,11 @@ class EditorWindow(xbmcgui.WindowXMLDialog):
             self.setFocusId(LIST)
         elif control_id == DONE:
             self.close()
-        elif control_id in (LOOK_STYLE, LOOK_DIM, LOOK_ACCENT, LOOK_SHAPE):
+        elif control_id in (LOOK_STYLE, LOOK_DIM, LOOK_ACCENT, LOOK_SHAPE, LOOK_NAMES, LOOK_DESIGN, LOOK_TITLE):
             from . import osd_look
             self._cycle({LOOK_STYLE: osd_look.STYLE, LOOK_DIM: osd_look.DIM,
-                         LOOK_ACCENT: osd_look.ACCENT, LOOK_SHAPE: osd_look.SHAPE}[control_id])
+                         LOOK_ACCENT: osd_look.ACCENT, LOOK_SHAPE: osd_look.SHAPE,
+                         LOOK_NAMES: osd_look.NAMES, LOOK_DESIGN: osd_look.DESIGN, LOOK_TITLE: osd_look.TITLE}[control_id])
 
     def onAction(self, action):
         aid = action.getId()

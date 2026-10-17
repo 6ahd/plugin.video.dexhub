@@ -1031,6 +1031,8 @@ class _BaseWindow(xbmcgui.WindowXML):
                 tile['seasons_count'] = int(found['number_of_seasons'])
             if found.get('status'):
                 tile['tv_status'] = str(found['status'])
+        if found.get('certification') and not tile.get('mpaa') and tile.get('media_type') != 'episode':
+            tile['mpaa'] = str(found['certification'])     # v5.10.322 (GitHub #20)
 
     def _tmdb_localize(self, tile, media, language):
         """Plot and title logo from TMDb in the chosen language (Nuvio's own rules).
@@ -1109,6 +1111,8 @@ class _BaseWindow(xbmcgui.WindowXML):
                 tile['seasons_count'] = int(found['number_of_seasons'])
             if found.get('status'):
                 tile['tv_status'] = str(found['status'])
+        if found.get('certification') and not tile.get('mpaa') and tile.get('media_type') != 'episode':
+            tile['mpaa'] = str(found['certification'])     # v5.10.322 (GitHub #20)
 
     def _show_status(self, tile):
         """v5.10.228: a show's seasons and status for the Home's hero when no

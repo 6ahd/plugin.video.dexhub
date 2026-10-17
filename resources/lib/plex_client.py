@@ -439,6 +439,21 @@ def _pooled_request(pool, url, method, data, headers, timeout):
 
 
 def _request(url, method='GET', token='', data=None, headers=None, timeout=None, retry=True):
+    try:
+        return _request_once(url, method, token, data, headers, timeout, retry)
+    except PlexError as exc:
+        # v5.10.314: just after the box woke the names do not resolve yet
+        from .net_wake import wait_after_wake
+        try:
+            host = urlsplit(url).hostname or ''
+        except Exception:
+            host = ''
+        if wait_after_wake(exc, host):
+            return _request_once(url, method, token, data, headers, timeout, retry)
+        raise
+
+
+def _request_once(url, method='GET', token='', data=None, headers=None, timeout=None, retry=True):
     timeout = _time_left(timeout)
     merged = _headers(token)
     merged.update(headers or {})

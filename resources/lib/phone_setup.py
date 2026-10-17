@@ -68,7 +68,7 @@ LABELS = (
     ('player_badges_brightness', ('solid', 'soft')),
 
     # v5.10.286: the new cinema and netflix layouts (cinematic stays first: the default)
-    ('homeui_layout_mode', ('cinematic', 'two_rows', 'spotlight_posters', 'cinema', 'netflix', 'shelf')),
+    ('homeui_layout_mode', ('cinematic', 'two_rows', 'spotlight_posters', 'cinema', 'netflix', 'shelf', 'legacy')),
     ('homeui_nav_position', ('top', 'side')),
     ('ui_language', ('Arabic', 'English')),
     ('homeui_size', ('Normal', 'Large', 'Extra large')),

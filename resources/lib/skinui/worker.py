@@ -106,6 +106,12 @@ class _Events(xbmc.Monitor):
         self.settings_changed = True
 
     def onNotification(self, sender, method, data):
+        if method == 'System.OnWake':
+            # v5.10.314: servers asked in the next minute and a half wait
+            # for the network (net_wake.py)
+            from ..net_wake import mark_woke
+            mark_woke()
+            return
         if method in ('Player.OnPlay', 'Player.OnAVStart'):
             # v5.10.239: was it a Home trailer? (its end changes no list)
             self.trailer = bool(C.prop('dexhub.trailer.active') or C.prop('dhs.trailer'))

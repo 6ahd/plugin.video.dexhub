@@ -91,9 +91,11 @@ def set_state(state):
     import time
     C.home().setProperty(_STATE, ('%s|%d' % (state, time.time())) if state else '')
     stamp = '%d' % (time.time() * 1000)
-    for window_id in (11149, 1149):     # the skin's custom dialog 1149
+    # the skin's custom dialog 1149 is Kodi's window 11149; only while it
+    # is open (Kodi logs "Window id does not exist" for a closed one)
+    if xbmc.getCondVisibility('Window.IsVisible(1149)'):
         try:
-            xbmcgui.Window(window_id).setProperty('UID', stamp)
+            xbmcgui.Window(11149).setProperty('UID', stamp)
         except Exception:
             pass
     C.home().setProperty('dexhub.osd.rev', stamp)
@@ -121,6 +123,43 @@ def _bytes(size):
     return float(match.group(1)) * 1024 ** ' KMGT'.index(match.group(2).upper())
 
 
+_QTONE = {'4K': 'FFF5B428', '8K': 'FFF5B428', '1080p': 'FF50C8FF', '720p': 'FF6EE7A8'}
+
+
+def _island_props(name, line, quality):
+    """v5.10.307: what the player's sources island draws under the name: the
+    description as lines (the sources page's way), how many of them the
+    focused card needs, the quality's colour, and the elite badges with the
+    packed origins the sources page uses."""
+    out = {}
+    parts = [p.strip() for p in str(line or '').split('\u00b7') if p.strip()]
+    lines = []
+    for part in parts:
+        if lines and len(lines[-1]) + len(part) + 3 <= 68:
+            lines[-1] = lines[-1] + '  \u00b7  ' + part
+        else:
+            lines.append(part)
+    lines = lines[:4] or ['']
+    out['nv_desc'] = '[CR]'.join(lines)
+    out['nv_fh'] = str(len(lines))
+    out['qtone'] = _QTONE.get(quality, 'FF9AA3B2' if quality else '')
+    out['nv_qw'] = str(14 * max(2, len(quality)) + 16 if quality else 0)
+    try:
+        from .. import source_browser as sb
+        layout = sb._source_badge_layout(sb._elite_badge_images({'name': name, 'label2': line}, max_items=7))
+        moves = sb._source_badge_moves(layout)
+        for idx, (image, shape) in enumerate(layout, 1):
+            out['elite_badge%d' % idx] = image
+            out['elite_w%d' % idx] = str(int(int(shape[1:]) * sb.SOURCE_BADGE_HEIGHT / 4.0))
+            # v5.10.322: the set's border colour, a frame 4 px around the image
+            out['elite_frame%d' % idx] = sb.badge_frame(image)
+            out['elite_fw%d' % idx] = str(int(int(shape[1:]) * sb.SOURCE_BADGE_HEIGHT / 4.0) + 8)
+            out['elite_move%d' % idx] = moves[idx - 1]
+    except Exception:
+        pass
+    return out
+
+
 def sort_mode():
     mode = C.home().getProperty(_SORT) or 'default'
     return mode if mode in _SORTS else 'default'
@@ -132,11 +171,10 @@ def cycle_sort(params=None):
     mode = _SORTS[(_SORTS.index(sort_mode()) + 1) % len(_SORTS)]
     C.home().setProperty(_SORT, mode)
     stamp = '%d' % (time.time() * 1000)
-    for window_id in (11149, 1149):
-        try:
-            xbmcgui.Window(window_id).setProperty('UID', stamp)
-        except Exception:
-            pass
+    try:
+        xbmcgui.Window(11149).setProperty('UID', stamp)     # the open panel (it asked for this)
+    except Exception:
+        pass
 
 
 def _quality(text):
@@ -263,6 +301,7 @@ def sources(params, handle):
             li = xbmcgui.ListItem(label=name, label2=line, offscreen=True)
             if row.get('current'):
                 props['iscurrent'] = 'true'
+            props.update(_island_props(name, line, props.get('quality') or ''))
             li.setProperties(props)
             entries.append((C.url('switch_source', stream_key=str(row.get('k') or ''), item=item), li, False))
         # v5.10.248: the whole search again, over the playing video (the list

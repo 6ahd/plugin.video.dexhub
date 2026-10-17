@@ -59,7 +59,7 @@ def run(params):
         if listing.serve_call(action, params, _handle()):
             return None
         # everything else needs the router
-        if action in ('skin_seasons', 'skin_episodes', 'skin_cast', 'skin_related'):
+        if action in ('skin_seasons', 'skin_episodes', 'skin_cast', 'skin_related', 'skin_collection', 'skin_studios'):
             from . import title
             return title.listing(action, params, _handle())
         from . import actions
@@ -144,7 +144,8 @@ def _title_page():
         return False
 
 
-_OSD_LISTS = ('skin_osd_streams', 'skin_osd_next', 'skin_osd_episodes', 'skin_osd_seasons', 'skin_osd_sources')
+_OSD_LISTS = ('skin_osd_streams', 'skin_osd_next', 'skin_osd_episodes', 'skin_osd_seasons', 'skin_osd_sources',
+              'skin_osd_substyle')
 
 
 def osd(action, params, handle):
@@ -155,6 +156,10 @@ def osd(action, params, handle):
                 # v5.10.243: the player's Sources panel
                 from . import osd_sources
                 osd_sources.sources(params, handle)
+            elif action == 'skin_osd_substyle':
+                # v5.10.314: the subtitle look
+                from . import substyle
+                substyle.listing(params, handle)
             else:
                 {'skin_osd_streams': O.streams, 'skin_osd_next': O.next_listing,
                  'skin_osd_episodes': O.episodes, 'skin_osd_seasons': O.seasons}[action](params, handle)
@@ -169,6 +174,13 @@ def osd(action, params, handle):
         return osd_sources.cycle_sort(params)
     if action == 'skin_osd_stream':
         return O.set_stream(params)
+    if action == 'skin_osd_subtitles':
+        # v5.10.315: subtitle (or audio) settings and look, one page
+        from . import subwindow
+        return subwindow.open_window(params)
+    if action in ('skin_osd_substyle_set', 'skin_osd_substyle_preset'):
+        from . import substyle
+        return (substyle.step if action == 'skin_osd_substyle_set' else substyle.preset)(params)
     if action == 'skin_osd_playnext':
         return O.play_next(params)
     if action == 'skin_osd_info':

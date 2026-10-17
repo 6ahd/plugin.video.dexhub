@@ -6,8 +6,8 @@
 
 Stremio & Nuvio add-ons · Plex, Emby, Jellyfin & Silo · Live TV · Native Trakt, Simkl & MDBList · Arabic-first UI · TMDb Helper integration
 
-[![Version](https://img.shields.io/badge/version-5.10.306-7c3aed)]()
-[![Skin](https://img.shields.io/badge/skin-3.28.49-ffd23f)]()
+[![Version](https://img.shields.io/badge/version-5.10.331-7c3aed)]()
+[![Skin](https://img.shields.io/badge/skin-3.28.74-ffd23f)]()
 [![Kodi](https://img.shields.io/badge/Kodi-21%20Omega%20%7C%2022%20Piers-33d8f7)]()
 [![License](https://img.shields.io/badge/license-all%20rights%20reserved-ef4444)](LICENSE.txt)
 [![Ko-fi](https://img.shields.io/badge/support-Ko--fi-ff5e5b)](https://ko-fi.com/dexworld)
@@ -20,15 +20,15 @@ Stremio & Nuvio add-ons · Plex, Emby, Jellyfin & Silo · Live TV · Native Trak
 
 ## What's new
 
-**Dex Hub 5.10.306 · Dex Hub skin 3.28.49**
+**Dex Hub 5.10.331 · Dex Hub skin 3.28.74**
 
-* **Sources page as an island,** after nuvio-native-legacy: about six sources on screen, the focus ring whole on every side, quality badges under every card, size, add-on and Ready on the right, and the focused card grows to show every line of the add-on's text. Or the exact **Nuvio TV** look: logo and episode on the left, add-on tabs on top, SIZE and Ready chips.
-* **Like Nuvio, for real:** with Nuvio as the metadata source Dex Hub follows your Nuvio profile exactly: its TMDb settings and language on the Home, hero and title page, and its custom poster pattern (RPDB, top-posters, AIOMetadata) on the Home, collections, search and Continue Watching.
-* **Player looks:** Nuvio, Apple TV, Netflix, Infuse, Plex, Disney+, Artwork colours, Clean and Theme. Shade above and below in any colour or none, button backing, dot and see-through focus shapes. Every button and panel follows the player colour; the title as the bar heading; the progress bar across the width with the times under it.
-* **Chapters panel:** Kodi never draws a chapter picture for a stream from the internet, so every chapter came as an empty card. Each chapter now shows the title's backdrop, its number, time and name, with the chapter playing marked.
-* **Home and Library:** the clear logo of the title you browse stays on the hero while a video plays behind it; Library gets Type (All, Movies, Series) and Sort chips.
-* **Nuvio sign in keeps your profile:** signing in again no longer drops it (the five "Select a Nuvio profile" errors are gone); an account with several profiles picks one on the phone page after the approval.
-* **Faster and steadier:** Continue Watching cards kept in memory between Home refreshes, a Plex server that stops answering left out of source searches for five minutes, the player keymap written whole, and the Apple TV add-on turned off automatically when it is installed on another device.
+* **Trailer inside the poster:** the trailer plays in the focused card in its row, landscape and Legacy cards included, or behind the page as before (Settings, Look, Trailer place).
+* **New Legacy home:** the title's logo and details on top, framed rows with card numbers. The side menu can hide while you scroll, the current section's icon takes the accent colour, the last row opens the next section, and sections can open on focus.
+* **Title page:** Collections (the saga card, its films in release order), Studios and networks, IMDb Parents Guide and age ratings, a time left bar, and a More button with Read synopsis and Change artwork (backdrop and logo). Up opens an island with Saved, Alerts and the upcoming episodes Schedule.
+* **New player, like Nuvio Legacy:** a full subtitle page inside the player (font, size, colour, background, shadow, position, four ready looks), subtitles searched there from Dex Hub and every subtitle add-on (a4kSubtitles, OpenSubtitles, SubDL), tracks with flags, full names and badges (Atmos, DD+, 5.1, SDH), a language filter, and a sources island. The classic design stays as an option.
+* **Faster:** a source is picked 2.5 s after the first results, sources get ready in the background on the title page (long press Play opens the list at once), and Plex, Emby and Silo answers are cached.
+* **Power:** its own icon in the side menu and the top bar, and a power menu with icons.
+* **Apple TV:** the Kodi build with the Aether player (Dolby Vision, Atmos and DTS:X at 7.1.4) is at [6ahd/Kodi-tvOS](https://github.com/6ahd/Kodi-tvOS), with the Dex Hub repository built in so the add-on and skin update on their own.
 
 Full history in [changelog.txt](changelog.txt).
 

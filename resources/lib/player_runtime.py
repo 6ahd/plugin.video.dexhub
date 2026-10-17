@@ -91,6 +91,7 @@ fetch_meta          = _LazyAttr('.client', 'fetch_meta')
 fetch_streams       = _LazyAttr('.client', 'fetch_streams')
 
 run_parallel        = _LazyAttr('.client', 'run_parallel')
+_run_parallel_settle = _LazyAttr('.client', 'run_parallel_settle')
 
 iter_parallel       = _LazyAttr('.client', 'iter_parallel')
 
@@ -325,7 +326,9 @@ def _monitor_playback(event, level=xbmc.LOGINFO, **payload):
         except Exception:
             continue
     try:
-        xbmc.log('[DexHubMonitor] %s' % json.dumps(record, ensure_ascii=False, sort_keys=True), level)
+        # v5.10.321: tokens in a played URL (X-Plex-Token, api_key) stay out of the log
+        from .log import _redact as _hide
+        xbmc.log('[DexHubMonitor] %s' % _hide(json.dumps(record, ensure_ascii=False, sort_keys=True)), level)
     except Exception:
         pass
     try:
@@ -446,7 +449,7 @@ def _mark_tmdbh_handoff(seconds=45):
     """
     try:
         until = time.time() + max(8, int(seconds or 45))
-        for win_id in (WINDOW_ID, 10000, 12005):
+        for win_id in (WINDOW_ID, 10000):  # v5.10.321: 12005 exists only in full screen (Kodi logged "Window id does not exist")
             try:
                 xbmcgui.Window(win_id).setProperty(_TMDBH_HANDOFF_UNTIL_PROP, '%.3f' % until)
             except Exception:
@@ -457,7 +460,7 @@ def _mark_tmdbh_handoff(seconds=45):
 def _tmdbh_handoff_active():
     try:
         now = time.time()
-        for win_id in (WINDOW_ID, 10000, 12005):
+        for win_id in (WINDOW_ID, 10000):  # v5.10.321: 12005 exists only in full screen (Kodi logged "Window id does not exist")
             try:
                 win = xbmcgui.Window(win_id)
                 if (win.getProperty('dexhub.invoked_by_tmdbh') or '').strip() == '1':
@@ -477,7 +480,7 @@ def _tmdbh_handoff_active():
 
 def _clear_tmdbh_transient():
     """Clear TMDb Helper handoff flags/seeds after cancel/error/no-source paths."""
-    for win_id in (WINDOW_ID, 10000, 12005):
+    for win_id in (WINDOW_ID, 10000):  # v5.10.321: 12005 exists only in full screen (Kodi logged "Window id does not exist")
         try:
             win = xbmcgui.Window(win_id)
         except Exception:
@@ -8775,7 +8778,10 @@ def _auto_play_first_movie(canonical_id, title='', seed_ids=None, preferred_prov
     def _fetch(t):
         return _fetch_stream_payload(t, 'movie')
 
-    for target, data in run_parallel(_fetch, targets):
+    # v5.10.314: the choice is made after the first sources settle (patient
+    # scan setting: every provider, as before)
+    for target, data in (run_parallel(_fetch, targets) if _full_parallel_source_scan_enabled()
+                         else _run_parallel_settle(_fetch, targets)):
         if isinstance(data, Exception) or not data:
             continue
         p, rid = target
@@ -8877,7 +8883,10 @@ def _auto_play_first_episode(canonical_id, video_id, season, episode, title='', 
     def _fetch(t):
         return _fetch_stream_payload(t, 'series')
 
-    for target, data in run_parallel(_fetch, targets):
+    # v5.10.314: the choice is made after the first sources settle (patient
+    # scan setting: every provider, as before)
+    for target, data in (run_parallel(_fetch, targets) if _full_parallel_source_scan_enabled()
+                         else _run_parallel_settle(_fetch, targets)):
         if isinstance(data, Exception) or not data:
             continue
         p, rid = target

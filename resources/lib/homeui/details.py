@@ -484,12 +484,13 @@ class DetailsWindow(W._BaseWindow):
         self.hero['tmdb_id'] = self.hero.get('tmdb_id') or tmdb
         kind = 'tv' if self.series else 'movie'
         lang = self._tmdb_lang()
-        key = 'dh-details-v2:%s:%s:%s' % (kind, tmdb, lang)
+        key = 'dh-details-v3:%s:%s:%s' % (kind, tmdb, lang)   # v5.10.322: with the age rating
         data = T._cache_get(key)
         if data is None:
             data = T._request('/%s/%s' % (kind, tmdb), {
                 'language': lang,
-                'append_to_response': 'credits,recommendations,external_ids,translations',
+                'append_to_response': 'credits,recommendations,external_ids,translations,%s' % (
+                    'content_ratings' if kind == 'tv' else 'release_dates'),
             }, timeout=8, max_attempts=2) or {}
             # v5.10.120: an empty answer (a timeout) is asked again after
             # two minutes, not ten: the page's cast and related titles
@@ -497,6 +498,7 @@ class DetailsWindow(W._BaseWindow):
         self.tmdb = data if isinstance(data, dict) else {}
 
     def _apply_tmdb(self):
+        from ..tmdb_direct import certification as T_cert
         data = self.tmdb or {}
         hero = self.hero
         from ..meta_policy import source_appearance
@@ -529,6 +531,9 @@ class DetailsWindow(W._BaseWindow):
                 hero['seasons_count'] = _int(data.get('number_of_seasons'))
             if data.get('status') and (data.get('number_of_seasons') or data.get('first_air_date')):
                 hero['tv_status'] = str(data.get('status'))
+            if not hero.get('mpaa'):
+                # v5.10.322 (GitHub #20): PG-13, TV-MA on the meta line
+                hero['mpaa'] = T_cert(data, 'tv' if self.series else 'movie')
             if not hero.get('rating') and data.get('vote_average'):
                 hero['rating'] = round(float(data.get('vote_average') or 0), 1)
             if not hero.get('duration'):
@@ -862,7 +867,20 @@ class DetailsWindow(W._BaseWindow):
         from .. import episode_titles as ET
         # v5.10.214: TMDb also names the episodes a source only numbers
         unnamed = rows is not None and ET.mode() != 'off' and any(ET.generic(r.get('title')) for r in rows)
-        tmdb = self._tmdb_season(number) if (self.tmdb_id and (rows is None or unnamed or self._tmdb_language())) else {}
+        # v5.10.323: an episode without its own picture (none, or the show's
+        # backdrop or one picture for the whole season) takes TMDb's still
+        stale = set()
+        if rows:
+            hero = self.hero or {}
+            show_art = set(v for v in (hero.get('fanart'), hero.get('landscape'), hero.get('poster'),
+                                       hero.get('clearlogo')) if v)
+            seen = {}
+            for r in rows:
+                if r.get('thumb'):
+                    seen[r['thumb']] = seen.get(r['thumb'], 0) + 1
+            stale = set(t for t, n in seen.items() if n > 1 or t in show_art)
+        bare = rows is not None and any((not r.get('thumb')) or r.get('thumb') in stale for r in rows)
+        tmdb = self._tmdb_season(number) if (self.tmdb_id and (rows is None or unnamed or bare or self._tmdb_language())) else {}
         if rows is None:
             api = self.app.api()
             ids = self._ids(api)
@@ -883,7 +901,7 @@ class DetailsWindow(W._BaseWindow):
                 row['title'] = str(extra['name'])
             if extra.get('overview'):
                 row['plot'] = str(extra['overview'])
-            if extra.get('still_path') and not row.get('thumb'):
+            if extra.get('still_path') and (not row.get('thumb') or row.get('thumb') in stale):
                 row['thumb'] = _img(extra['still_path'], 'w780')
             if extra.get('runtime') and not row.get('runtime'):
                 row['runtime'] = _int(extra['runtime'])

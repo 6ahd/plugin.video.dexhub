@@ -202,6 +202,22 @@ def _pooled_get(url, headers, timeout):
 
 
 def _request(url, method='GET', token='', data=None, timeout=None, backend='emby'):
+    try:
+        return _request_once(url, method, token, data, timeout, backend)
+    except Exception as exc:
+        # v5.10.314: just after the box woke the names do not resolve yet
+        from .net_wake import wait_after_wake
+        try:
+            from urllib.parse import urlsplit as _split
+            host = _split(url).hostname or ''
+        except Exception:
+            host = ''
+        if wait_after_wake(exc, host):
+            return _request_once(url, method, token, data, timeout, backend)
+        raise
+
+
+def _request_once(url, method='GET', token='', data=None, timeout=None, backend='emby'):
     body = None
     if data is not None:
         body = json.dumps(data).encode('utf-8')

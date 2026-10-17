@@ -1,7 +1,7 @@
 """Profile-scoped Home presentation, independent of the trailer service."""
 # v5.10.286: cinema (full screen) and netflix (hero and one row) join; the
 # first stays the fallback default
-MODES = ('cinematic', 'two_rows', 'spotlight_posters', 'cinema', 'netflix', 'shelf')
+MODES = ('cinematic', 'two_rows', 'spotlight_posters', 'cinema', 'netflix', 'shelf', 'legacy')
 NAV_POSITIONS = ('top', 'side')
 
 

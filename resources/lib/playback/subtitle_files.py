@@ -1290,6 +1290,13 @@ def _prepare_subtitle_files(subtitles, stream_key, prefer_local_copy=False,
                 else:
                     final_path = sub_url
         out.append({'path': final_path, 'subtitle': sub, 'lang_key': lang_key})
+        # v5.10.319: the player's lists show the add-on's own name, source and
+        # language for this file (Kodi rebuilds a name from the file's words)
+        try:
+            from . import subtitle_names
+            subtitle_names.remember(final_path, display_name, source_name, lang_key)
+        except Exception:
+            pass
     if download_jobs:
         _download_subtitle_jobs_async(download_jobs)
     return out

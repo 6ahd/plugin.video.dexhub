@@ -172,11 +172,11 @@ class Spotlight(threading.Thread):
                 except ValueError:
                     delay = 3.0
                 quality = (addon.getSetting('homeui_trailer_quality') or '720p').lower().rstrip('p')
-                from ..trailer_preferences import volume_level
+                from ..trailer_preferences import volume_level, display_mode
                 self._settings = {
                     'layout': addon.getSetting('homeui_layout_mode'),
                     'volume': volume_level(addon.getSetting('homeui_trailer_volume')),
-                    'mode': 'background',
+                    'mode': display_mode(addon.getSetting('homeui_trailer_mode')),
                     'immersive': flag('homeui_immersive', True),
                     'on': flag('homeui_trailers', True),
                     'delay': max(0.6, min(20.0, delay)),
@@ -475,6 +475,9 @@ class Spotlight(threading.Thread):
         showing = bool(self.ours() and self.director.visible and self.visible_since)
         idle = xbmc.getGlobalIdleTime()
         compact = settings.get('layout') == 'two_rows' and guistate.is_active(10000)
+        # v5.10.326: a trailer inside a row's card neither grows nor moves the page
+        if settings.get('mode') == 'card' and (C.prop('dhs.fr') or '0') != '0':
+            compact = True
         want = bool(not compact and settings.get('immersive') and showing
                     and time.monotonic() - self.visible_since > 16.0 and idle >= 16)
         if want != self.immersive:

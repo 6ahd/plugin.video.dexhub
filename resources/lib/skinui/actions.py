@@ -507,6 +507,78 @@ def sources(params, handle):
     return None
 
 
+def open_grid(params, handle):
+    """v5.10.315: the title page's Collection card and Studios tiles: the
+    page closes and the grid opens on their titles."""
+    url = params.get('u') or ''
+    if not url.startswith(C.BASE):
+        return None
+    xbmc.executebuiltin('Dialog.Close(all,true)', True)
+    xbmc.executebuiltin('ActivateWindow(Videos,"%s",return)' % url.replace('"', '%22'))
+    return None
+
+
+def warm_sources(params, handle):
+    """v5.10.311: the Play button got the focus: ask every add-on for this
+    title's (or the next episode's) sources in the background, so the list
+    opens full a moment later. Once per title every four minutes."""
+    try:
+        from .. import ui_preferences
+        if ui_preferences.value('sources_warm') != 'true':
+            return None
+    except Exception:
+        pass
+    from . import rows
+    home = xbmcgui.Window(10000)
+    stamp = 'dexhub.warm.%s' % (params.get('id') or params.get('canonical_id') or '')
+    try:
+        if time.time() - float(home.getProperty(stamp) or 0) < 240:
+            return None
+    except Exception:
+        pass
+    home.setProperty(stamp, '%.0f' % time.time())
+    t = _title(params)
+    ctx = rows.Context('all')
+    path = ''
+    if t.series:
+        row = None
+        _label, _status, target = t.play_choice()
+        if target:
+            row = next((r for r in t._season_rows(target[0]) or []
+                        if int(r.get('episode') or 0) == int(target[1] or 0)), None)
+        command = next((m[1] for m in (row or {}).get('menu') or [] if m and len(m) > 1), '')
+        path = _route_of(command) if command else ''
+    else:
+        try:
+            api = rows.api()
+            entries = api._build_source_picker_menu(media_type='movie', canonical_id=t.canonical,
+                                                   title=t.hero.get('title') or '',
+                                                   source_provider_id=t.source_provider_id)
+        except Exception:
+            entries = []
+        command = next((m[1] for m in entries if m and len(m) > 1), '')
+        path = _route_of(command) if command else ''
+    if not path:
+        return None
+    from ..homeui import rows as R
+    q = R.params_of(path)
+    api = rows.api()
+    api._WARM_ONLY = True
+    try:
+        if q.get('action') == 'episode_streams':
+            api.episode_streams(q.get('canonical_id', ''), q.get('video_id', ''), q.get('season', ''),
+                                q.get('episode', ''), title=q.get('title', ''), media_type=q.get('media_type', ''),
+                                source_provider_id=q.get('source_provider_id', ''))
+        elif q.get('action') == 'streams':
+            api.streams(q.get('media_type', 'movie'), q.get('canonical_id', ''), title=q.get('title', ''),
+                        source_provider_id=q.get('source_provider_id', ''))
+    except Exception:
+        C.log('warm failed:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
+    finally:
+        api._WARM_ONLY = False
+    return None
+
+
 def trailer(params, handle):
     from . import rows
     t = _title(params)
@@ -655,14 +727,37 @@ def more(params, handle):
     helper = ctx.helper_path(dict(t.hero, kind='work', path=''))
     if helper:
         entries.append((_tr('فتح في TMDb Helper'), 'helper'))
+    # v5.10.322: as Nuvio Legacy's "..." menu
+    if t.hero.get('plot'):
+        entries.append((_tr('قراءة النبذة'), 'synopsis'))
+    entries.append((_tr('تغيير الصور'), 'artwork'))
     if t.series:
         entries.append((_tr('الصفحة الكلاسيكية'), 'classic'))
-    choice = choose(t.hero.get('title') or '', [e[0] for e in entries], subtitle=_tr('المزيد'))
-    if choice < 0:
-        return None
-    what = entries[choice][1]
+    what = (params.get('what') or '').strip()     # v5.10.309: the title page's own shortcut discs
+    if what == 'watch':
+        what = next((e[1] for e in entries if e[1] in ('watch', 'unwatch')), '')
+    if what not in [e[1] for e in entries]:
+        choice = choose(t.hero.get('title') or '', [e[0] for e in entries], subtitle=_tr('المزيد'))
+        if choice < 0:
+            return None
+        what = entries[choice][1]
     if what in ('watch', 'unwatch'):
         _set_watched(t, row, what == 'watch')
+    elif what == 'synopsis':
+        _synopsis(t)
+    elif what == 'artwork':
+        from .. import art_choice
+        tmdb = t.tmdb_id or t.hero.get('tmdb_id') or ''
+        if not str(tmdb).isdigit():
+            try:
+                tmdb = t._resolve_tmdb_id() or ''
+            except Exception:
+                tmdb = ''
+        current = {'fanart': xbmc.getInfoLabel('ListItem.Art(fanart)'),
+                   'clearlogo': xbmc.getInfoLabel('ListItem.Art(clearlogo)')}
+        if art_choice.pick(tmdb, t._imdb(), 'series' if t.series else 'movie', t.hero.get('title') or '',
+                           _tr, current):
+            t.publish()
     elif what == 'helper':
         xbmc.executebuiltin('Dialog.Close(all,true)', True)
         launch('ActivateWindow(Videos,%s,return)' % _arg(helper))
@@ -678,6 +773,24 @@ def more(params, handle):
             xbmc.executebuiltin('Dialog.Close(all,true)', True)
             launch('ActivateWindow(Videos,%s,return)' % _arg(ctx.home_route(path)))
     return None
+
+
+def _synopsis(t):
+    """v5.10.322: the whole plot (Nuvio's Read synopsis), with the tagline
+    and IMDb's Parents Guide when known."""
+    hero = t.hero
+    parts = []
+    if hero.get('tagline'):
+        parts.append('[I]%s[/I]' % hero['tagline'])
+    parts.append(str(hero.get('plot') or ''))
+    try:
+        from .. import parents_guide as PG
+        rows = PG.guide(t._imdb(), network=False)
+        if rows:
+            parts.append('[B]%s[/B][CR]%s' % (_tr('دليل الوالدين (IMDb)'), PG.lines(rows)))
+    except Exception:
+        pass
+    xbmcgui.Dialog().textviewer(hero.get('title') or '', '[CR][CR]'.join(p for p in parts if p))
 
 
 def _set_watched(t, row, watched):
@@ -743,7 +856,7 @@ def open_title(params, handle):
 # grids (the Videos window, views 600 and 601)
 # --------------------------------------------------------------------------
 
-_FILL = 30          # titles a grid page aims for (reading on a page or two)
+_FILL = 30          # titles a grid page aims for: one source page, at once (v5.10.323; the next page's card numbers the rest)
 _READS = 3
 _LOCAL_FILL = 36    # with a filter made here (homeui GridWindow)
 _LOCAL_READS = 8
@@ -847,15 +960,21 @@ def grid(params, handle):
         todo = gridfocus.prepare(items, ctx.language or '-')
     except Exception:
         C.log('grid enrichment:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
+    # v5.10.322 (GitHub #10): the page's number, on the next page's card
+    try:
+        page_no = max(1, int(params.get('pn') or 1))
+    except Exception:
+        page_no = 1
     if more:
-        label = app.tr('الصفحة التالية')
+        label = '%s  ·  %d' % (app.tr('الصفحة التالية'), page_no + 1)
         nxt_url = C.url('skin_list', r=urlencode(sorted((k, v) for k, v in more.items() if v not in (None, ''))),
-                        t=title, s=shape, n='1', b=params.get('b') or (params.get('r') or ''))
+                        t=title, s=shape, n='1', b=params.get('b') or (params.get('r') or ''), pn=str(page_no + 1))
         art = app.media_path('more_tile.png')
         items.append({'label': label, 'path': nxt_url, 'folder': True,
                       'art': {'poster': art, 'landscape': art, 'thumb': art},
                       'props': {'kind': 'more', 'dhs.click': 'grid', 'dhs.target': nxt_url}})
-    props = {'dhs.grid': '1', 'dhs.title': title, 'dhs.shape': shape}
+    props = {'dhs.grid': '1', 'dhs.title': ('%s  ·  %d' % (title, page_no)) if page_no > 1 else title,
+             'dhs.shape': shape}
     if facets is not None and not continuation:
         props.update(_facet_props(facets, state or GF.empty_state(), app))
         genres = {}
@@ -1106,6 +1225,11 @@ ROUTES = {
     'skin_focus': focus_colour,
     'skin_play': play,
     'skin_sources': sources,
+    'skin_warm_sources': warm_sources,
+    'skin_opengrid': open_grid,
+    'skin_panel': lambda params, handle: _panel('listing', params, handle),
+    'skin_panel_counts': lambda params, handle: _panel('counts', params, handle),
+    'skin_panel_refresh': lambda params, handle: _panel('refresh', params, handle),
     'skin_trailer': trailer,
     'skin_fav': favourite,
     'skin_track': track,
@@ -1119,6 +1243,12 @@ ROUTES = {
     'skin_row_facet': row_facet,
     'skin_profile': lambda params, handle: _profile(params, handle),
 }
+
+
+def _panel(name, params, handle):
+    # v5.10.313: the title page's island (panel.py)
+    from . import panel
+    return getattr(panel, name)(params, handle)
 
 
 def _fold(params, handle):

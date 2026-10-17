@@ -44,7 +44,13 @@ SCRIM = 'player_osd_scrim'       # v5.10.302: the shades' colour
 AREA = 'player_osd_area'         # v5.10.302: below only, above and below, none
 BUTTONS = 'player_osd_buttons'   # v5.10.302: what the buttons sit on
 PRESET = 'player_osd_preset'     # v5.10.302: a ready look (sets the others)
+NAMES = 'player_osd_names'       # v5.10.309: the name inside the focused pill
+DESIGN = 'player_osd_design'     # v5.10.309: legacy pills or the 3.28.49 bar
+TITLE = 'player_title_actions'   # v5.10.309: icon discs or text pills on the title page
 KEYS = (STYLE, DIM, ACCENT, SHAPE, SCRIM, AREA, BUTTONS, PRESET)
+NAMES_ROWS = (('true', 'مفعّل', 'On'), ('false', 'مطفأ', 'Off'))
+DESIGN_ROWS = (('legacy', 'مثل Nuvio legacy', 'Like Nuvio legacy'), ('classic', 'الكلاسيكي السابق', 'Previous classic'))
+TITLE_ROWS = (('icons', 'أيقونات', 'Icons'), ('pills', 'كبسولات نصية', 'Text pills'))
 
 STYLES = (
     ('classic', 'كلاسيكي', 'Classic'),
@@ -143,11 +149,12 @@ CHOICES = {
     AREA: tuple(v for v, _, _ in AREAS),
     BUTTONS: tuple(v for v, _, _ in BUTTON_BGS),
     PRESET: tuple(p[0] for p in PRESETS),
+    NAMES: ('true', 'false'), DESIGN: ('legacy', 'classic'), TITLE: ('icons', 'pills'),
 }
 DEFAULTS = {STYLE: 'classic', DIM: '70', ACCENT: 'white', SHAPE: 'circle',
-            SCRIM: 'auto', AREA: 'bottom', BUTTONS: 'none', PRESET: 'custom'}
+            SCRIM: 'auto', AREA: 'bottom', BUTTONS: 'none', PRESET: 'custom', NAMES: 'true', DESIGN: 'legacy', TITLE: 'icons'}
 ROWS = {STYLE: STYLES, DIM: DIMS, ACCENT: ACCENTS, SHAPE: SHAPES, SCRIM: SCRIMS, AREA: AREAS,
-        BUTTONS: BUTTON_BGS, PRESET: tuple(p[:3] for p in PRESETS)}
+        BUTTONS: BUTTON_BGS, PRESET: tuple(p[:3] for p in PRESETS), NAMES: NAMES_ROWS, DESIGN: DESIGN_ROWS, TITLE: TITLE_ROWS}
 
 PROP_ART = 'dhs.osd.art_color'
 PROP_ART_KEY = 'dhs.osd.art_key'

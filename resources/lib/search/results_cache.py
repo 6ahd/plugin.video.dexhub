@@ -58,9 +58,20 @@ def key(provider, media_type, request_id):
                                                 default=str).encode('utf-8')).hexdigest()
     if ident['s']:
         # Native targets identify the item through their own fields.
-        ident['n'] = {k: v for k, v in provider.items()
-                      if k.startswith('_') and k not in ('_server', '_force_stream_refresh',
-                                                         '_resolved_request_id', '_candidate_request_ids')}
+        # v5.10.314: only the ones that name the item (its ids, season,
+        # episode, the server's own item). The titles, year and lookup flags
+        # differ between the title page's warm-up and Play (one meta read or
+        # the other), so a server answered seconds before was asked again on
+        # Play: six seconds of Plex and Emby before the video (box log).
+        ids = provider.get('_ids') or {}
+        ident['n'] = {
+            'ids': dict((k, str(ids.get(k) or '')) for k in ('imdb_id', 'tmdb_id', 'tvdb_id')),
+            'season': str(provider.get('_season') or ''), 'episode': str(provider.get('_episode') or ''),
+            'item': str(provider.get('_native_item_id') or ''),
+        }
+        if not any(ident['n']['ids'].values()):
+            ident['n']['title'] = str(provider.get('_title') or '')
+            ident['n']['year'] = str(provider.get('_year') or '')
     if not ident['p']:
         return ''
     return hashlib.sha1(json.dumps(ident, sort_keys=True, default=str).encode('utf-8')).hexdigest()

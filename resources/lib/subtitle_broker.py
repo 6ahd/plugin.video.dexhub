@@ -441,7 +441,12 @@ def search_subtitles(ctx, initial_subtitles=None, max_results=12):
     except Exception:
         pass
 
-    if ctx.get('media_type') != 'series' and ctx.get('tvdb_id'):
+    if (ctx.get('media_type') != 'series' and ctx.get('tvdb_id')
+            and not str(ctx.get('imdb_id') or '').startswith('tt')):
+        # v5.10.321: only without a film's IMDb id: a film carries its own
+        # TVDb id too (Plex gives it), and TMDb read that number as an
+        # episode of another show ("Animals" became S03E12 of a series and
+        # no subtitles came back)
         # v5.10.243: handed over as a movie but carrying its episode's TVDb
         # id (a StreamBridge or catalog row typed movie): TMDb says which
         # show, season and episode it is

@@ -581,7 +581,34 @@ def _elite_rule_entry(item, inherited_group=''):
             break
     if not pattern or not image:
         return None
+    _note_frame(image, item)
     return (group, pattern, image)
+
+
+# v5.10.322 (issue #19): a badge set's colours. Sets drawn as bordered tags
+# (kingsizew badge_v2: a white glyph, the tag's border gold for the best
+# quality, then blue, green, orange, red) get that border around the image.
+_BADGE_FRAMES = {}
+
+
+def _note_frame(image, item):
+    try:
+        style = str(item.get('tagStyle') or item.get('style') or '').lower()
+        border = item.get('borderColor') or item.get('border')
+        if not border or (style and not any(s in style for s in ('border', 'outline', 'fill'))):
+            return
+        from .player_badges import kodi_color
+        colour = kodi_color(border, '')
+        if colour and not colour.startswith('00'):
+            _BADGE_FRAMES[image] = colour
+    except Exception:
+        pass
+
+
+def badge_frame(image):
+    """The border colour of a badge image ('' when its set has none).
+    v5.10.323: no frames drawn; the badges look as they did before 5.10.322."""
+    return 
 
 
 def _elite_iter_rule_entries(data, inherited_group=''):
@@ -1011,6 +1038,9 @@ def _pack_follow_rules():
             if url and (own or (PB.style() == 'custom' and not (preset and preset[0] == 'elite'))):
                 found = PB._cached_rules(url)
                 rules = tuple((r['group'], r['rx'], r['image']) for r in found if r.get('image')) or None
+                for r in found:
+                    if r.get('image') and r.get('border') and not str(r['border']).startswith('00'):
+                        _BADGE_FRAMES[r['image']] = r['border']
                 _PACK_LIMITS.clear()
                 _PACK_LIMITS.update((r['group'], r.get('limit', 2)) for r in found)
                 _PACK_SHAPES.clear()
@@ -2825,6 +2855,9 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             moves = _source_badge_moves(layout)
             for badge_idx, (image, shape) in enumerate(layout, 1):
                 li.setProperty('elite_badge%d' % badge_idx, image)
+                li.setProperty('elite_frame%d' % badge_idx, badge_frame(image))
+                li.setProperty('elite_fw%d' % badge_idx,
+                               str(int(int(shape[1:]) * SOURCE_BADGE_HEIGHT / 4.0) + 8))
                 li.setProperty('elite_shape%d' % badge_idx, shape)
                 li.setProperty('elite_move%d' % badge_idx, moves[badge_idx - 1])
             li.setProperty('elite_layout', 'flat')

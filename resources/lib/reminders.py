@@ -207,9 +207,12 @@ def _show(tmdb):
         ep = raw.get(name)
         if isinstance(ep, dict) and ep.get('air_date'):
             eps.append({'season': int(ep.get('season_number') or 0), 'episode': int(ep.get('episode_number') or 0),
-                        'date': str(ep['air_date'])[:10], 'title': str(ep.get('name') or '')})
+                        'date': str(ep['air_date'])[:10], 'title': str(ep.get('name') or ''),
+                        # v5.10.313: the panel's Schedule badges (finale, mid_season)
+                        'type': str(ep.get('episode_type') or '')})
+    networks = [n.get('name') for n in raw.get('networks') or [] if isinstance(n, dict) and n.get('name')]
     data = {'name': raw.get('name') or '', 'poster': raw.get('poster_path') or '',
-            'backdrop': raw.get('backdrop_path') or '',
+            'backdrop': raw.get('backdrop_path') or '', 'network': networks[0] if networks else '',
             'imdb': str(((raw.get('external_ids') or {}).get('imdb_id')) or ''), 'eps': eps}
     ttl = 12 * 3600 if raw else 1800
     soon = [e for e in eps if e['date'] >= datetime.date.today().isoformat()]
@@ -441,7 +444,7 @@ def _opener(ev, play=False):
     else:
         q = [('action', 'skin_open'), ('m', 'series' if ev['kind'] == 'ep' else 'movie'), ('title', ev['title']),
              ('id', canonical), ('imdb', ev.get('imdb') or ''), ('tmdb', ev.get('tmdb') or '')]
-    return 'plugin://plugin.video.dexhub/?' + urlencode([(k, str(v)) for k, v in q])
+    return 'plugin://%s/?' % _addon().getAddonInfo('id') + urlencode([(k, str(v)) for k, v in q])
 
 
 def _when(day_iso):
@@ -553,8 +556,27 @@ def _save_state(state):
         pass
 
 
+def _panel_ahead():
+    # v5.10.314: the panel's Schedule read ahead (never over a video)
+    if xbmc.getCondVisibility('Player.HasVideo'):
+        return
+    try:
+        from .skinui import panel
+        panel.refresh_schedule()
+    except Exception as exc:
+        _log('panel schedule: %s' % exc, xbmc.LOGDEBUG)
+
+
 def run(monitor):
-    if monitor.waitForAbort(_FIRST_WAIT):
+    if monitor.waitForAbort(20.0):
+        return
+    try:
+        # v5.10.314: the skin's Arabic faces for the subtitle look (once)
+        from .skinui import substyle
+        substyle.install_fonts()
+    except Exception:
+        pass
+    if monitor.waitForAbort(_FIRST_WAIT - 20.0):
         return
     while not monitor.abortRequested():
         try:
@@ -564,6 +586,7 @@ def run(monitor):
                     if monitor.waitForAbort(60):
                         return
                 check()
+            _panel_ahead()
         except Exception as exc:
             _log('check failed: %s' % exc, xbmc.LOGWARNING)
         if monitor.waitForAbort(_EVERY):

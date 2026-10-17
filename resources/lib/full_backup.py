@@ -25,7 +25,10 @@ def context():
     import xbmcvfs
     home = Path(xbmcvfs.translatePath('special://home/'))
     roots, settings = {}, {}
+    import xbmc
     for identifier in ROOTS:
+        if not xbmc.getCondVisibility('System.HasAddon(%s)' % identifier):
+            continue                    # v5.10.314: no "Unknown addon id" in the log
         try:
             addon = xbmcaddon.Addon(identifier)
         except RuntimeError:

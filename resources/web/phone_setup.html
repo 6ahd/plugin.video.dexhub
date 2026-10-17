@@ -1503,6 +1503,7 @@ const OPTS={
  trailers:[
   O('homeui_trailer_delay','p','seg','انتظار التريلر','Trailer delay',['الثواني قبل ما يبدأ التريلر','Seconds before the trailer starts'],[['0','فوري','Instant'],['1','1ث','1s'],['3','3ث','3s'],['5','5ث','5s'],['8','8ث','8s']]),
   O('homeui_trailer_quality','p','seg','جودة التريلر','Trailer quality',null,[['480p','480p','480p'],['720p','720p','720p'],['1080p','1080p','1080p']]),
+  O('homeui_trailer_mode','p','seg','مكان التريلر','Trailer place',['خلف الصفحة، أو داخل البطاقة المحددة وهي مفتوحة في صفها','Behind the page, or inside the focused card opened in its row'],[['background','الخلفية','Background'],['card','داخل البطاقة','Inside the card']]),
   O('homeui_immersive','p','sw','التريلر بملء الشاشة','Fullscreen trailer',['يكبر التريلر بعد لحظات','The trailer grows to full screen after a moment']),
  ],
  motion:[
@@ -1601,6 +1602,7 @@ document.addEventListener('keydown',e=>{if(e.key!==' '&&e.key!=='Enter')return;c
 
 /* Home layout: drawn previews of each mode (inline SVG, no images) */
 const LAYOUTS=[
+ ['legacy',reg('ليقسي','Legacy'),reg('شعار ومعلومات العمل فوق، والصفوف تحتها بإطار أبيض','The title\'s logo and facts on top, white framed rows below')],
  ['cinema',reg('سينمائي ملء الشاشة','Cinematic full screen'),reg('خلفية العمل بملء الشاشة، والصفوف تطلع لما تنزل','Full screen artwork; the rows come up when you go down')],
  ['netflix',reg('هيرو وصف واحد','Hero with one row'),reg('عمل بارز كبير وتحته صف واحد','A big featured title with one row below')],
  ['two_rows',reg('هيرو مختصر وصفين','Compact hero and two rows'),reg('شريط بارز صغير وصفين كاملين','A small featured strip and two full rows')],
@@ -1625,12 +1627,13 @@ function layoutSVG(key,side){
   else if(key==='netflix')b=art(g,0,0,160,62)+`<rect width="160" height="62" fill="url(#${sh})"/>`+lines(x0+4,30,[40,56,46])+`<rect x="${x0+4}" y="46" width="18" height="6" rx="3" class="tvA"/>`+posters(x0,62,16,24,8,3.5,c,true);
   else if(key==='two_rows')b=art(g,0,0,160,30)+`<rect width="160" height="30" fill="url(#${sh})"/>`+lines(x0+4,12,[34,48])+posters(x0,35,30,17,5,3,c,true)+posters(x0,62,30,17,5,3,c,false);
   else if(key==='cinematic')b=art(g,0,0,160,90)+`<rect width="160" height="90" fill="url(#${sh})"/>`+lines(x0+4,22,[44,58,48])+`<rect x="${x0+4}" y="40" width="18" height="6" rx="3" class="tvA"/>`+posters(x0,56,30,17,5,3,c,true)+posters(x0,78,30,17,5,3,c,false);
+  else if(key==='legacy')b=art(g,40,0,120,60)+`<rect width="160" height="90" fill="#05070d" opacity=".45"/><rect width="160" height="90" fill="url(#${sh})"/>`+`<rect x="${x0+4}" y="12" width="38" height="8" rx="1.5" fill="#fff" opacity=".92"/>`+lines(x0+4,26,[44,58,48])+`<rect x="${x0+4}" y="31" width="10" height="4" rx="1" fill="#f5c518"/>`+posters(x0+18,54,15,23,7,4,c,false)+`<rect x="${x0+56}" y="50" width="20" height="30" rx="2.5" fill="url(#${c})" stroke="#fff" stroke-width="1.4"/>`;
   else if(key==='shelf')b=`<rect width="160" height="90" fill="#0b0f1c"/>`+posters(x0,14,50,30,3,4,c,true)+posters(x0,52,16,24,8,3.5,c,false);
   else b=`<rect width="160" height="90" fill="#0b0f1c"/>`+art(g,x0+2,14,side?92:100,48,5)+lines(116,22,[30,36,28])+posters(x0,68,13,19,10,2.6,c,true);
   return `<svg viewBox="0 0 160 90" aria-hidden="true" focusable="false">${defs}${b}${navMarks(side)}</svg>`;
 }
 function renderLayouts(){
-  const allow=(S.prefs_choices||{}).homeui_layout_mode||['cinematic','two_rows','spotlight_posters','cinema','netflix','shelf'];
+  const allow=(S.prefs_choices||{}).homeui_layout_mode||['cinematic','two_rows','spotlight_posters','cinema','netflix','shelf','legacy'];
   const cur=(S.prefs||{}).homeui_layout_mode||S.homeui_layout_mode||'cinematic';
   const side=((S.prefs||{}).homeui_nav_position||S.homeui_nav_position)==='side';
   $('#layouts').innerHTML=LAYOUTS.filter(l=>allow.includes(l[0])).map(l=>`<button type="button" class="lay" role="radio" data-lay="${l[0]}" aria-pressed="${l[0]===cur}" aria-checked="${l[0]===cur}">${layoutSVG(l[0],side)}<div><b>${esc(l[1])}</b><span>${esc(l[2])}</span></div></button>`).join('');

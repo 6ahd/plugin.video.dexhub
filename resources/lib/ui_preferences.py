@@ -12,7 +12,7 @@ OPTIONS = {
     'player_badges_visible': ('true', None, 'إظهار رموز الجودة في المشغّل', 'Show player badges'),
     'player_badges_brightness': ('solid', ('solid', 'soft'), 'وضوح رموز الجودة', 'Badge appearance'),
     # v5.10.286: two new Home layouts (cinema, netflix); cinematic stays the default
-    'homeui_layout_mode': ('cinematic', ('cinema', 'netflix', 'two_rows', 'cinematic', 'shelf', 'spotlight_posters'), 'وضع الواجهة', 'Home layout'),
+    'homeui_layout_mode': ('cinematic', ('legacy', 'cinema', 'netflix', 'two_rows', 'cinematic', 'shelf', 'spotlight_posters'), 'وضع الواجهة', 'Home layout'),
     'homeui_nav_position': ('top', ('top', 'side'), 'مكان تبويبات الأقسام', 'Section tabs position'),
     'remember_last_source': ('false', None, 'إعادة آخر نسخة شغّلتها للعمل', 'Replay the last version played for this title'),
     'continue_known_source_direct': ('true', None, 'متابعة المشاهدة من المصدر المعروف', 'Resume the known source directly'),
@@ -49,6 +49,15 @@ OPTIONS = {
     'player_osd_preset': ('custom', ('custom', 'nuvio', 'appletv', 'netflix', 'infuse', 'plex', 'disney', 'artwork', 'clean', 'theme'), 'شكل جاهز للمشغّل', 'Ready player look'),
     'player_osd_accent': ('white', ('white', 'theme', 'artwork', 'violet', 'blue', 'cyan', 'green', 'gold', 'orange', 'red', 'pink'),
                           'لون المشغّل', 'Player colour'),
+    # v5.10.309: the pill's name, the 3.28.49 bar and title pills as options
+    'player_osd_names': ('true', None, 'اسم الزر داخل الكبسولة', 'Button name in the pill'),
+    'player_osd_design': ('legacy', ('legacy', 'classic'), 'تصميم أزرار المشغّل', 'Player buttons design'),
+    'player_title_actions': ('icons', ('icons', 'pills'), 'أزرار صفحة العمل', 'Title page buttons'),
+    # v5.10.311: the player's subtitle list shows only your languages (sync,
+    # next subtitle and auto pick still use every track)
+    # v5.10.311: the title page asks for the sources while you look at it
+    'sources_warm': ('true', None, 'تجهيز المصادر مسبقاً في صفحة العمل', 'Get sources ready on the title page'),
+    'player_subtitle_filter': ('off', ('off', 'mine', 'first'), 'تصفية الترجمات في المشغّل', 'Subtitle filter in the player'),
     'player_show_clearlogo': ('true', None, 'شعار العمل في المشغّل', 'Work logo in player'),
     'player_logo_position': ('above_info', ('above_info', 'top_left', 'top_right'), 'مكان شعار العمل', 'Work logo position'),
     'player_show_plot': ('true', None, 'النبذة في المشغّل', 'Plot in player'),
@@ -56,20 +65,30 @@ OPTIONS = {
     'player_show_ratings': ('true', None, 'التقييمات في المشغّل', 'Ratings in player'),
     'player_show_studio': ('true', None, 'شعار الشبكة في المشغّل', 'Network logo in player'),
     'metadata_badges': ('true', None, 'تعزيز التقييمات وشعار الشبكة', 'Supplement ratings & network logo'),
+    # v5.10.322 (GitHub #21): IMDb's Parents Guide on the title page and when a video starts
+    'parents_guide': ('true', None, 'دليل الوالدين من IMDb', 'IMDb Parents Guide'),
     'badges_home': ('true', None, 'الرموز في صفحة السيرفرات', 'Badges on the servers page'),
     'homeui_trailers': ('true', None, 'التريلر التلقائي', 'Automatic trailers'),
     'homeui_trailer_sound': ('true', None, 'صوت التريلر', 'Trailer sound'),
     'homeui_trailer_delay': ('3', tuple(str(n) for n in range(16)), 'انتظار التريلر', 'Trailer delay'),
     'homeui_trailer_quality': ('720p', ('480p', '720p', '1080p'), 'جودة التريلر', 'Trailer quality'),
     'homeui_immersive': ('true', None, 'التريلر بملء الشاشة', 'Fullscreen trailer'),
+    # v5.10.326: the trailer behind the page or inside the focused card
+    'homeui_trailer_mode': ('background', ('background', 'card'), 'مكان التريلر', 'Trailer place'),
     'homeui_carousel': ('true', None, 'تدوير البانر', 'Banner carousel'),
     'homeui_carousel_interval': ('10', tuple(str(n) for n in range(5, 31)), 'مدة البانر', 'Banner interval'),
     'homeui_kenburns': ('true', None, 'تحريك الخلفيات', 'Animated backgrounds'),
     'homeui_focus_gif': ('true', None, 'الصور المتحركة', 'Animated images'),
-    'homeui_plot_scroll': ('true', None, 'تحريك النبذة', 'Scrolling plot'),
+    'homeui_plot_scroll': ('false', None, 'تحريك النبذة', 'Scrolling plot'),
     # v5.10.288: side rail as icons only; top bar hidden while scrolling the rows
     'homeui_nav_icons_only': ('false', None, 'القائمة الجانبية أيقونات فقط', 'Sidebar as icons only'),
-    'homeui_nav_autohide': ('false', None, 'إخفاء الشريط العلوي عند التمرير', 'Hide the top bar while scrolling'),
+    'homeui_nav_autohide': ('false', None, 'إخفاء القائمة عند التمرير', 'Hide the menu while scrolling'),
+    # v5.10.329: a tab opens a second after the focus rests on it
+    'homeui_nav_focus_open': ('false', None, 'فتح الأقسام بالتمرير', 'Open sections on focus'),
+    # v5.10.322 (GitHub #20): the rating at the end of the meta line; the
+    # two rows layout with smaller buttons and row names and a wider plot
+    'homeui_rating_inline': ('true', None, 'التقييم في سطر التفاصيل', 'Rating on the details line'),
+    'homeui_compact_hero': ('true', None, 'هيرو الصفين أصغر', 'Smaller two rows hero'),
     'homeui_hide_plot': ('false', None, 'إخفاء الحبكة في الواجهة الرئيسية', 'Hide the plot on the Home'),
     # v5.10.189: the top bar's tabs are icons; names only on request
     'homeui_nav_names': ('false', None, 'أسماء الأقسام في الشريط العلوي', 'Tab names in the top bar'),
@@ -83,7 +102,7 @@ OPTIONS = {
     'homeui_show_nextup': ('false', None, 'صف الحلقة التالية', 'Next Up row'),
     'favorites_layout': ('separate', ('separate', 'merged'), 'ترتيب المفضلة', 'Favorites layout'),
 }
-DISPLAY_ONLY = frozenset(k for k in OPTIONS if k.startswith('player_') or k in ('homeui_trailers', 'homeui_trailer_delay', 'homeui_trailer_sound', 'homeui_trailer_quality', 'homeui_immersive', 'homeui_carousel', 'homeui_carousel_interval', 'homeui_kenburns', 'homeui_focus_gif', 'homeui_plot_scroll', 'homeui_hide_plot', 'homeui_nav_icons_only', 'homeui_nav_autohide', 'homeui_focus_motion', 'homeui_live_preview', 'homeui_nav_names')) | frozenset(('show_servers', 'metadata_badges', 'badges_home', 'iptv_epg_enabled', 'iptv_show_live', 'iptv_show_vod', 'iptv_show_movies', 'iptv_show_series', 'favorites_layout', 'player_badge_style', 'player_badges_json_url', 'player_badges_folder', 'homeui_row_dim'))
+DISPLAY_ONLY = frozenset(k for k in OPTIONS if k.startswith('player_') or k in ('homeui_trailers', 'homeui_trailer_mode', 'homeui_trailer_delay', 'homeui_trailer_sound', 'homeui_trailer_quality', 'homeui_immersive', 'homeui_carousel', 'homeui_carousel_interval', 'homeui_kenburns', 'homeui_focus_gif', 'homeui_plot_scroll', 'homeui_hide_plot', 'homeui_rating_inline', 'homeui_compact_hero', 'homeui_nav_icons_only', 'homeui_nav_autohide', 'homeui_nav_focus_open', 'homeui_focus_motion', 'homeui_live_preview', 'homeui_nav_names')) | frozenset(('show_servers', 'metadata_badges', 'badges_home', 'iptv_epg_enabled', 'iptv_show_live', 'iptv_show_vod', 'iptv_show_movies', 'iptv_show_series', 'favorites_layout', 'player_badge_style', 'player_badges_json_url', 'player_badges_folder', 'homeui_row_dim'))
 # Source/player choices affect the next handoff, not catalog contents. The
 # service already invalidates settings and publishes player properties first.
 DISPLAY_ONLY |= frozenset(('homeui_show_row_source', 'homeui_title_style', 'homeui_background_style', 'homeui_poster_scale', 'homeui_layout_mode', 'homeui_nav_position', 'remember_last_source', 'source_resolution_mode',
@@ -163,26 +182,92 @@ def publish():
         pass
 
 
-def sync_skin_place():
+def _applied_path():
+    try:
+        import os
+        import xbmcvfs
+        folder = xbmcvfs.translatePath(_addon().getAddonInfo('profile'))
+        os.makedirs(folder, exist_ok=True)
+        return os.path.join(folder, 'skin_strings.json')
+    except Exception:
+        return ''
+
+
+def _applied():
+    try:
+        import json
+        with open(_applied_path(), encoding='utf-8') as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _remember_applied(values):
+    try:
+        import json
+        path = _applied_path()
+        tmp = path + '.tmp'
+        with open(tmp, 'w', encoding='utf-8') as fh:
+            json.dump(values, fh)
+        import os
+        os.replace(tmp, path)
+    except Exception:
+        pass
+
+
+def sync_skin_place(reason='settings'):
     """v5.10.149: the badge place saved before skin.dexhub 3.20.4 read it
-    from a skin string: copied once (and the skin reloaded) when they differ."""
+    from a skin string: copied once (and the skin reloaded) when they differ.
+
+    v5.10.312: also the player design and the title page buttons (read when
+    the skin loads). What was applied is kept in skin_strings.json and that
+    is what a change is measured against: 5.10.310 compared with the skin
+    string read back from a service thread, which could stay "stale" and
+    reload the skin on every settings write (a source window was closed by
+    a reload 0.5 s after it opened). One reload per real change, never more
+    than one a minute, never under a playing video, always logged."""
     try:
         if xbmc.getSkinDir() != 'skin.dexhub':
             return False
-        want = value('player_badges_place')
-        have = xbmc.getInfoLabel('Skin.String(DexHub.BadgesPlace)') or 'seekbar'
-        if want == have:
+        want = {'DexHub.BadgesPlace': value('player_badges_place'),
+                'DexHub.OsdDesign': value('player_osd_design'),
+                'DexHub.TitleActions': value('player_title_actions')}
+        empty = {'DexHub.BadgesPlace': 'seekbar', 'DexHub.OsdDesign': 'legacy', 'DexHub.TitleActions': 'icons'}
+        applied = _applied()
+        if not applied:
+            # first run: what the skin holds now
+            applied = dict((k, xbmc.getInfoLabel('Skin.String(%s)' % k) or empty[k]) for k in want)
+            _remember_applied(applied)
+        stale = [(k, v) for k, v in want.items() if applied.get(k, empty[k]) != v]
+        if not stale:
             return False
         if xbmc.Player().isPlayingVideo():
             # v5.10.151: never reload the skin under a playing video (Kodi
             # pauses it and leaves the player for the reload); the next
             # settings change after playback does it
             return False
-        xbmc.executebuiltin('Skin.SetString(DexHub.BadgesPlace,%s)' % want)
+        win = xbmcgui.Window(10000)
+        import time
+        try:
+            last = float(win.getProperty('dexhub.skin_strings.reload') or 0)
+        except ValueError:
+            last = 0.0
+        if time.time() - last < 60:
+            xbmc.log('[DexHub] skin strings: reload skipped (one a minute)', xbmc.LOGINFO)
+            return False
+        for name, v in stale:
+            xbmc.executebuiltin('Skin.SetString(%s,%s)' % (name, v))
+        applied.update(dict(stale))
+        _remember_applied(applied)
+        win.setProperty('dexhub.skin_strings.reload', '%.0f' % time.time())
+        xbmc.log('[DexHub] skin strings: %s changed (%s): reloading the skin' % (
+            ', '.join('%s=%s' % kv for kv in stale), reason), xbmc.LOGINFO)
         xbmc.executebuiltin('ReloadSkin()')
         return True
     except Exception:
         return False
+
 
 
 def set_value(key, selected):
@@ -193,6 +278,9 @@ def set_value(key, selected):
         return False
     if key in ('homeui_layout_mode', 'homeui_nav_position'):
         from .home_preferences import write_setting
+        write_setting(key, selected)
+    elif key == 'homeui_trailer_mode':
+        from .trailer_preferences import write_setting
         write_setting(key, selected)
     else:
         _addon().setSetting(key, selected)
@@ -221,10 +309,14 @@ def set_value(key, selected):
             _skin_follows()
         except Exception:
             pass
+    if key in ('player_osd_design', 'player_title_actions'):
+        # v5.10.310: these two are read when the skin loads
+        sync_skin_place('you changed %s' % key)
     if key == 'player_badges_place' and xbmc.getSkinDir() == 'skin.dexhub':
         # v5.10.149: skin.dexhub 3.20.4 loads only this place's badge row
         # (read when the skin loads): kept as a skin string, then reloaded
         xbmc.executebuiltin('Skin.SetString(DexHub.BadgesPlace,%s)' % selected)
+        _remember_applied(dict(_applied(), **{'DexHub.BadgesPlace': selected}))
         xbmc.executebuiltin('ReloadSkin()')
     return True
 
@@ -241,10 +333,13 @@ def edit(key, txt):
         'soft': txt('هادئ', 'Soft'), 'dark': txt('داكن', 'Dark'), 'solid': txt('واضح بلا تعتيم', 'Solid'),
         'cinematic': txt('سينمائي', 'Cinematic') if key == 'homeui_background_style' else txt('هيرو وصفوف', 'Hero and rows'),
         'shelf': txt('رف بطاقات عريضة', 'Wide card shelf'),
+        'legacy': txt('ليقسي', 'Legacy'),  # v5.10.325: the Nuvio Legacy stage
         'two_rows': txt('هيرو مختصر وصفين', 'Compact hero and two rows'),
         'cinema': txt('سينمائي ملء الشاشة', 'Cinematic full screen'),  # v5.10.286
         'netflix': txt('هيرو وصف واحد', 'Hero with one row'),  # v5.10.286
         'spotlight_posters': txt('Spotlight وبوسترات', 'Spotlight and posters'),
+        'background': txt('خلفية الشاشة', 'Background'),
+        'card': txt('داخل البطاقة', 'Inside the card'),
         'top': txt('شريط علوي', 'Top tabs'),
         'side': txt('قائمة جانبية', 'Sidebar'),
         'auto': txt('تلقائي · متناسق', 'Auto · balanced'),
@@ -285,7 +380,7 @@ def player_dialog(txt):
     keys = [k for k in OPTIONS if k.startswith('player_')]
     while True:
         labels = [txt('شكل رموز الجودة · صور ومعاينة', 'Quality badge style · preview')]
-        display = {'true': txt('مفعّل', 'On'), 'false': txt('مطفأ', 'Off'), 'above_info': txt('فوق البيانات', 'Above details'), 'top_left': txt('أعلى اليسار', 'Top left'), 'top_right': txt('أعلى اليمين', 'Top right'), 'seekbar': txt('فوق شريط التقدم', 'Above the seek bar'), 'info': txt('تحت البيانات', 'Under the details')}
+        display = {'true': txt('مفعّل', 'On'), 'false': txt('مطفأ', 'Off'), 'above_info': txt('فوق البيانات', 'Above details'), 'top_left': txt('أعلى اليسار', 'Top left'), 'top_right': txt('أعلى اليمين', 'Top right'), 'seekbar': txt('فوق شريط التقدم', 'Above the seek bar'), 'info': txt('تحت البيانات', 'Under the details'), 'legacy': txt('مثل Nuvio legacy', 'Like Nuvio legacy'), 'classic': txt('الكلاسيكي السابق', 'Previous classic'), 'icons': txt('أيقونات', 'Icons'), 'pills': txt('كبسولات نصية', 'Text pills'), 'off': txt('الكل', 'All languages'), 'mine': txt('لغاتي فقط', 'My languages only'), 'first': txt('لغتي الأولى فقط', 'My first language only')}
         from . import osd_look
         labels += [txt(OPTIONS[k][2], OPTIONS[k][3]) + ' · ' + (osd_look.label(k, value(k), txt) if k in osd_look.KEYS else display.get(value(k), value(k))) + ('%' if k == 'player_badges_opacity' else '') for k in keys]
         pick = xbmcgui.Dialog().select(txt('مظهر المشغّل', 'Player appearance'), labels)

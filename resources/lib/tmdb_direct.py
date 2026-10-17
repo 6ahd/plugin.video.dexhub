@@ -1380,6 +1380,31 @@ def metas_for_cached_only(requests):
     return [value if isinstance(value, dict) else {} for value in out]
 
 
+def certification(detail, media_type='movie'):
+    """v5.10.322 (GitHub #20): the title's age rating (PG-13, TV-MA) from a
+    detail answer with release_dates (a film) or content_ratings (a show):
+    the US one first (MPAA and TV Parental Guidelines), else the first."""
+    rows = []
+    if _normalize_media_type(media_type) == 'tv':
+        for row in ((detail or {}).get('content_ratings') or {}).get('results') or []:
+            value = str((row or {}).get('rating') or '').strip()
+            if value:
+                rows.append((str(row.get('iso_3166_1') or ''), value))
+    else:
+        for row in ((detail or {}).get('release_dates') or {}).get('results') or []:
+            dates = sorted((row or {}).get('release_dates') or [],
+                           key=lambda d: 0 if (d or {}).get('type') == 3 else 1)
+            for entry in dates:
+                value = str((entry or {}).get('certification') or '').strip()
+                if value:
+                    rows.append((str(row.get('iso_3166_1') or ''), value))
+                    break
+    for country, value in rows:
+        if country == 'US':
+            return value
+    return rows[0][1] if rows else ''
+
+
 def meta_for(tmdb_id='', imdb_id='', media_type='movie', title='', year='', language_override='', nuvio_exact=False,
              timeout=None, max_attempts=3):
     """Full TMDb metadata in ONE network round-trip.
@@ -1427,7 +1452,8 @@ def meta_for(tmdb_id='', imdb_id='', media_type='movie', title='', year='', lang
     try:
         detail = _request('/%s/%s' % (mt, resolved_tmdb), {
             'language': detail_lang,
-            'append_to_response': 'credits,images,external_ids,translations',
+            'append_to_response': 'credits,images,external_ids,translations,%s' % (
+                'content_ratings' if mt == 'tv' else 'release_dates'),
             'include_image_language': include_image_language,
         }, timeout=timeout, max_attempts=max_attempts) or {}
     except Exception as exc:
@@ -1571,6 +1597,7 @@ def meta_for(tmdb_id='', imdb_id='', media_type='movie', title='', year='', lang
         'cast': cast,
         'tagline': str(detail.get('tagline') or '').strip(),
         'status': str(detail.get('status') or '').strip(),
+        'certification': certification(detail, mt),
         'poster': _image_url(poster_path, kind='poster'),
         'fanart': _image_url(backdrop_path, kind='backdrop'),
         'landscape': _image_url(backdrop_path, kind='backdrop'),

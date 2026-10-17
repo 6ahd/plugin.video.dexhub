@@ -26,7 +26,7 @@
         <setting id="library_split_media" type="bool" default="true" visible="false" />
         <setting id="player_badges_visible" type="bool" default="true" visible="false" />
         <setting id="player_badges_brightness" type="text" default="solid" visible="false" />
-		<setting id="homeui_layout_mode" type="labelenum" label="31204" values="cinematic|two_rows|spotlight_posters|cinema|netflix|shelf" entries="cinematic|two_rows|spotlight_posters|cinema|netflix|shelf" lvalues="31205|31206|31207|32921|32922|32923" default="cinematic" />
+		<setting id="homeui_layout_mode" type="labelenum" label="31204" values="cinematic|two_rows|spotlight_posters|cinema|netflix|shelf|legacy" entries="cinematic|two_rows|spotlight_posters|cinema|netflix|shelf|legacy" lvalues="31205|31206|31207|32921|32922|32923|32927" default="cinematic" />
 		<setting id="homeui_nav_position" type="labelenum" label="31208" values="top|side" entries="top|side" lvalues="31209|31210" default="top" />
 		<setting id="homeui_on_launch" type="bool" label="31001" default="true" />
 		<setting id="homeui_autostart" type="bool" label="31015" default="false" />
@@ -45,7 +45,7 @@
 		<setting id="homeui_trailer_quality" type="labelenum" label="31005" values="1080p|720p|480p" default="720p" enable="eq(-3,true)" />
 		<setting id="homeui_immersive" type="bool" label="31006" default="true" enable="eq(-4,true)" />
 		<setting id="homeui_trailer_volume" type="slider" label="31200" default="30" range="0,5,100" option="int" />
-		<setting id="homeui_trailer_mode" type="text" default="background" visible="false" />
+		<setting id="homeui_trailer_mode" type="labelenum" label="32928" values="background|card" entries="background|card" lvalues="32929|32930" default="background" />
 		<setting id="homeui_live_preview" type="bool" label="31022" default="true" />
 		<setting id="homeui_confirm_exit" type="bool" label="31047" default="true" />
 		<setting type="action" label="31023" action="RunPlugin(plugin://plugin.video.dexhub/?action=home_screensaver)" />
@@ -56,10 +56,13 @@
 		<setting id="homeui_carousel_interval" type="slider" label="31009" default="10" range="5,1,30" option="int" enable="eq(-1,true)" />
 		<setting id="homeui_kenburns" type="bool" label="31007" default="true" />
 		<setting id="homeui_focus_gif" type="bool" label="31010" default="true" />
-		<setting id="homeui_plot_scroll" type="bool" label="31079" default="true" />
+		<setting id="homeui_plot_scroll" type="bool" label="31079" default="false" />
 		<setting id="homeui_hide_plot" type="bool" label="31156" default="false" />
+		<setting id="homeui_rating_inline" type="bool" label="32925" default="true" />
+		<setting id="homeui_compact_hero" type="bool" label="32926" default="true" />
 		<setting id="homeui_nav_icons_only" type="bool" label="31156" default="false" visible="false" />
 		<setting id="homeui_nav_autohide" type="bool" label="31156" default="false" visible="false" />
+		<setting id="homeui_nav_focus_open" type="bool" label="32931" default="false" visible="false" />
 		<setting id="homeui_nav_names" type="bool" label="31165" default="false" />
 		<setting id="homeui_row_dim" type="labelenum" label="31136" values="light|off|strong" entries="light|off|strong" lvalues="31137|31138|31139" default="light" />
 		<setting id="homeui_show_continue" type="bool" label="31011" default="true" />
@@ -148,6 +151,11 @@
 		<setting id="player_osd_dim" type="text" default="70" visible="false" />
 		<setting id="player_osd_accent" type="text" default="white" visible="false" />
 		<setting id="player_osd_shape" type="text" default="circle" visible="false" />
+		<setting id="player_osd_names" type="bool" default="true" visible="false" />
+		<setting id="player_subtitle_filter" type="text" default="off" visible="false" />
+		<setting id="sources_warm" type="bool" default="true" visible="false" />
+		<setting id="player_osd_design" type="text" default="legacy" visible="false" />
+		<setting id="player_title_actions" type="text" default="icons" visible="false" />
 		<!-- v5.10.302: the shades' colour and place, the buttons' backing, ready looks -->
 		<setting id="player_osd_scrim" type="text" default="auto" visible="false" />
 		<setting id="player_osd_area" type="text" default="bottom" visible="false" />
@@ -208,6 +216,7 @@
 		<setting id="homeui_metadata_language" type="labelenum" label="31078" values="Auto|Arabic|English" entries="Auto|Arabic|English" lvalues="31080|30250|30251" default="Auto" />
 		<setting id="server_metadata" type="enum" label="31171" lvalues="31172|31173" default="0" />
 		<setting id="metadata_badges" label="31126" default="true" type="bool" />
+		<setting id="parents_guide" label="32924" default="true" type="bool" />
 	</category>
 	<category label="30933">
 		<setting type="action" label="32917" action="RunPlugin(plugin://plugin.video.dexhub/?action=phone_setup)" />

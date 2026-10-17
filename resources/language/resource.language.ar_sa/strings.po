@@ -1507,3 +1507,37 @@ msgstr "رف بطاقات عريضة"
 msgctxt "#32922"
 msgid "Hero with one row"
 msgstr "هيرو وصف واحد"
+
+msgctxt "#32924"
+msgid "IMDb Parents Guide (title page and when a video starts)"
+msgstr "دليل الوالدين من IMDb (صفحة العمل وبداية التشغيل)"
+
+msgctxt "#32925"
+msgid "Rating on the details line (Home)"
+msgstr "التقييم في سطر التفاصيل (الرئيسية)"
+
+msgctxt "#32926"
+msgid "Smaller two rows hero (buttons, row names, wider plot)"
+msgstr "هيرو الصفين أصغر (الأزرار وأسماء الصفوف ونبذة أعرض)"
+
+# v5.10.325: the Legacy Home layout
+msgctxt "#32927"
+msgid "Legacy"
+msgstr "ليقسي"
+
+# v5.10.326: Trailer place
+msgctxt "#32928"
+msgid "Trailer place"
+msgstr "مكان التريلر"
+
+msgctxt "#32929"
+msgid "Background"
+msgstr "خلفية الشاشة"
+
+msgctxt "#32930"
+msgid "Inside the card"
+msgstr "داخل البطاقة"
+
+msgctxt "#32931"
+msgid "Open sections on focus"
+msgstr "فتح الأقسام بالتمرير"

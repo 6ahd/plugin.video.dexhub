@@ -15,6 +15,62 @@ from .session_store import clear_session, load_session, save_session
 from . import trakt, simkl, playback_store
 from .i18n import tr
 
+_PG_SHOWN = {'key': '', 'at': 0.0}
+
+
+def _parents_guide_corner():
+    """v5.10.322 (GitHub #21): IMDb's Parents Guide in the player's top
+    left corner for a few seconds when a video starts, as Nuvio shows it.
+    Once per title and file (a track change calls onAVStarted again)."""
+    try:
+        from .ui_preferences import value
+        if str(value('parents_guide') or 'true').lower() == 'false':
+            return
+        ctx = load_session() or {}
+        imdb = ''
+        for raw in (ctx.get('show_imdb_id'), ctx.get('imdb_id'), ctx.get('canonical_id')):
+            raw = str(raw or '')
+            if raw.startswith('tt'):
+                imdb = raw.split(':')[0]
+                break
+        if not imdb:
+            return
+        try:
+            key = '%s|%s' % (imdb, xbmc.Player().getPlayingFile())
+        except Exception:
+            key = imdb
+        now = time.time()
+        if _PG_SHOWN['key'] == key and now - _PG_SHOWN['at'] < 6 * 3600:
+            return
+        _PG_SHOWN.update(key=key, at=now)
+    except Exception:
+        return
+
+    def run():
+        home = xbmcgui.Window(10000)
+        try:
+            from . import parents_guide as PG
+            rows = PG.guide(imdb, timeout=5)
+            if not rows:
+                return
+            player = xbmc.Player()
+            if not player.isPlayingVideo():
+                return
+            home.setProperty('dhs.pg.overlay', PG.lines(rows))
+            home.setProperty('dhs.pg.title', 'IMDb ' + ('Parents Guide' if PG._english() else 'دليل الوالدين'))
+            monitor = xbmc.Monitor()
+            end = time.time() + 12
+            while time.time() < end and not monitor.abortRequested():
+                if monitor.waitForAbort(0.5) or not player.isPlayingVideo():
+                    break
+        except Exception as exc:
+            xbmc.log('[DexHub] parents guide corner: %s' % exc, xbmc.LOGDEBUG)
+        finally:
+            home.clearProperty('dhs.pg.overlay')
+            home.clearProperty('dhs.pg.title')
+
+    threading.Thread(target=run, name='DexHubParentsGuideCorner', daemon=True).start()
+
 # --- dexhub-401-patch ---
 try:
     from .settings_cache import cached_addon as _dh_cached_addon
@@ -111,7 +167,9 @@ def _monitor(event, level=xbmc.LOGINFO, **payload):
         except Exception:
             continue
     try:
-        xbmc.log('[DexHubMonitor] %s' % json.dumps(record, ensure_ascii=False, sort_keys=True), level)
+        # v5.10.321: tokens in a played URL (X-Plex-Token, api_key) stay out of the log
+        from .log import _redact as _hide
+        xbmc.log('[DexHubMonitor] %s' % _hide(json.dumps(record, ensure_ascii=False, sort_keys=True)), level)
     except Exception:
         pass
     try:
@@ -902,7 +960,7 @@ def _refresh_cw_containers():
 
 def _clear_tmdbh_handoff_flag():
     try:
-        for win_id in (12005, 10000):
+        for win_id in (10000,):
             try:
                 win = xbmcgui.Window(win_id)
             except Exception:
@@ -1019,6 +1077,9 @@ class CompanionPlayer(xbmc.Player):
                 player_badges.publish()
         except Exception:
             pass
+
+        if not self._foreign_active:
+            _parents_guide_corner()
 
     def onAVChange(self):
         self.onAVStarted()

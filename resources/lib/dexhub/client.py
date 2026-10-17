@@ -1610,6 +1610,58 @@ def run_parallel(func, items, workers=None, timeout=None, lane='default'):
     return results
 
 
+def run_parallel_settle(func, items, settle=2.5, total=15.0, workers=None, lane='default', has_rows=None):
+    """run_parallel for a choice made without the user (v5.10.314): returns
+    when every item is done, or settle seconds after the first item with
+    rows, or after total seconds. The ones still running go on (they fill
+    the results cache for the next time); they are left out of this answer.
+
+    The box log: Play on a title page waited 8 s for every provider and
+    server although three cached providers had answered in 10 ms."""
+    if not items:
+        return []
+    size = workers if workers else parallel_workers()
+    size = max(1, min(int(size or 1), len(items), 8))
+    try:
+        try:
+            pool = _get_pool(size, lane)
+        except TypeError:
+            pool = _get_pool(size)
+        futures = dict((pool.submit(func, item), idx) for idx, item in enumerate(items))
+    except Exception:
+        return run_parallel(func, items, workers=workers, lane=lane)
+    import time as _time
+    from concurrent.futures import wait, FIRST_COMPLETED
+    if has_rows is None:
+        def has_rows(value):
+            return isinstance(value, dict) and bool(value.get('streams'))
+    results = [None] * len(items)
+    started = _time.monotonic()
+    first_rows = None
+    pending = set(futures)
+    while pending:
+        now = _time.monotonic()
+        limit = started + total
+        if first_rows is not None:
+            limit = min(limit, first_rows + settle)
+        if now >= limit:
+            break
+        done, pending = wait(pending, timeout=limit - now, return_when=FIRST_COMPLETED)
+        for future in done:
+            idx = futures[future]
+            try:
+                value = future.result(timeout=0)
+            except Exception as exc:
+                value = exc
+            results[idx] = (items[idx], value)
+            if first_rows is None and has_rows(value):
+                first_rows = _time.monotonic()
+    for idx, row in enumerate(results):
+        if row is None:
+            results[idx] = (items[idx], TimeoutError('left to finish in the background'))
+    return results
+
+
 def supports_resource(provider, resource_name, media_type=None, item_id=None):
     manifest = provider.get('manifest') or {}
     for resource in manifest.get('resources', []):

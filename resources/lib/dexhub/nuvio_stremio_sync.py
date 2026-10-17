@@ -18,6 +18,7 @@ Stremio's official API, and was validated end-to-end in the previous Hub
 implementation before being ported to Python.
 """
 from .. import profile_scope as _scope
+import re
 import base64
 import json
 import os
@@ -62,6 +63,13 @@ _NUVIO_ADDON_URLS_FILE = _scope.ScopedPath('nuvio_enabled_addons.json')
 _UA = 'DexHub/%s Kodi TV Client' % (addon().getAddonInfo('version') or 'unknown')
 _CLIENT_ID_PREFIX = 'dexhub-tv-'
 _CLIENT_ID_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789'
+
+
+def _short_url(text):
+    """v5.10.314: an add-on's address as host and last part only (its path
+    holds the account's configuration, a token in AIOStreams' case)."""
+    return re.sub(r'(https?://[^/\s|]+)/[^\s|]*?([^/\s|]*\.json)?(?=[\s|)]|$)',
+                  lambda m: m.group(1) + '/…' + ('/' + m.group(2) if m.group(2) else ''), str(text or ''))
 
 
 def _log(msg):
@@ -1704,7 +1712,7 @@ def _writeback_providers(providers, refresh_existing=False):
             # v4.7.9: this used to be a bare `continue`. A pulled addon whose
             # manifest was briefly unreachable vanished without a trace, and
             # the sync still reported success with "+0 addons".
-            failed.append('%s (%s)' % (p.get('manifest_url') or '?', str(exc)[:60]))
+            failed.append('%s (%s)' % (_short_url(p.get('manifest_url') or '?'), _short_url(str(exc))[:60]))
             gone[url] = now
     if gone != dict(state.get('failed_manifests') or {}):
         state['failed_manifests'] = gone

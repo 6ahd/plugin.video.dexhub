@@ -71,9 +71,15 @@ def streams(params, handle):
         result = _rpc('Player.GetProperties', {'playerid': _video_player(), 'properties': list(keys)}) or {}
         current = result.get(keys[1]) or {}
         current_index = current.get('index') if isinstance(current, dict) else None
-        for stream in result.get(keys[0]) or []:
-            if not isinstance(stream, dict):
-                continue
+        rows = [s for s in (result.get(keys[0]) or []) if isinstance(s, dict)]
+        if kind == 'subtitle':
+            rows, toggle = _filter_subtitles(rows, current_index)
+            # v5.10.320: the Classic player design keeps its 3.28.56 list
+            if xbmc.getInfoLabel('Skin.String(DexHub.OsdDesign)') != 'classic':
+                entries.append(_style_row())
+            if toggle:
+                entries.append(toggle)
+        for stream in rows:
             index = stream.get('index', 0)
             li = xbmcgui.ListItem(label=stream.get('language') or 'UND', label2=stream.get('name') or '',
                                   offscreen=True)
@@ -82,11 +88,97 @@ def streams(params, handle):
             if current_index == index:
                 props['iscurrent'] = 'true'
             props['isfolder'] = 'false'
+            # v5.10.317: flag, language, full name, badges (skinui/streamrows.py)
+            from . import streamrows
+            props.update(streamrows.props(kind, stream))
             li.setProperties(props)
             path = C.url('skin_osd_stream', method='set_player_%s' % ('audiostream' if kind == 'audio' else 'subtitle'),
                          index=str(index))
             entries.append((path, li, False))
     _end(handle, entries)
+
+
+# ------------------------------------------------------------ subtitle filter
+FILTER_INDEX = -7   # v5.10.311: the list's first row toggles the filter
+
+
+def _filter_mode():
+    try:
+        from .. import ui_preferences
+        return ui_preferences.value('player_subtitle_filter')
+    except Exception:
+        return 'off'
+
+
+def _my_languages(mode):
+    try:
+        from ..playback.subtitle_files import _preferred_subtitle_lang_keys
+        keys = _preferred_subtitle_lang_keys()
+    except Exception:
+        keys = ['ar', 'en']
+    return keys[:1] if mode == 'first' else keys
+
+
+def _stream_lang(stream):
+    try:
+        from ..playback.subtitle_files import _normalize_lang
+        for value in (stream.get('language'), stream.get('name')):
+            key = _normalize_lang(value) if value else 'und'
+            if key and key != 'und':
+                return key
+    except Exception:
+        pass
+    return 'und'
+
+
+def _filter_subtitles(rows, current_index):
+    """v5.10.311: only the tracks in your languages (the one playing always
+    stays), and a first row that says how many are hidden and switches the
+    filter. Only the list changes: sync, next subtitle and the automatic pick
+    read Kodi's full list."""
+    from ..i18n import tr
+    mode = _filter_mode()
+    langs = _my_languages('first' if mode == 'first' else 'mine')
+    mine = [s for s in rows if _stream_lang(s) in langs or s.get('index') == current_index]
+    others = len(rows) - len(mine)
+    if not rows or (others == 0 and mode == 'off'):
+        return rows, None
+    names = ' · '.join(l.upper() for l in langs)
+    if mode == 'off':
+        label = tr('إظهار لغاتي فقط')
+        label2 = '%s  ·  %d' % (names, len(mine))
+        shown = rows
+    elif mine:
+        label = tr('إظهار كل الترجمات')
+        label2 = tr('%d مخفية') % others
+        shown = mine
+    else:
+        # nothing in your languages: everything stays visible
+        label = tr('لا توجد ترجمة بلغتك')
+        label2 = names
+        shown = rows
+    li = xbmcgui.ListItem(label=label, label2=label2, offscreen=True)
+    li.setProperties({'index': str(FILTER_INDEX), 'isfolder': 'false', 'dh_filter': mode,
+                      'language': '', 'name': label2, 'dh_icon': 'dexhub/osd/legacy/languages.png'})
+    path = C.url('skin_osd_stream', method='set_player_subtitle', index=str(FILTER_INDEX))
+    return shown, (path, li, False)
+
+
+STYLE_INDEX = -8   # v5.10.314: the row that opens the subtitle look
+
+
+def _style_row():
+    from ..i18n import tr
+    li = xbmcgui.ListItem(label=tr('شكل الترجمة وإعداداتها'), label2=tr('الخط والحجم واللون والتأخير'), offscreen=True)
+    li.setProperties({'index': str(STYLE_INDEX), 'isfolder': 'false', 'dh_style': '1', 'language': '', 'name': '',
+                      'dh_icon': 'dexhub/osd/legacy/style.png'})
+    return ('substyle://open', li, False)
+
+
+def _toggle_filter():
+    from .. import ui_preferences
+    mode = _filter_mode()
+    ui_preferences.set_value('player_subtitle_filter', 'off' if mode != 'off' else 'mine')
 
 
 def set_stream(params):
@@ -95,6 +187,13 @@ def set_stream(params):
         index = int(params.get('index') or 0)
     except ValueError:
         index = 0
+    if index == STYLE_INDEX:
+        from . import subwindow
+        return subwindow.open_window({'section': 'look'})
+    if index == FILTER_INDEX:
+        _toggle_filter()
+        xbmc.executebuiltin('SetProperty(UID,%s)' % time.time())
+        return
     player = _video_player()
     if method == 'set_player_audiostream':
         _rpc('Player.SetAudioStream', {'playerid': player, 'stream': index})

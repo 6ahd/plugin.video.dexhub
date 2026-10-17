@@ -12,9 +12,13 @@ def volume_level(value):
         return 30
 
 
+MODES = ('background', 'card')
+
+
 def display_mode(value=None):
-    # Embedded trailers have been retired. Old backups/profiles safely use background.
-    return 'background'
+    """v5.10.326: background (the whole screen) or card (inside the focused
+    Spotlight card of a row, skin.dexhub 3.28.70); anything else is background."""
+    return value if value in MODES else 'background'
 
 
 def publish_presentation(mode=None):
@@ -26,9 +30,7 @@ def publish_presentation(mode=None):
         return
     addon = xbmcaddon.Addon('plugin.video.dexhub')
     home = xbmcgui.Window(10000)
-    mode = 'background'
-    if addon.getSetting('homeui_trailer_mode') not in ('', 'background'):
-        addon.setSetting('homeui_trailer_mode', 'background')
+    mode = display_mode(addon.getSetting('homeui_trailer_mode'))
     home.setProperty('dhs.trailer.mode', mode)
     home.setProperty('dhs.trailer.enabled', '0' if addon.getSetting('homeui_trailers') == 'false' else '1')
     home.setProperty('dhs.trailer.config.scope', profile_scope.key())
@@ -70,4 +72,11 @@ def write_setting(key, value):
         raise RuntimeError('Trailer setting was not saved; update the add-on and restart Kodi')
     if key in ('homeui_trailer_mode', 'homeui_trailers'):
         publish_presentation()
+    if key == 'homeui_trailer_mode':
+        # the poster rows change shape: the Home's rows are published again
+        try:
+            from .homeui.layout import _skin_follows
+            _skin_follows()
+        except Exception:
+            pass
     return saved

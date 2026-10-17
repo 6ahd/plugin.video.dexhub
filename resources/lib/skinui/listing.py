@@ -31,7 +31,8 @@ from . import common as C
 
 PROP = 'dhs.listing'
 # the listings the service works out (serve.run hands them over)
-ROUTES = ('skin_list', 'skin_folder', 'skin_seasons', 'skin_episodes', 'skin_cast', 'skin_related')
+ROUTES = ('skin_list', 'skin_folder', 'skin_seasons', 'skin_episodes', 'skin_cast', 'skin_related',
+          'skin_collection', 'skin_studios', 'skin_panel')
 _CONNECT = 0.6          # seconds to reach the service
 _ANSWER = 90.0          # a slow server's catalog can take this long
 _MAX_REQUEST = 256 * 1024
@@ -149,7 +150,7 @@ def _work(action, params):
     from . import items as I
     settings_cache.invalidate()
     with I.capture() as box:
-        if action in ('skin_seasons', 'skin_episodes', 'skin_cast', 'skin_related'):
+        if action in ('skin_seasons', 'skin_episodes', 'skin_cast', 'skin_related', 'skin_collection', 'skin_studios'):
             from . import title
             title.listing(action, params, I.CAPTURE_HANDLE)
         else:

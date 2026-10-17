@@ -576,12 +576,13 @@ def home_options_dialog():
     _close_native_settings_dialog()
     options = (
         ('homeui_nav_position', 'top', 'مكان تبويبات الأقسام', 'Section tabs position', ('top', 'side')),
-        ('homeui_layout_mode', 'cinematic', 'وضع الواجهة', 'Home layout', ('cinema', 'netflix', 'two_rows', 'cinematic', 'shelf', 'spotlight_posters')),  # v5.10.286
+        ('homeui_layout_mode', 'cinematic', 'وضع الواجهة', 'Home layout', ('legacy', 'cinema', 'netflix', 'two_rows', 'cinematic', 'shelf', 'spotlight_posters')),  # v5.10.286
         ('homeui_trailers', 'true', 'التريلر التلقائي', 'Automatic trailers', None),
         ('homeui_trailer_delay', '3', 'انتظار التريلر', 'Trailer delay', ('1', '3', '5', '8', '12')),
         ('homeui_trailer_sound', 'true', 'صوت التريلر', 'Trailer sound', None),
         ('homeui_trailer_quality', '720p', 'جودة التريلر', 'Trailer quality', ('480p', '720p', '1080p')),
         ('homeui_immersive', 'true', 'التريلر بملء الشاشة', 'Fullscreen trailer', None),
+        ('homeui_trailer_mode', 'background', 'مكان التريلر', 'Trailer place', ('background', 'card')),
         ('homeui_carousel', 'true', 'تدوير البانر', 'Banner carousel', None),
         ('homeui_carousel_interval', '10', 'مدة البانر', 'Banner interval', ('5', '10', '15', '20', '30')),
         ('homeui_kenburns', 'true', 'تحريك الخلفيات', 'Animated backgrounds', None),
@@ -604,7 +605,7 @@ def home_options_dialog():
         rows = [_row(_txt('ترتيب الصفوف والويدجت', 'Arrange rows & widgets')), _row('Nuvio Home')]
         for key, default, ar, en, choices in options:
             value = _ADDON.getSetting(key) or default
-            labels = {'cinematic':_txt('هيرو وصفوف','Hero and rows'),'shelf':_txt('رف بطاقات عريضة','Wide card shelf'),'two_rows':_txt('هيرو مختصر وصفين','Compact hero and two rows'),'cinema':_txt('سينمائي ملء الشاشة','Cinematic full screen'),'netflix':_txt('هيرو وصف واحد','Hero with one row'),'spotlight_posters':_txt('Spotlight وبوسترات','Spotlight and posters'),'top':_txt('شريط علوي','Top tabs'),'side':_txt('قائمة جانبية','Sidebar')}
+            labels = {'cinematic':_txt('هيرو وصفوف','Hero and rows'),'shelf':_txt('رف بطاقات عريضة','Wide card shelf'),'legacy':_txt('ليقسي','Legacy'),'two_rows':_txt('هيرو مختصر وصفين','Compact hero and two rows'),'cinema':_txt('سينمائي ملء الشاشة','Cinematic full screen'),'netflix':_txt('هيرو وصف واحد','Hero with one row'),'spotlight_posters':_txt('Spotlight وبوسترات','Spotlight and posters'),'top':_txt('شريط علوي','Top tabs'),'side':_txt('قائمة جانبية','Sidebar')}
             shown = labels.get(value, value) if choices else (_txt('مفعّل', 'On') if value == 'true' else _txt('مطفأ', 'Off'))
             if key == 'homeui_size':
                 # v5.10.288: the size in force with its percentage ('120% · Large'); in

@@ -132,6 +132,8 @@ class HeadlessTitle(object):
         self.episodes = {}
         self.cast = []
         self.related = []
+        # v5.10.313: the Collection card and the Studios row (title_extras)
+        self.extras = None
         self.progress = {}
         self.favorite = False
         self._tmdb_seasons = {}
@@ -262,6 +264,7 @@ class HeadlessTitle(object):
         step('helper cache', self._apply_helper_cache)
         step('tmdb', self._load_tmdb)
         step('tmdb apply', self._apply_tmdb)
+        step('extras', self._extras_from_tmdb)
         if self.series:
             # Publish the season index without waiting for metadata providers.
             self._seed_seasons()
@@ -291,6 +294,7 @@ class HeadlessTitle(object):
                                       for k, v in self._tmdb_seasons.items()),
             'cast': self.cast,
             'related': self.related,
+            'extras': self.extras,
             # read without TMDb's part: kept a few minutes only (THIN_TTL)
             'thin': not (self.cast or self.related),
         }
@@ -316,6 +320,7 @@ class HeadlessTitle(object):
             self._tmdb_seasons[_int(key)] = dict((_int(e), r) for e, r in (value or {}).items())
         self.cast = list(data.get('cast') or [])
         self.related = list(data.get('related') or [])
+        self.extras = data.get('extras')
         self._episodes_ready = bool(data.get('episodes_ready'))
         self._loaded = True
 
@@ -359,6 +364,25 @@ class HeadlessTitle(object):
         from ..homeui.details import DetailsWindow
         return DetailsWindow._after(self, season, episode, order)
 
+    def _extras_from_tmdb(self):
+        from .title_extras import extract
+        self.extras = extract(self.tmdb if isinstance(self.tmdb, dict) else {}, self.series)
+
+    def ensure_extras(self):
+        """A title read before 5.10.313 has no extras: TMDb's details are
+        cached a day, so they come from there (no request in most cases)."""
+        if self.extras is not None:
+            return self
+        try:
+            self._load_tmdb()
+            self._extras_from_tmdb()
+            if self.tmdb:
+                self.save()
+        except Exception:
+            C.log('title extras:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
+            self.extras = {}
+        return self
+
     def save(self):
         data = self._snapshot()
         _remember(self._key(), data)
@@ -388,7 +412,7 @@ class HeadlessTitle(object):
                 code = 'S%dE%d' % (season, _int(row.get('episode')))
                 if progress and not self._watched(progress) and self._percent(progress) > 0:
                     play_label = self.tr('استئناف %s') % code
-                    status = self._left_line(progress, code)
+                    status = self._left_line(progress, '')   # v5.10.323: Play names the episode
                 else:
                     play_label = self.tr('تشغيل %s') % code
                 target = (season, row.get('episode'))
@@ -439,11 +463,78 @@ class HeadlessTitle(object):
         from ..ui_preferences import enabled
         props.update(RB.props(self.hero.get('ratings') if enabled('metadata_badges') else {}, prefix='dhs.tp.ratings.',
                               limit=len(RB.ORDER)))
+        props.update(self._parents_guide())
+        # v5.10.323: the time left as a bar in ten steps beside its line
+        props['dhs.tp.pstep'] = self._progress_step(target)
+        # v5.10.322: the backdrop and logo chosen with Change artwork
+        try:
+            from ..art_choice import chosen
+            mine = chosen(self.tmdb_id or self.hero.get('tmdb_id') or '', self._imdb(),
+                          'series' if self.series else 'movie')
+        except Exception:
+            mine = {}
+        props['dhs.tp.art.fanart'] = mine.get('fanart') or ''
+        props['dhs.tp.art.clearlogo'] = mine.get('clearlogo') or ''
         C.set_prop('dhs.tp.id', '')
         for key, value in props.items():
             C.set_prop(key, value)
         # the id last: the page takes the labels together, once they are all this title's
         C.set_prop('dhs.tp.id', self.title_id)
+
+    def _imdb(self):
+        for value in (self.hero.get('show_imdb_id'), self.hero.get('imdb_id'), self.canonical):
+            value = str(value or '')
+            if value.startswith('tt'):
+                return value.split(':')[0]
+        return ''
+
+    @staticmethod
+    def _pg_props(PG, rows):
+        labels = PG.pills(rows)
+        props = {'dhs.tp.pg': '1' if labels else ''}
+        for index in range(5):
+            props['dhs.tp.pg%d' % (index + 1)] = labels[index] if index < len(labels) else ''
+        return props
+
+    def _parents_guide(self):
+        """v5.10.322 (GitHub #21): IMDb's Parents Guide under the plot, as
+        pills since 5.10.323; read in the background the first time (the
+        page shows it a moment later)."""
+        from ..ui_preferences import value
+        from .. import parents_guide as PG
+        empty = self._pg_props(PG, [])
+        if str(value('parents_guide') or 'true').lower() == 'false':
+            return empty
+        imdb = self._imdb()
+        if not imdb:
+            return empty
+        rows = PG.guide(imdb, network=False)
+        if rows is not None:
+            return self._pg_props(PG, rows)
+        title_id = self.title_id
+
+        def later():
+            found = PG.guide(imdb)
+            if found and C.home().getProperty('dhs.tp.id') == title_id:
+                for key, val in self._pg_props(PG, found).items():
+                    C.set_prop(key, val)
+        import threading
+        threading.Thread(target=later, name='DexHubParentsGuide', daemon=True).start()
+        return empty
+
+    def _progress_step(self, target):
+        """0 to 10: how far the title (or the episode Play resumes) is."""
+        try:
+            key = (int(target[0]), int(target[1])) if target else (0, 0)
+            progress = self.progress.get(key) or (self.progress.get((target[0], target[1])) if target else None)
+            if not progress or self._watched(progress):
+                return ''
+            percent = self._percent(progress)
+            if percent <= 0:
+                return ''
+            return str(max(1, min(10, int(round(percent / 10.0)))))
+        except Exception:
+            return ''
 
     def _meta(self):
         """The page's own meta line, only when it knows more than the card
@@ -627,8 +718,13 @@ def listing(action, params, handle):
                                        + urlencode([('page', urlencode(sorted(q.items())))]))
             item['props'] = props
             out.append(item)
+    elif action in ('skin_collection', 'skin_studios'):
+        # v5.10.313: the saga's card and the studios' tiles under More like this
+        from . import title_extras as X
+        title.ensure_extras()
+        out = X.collection_items(title) if action == 'skin_collection' else X.studio_items(title)
     name = {'skin_seasons': 'seasons', 'skin_episodes': 'episodes', 'skin_cast': 'cast',
-            'skin_related': 'related'}.get(action)
+            'skin_related': 'related', 'skin_collection': 'collection', 'skin_studios': 'studios'}.get(action)
     if name and not out:
         # nothing to list: the page's next list loads without waiting for items
         C.set_prop('dhs.tp.none.%s' % name, title.title_id)

@@ -458,7 +458,32 @@ def _publish(tabs, computed=None):
         C.write_json(C.spec_file(tab), {'t': C.now(), 'rows': specs})
         total += _publish_tab(tab, specs)
         _phase('tab', mark)
+    _legacy_focus()
     return total
+
+
+def _legacy_focus():
+    """v5.10.325: the Legacy Home opens on its first row. Kodi gives the
+    window's default control (the hidden hero buttons) the focus before the
+    rows are read, so the focus moves once row 1 has its cards."""
+    if C.prop('dhs.home.layout') != 'legacy':
+        return
+
+    def wait():
+        # v5.10.328: only while the Home's focus is still on the hidden hero
+        # buttons; a focus anywhere else ends the wait (publish runs on every
+        # refresh, and polled for 15 seconds each time before)
+        monitor = xbmc.Monitor()
+        for _ in range(60):
+            if xbmc.getCondVisibility('Window.IsActive(Home)'):
+                if not xbmc.getCondVisibility('Control.HasFocus(4010)'):
+                    return
+                if xbmc.getCondVisibility('Integer.IsGreater(Container(5001).NumItems,0)'):
+                    xbmc.executebuiltin('SetFocus(5001)')
+                    return
+            if monitor.waitForAbort(0.25):
+                return
+    threading.Thread(target=wait, name='dhs-legacy-focus', daemon=True).start()
 
 
 # --------------------------------------------------------------------------
@@ -1019,6 +1044,7 @@ def _carry_enrichment(items, old, language, ctx=None):
                 props[key] = before['props'][key]
         if ctx is not None:
             props['dhs.meta'] = ctx.meta(dict(info, kind='work'))
+            props['dhs.lgmeta'] = ctx.lg_meta(dict(info, kind='work'))
         src = item.setdefault('src', {})
         old_src = before.get('src') or {}
         for key in ('imdb_id', 'tmdb_id'):
@@ -1323,6 +1349,32 @@ class Context(object):
                 return self.tr('متبقي %d دقيقة') % left
         return ''
 
+    def lg_meta(self, tile):
+        """Type, genres, year and length, the line under the logo on the
+        Legacy Home (v5.10.325)."""
+        media = tile.get('media_type') or {'movie': 'movie', 'tvshow': 'series', 'episode': 'episode'}.get(tile.get('mediatype') or '', '')
+        kind = {'movie': 'فيلم', 'series': 'مسلسل', 'tv': 'مسلسل', 'episode': 'حلقة'}.get(media, '')
+        out = [self.tr(kind) if kind else '']
+        genres = tile.get('genres') or []
+        if isinstance(genres, str):
+            genres = [genres]
+        if genres:
+            out.append(' / '.join(str(g) for g in genres[:2]))
+        if tile.get('year'):
+            out.append(str(tile['year']))
+        try:
+            from ..durations import sane
+            duration = sane(tile.get('duration'))
+        except Exception:
+            duration = 0
+        if duration >= 60 and media != 'series':
+            hours, minutes = divmod(duration // 60, 60)
+            if self.arabic:
+                out.append(('%d س %02d د' % (hours, minutes)) if hours else ('%d د' % minutes))
+            else:
+                out.append(('%d h %02d min' % (hours, minutes)) if hours else ('%d min' % minutes))
+        return '  •  '.join([m for m in out if m])
+
     def wide_meta(self, tile):
         """S2:E1 · 33 min left, or year · genre (Apple TV's line under the logo)."""
         parts = []
@@ -1431,6 +1483,7 @@ class Context(object):
             'dhs.facts': tile.get('facts_line') or '',
             # v5.10.173: the line on a big banner card (row shape 'wide')
             'wide_meta': self.wide_meta(tile),
+            'dhs.lgmeta': self.lg_meta(tile) if kind == 'work' else '',
         }
         # v5.10.227: a show's seasons and status, once TMDb told them
         if tile.get('seasons_count') or tile.get('tv_status'):
@@ -1691,6 +1744,7 @@ def enrich(tab, row_id, limit=ENRICH_ITEMS, stop=None, batch=6):
                     props[name] = value
                     changed = True
         props['dhs.meta'] = ctx.meta(merged)
+        props['dhs.lgmeta'] = ctx.lg_meta(merged)
         props['dhs.rating'] = ctx.rating(merged)
         if tile.get('ratings'):
             props['dhs.ratings'] = json.dumps(tile['ratings'], ensure_ascii=False)

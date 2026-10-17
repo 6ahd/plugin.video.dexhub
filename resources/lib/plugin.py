@@ -110,6 +110,7 @@ fetch_catalog       = _LazyAttr('.client', 'fetch_catalog')
 fetch_meta          = _LazyAttr('.client', 'fetch_meta')
 fetch_streams       = _LazyAttr('.client', 'fetch_streams')
 run_parallel        = _LazyAttr('.client', 'run_parallel')
+_run_parallel_settle = _LazyAttr('.client', 'run_parallel_settle')
 iter_parallel       = _LazyAttr('.client', 'iter_parallel')
 start_parallel_race = _LazyAttr('.client', 'start_parallel_race')
 supports_resource   = _LazyAttr('.client', 'supports_resource')
@@ -332,7 +333,9 @@ def _monitor_playback(event, level=xbmc.LOGINFO, **payload):
         except Exception:
             continue
     try:
-        xbmc.log('[DexHubMonitor] %s' % json.dumps(record, ensure_ascii=False, sort_keys=True), level)
+        # v5.10.321: tokens in a played URL (X-Plex-Token, api_key) stay out of the log
+        from .log import _redact as _hide
+        xbmc.log('[DexHubMonitor] %s' % _hide(json.dumps(record, ensure_ascii=False, sort_keys=True)), level)
     except Exception:
         pass
     try:
@@ -502,7 +505,7 @@ def _mark_tmdbh_handoff(seconds=45):
     """
     try:
         until = time.time() + max(8, int(seconds or 45))
-        for win_id in (WINDOW_ID, 10000, 12005):
+        for win_id in (WINDOW_ID, 10000):  # v5.10.321: 12005 exists only in full screen (Kodi logged "Window id does not exist")
             try:
                 xbmcgui.Window(win_id).setProperty(_TMDBH_HANDOFF_UNTIL_PROP, '%.3f' % until)
             except Exception:
@@ -514,7 +517,7 @@ def _mark_tmdbh_handoff(seconds=45):
 def _tmdbh_handoff_active():
     try:
         now = time.time()
-        for win_id in (WINDOW_ID, 10000, 12005):
+        for win_id in (WINDOW_ID, 10000):  # v5.10.321: 12005 exists only in full screen (Kodi logged "Window id does not exist")
             try:
                 win = xbmcgui.Window(win_id)
                 if (win.getProperty('dexhub.invoked_by_tmdbh') or '').strip() == '1':
@@ -535,7 +538,7 @@ def _tmdbh_handoff_active():
 
 def _clear_tmdbh_transient():
     """Clear TMDb Helper handoff flags/seeds after cancel/error/no-source paths."""
-    for win_id in (WINDOW_ID, 10000, 12005):
+    for win_id in (WINDOW_ID, 10000):  # v5.10.321: 12005 exists only in full screen (Kodi logged "Window id does not exist")
         try:
             win = xbmcgui.Window(win_id)
         except Exception:
@@ -6722,6 +6725,68 @@ def ready_collection(set_id='', page='1'):
                      media_type=media_type, canonical_id='tmdb:%s' % tmdb_id, title=title))
     if len(rows) >= _listing_page_size() and not globals().get('_pagination_hidden', lambda: False)():
         add_item(tr('المزيد'), build_url(action='ready_collection', set_id=set_id,
+                                          page=str(page_num + 1)),
+                 art=root_art('catalogs'), info={'title': tr('المزيد')})
+    return end_dir(content=_directory_content_for_type(media_type), cache=True)
+
+
+def tmdb_titles_view(mode='', tid='', media='movie', name='', page='1'):
+    """v5.10.313: a TMDb collection's films in release order, or a studio's
+    or a network's titles (most popular first): what the title page's
+    Collection card and Studios tiles open in the grid."""
+    from . import tmdb_direct as _tmdb
+    try:
+        page_num = max(1, int(page or 1))
+    except Exception:
+        page_num = 1
+    rows, more, media_type = [], False, 'movie'
+    tid = str(tid or '')
+    if mode == 'collection' and tid.isdigit():
+        from .skinui import title_extras as _tx
+        for part in (_tx.collection_parts(tid) or {}).get('parts') or []:
+            rows.append({'tmdb_id': part['tmdb'], 'title': part['title'], 'year': part['year'],
+                         'overview': part['overview'], 'poster': part['poster'], 'backdrop': part['backdrop'],
+                         'rating': part['rating']})
+    elif mode in ('company', 'network') and tid.isdigit():
+        kind = 'tv' if (mode == 'network' or media == 'series') else 'movie'
+        media_type = 'series' if kind == 'tv' else 'movie'
+        from .skinui import title_extras as _tx
+        language = _tx._lang()
+        key = 'dh-studio1:%s:%s:%s:%s:%d' % (mode, tid, kind, language, page_num)
+        cached = _tmdb._cache_get(key)
+        if cached is None:
+            query = {'page': str(page_num), 'sort_by': 'popularity.desc', 'include_adult': 'false',
+                     'language': language, ('with_networks' if mode == 'network' else 'with_companies'): tid}
+            data = _tmdb._request('/discover/%s' % kind, query, timeout=6, max_attempts=2) or {}
+            cached = {'rows': [_tmdb._row_from_tmdb(r, media_type) for r in data.get('results') or []
+                               if isinstance(r, dict)],
+                      'pages': int(data.get('total_pages') or 1)}
+            _tmdb._cache_set(key, cached, 24 * 3600 if cached['rows'] else 600)
+        rows = [r for r in cached.get('rows') or [] if r.get('tmdb_id') and r.get('title')]
+        more = page_num < min(int(cached.get('pages') or 1), 25)
+    for row in rows:
+        title = row.get('title') or ''
+        year = row.get('year') or ''
+        tmdb_id = row.get('tmdb_id') or ''
+        art = {'poster': row.get('poster') or '', 'thumb': row.get('poster') or '',
+               'fanart': row.get('backdrop') or '', 'landscape': row.get('backdrop') or ''}
+        path, is_folder = _content_click_path(
+            media_type=media_type, canonical_id='tmdb:%s' % tmdb_id, title=title,
+            tmdb_id=tmdb_id, ui_seed=art)
+        info = {'title': title, 'plot': row.get('overview') or '',
+                'mediatype': 'movie' if media_type == 'movie' else 'tvshow'}
+        if year and str(year).isdigit():
+            info['year'] = int(year)
+        try:
+            info['rating'] = float(row.get('rating') or 0.0)
+        except Exception:
+            pass
+        add_item(title if not year else '%s  •  %s' % (title, year), path, is_folder=is_folder, info=info,
+                 art=art, ids={'tmdb_id': tmdb_id},
+                 context_menu=_build_source_picker_menu(
+                     media_type=media_type, canonical_id='tmdb:%s' % tmdb_id, title=title))
+    if more:
+        add_item(tr('المزيد'), build_url(action='tmdb_titles', mode=mode, id=tid, media=media, name=name,
                                           page=str(page_num + 1)),
                  art=root_art('catalogs'), info={'title': tr('المزيد')})
     return end_dir(content=_directory_content_for_type(media_type), cache=True)
@@ -18048,6 +18113,53 @@ def _server_direct_entry(canonical_id, media_type, season=None, episode=None):
     return entries
 
 
+# v5.10.311: the title page warms a title's sources in the background (its
+# Play button got the focus): the same targets the picker would ask, through
+# the same per-provider results cache, written to disk before this process
+# ends, so a long press on Play opens a full list at once (as Nuvio does).
+_WARM_ONLY = False
+_WARM_TTL = 240.0
+
+
+def _warm_source_targets(targets, media_type):
+    from .search import source_engine as _engine
+    from .search import results_cache as _results
+    targets = list(targets or [])[:12]
+    if not targets:
+        return 0
+    done = []
+    lock = threading.Lock()
+
+    def _one(target):
+        try:
+            payload = _engine.fetch(target, media_type, sys.modules[__name__])
+        except Exception:
+            return
+        try:
+            provider, request_id = target
+            key = _results.key(provider, media_type, request_id)
+            with _results._MEM_LOCK:
+                entry = _results._MEM.get(key)
+            if entry:
+                _results._persist(key, entry)
+                with lock:
+                    done.append(len(((payload or {}).get('streams') or [])))
+        except Exception:
+            pass
+
+    threads = []
+    for target in targets:
+        th = threading.Thread(target=_one, args=(target,), name='DexHubWarm', daemon=True)
+        th.start()
+        threads.append(th)
+    deadline = time.monotonic() + 12.0
+    for th in threads:
+        th.join(max(0.0, deadline - time.monotonic()))
+    xbmc.log('[DexHub] sources warmed: %d of %d providers, %d streams' % (
+        len(done), len(targets), sum(done)), xbmc.LOGINFO)
+    return len(done)
+
+
 def streams(media_type, canonical_id, title='', resume_seconds='0', resume_percent='', preferred_provider_name='', source_provider_id='', source_mode='', seed_ids=None, ui_seed=None):
     _prepare_started = time.monotonic()
     from . import source_diagnostics
@@ -18096,6 +18208,8 @@ def streams(media_type, canonical_id, title='', resume_seconds='0', resume_perce
     except Exception:
         resume_percent_val = 0.0
     targets_all = _prioritize_provider_targets(list(_stream_provider_targets(media_type, canonical_id, meta=stream_meta)), preferred_provider_name=preferred_provider_name)
+    if _WARM_ONLY:
+        return _warm_source_targets(targets_all, media_type)
     targets, fallback_targets = _split_targets_by_source_mode(targets_all, source_provider_id=source_provider_id, source_mode=source_mode)
 
     xbmc.log('[DexHub timing] stage=source-prepare-total ms=%.1f' % ((time.monotonic() - _prepare_started) * 1000), xbmc.LOGINFO)
@@ -18569,6 +18683,8 @@ def episode_streams(canonical_id, video_id, season, episode, title='', media_typ
     xbmc.log('[DexHub timing] stage=episode-source-preparation ms=%.1f' % (
         (time.monotonic() - _prep_started) * 1000), xbmc.LOGINFO)
     targets_all = _prioritize_provider_targets(targets_all, preferred_provider_name=preferred_provider_name)
+    if _WARM_ONLY:
+        return _warm_source_targets(targets_all, media_type)
     targets, fallback_targets = _split_targets_by_source_mode(targets_all, source_provider_id=source_provider_id, source_mode=source_mode)
 
     # v3.9.65: same race strategy as movies — open the source picker
@@ -19023,7 +19139,10 @@ def _auto_play_first_movie(canonical_id, title='', seed_ids=None, preferred_prov
     if _fast:
         _autopick_collect(targets, _fetch, _append, entries)
     else:
-        for target, data in run_parallel(_fetch, targets):
+        # v5.10.314: the choice is made after the first sources settle (patient
+        # scan setting: every provider, as before)
+        for target, data in (run_parallel(_fetch, targets) if _full_parallel_source_scan_enabled()
+                             else _run_parallel_settle(_fetch, targets)):
             if isinstance(data, Exception) or not data:
                 continue
             _append(target, data)
@@ -19145,7 +19264,10 @@ def _auto_play_first_episode(canonical_id, video_id, season, episode, title='', 
     if _fast:
         _autopick_collect(targets, _fetch, _append, entries)
     else:
-        for target, data in run_parallel(_fetch, targets):
+        # v5.10.314: the choice is made after the first sources settle (patient
+        # scan setting: every provider, as before)
+        for target, data in (run_parallel(_fetch, targets) if _full_parallel_source_scan_enabled()
+                             else _run_parallel_settle(_fetch, targets)):
             if isinstance(data, Exception) or not data:
                 continue
             _append(target, data)
@@ -27976,6 +28098,9 @@ def _dispatch(params=None):
         return sync_options_action()
     if action == 'ready_collections_menu':
         return ready_collections_menu()
+    if action == 'tmdb_titles':
+        return tmdb_titles_view(params.get('mode') or '', params.get('id') or '', params.get('media') or 'movie',
+                                params.get('name') or '', params.get('page') or '1')
     if action == 'ready_collection':
         return ready_collection(params.get('set_id') or '', params.get('page') or '1')
     if action == 'config_export':
