@@ -49,6 +49,15 @@ def _tr(text):
         return text
 
 
+def _english():
+    from .i18n import is_english
+    return is_english()
+
+
+def _t(ar, en):
+    return en if _english() else ar
+
+
 def changed():
     """What the notices are made of changed: the next refresh reads it again."""
     try:
@@ -127,14 +136,16 @@ def stopped(since):
             poster = poster or found.get('poster') or ''
         except Exception:
             pass
-    left = max(0.0, float(row.get('duration') or 0) - float(row.get('position') or 0))
+    from .watch_timing import progress
+    timeline, percent = progress(row.get('position'), row.get('duration'), _english())
     parts = []
     if episode:
         parts.append('S%s:E%s' % (row.get('season'), row.get('episode')))
-    if left >= 60:
-        parts.append(_tr('باقي %d د') % int(round(left / 60.0)))
+    if timeline:
+        parts.append(timeline)
     notice = {'kind': 'resume', 'kicker': _tr('كمّل المشاهدة'), 'title': title, 'sub': '  ·  '.join(parts),
-              'poster': poster, 'fanart': fanart,
+              'poster': poster, 'fanart': fanart, 'progress': percent, 'has_progress': bool(timeline),
+              'detected_at': row.get('updated_at') or time.time(),
               'action': _resume_path(row), 'until': time.time() + RESUME_SECONDS}
     notice['key'] = 'resume|%s|%s' % (title, notice['sub'].split('  ·  ')[0])
     _home().setProperty('dhs.island.resume', json.dumps(notice))
@@ -188,6 +199,11 @@ def notices(soon=False):
             out.append(resume)
         else:
             home.clearProperty('dhs.island.resume')
+    try:
+        from . import silo_notifications
+        out.extend(silo_notifications.notices())
+    except Exception:
+        pass
     today = datetime.date.today().isoformat()
     if home.getProperty('dhs.newep.day') == today:
         gone = set((home.getProperty('dhs.island.dismissed') or '').split('\n'))
@@ -198,7 +214,7 @@ def notices(soon=False):
             if key in gone:
                 continue
             kicker = _tr('فيلم جديد متوفر') if ev.get('kind') == 'movie' else _tr('حلقة جديدة متوفرة')
-            out.append(dict(ev, kind='newep', kicker=kicker, key=key))
+            out.append(dict(ev, kind='newep', kicker=kicker, key=key, alert_key=ev.get('key') or ''))
         if soon:
             for ev in _json('dhs.newep.soon') or []:
                 if isinstance(ev, dict) and ev.get('title'):
@@ -273,33 +289,60 @@ class Inbox(xbmcgui.WindowXMLDialog):
         self.chosen = None
 
     def onInit(self):
-        self.setProperty('ib.head', _tr('التنبيهات'))
-        self.setProperty('ib.count', str(len([i for i in self.items if i.get('kind') not in ('playing', 'soon')]) or ''))
-        self.setProperty('ib.empty', _tr('ما فيه تنبيهات الحين'))
+        self.tab = 0
+        self.setProperty('ib.head', _t('مركز التنبيهات', 'Notification center'))
+        self.setProperty('ib.count', str(len([i for i in self.items if i.get('kind') in ('newep', 'silo')])))
+        self.setProperty('ib.empty', _t('لا توجد عناصر في هذا القسم', 'Nothing in this section'))
+        self.setProperty('ib.hint', _t('موافق: فتح العمل  ·  رجوع: إغلاق', 'OK: open title  ·  Back: close'))
+        tabs = self.getControl(200)
+        tabs.reset()
+        for text in (_t('الكل', 'All'), _t('الجديد', 'New'), _t('متابعة', 'Continue'), _t('القادم', 'Upcoming')):
+            tabs.addItem(xbmcgui.ListItem(text))
+        buttons = self.getControl(BUTTONS)
+        buttons.reset()
+        for text in (_t('قراءة الكل', 'Read all'), _t('إدارة المراقبة', 'Manage monitoring'), _t('إغلاق', 'Close')):
+            buttons.addItem(xbmcgui.ListItem(text))
+        self._paint()
+        self.setFocusId(LIST if self.shown else 200)
+
+    def _paint(self):
+        from .watch_timing import stamp, local_time
+        kinds = (None, ('newep', 'silo'), ('resume', 'playing'), ('soon',))
+        self.shown = [i for i in self.items if kinds[self.tab] is None or i.get('kind') in kinds[self.tab]]
+        self.shown.sort(key=lambda i: (i.get('kind') == 'soon', i.get('day') or ''))
         rows = []
-        for item in self.items:
+        for item in self.shown:
             li = xbmcgui.ListItem(item.get('title') or '', item.get('sub') or '')
-            li.setProperty('kicker', item.get('kicker') or '')
-            li.setProperty('kind', item.get('kind') or '')
+            for prop in ('kicker', 'kind'):
+                li.setProperty(prop, item.get(prop) or '')
+            detail = stamp(item.get('detected_at'), _english())
+            if item.get('kind') == 'resume':
+                detail = detail.replace('Detected ', 'Last watched ').replace('رُصد ', 'آخر مشاهدة ')
+            if item.get('kind') == 'soon':
+                detail = '  ·  '.join(x for x in (item.get('day'), local_time(item.get('aired'))) if x)
+            li.setProperty('detail', detail)
+            li.setProperty('progress', str(item.get('progress') or 0))
+            li.setProperty('has_progress', '1' if item.get('has_progress') else '')
             li.setArt({'poster': item.get('poster') or '', 'fanart': item.get('fanart') or item.get('poster') or ''})
             rows.append(li)
         listing = self.getControl(LIST)
         listing.reset()
         listing.addItems(rows)
-        buttons = self.getControl(BUTTONS)
-        buttons.reset()
-        if any(i.get('kind') not in ('playing', 'soon') for i in self.items):
-            buttons.addItem(xbmcgui.ListItem(_tr('مسح الكل')))
-        self.setFocusId(LIST if rows else BUTTONS)
 
     def onClick(self, control_id):
-        if control_id == LIST:
+        if control_id == 200:
+            self.tab = max(0, min(3, self.getControl(200).getSelectedPosition()))
+            self._paint()
+            if self.shown:
+                self.setFocusId(LIST)
+        elif control_id == LIST:
             pos = self.getControl(LIST).getSelectedPosition()
-            if 0 <= pos < len(self.items):
-                self.chosen = self.items[pos]
+            if 0 <= pos < len(self.shown):
+                self.chosen = self.shown[pos]
                 self.close()
         elif control_id == BUTTONS:
-            self.chosen = {'kind': 'dismiss'}
+            pos = self.getControl(BUTTONS).getSelectedPosition()
+            self.chosen = {'kind': ('dismiss', 'manage', 'close')[max(0, min(2, pos))]}
             self.close()
 
     def onAction(self, action):
@@ -310,6 +353,8 @@ class Inbox(xbmcgui.WindowXMLDialog):
 def dismiss():
     """«Clear all»: these notices go (a new episode later today still comes)."""
     home = _home()
+    from . import silo_notifications
+    silo_notifications.mark_read(notices(), all_visible=True)
     keys = [i['key'] for i in notices() if i.get('kind') == 'newep']
     home.clearProperty('dhs.island.resume')
     old = [k for k in (home.getProperty('dhs.island.dismissed') or '').split('\n') if k]
@@ -326,8 +371,13 @@ def inbox():
         code = ''
         if xbmc.getInfoLabel('VideoPlayer.Episode'):
             code = 'S%s:E%s  ·  ' % (xbmc.getInfoLabel('VideoPlayer.Season'), xbmc.getInfoLabel('VideoPlayer.Episode'))
-        items.append({'kind': 'playing', 'kicker': _tr('يعرض الحين'), 'title': title,
-                      'sub': code + _tr('باقي %s') % xbmc.getInfoLabel('Player.TimeRemaining'),
+        from .watch_timing import progress
+        try:
+            timeline, percent = progress(xbmc.Player().getTime(), xbmc.Player().getTotalTime(), _english())
+        except RuntimeError:
+            timeline, percent = '', 0
+        items.append({'progress': percent, 'has_progress': bool(timeline), 'kind': 'playing', 'kicker': _tr('يعرض الحين'), 'title': title,
+                      'sub': code + timeline,
                       'poster': xbmc.getInfoLabel('Player.Art(poster)') or xbmc.getInfoLabel('Player.Art(tvshow.poster)'),
                       'fanart': xbmc.getInfoLabel('Player.Art(fanart)') or xbmc.getInfoLabel('Player.Art(tvshow.fanart)')})
     items += notices(soon=True)
@@ -342,13 +392,51 @@ def inbox():
         return None
     kind = chosen.get('kind')
     if kind == 'dismiss':
+        from . import watch_sources
+        watch_sources.mark_read([i.get('alert_key') for i in items if i.get('kind') == 'newep' and i.get('alert_key')])
+        watch_sources.sync_alerts()
         dismiss()
+    elif kind == 'manage':
+        from . import watch_sources
+        from .providers import silo_provider
+        if silo_provider.is_signed_in():
+            choice = xbmcgui.Dialog().select(_t('إدارة التنبيهات', 'Manage notifications'),
+                                            [_t('مصادر العرض والمراقبة', 'Display and monitoring sources'),
+                                             _t('تنبيهات بروفايل Silo', 'Silo profile notifications'),
+                                             _t('قائمة مشاهدة Silo', 'Silo watchlist'),
+                                             _t('كوليكشنات Silo', 'Silo collections')])
+            if choice == 1:
+                from . import silo_notifications
+                silo_notifications.settings()
+            elif choice == 0:
+                watch_sources.menu()
+            elif choice in (2, 3):
+                from .profile_scope import ADDON_ID
+                url = 'plugin://' + ADDON_ID + '/?' + (
+                    'action=silo_personal&source=watchlist' if choice == 2 else 'action=silo_user_collections')
+                xbmc.executebuiltin('ActivateWindow(Videos,"%s",return)' % url)
+        else:
+            watch_sources.menu()
     elif kind == 'playing':
         xbmc.executebuiltin('ActivateWindow(fullscreenvideo)')
     elif chosen.get('action'):
+        if kind == 'silo':
+            from . import silo_notifications
+            from .providers import silo_provider
+            if chosen.get('silo_owner') != silo_notifications.owner(silo_provider.account() or {}):
+                return None
+            silo_notifications.mark_read([chosen])
+            refresh(force=True)
+        if chosen.get('alert_key'):
+            from . import watch_sources
+            watch_sources.mark_read([chosen['alert_key']])
+            watch_sources.sync_alerts()
         if kind == 'resume':
             _home().clearProperty('dhs.island.resume')
             changed()
             refresh(force=True)
-        xbmc.executebuiltin('RunPlugin("%s")' % chosen['action'].replace('"', '%22'))
+        if kind == 'silo' and chosen.get('folder'):
+            xbmc.executebuiltin('ActivateWindow(Videos,"%s",return)' % chosen['action'].replace('"', '%22'))
+        else:
+            xbmc.executebuiltin('RunPlugin("%s")' % chosen['action'].replace('"', '%22'))
     return None

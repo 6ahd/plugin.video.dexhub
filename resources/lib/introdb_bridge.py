@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """Optional playback-metadata bridge for ``plugin.video.tidb`` 1.8+.
 
-TheIntroDB is a standalone Kodi service.  It watches playback and reads the
-current ``VideoInfoTag``; Dex Hub must not query its API or duplicate its skip
-overlay.  This module only makes the final playback ListItem unambiguous.
+Dex Hub reads TheIntroDB directly. This optional bridge preserves playback
+identity for the companion and temporarily suspends its overlapping buttons
+while Dex Hub owns them; the original settings are restored after playback.
 
 No TheIntroDB code is imported.  When the add-on is absent or disabled every
 function is a cheap no-op and playback continues normally.
@@ -76,6 +76,10 @@ def ensure_manual_skip_buttons(force=False):
     """
     if not force and not is_available():
         return False
+    from .native_playback import skip_mode
+    if skip_mode() != 'off':
+        return suspend_for_native()
+    restore_native_guard()
     try:
         addon = xbmcaddon.Addon(ADDON_ID)
     except Exception:
@@ -300,3 +304,90 @@ def apply_playback_identity(item, ctx, info=None, force=False,
     except Exception:
         pass
     return True
+
+
+_GUARD = 'dexhub.native.tidb_guard'
+_RECOVERED = False
+
+
+def _guard_file():
+    import os
+    import xbmcvfs
+    root = xbmcvfs.translatePath(xbmcaddon.Addon('plugin.video.dexhub').getAddonInfo('profile'))
+    return os.path.join(root, 'native_tidb_guard.json')
+
+
+def _recover_guard(home):
+    global _RECOVERED
+    if _RECOVERED:
+        return
+    _RECOVERED = True
+    import json
+    try:
+        with open(_guard_file(), encoding='utf-8') as handle:
+            data = json.load(handle)
+        if not home.getProperty(_GUARD):
+            home.setProperty(_GUARD, json.dumps(data))
+    except (OSError, ValueError):
+        pass
+
+
+def suspend_for_native():
+    """Borrow only overlapping controls, remembering the companion's settings."""
+    import json
+    import time
+    import xbmcgui
+    if not is_available():
+        return False
+    home = xbmcgui.Window(10000)
+    _recover_guard(home)
+    if home.getProperty(_GUARD):
+        return True
+    addon = xbmcaddon.Addon(ADDON_ID)
+    keys = ['enable_intro', 'enable_recap']
+    from . import credits_panel
+    if credits_panel.owns_end():
+        keys.append('enable_credits')
+    original = {key: addon.getSetting(key) for key in keys}
+    # Publish restoration data BEFORE modifying the external add-on.
+    payload = json.dumps({'at': time.time(), 'values': original})
+    import os
+    path = _guard_file()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path + '.tmp', 'w', encoding='utf-8') as handle:
+        handle.write(payload)
+    os.replace(path + '.tmp', path)
+    home.setProperty(_GUARD, payload)
+    for key in keys:
+        if original[key].lower() != 'false':
+            addon.setSetting(key, 'false')
+    return True
+
+
+def restore_native_guard(grace=0):
+    import json
+    import time
+    import xbmcgui
+    home = xbmcgui.Window(10000)
+    _recover_guard(home)
+    raw = home.getProperty(_GUARD)
+    if not raw:
+        return
+    try:
+        guard = json.loads(raw)
+        if time.time() - guard['at'] < grace:
+            return
+        addon = xbmcaddon.Addon(ADDON_ID)
+        for key, value in guard['values'].items():
+            # Preserve a setting the user changed during this session.
+            if addon.getSetting(key).lower() == 'false' and value.lower() != 'false':
+                addon.setSetting(key, value)
+        home.clearProperty(_GUARD)
+        import os
+        try:
+            os.remove(_guard_file())
+        except FileNotFoundError:
+            pass
+    except Exception:
+        # Retain restoration data if an installed companion is temporarily unavailable.
+        pass

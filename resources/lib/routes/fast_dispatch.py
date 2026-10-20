@@ -35,6 +35,12 @@ def dispatch(action, params, api):
                                 genre=p('genre', ''), unwatched=p('unwatched', ''), decade=p('decade', ''), rating=p('rating', ''))
     if action == 'emby_children': return api.emby_children(p('key', ''), title=p('title', ''), start=p('start', '0'))
     if action == 'emby_play': return api.emby_play(p('item_id', ''), ui_seed_key=p('ui_seed_key', ''))
+    if action == 'silo_tools':
+        from .. import silo_social
+        return silo_social.dispatch(p('item_id', ''))
+    if action == 'silo_inbox':
+        from .. import island
+        return island.inbox()
     if action == 'silo_menu': return api.silo_menu()
     if action == 'silo_login': return api.silo_login()
     if action == 'silo_qr_login': return api.silo_qr_login()

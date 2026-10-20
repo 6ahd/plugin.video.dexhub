@@ -1541,3 +1541,48 @@ msgstr ""
 msgctxt "#32931"
 msgid "Open sections on focus"
 msgstr "Open sections on focus"
+
+msgctxt "#32932"
+msgid "Backdrop waits for the cursor"
+msgstr ""
+
+msgctxt "#32933"
+msgid "Clean trailer"
+msgstr ""
+
+msgctxt "#32934"
+msgid "Ratings shown"
+msgstr ""
+
+
+msgctxt "#32935"
+msgid "Show poster on the title page"
+msgstr "Show poster on the title page"
+
+msgctxt "#32960"
+msgid "Playback assistance"
+msgstr "Playback assistance"
+
+msgctxt "#32961"
+msgid "Intro and recap skipping (built in)"
+msgstr "Intro and recap skipping (built in)"
+
+msgctxt "#32962"
+msgid "Manual button"
+msgstr "Manual button"
+
+msgctxt "#32963"
+msgid "Automatic"
+msgstr "Automatic"
+
+msgctxt "#32964"
+msgid "Off"
+msgstr "Off"
+
+msgctxt "#32965"
+msgid "Seek preview images (server or Seekr)"
+msgstr "Seek preview images (server or Seekr)"
+
+msgctxt "#32966"
+msgid "Seekr API key (optional)"
+msgstr "Seekr API key (optional)"

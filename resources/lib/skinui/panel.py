@@ -35,7 +35,7 @@ import xbmc
 
 from . import common as C
 
-TABS = ('saved', 'alerts', 'schedule')
+TABS = ('saved', 'alerts', 'schedule', 'monitored')
 _TTL = {'saved': 60.0, 'schedule': 3 * 3600.0}
 _BUSY = set()
 _BUSY_LOCK = threading.Lock()
@@ -122,6 +122,7 @@ def _continue_rows():
 
 
 def _from_row(item):
+    from ..watch_timing import progress
     props = item.get('props') or {}
     info = item.get('info') or {}
     art = item.get('art') or {}
@@ -135,8 +136,16 @@ def _from_row(item):
             line.append(name)
     elif info.get('year'):
         line.append(str(info.get('year')))
-    return {'title': title, 'media': 'series' if episode or props.get('dhs.media') == 'series' else 'movie',
-            'line': '  ·  '.join(line), 'left': props.get('dhs.remaining') or '',
+    # v5.10.334: the season and the show, for "6 of 8 episodes"
+    try:
+        from urllib.parse import parse_qs
+        query = parse_qs(str(props.get('dhs.q') or ''))
+    except Exception:
+        query = {}
+    tmdb = str((query.get('tmdb') or [''])[0] or '')
+    return {'season': _int(info.get('season')), 'episode': _int(info.get('episode')), 'tmdb': tmdb,
+            'title': title, 'media': 'series' if episode or props.get('dhs.media') == 'series' else 'movie',
+            'line': '  ·  '.join(line), 'left': progress(info.get('resumetime'), info.get('totaltime'), _t('', 'en') == 'en')[0] or props.get('dhs.remaining') or '',
             'prog': _int(item.get('progress')), 'poster': art.get('poster') or '',
             'thumb': art.get('landscape') or art.get('fanart') or art.get('thumb') or '',
             'logo': art.get('clearlogo') or '', 'badge': props.get('dhs.badge') or '',
@@ -202,7 +211,48 @@ def _saved():
                         'q': _query(media, title, canonical)})
     except Exception as exc:
         C.log('panel: favourites failed: %s' % exc, xbmc.LOGWARNING)
+    _season_marks(out)
     return {'rows': out, 'count': len(out), 'resume': resume}
+
+
+def _season_marks(rows):
+    """v5.10.334: "6 of 8 episodes" from TMDb's cached show (no request),
+    and NEW EP (an alert for the show) or TONIGHT (the schedule has it today)."""
+    import json
+    try:
+        from .. import tmdb_direct as T
+    except Exception:
+        T = None
+    try:
+        alerts = set((r.get('title') or '').lower() for r in json.loads(C.home().getProperty('dhs.newep.list') or '[]')
+                     if isinstance(r, dict))
+    except Exception:
+        alerts = set()
+    today = datetime.date.today().isoformat()
+    tonight = set()
+    try:
+        for ev in (C.read_json(_cache_path('schedule')) or {}).get('rows') or []:
+            if ev.get('day') == today and ev.get('kind') == 'ep':
+                tonight.add((ev.get('title') or '').lower())
+    except Exception:
+        pass
+    for row in rows:
+        title = (row.get('title') or '').lower()
+        if row.get('media') == 'series' and title in alerts:
+            row['hot'], row['hotkind'] = _t('حلقة جديدة', 'NEW EP'), 'new'
+        elif row.get('media') == 'series' and title in tonight:
+            row['hot'], row['hotkind'] = _t('الليلة', 'TONIGHT'), 'tonight'
+        season, episode = _int(row.get('season')), _int(row.get('episode'))
+        if T is None or not (row.get('tmdb') and season and episode):
+            continue
+        try:
+            show = T._cache_get('tv_air3:%s' % row['tmdb']) or {}
+            total = _int((show.get('seasons') or {}).get(str(season)))
+        except Exception:
+            total = 0
+        if total and episode <= total:
+            row['eps'] = _t('%d من %d حلقات', '%d of %d episodes') % (episode, total)
+            row['epn'], row['epi'] = min(total, 12), min(episode, 12) if total <= 12 else int(round(12.0 * episode / total))
 
 
 def _air_word(ep):
@@ -240,11 +290,14 @@ def _schedule():
         th.join(max(0.0, deadline - time.monotonic()))
     # the calendar's exact days (Floppy, else Trakt): an episode out tonight
     # in America is tomorrow here
-    exact = {}
+    from ..watch_timing import local_time
+    exact, airtimes = {}, {}
     for ev in RM._calendar():
         day, _out = RM._local_day(ev)
         if day is not None:
-            exact[(str(ev.get('tmdb') or ''), _int(ev.get('season')), _int(ev.get('episode')))] = day
+            ident = (str(ev.get('tmdb') or ''), _int(ev.get('season')), _int(ev.get('episode')))
+            exact[ident] = day
+            airtimes[ident] = local_time(ev.get('aired'))
     events = []
     for (kind, tmdb), data in list(found.items()):
         data = data or {}
@@ -261,7 +314,7 @@ def _schedule():
                                'title': data.get('name') or names.get(tmdb) or '', 'day': day,
                                'season': _int(ep.get('season')), 'episode': _int(ep.get('episode')),
                                'ep_title': ep.get('title') or '', 'network': data.get('network') or '',
-                               'badge': _air_word(ep),
+                               'badge': _air_word(ep), 'airtime': airtimes.get((tmdb, _int(ep.get('season')), _int(ep.get('episode'))), ''),
                                'poster': RM._art(data.get('poster'), 'poster'),
                                'fanart': RM._art(data.get('backdrop'), 'backdrop')})
         elif data.get('date'):
@@ -284,6 +337,22 @@ def _schedule():
     return {'rows': rows, 'count': len(rows), 'eps': eps}
 
 
+def _monitored():
+    from .. import watch_sources as W
+    cfg = W.config()
+    active = {v['id'] for v in cfg['sources'] if v.get('monitor', True)}
+    rows = []
+    for row in W.snapshot().get('rows') or []:
+        if not active.intersection(row.get('source_ids') or []):
+            continue
+        paused = bool(set(W.aliases(row)).intersection(cfg['paused']))
+        rows.append({'title': row['title'], 'poster': row.get('poster') or '', 'fanart': row.get('fanart') or '',
+                     'kind': 'monitor', 'key': row['key'], 'paused': paused,
+                     'sub': ' · '.join(row['sources']) + '  /  ' + (_t('متوقفة', 'Paused') if paused else _t('قيد المراقبة', 'Monitoring')),
+                     'action': C.BASE + '?' + urlencode({'action': 'skin_watch_sources', 'key': row['key']})})
+    return {'rows': rows, 'count': len(rows)}
+
+
 def _alerts():
     import json
     home = C.home()
@@ -293,10 +362,33 @@ def _alerts():
             rows = json.loads(home.getProperty('dhs.newep.list') or '[]') or []
     except Exception:
         rows = []
-    return {'rows': [r for r in rows if isinstance(r, dict)], 'count': len(rows)}
+    from .. import watch_sources as W
+    read = set(W.config().get('read') or [])
+    rows = [r for r in rows if isinstance(r, dict) and r.get('key') not in read]
+    # The banner and the skin's panel must read the same native Silo inbox.
+    # Silo receipts have their own owner-scoped outbox, separate from W.read.
+    try:
+        from .. import silo_notifications
+        rows.extend(silo_notifications.notices())
+    except Exception as exc:
+        C.log('panel: Silo inbox unavailable: %s' % type(exc).__name__, xbmc.LOGWARNING)
+    return {'rows': rows, 'count': len(rows)}
 
 
-_MAKERS = {'saved': _saved, 'schedule': _schedule, 'alerts': _alerts}
+def refresh_alerts():
+    """Publish an inbox change without reloading an unchanged open panel."""
+    import hashlib
+    import json
+    import uuid
+    got = _alerts()
+    signature = hashlib.sha256(json.dumps(got['rows'], sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    _publish('alerts', got)
+    if C.prop('dhs.panel.alerts.signature') != signature:
+        C.set_prop('dhs.panel.alerts.signature', signature)
+        C.set_prop('dhs.panel.rev', uuid.uuid4().hex)
+
+
+_MAKERS = {'saved': _saved, 'schedule': _schedule, 'alerts': _alerts, 'monitored': _monitored}
 
 
 def _make(tab):
@@ -339,6 +431,8 @@ def data(tab, fresh=False, wait=True):
     the background), else read now (wait) or None."""
     if tab == 'alerts':
         return _alerts()
+    if tab == 'monitored':
+        return _monitored()
     got = None if fresh else C.read_json(_cache_path(tab))
     if got:
         if time.time() - float(got.get('t') or 0) > _TTL.get(tab, 60.0):
@@ -359,6 +453,8 @@ def refresh_schedule(force=False):
 
 def _kicker(tab, got):
     n = _int(got.get('count'))
+    if tab == 'monitored':
+        return _t('%d عمل · OK لإدارة المراقبة', '%d TITLES · OK TO MANAGE') % n
     if tab == 'saved':
         line = _t('%d عمل', '%d TITLES') % n
         if _int(got.get('resume')):
@@ -373,12 +469,21 @@ def _kicker(tab, got):
 
 
 def _publish(tab, got):
+    C.set_prop('dhs.panel.label.manage', _t('المصادر والمراقبة', 'Sources & monitoring'))
+    C.set_prop('dhs.panel.label.read', _t('تعليم الكل كمقروء', 'Mark all read'))
+    C.set_prop('dhs.panel.label.monitored', _t('المراقَبة', 'Monitoring'))
+    C.set_prop('dhs.panel.empty.monitored', _t('أضف مصدراً من زر الإدارة ثم حدّثه', 'Add a source using Manage, then refresh it'))
     C.set_prop('dhs.panel.n.%s' % tab, str(_int(got.get('count'))) if _int(got.get('count')) else '')
     C.set_prop('dhs.panel.kick.%s' % tab, _kicker(tab, got))
 
 
 def counts(params, handle):
     """Every tab's count from its file (nothing read from the network)."""
+    try:
+        from .. import watch_log    # v5.10.334: the island's week
+        watch_log.publish(C.home())
+    except Exception:
+        pass
     for tab in TABS:
         got = data(tab, wait=False)
         if got is not None:
@@ -418,7 +523,11 @@ def _saved_items(got, sort, group, style):
         for index, row in enumerate(part):
             props = {'kind': 'work', 'media': row['media'], 'badge': row.get('badge') or '',
                      'left': row.get('left') or '', 'dhs.target': _open_url(row.get('q')),
-                     'logo': row.get('logo') or ''}
+                     'logo': row.get('logo') or '',
+                     # v5.10.334: the season's place and a NEW EP / TONIGHT badge
+                     'eps': row.get('eps') or '', 'epn': str(row.get('epn') or ''),
+                     'epi': str(row.get('epi') or ''), 'hot': row.get('hot') or '',
+                     'hotkind': row.get('hotkind') or ''}
             if index == 0 and label:
                 props['kick'] = label
                 props['kick_n'] = str(len(part))
@@ -474,7 +583,7 @@ def _schedule_items(got):
             last = section
         if ev['kind'] == 'ep':
             code = _t('م%d ح%d', 'S%d E%d') % (ev['season'], ev['episode'])
-            line = '  ·  '.join(x for x in (dayline, code, ev.get('network') or '') if x)
+            line = '  ·  '.join(x for x in (dayline, code, ev.get('airtime') or '', ev.get('network') or '') if x)
             props['epname'] = ev.get('ep_title') or ''
             media = 'series'
         else:
@@ -491,18 +600,26 @@ def _schedule_items(got):
 
 
 def _alert_items(got):
+    from ..watch_timing import stamp
     items = []
     for index, ev in enumerate(got.get('rows') or []):
         action = str(ev.get('action') or '')
         if action.startswith('plugin://') and not action.startswith(C.BASE):
             # the reminder's address names the add-on it was made for
             action = C.BASE + action[action.index('/?') + 1:] if '/?' in action else action
-        props = {'kind': 'work', 'when': 'today', 'dhs.target': action,
-                 'badge': _t('جديد', 'New') if ev.get('kind') == 'ep' else _t('نزل', 'Out now'),
-                 'wday': _t('اليوم', 'TODAY'), 'mday': str(datetime.date.today().day)}
+        monitoring = ev.get('kind') == 'monitor'
+        if not monitoring and ev.get('key'):
+            action = C.BASE + '?' + urlencode({'action': 'skin_alert_open', 'key': ev['key'], 'target': action})
+        props = {'kind': 'work', 'when': 'monitor' if monitoring else 'today', 'dhs.target': action,
+                 'badge': (_t('متوقفة', 'Paused') if ev.get('paused') else _t('مراقبة', 'Monitoring')) if monitoring else (_t('جديد', 'New') if ev.get('kind') == 'ep' else _t('نزل', 'Out now')),
+                 'wday': '' if monitoring else _t('اليوم', 'TODAY'), 'mday': '' if monitoring else str(datetime.date.today().day)}
+        if ev.get('kind') == 'silo':
+            props['badge'] = ev.get('kicker') or 'Silo'
         if index == 0:
-            props['kick'] = _t('متوفر الآن', 'READY TO WATCH')
-        items.append({'label': ev.get('title') or '', 'label2': ev.get('sub') or ev.get('code') or '',
+            props['kick'] = _t('OK لإدارة المراقبة', 'OK TO MANAGE') if monitoring else _t('متوفر الآن', 'READY TO WATCH')
+            if ev.get('kind') == 'silo':
+                props['kick'] = _t('تنبيهات Silo', 'SILO NOTIFICATIONS')
+        items.append({'label': ev.get('title') or '', 'label2': '  ·  '.join(x for x in (ev.get('sub') or ev.get('code') or '', stamp(ev.get('detected_at'), _t('', 'en') == 'en')) if x),
                       'path': '', 'folder': False,
                       'art': {'thumb': ev.get('fanart') or ev.get('poster') or '', 'poster': ev.get('poster') or '',
                               'landscape': ev.get('fanart') or '', 'fanart': ev.get('fanart') or ''},
@@ -515,6 +632,11 @@ def listing(params, handle):
     tab = params.get('tab') if params.get('tab') in TABS else 'saved'
     got = data(tab)
     _publish(tab, got)
+    try:
+        from .. import watch_log    # v5.10.334: the island's week
+        watch_log.publish(C.home())
+    except Exception:
+        pass
     for other in TABS:
         if other != tab:
             known = data(other, wait=False)
@@ -542,3 +664,44 @@ def refresh(params, handle):
             pass
     C.set_prop('dhs.panel.rev', str(int(time.time())))
     return None
+
+
+def open_alert(params, handle=None):
+    key = str(params.get('key') or '')
+    if key.startswith('silo|'):
+        from .. import silo_notifications
+        # Resolve the current owner's event again, rather than trusting a
+        # target cached before a profile switch or supplied in a plugin URL.
+        event = next((ev for ev in silo_notifications.notices() if ev.get('key') == key), None)
+        if event is None:
+            refresh_alerts()
+            return
+        target = str(event.get('action') or '')
+        if not target.startswith(C.BASE + '?'):
+            return
+        silo_notifications.mark_read([event])
+        refresh_alerts()
+        target = target.replace('"', '%22')
+        if event.get('folder'):
+            xbmc.executebuiltin('ActivateWindow(Videos,"%s",return)' % target)
+        else:
+            xbmc.executebuiltin('RunPlugin("%s")' % target)
+        return
+    from .. import watch_sources as W
+    target = str(params.get('target') or '')
+    if not target.startswith(C.BASE + '?') and not target.startswith(C.BASE + '/?'):
+        return
+    W.mark_read([str(params.get('key') or '')])
+    W.sync_alerts()
+    C.set_prop('dhs.panel.rev', str(time.time()))
+    xbmc.executebuiltin('RunPlugin(%s)' % target)
+
+
+def read_all(params=None, handle=None):
+    from .. import watch_sources as W
+    from .. import silo_notifications
+    events = _alerts()['rows']
+    silo_notifications.mark_read([r for r in events if r.get('kind') == 'silo'], all_visible=True)
+    W.mark_read([r['key'] for r in events if r.get('key') and r.get('kind') != 'silo'])
+    W.sync_alerts()
+    refresh_alerts()

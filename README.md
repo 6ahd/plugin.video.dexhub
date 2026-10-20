@@ -6,8 +6,8 @@
 
 Stremio & Nuvio add-ons · Plex, Emby, Jellyfin & Silo · Live TV · Native Trakt, Simkl & MDBList · Arabic-first UI · TMDb Helper integration
 
-[![Version](https://img.shields.io/badge/version-5.10.331-7c3aed)]()
-[![Skin](https://img.shields.io/badge/skin-3.28.74-ffd23f)]()
+[![Version](https://img.shields.io/badge/version-5.10.362-7c3aed)]()
+[![Skin](https://img.shields.io/badge/skin-3.28.91-ffd23f)]()
 [![Kodi](https://img.shields.io/badge/Kodi-21%20Omega%20%7C%2022%20Piers-33d8f7)]()
 [![License](https://img.shields.io/badge/license-all%20rights%20reserved-ef4444)](LICENSE.txt)
 [![Ko-fi](https://img.shields.io/badge/support-Ko--fi-ff5e5b)](https://ko-fi.com/dexworld)
@@ -20,15 +20,17 @@ Stremio & Nuvio add-ons · Plex, Emby, Jellyfin & Silo · Live TV · Native Trak
 
 ## What's new
 
-**Dex Hub 5.10.331 · Dex Hub skin 3.28.74**
+**Dex Hub 5.10.362 · Dex Hub skin 3.28.91**
 
-* **Trailer inside the poster:** the trailer plays in the focused card in its row, landscape and Legacy cards included, or behind the page as before (Settings, Look, Trailer place).
-* **New Legacy home:** the title's logo and details on top, framed rows with card numbers. The side menu can hide while you scroll, the current section's icon takes the accent colour, the last row opens the next section, and sections can open on focus.
-* **Title page:** Collections (the saga card, its films in release order), Studios and networks, IMDb Parents Guide and age ratings, a time left bar, and a More button with Read synopsis and Change artwork (backdrop and logo). Up opens an island with Saved, Alerts and the upcoming episodes Schedule.
-* **New player, like Nuvio Legacy:** a full subtitle page inside the player (font, size, colour, background, shadow, position, four ready looks), subtitles searched there from Dex Hub and every subtitle add-on (a4kSubtitles, OpenSubtitles, SubDL), tracks with flags, full names and badges (Atmos, DD+, 5.1, SDH), a language filter, and a sources island. The classic design stays as an option.
-* **Faster:** a source is picked 2.5 s after the first results, sources get ready in the background on the title page (long press Play opens the list at once), and Plex, Emby and Silo answers are cached.
-* **Power:** its own icon in the side menu and the top bar, and a power menu with icons.
-* **Apple TV:** the Kodi build with the Aether player (Dolby Vision, Atmos and DTS:X at 7.1.4) is at [6ahd/Kodi-tvOS](https://github.com/6ahd/Kodi-tvOS), with the Dex Hub repository built in so the add-on and skin update on their own.
+* **A lighter, faster Home:** the backdrop is drawn the way the Nimbus skin draws it (one 16:9 picture that fades into the background instead of a full screen picture under a full screen shade), about 60% less work while you move. Rows move like Arctic Fuse 3 (the focus walks along the cards and the row only scrolls at its edge), and windows open and close about a third faster.
+* **No more stall leaving the hero:** the trailer pauses and hides when you move down to the rows, closes once the keys rest and carries on if you come back. Trailers start only after the keys rest a second, so Kodi's busy dialog no longer swallows a key press.
+* **Screensaver, four styles:** Your List (any list you pick: Continue Watching, Favorites, Trakt, MDBList, Silo or a Home catalog, as a carousel with the next and previous titles peeking, OK opens the title), Movie news (IMDb, Variety, Deadline, Screen Rant and more, with the film's poster, More reads the full story), Cinema and Spotlight. A screensaver page with your sources, alerts and a preview.
+* **Notification center and your week:** All, New, Continue and Upcoming alerts, watching time for the last 7 days, and Silo alerts in the same panel.
+* **Title page:** studios, networks and collections show their logo in place of the name, a poster-led layout, and TheIntroDB v4 Skip intro and Skip recap buttons (manual, automatic or off). Jellyfin and Emby chapter previews.
+* **Play with:** Dex Hub's sources or any compatible add-on through TMDb Helper.
+* **Nuvio sync you can trust:** progress sent in Nuvio's own format so Nuvio's apps show it, library adds and removes that never replace the whole library, independent retries per section, and local library backups. Sign-ins to Nuvio, Stremio and Trakt are kept.
+* **Menu:** Back returns to the step before (a settings section to its cards, the cards to the Menu) instead of the Home.
+* **Ratings shown:** pick any of IMDb, TMDb, Rotten Tomatoes, Popcornmeter, Metacritic, Trakt, Letterboxd, MDBList and MyAnimeList.
 
 Full history in [changelog.txt](changelog.txt).
 

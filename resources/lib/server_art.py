@@ -12,6 +12,9 @@ def listing_content(items, fallback='videos'):
 
 
 def artwork(item, server, prefix=''):
+    if server.get('backend') == 'jellyfin':
+        from .jellyfin_compat import artwork as jellyfin_artwork
+        return jellyfin_artwork(item, server)
     tags = item.get('ImageTags') or {}
     iid = str(item.get('Id') or '')
     series = str(item.get('SeriesId') or '')

@@ -166,67 +166,99 @@ def _is_trailer(player):
         return False
 
 
+def _introdb_params(playing, total):
+    """Build a v4 request without guessing an id namespace or episode order."""
+    import math
+    import re
+
+    def number(value, minimum, maximum):
+        text = str(value).strip()
+        if not re.fullmatch(r'[0-9]+', text):
+            return None
+        value = int(text)
+        return value if minimum <= value <= maximum else None
+
+    try:
+        total = float(total)
+        if not math.isfinite(total) or total <= 0:
+            return []
+        q = playing.get('q') or {}
+        # Existing Dex Hub coordinates come from TMDB. Keep that namespace:
+        # v4 resolves its numbering too; relabelling a show id as TVDB is wrong.
+        tmdb = number(q.get('tmdb'), 1, 10000000)
+        params = [('tmdb_id', tmdb)] if tmdb is not None else []
+        imdb = str(q.get('imdb') or '').split(':', 1)[0]
+        if not params and re.fullmatch(r'tt[0-9]{7,8}', imdb):
+            # v4 resolves IMDb server-side; no preliminary TMDB request needed.
+            params = [('imdb_id', imdb)]
+        if not params:
+            tvdb = number(q.get('tvdb') or q.get('tvdb_id'), 1, 100000000)
+            if tvdb is None:
+                return []
+            params = [('tvdb_id', tvdb)]
+        if playing.get('series'):
+            season = number(playing.get('season'), 0, 1000)
+            episode = number(playing.get('episode'), 0, 10000)
+            if season is None or episode is None:
+                return []
+            params += [('season', season), ('episode', episode)]
+            order = (playing.get('episode_order') or q.get('episode_order')
+                     or playing.get('displayorder') or q.get('displayorder') or '')
+            if order:
+                order = re.sub(r'[\s_-]', '', str(order)).lower()
+                aliases = {'officialorder': 'official', 'aired': 'official', 'airedorder': 'official',
+                           'altdvd': 'dvd', 'dvdorder': 'dvd', 'absoluteorder': 'absolute', 'abso': 'absolute',
+                           'alternateorder': 'alternate', 'alttwo': 'alternate', 'streaming': 'alternate',
+                           'streamingorder': 'alternate', 'regionalorder': 'regional', 'production': 'regional',
+                           'productionorder': 'regional', 'defaultorder': 'default'}
+                order = aliases.get(order, order)
+                if order not in ('default', 'official', 'dvd', 'alternate', 'absolute', 'regional'):
+                    return []       # don't silently request the wrong episode
+                params.append(('mapping', order))
+        params.append(('duration_ms', int(total * 1000)))
+        return params
+    except (AttributeError, TypeError, ValueError, OverflowError):
+        return []
+
+
 def _introdb_credits(playing, total):
     """When the credits start (seconds), from TheIntroDB, or 0. Asked once
     per video, ten minutes before its end; most episodes are not there
     yet, and then the chapters or the timing decide."""
-    q = playing.get('q') or {}
-    tmdb, imdb = str(q.get('tmdb') or ''), str(q.get('imdb') or '')
-    series = bool(playing.get('series'))
-    season, episode = int(playing.get('season') or -1), int(playing.get('episode') or 0)
-    if series and (season < 0 or episode <= 0):
-        return 0
-    try:
-        from . import tmdb_direct as T
-        if not tmdb.isdigit() and imdb:
-            tmdb = str((T._season_show('', imdb, cached_only=False) if series
-                        else T._resolve_tmdb_id(imdb_id=imdb, media_type='movie')) or '')
-        if not tmdb.isdigit():
-            return 0
-        key = 'tidb_credits:%s:%s:%s:%d' % (tmdb, season, episode, int(total))
-        hit = T._cache_get(key)
-        if hit is not None:
-            return int(hit or 0)
-    except Exception:
-        return 0
-    from urllib.parse import urlencode
-    from urllib.request import Request, urlopen
-    import json
-    params = [('tmdb_id', tmdb)]
-    if series:
-        params += [('season', season), ('episode', episode)]
-    params.append(('duration_ms', int(total * 1000)))
-    at = 0
-    try:
-        req = Request('https://api.theintrodb.org/v3/media?' + urlencode(params),
-                      headers={'Accept': 'application/json', 'User-Agent': 'plugin.video.dexhub'})
-        with urlopen(req, timeout=5) as resp:
-            data = json.loads(resp.read().decode('utf-8') or '{}')
-        for seg in data.get('credits') or []:
-            start = seg.get('start_ms')
-            if start is None:
-                continue
-            start = float(start) / 1000.0
-            # the closing credits only: past the middle, before the end
-            if total * 0.5 < start < total - 4 and start > at:
-                at = start
-    except Exception as exc:
-        _log('TheIntroDB: %s' % exc, xbmc.LOGDEBUG)
-    try:
-        T._cache_set(key, int(at), 7 * 86400 if at else 6 * 3600)
-    except Exception:
-        pass
-    return int(at)
+    from .introdb_client import lookup
+    rows = lookup(playing, total).get('credits', [])
+    starts = [a for a, b in rows if total * 0.5 < a < total - 4]
+    return int(max(starts)) if starts else 0
 
 
 # ------------------------------------------------------------------ data
 def _playing():
     try:
         from .skinui import osd
-        return osd._playing() or {}
+        playing = osd._playing() or {}
     except Exception as exc:
         _log('playing title unknown: %s' % exc, xbmc.LOGDEBUG)
         return {}
+    if not playing:
+        return {}
+    try:
+        # Only this late, once-per-video lookup needs the extra API metadata.
+        # An episode's generic tvdb unique id is NOT the series' tvdb id.
+        item = xbmc.Player().getPlayingItem()
+        tag = item.getVideoInfoTag()
+        series = bool(playing.get('series'))
+        tvdb = ((item.getProperty('tvshow.tvdb_id') or item.getProperty('show_tvdb_id')
+                 or tag.getUniqueID('tvshow.tvdb')) if series else tag.getUniqueID('tvdb'))
+        if tvdb:
+            playing = dict(playing, q=dict(playing.get('q') or {}))
+            playing['q'].setdefault('tvdb', tvdb)
+        if series:
+            order = item.getProperty('episode_order') or item.getProperty('displayorder')
+            if order:
+                playing = dict(playing, episode_order=order)
+    except Exception:
+        pass
+    return playing
 
 
 def _next_episode(playing):

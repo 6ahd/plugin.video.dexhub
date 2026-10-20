@@ -16,6 +16,7 @@ The day's new episodes also go to the Home window (``dhs.newep.*``), where
 skin.dexhub's island shows them until midnight.
 """
 import datetime
+from . import profile_scope as _scope
 import json
 import os
 import time
@@ -55,7 +56,7 @@ def _log(msg, level=xbmc.LOGINFO):
 
 def _path():
     import xbmcvfs
-    return os.path.join(xbmcvfs.translatePath(_addon().getAddonInfo('profile')), 'reminders.json')
+    return _scope.path('reminders.json')
 
 
 def _load():
@@ -71,6 +72,7 @@ def _save(data):
     cutoff = time.time() - _KEEP_DAYS * 86400
     data = dict((k, v) for k, v in data.items() if float(v or 0) > cutoff)
     try:
+        _scope.require_current()
         path = _path()
         os.makedirs(os.path.dirname(path), exist_ok=True)
         tmp = path + '.tmp'
@@ -170,7 +172,7 @@ def _favourites():
     return out
 
 
-def _tmdb_of(canonical, media):
+def _tmdb_of(canonical, media, cached_only=False):
     from . import tmdb_direct as T
     canonical = str(canonical or '')
     if canonical.startswith('tmdb:'):
@@ -178,11 +180,13 @@ def _tmdb_of(canonical, media):
     base = canonical.split(':')[0]
     if base.startswith('tt'):
         if media == 'series':
-            return str(T._season_show('', base, cached_only=False) or '')
+            return str(T._season_show('', base, cached_only=cached_only) or '')
         key = 'movie_of_imdb:%s' % base
         known = T._cache_get(key)
         if known is not None:
             return str(known or '')
+        if cached_only:
+            return ''
         found = str(T._resolve_tmdb_from_imdb(base, 'movie') or '')
         T._cache_set(key, found, 30 * 86400 if found else 86400)
         return found
@@ -211,7 +215,10 @@ def _show(tmdb):
                         # v5.10.313: the panel's Schedule badges (finale, mid_season)
                         'type': str(ep.get('episode_type') or '')})
     networks = [n.get('name') for n in raw.get('networks') or [] if isinstance(n, dict) and n.get('name')]
-    data = {'name': raw.get('name') or '', 'poster': raw.get('poster_path') or '',
+    # v5.10.334: each season's episodes (the island's "6 of 8 episodes")
+    seasons = dict((str(s.get('season_number')), int(s.get('episode_count') or 0))
+                   for s in raw.get('seasons') or [] if isinstance(s, dict) and s.get('season_number') is not None)
+    data = {'seasons': seasons, 'name': raw.get('name') or '', 'poster': raw.get('poster_path') or '',
             'backdrop': raw.get('backdrop_path') or '', 'network': networks[0] if networks else '',
             'imdb': str(((raw.get('external_ids') or {}).get('imdb_id')) or ''), 'eps': eps}
     ttl = 12 * 3600 if raw else 1800
@@ -254,27 +261,22 @@ def _art(path, kind):
 
 
 def titles():
-    """Every title to watch for: ([show tmdb ids], {show tmdb: name}, [film tmdb ids])."""
-    shows, names, movies = [], {}, []
-    for tmdb, name in _watched_shows().items():
-        if tmdb not in shows:
-            shows.append(tmdb)
-            names[tmdb] = name
-    for media, canonical, title in _favourites():
-        if (media == 'series' and len(shows) >= _MAX_SHOWS * 3) or (media == 'movie' and len(movies) >= _MAX_MOVIES):
-            continue                    # full: no lookup for the rest
-        try:
-            tmdb = _tmdb_of(canonical, media)
-        except Exception:
-            tmdb = ''
-        if not tmdb.isdigit():
-            continue
-        if media == 'series' and tmdb not in shows and len(shows) < _MAX_SHOWS * 3:
-            shows.append(tmdb)
-            names[tmdb] = title
-        elif media == 'movie' and tmdb not in movies and len(movies) < _MAX_MOVIES:
-            movies.append(tmdb)
-    return shows, names, movies
+    """Personal monitoring sources, bounded per pass and rotated every half hour."""
+    from . import watch_sources as W
+    try:
+        shows, names, movies = W.monitoring_titles()
+        paused = W.paused_ids()
+        shows = [v for v in shows if ('series', v) not in paused]
+        movies = [v for v in movies if ('movie', v) not in paused]
+        def batch(values, count):
+            if len(values) <= count:
+                return values
+            start = (int(time.time()) // int(_EVERY) * count) % len(values)
+            return (values + values)[start:start + count]
+        return batch(shows, _MAX_SHOWS * 3), names, batch(movies, _MAX_MOVIES)
+    except Exception as exc:
+        _log('personal sources unavailable: %s' % exc.__class__.__name__)
+        return [], {}, []
 
 
 def scan():
@@ -307,7 +309,7 @@ def scan():
         day, out_now = _local_day(ev)
         if day is None:
             continue
-        aired[(str(ev.get('tmdb') or ''), int(ev.get('season') or 0), int(ev.get('episode') or 0))] = (day, out_now)
+        aired[(str(ev.get('tmdb') or ''), int(ev.get('season') or 0), int(ev.get('episode') or 0))] = (day, out_now, ev.get('aired') or '')
     out, soon, seen = [], [], set()
     for ev in events:
         try:
@@ -318,7 +320,7 @@ def scan():
         if ev['kind'] == 'ep':
             exact = aired.get((ev['tmdb'], ev['season'], ev['episode']))
             if exact:
-                day, out_now = exact
+                day, out_now, ev['aired'] = exact
             ev['key'] = 'ep|%s|%d|%d' % (ev['tmdb'], ev['season'], ev['episode'])
             ev['code'] = 'S%d:E%d' % (ev['season'], ev['episode'])
             name = ev.get('ep_title') or ''
@@ -465,19 +467,24 @@ def _when(day_iso):
         return day_iso
 
 
+@_scope.bound
 def _publish(ready, soon=()):
     """What the island shows: what can be played now, and this week's."""
+    _scope.require_current()
     home = xbmcgui.Window(10000)
     rows = []
     for ev in ready[:20]:
         rows.append({'title': ev['title'], 'code': ev.get('code') or '', 'sub': ev.get('sub') or '',
                      'kind': ev['kind'], 'poster': ev.get('poster') or '', 'fanart': ev.get('fanart') or '',
-                     'action': _opener(ev, play=True), 'key': ev['key']})
+                     'action': _opener(ev, play=True), 'key': ev['key'],
+                     'day': ev.get('day') or '', 'aired': ev.get('aired') or '', 'detected_at': ev.get('detected_at') or 0,
+                     'monitor_aliases': [('series' if ev['kind'] == 'ep' else 'movie') + '|tmdb:' + str(ev.get('tmdb') or '')],
+                     'monitor_key': ('series' if ev['kind'] == 'ep' else 'movie') + '|' + (ev.get('imdb') or 'tmdb:' + str(ev.get('tmdb') or ''))})
     later = []
     for ev in list(soon)[:15]:
         later.append({'title': ev['title'], 'sub': '  ·  '.join(x for x in (_when(ev['day']), ev.get('sub') or '') if x),
                       'kind': ev['kind'], 'poster': ev.get('poster') or '', 'fanart': ev.get('fanart') or '',
-                      'action': _opener(ev), 'key': ev['key']})
+                      'action': _opener(ev), 'key': ev['key'], 'day': ev.get('day') or '', 'aired': ev.get('aired') or ''})
     home.setProperty('dhs.newep.list', json.dumps(rows))
     home.setProperty('dhs.newep.soon', json.dumps(later))
     home.setProperty('dhs.newep.day', datetime.date.today().isoformat())
@@ -512,6 +519,7 @@ def _notify(events):
         _log('notification failed: %s' % exc, xbmc.LOGWARNING)
 
 
+@_scope.bound
 def check(force=False):
     """Announce once what came out and can be played. Returns how many."""
     if not force and not enabled():
@@ -520,8 +528,14 @@ def check(force=False):
     out = [ev for ev in out if not _started(ev)]
     state = _load_state()
     ready = _ready(out, state)
-    _publish(ready, soon)
+    from . import watch_sources as W
+    dismissed = set(W.config().get('read') or [])
+    ready = [ev for ev in ready if ev['key'] not in dismissed]
     seen = state.setdefault('seen', {})
+    now = time.time()
+    for ev in ready:
+        ev['detected_at'] = seen.get(ev['key']) or now
+    _publish(ready, soon)
     fresh = [ev for ev in ready if ev['key'] not in seen]
     if fresh:
         _notify(fresh)
@@ -546,6 +560,7 @@ def _save_state(state):
     checks = dict((k, v) for k, v in (state.get('checks') or {}).items()
                   if float((v or {}).get('at') or 0) > cutoff)
     try:
+        _scope.require_current()
         path = _path()
         os.makedirs(os.path.dirname(path), exist_ok=True)
         tmp = path + '.tmp'
@@ -556,13 +571,14 @@ def _save_state(state):
         pass
 
 
-def _panel_ahead():
+@_scope.bound
+def _panel_ahead(force=False):
     # v5.10.314: the panel's Schedule read ahead (never over a video)
     if xbmc.getCondVisibility('Player.HasVideo'):
         return
     try:
         from .skinui import panel
-        panel.refresh_schedule()
+        panel.refresh_schedule(force=force)
     except Exception as exc:
         _log('panel schedule: %s' % exc, xbmc.LOGDEBUG)
 
@@ -580,14 +596,25 @@ def run(monitor):
         return
     while not monitor.abortRequested():
         try:
+            home = xbmcgui.Window(10000)
+            requested = home.getProperty('dexhub.watch.refresh') == '1'
+            home.clearProperty('dexhub.watch.refresh')
             if enabled():
                 # never over a playing video: wait for it to end
                 while xbmc.getCondVisibility('Player.HasVideo') and not monitor.abortRequested():
                     if monitor.waitForAbort(60):
                         return
-                check()
-            _panel_ahead()
+                from . import profile_scope
+                with profile_scope.bind():
+                    check()
+            from . import profile_scope
+            with profile_scope.bind():
+                _panel_ahead(force=requested)
         except Exception as exc:
             _log('check failed: %s' % exc, xbmc.LOGWARNING)
-        if monitor.waitForAbort(_EVERY):
-            return
+        deadline = time.monotonic() + _EVERY
+        while time.monotonic() < deadline:
+            if monitor.waitForAbort(min(15.0, max(0.0, deadline - time.monotonic()))):
+                return
+            if xbmcgui.Window(10000).getProperty('dexhub.watch.refresh') == '1':
+                break

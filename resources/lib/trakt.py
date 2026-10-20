@@ -97,20 +97,31 @@ def _write_json(path, value):
 
 
 def token_data():
-    return _read_json(TOKEN_PATH, {})
+    # v5.10.337: kept in the settings too (Apple TV may empty the folder)
+    from . import token_keep
+    data = _read_json(TOKEN_PATH, {})
+    if data:
+        token_keep.keep('trakt', data)
+        return data
+    return token_keep.restore('trakt', lambda d: _write_json(TOKEN_PATH, d)) or data
 
 
 def save_token(data):
     data = dict(data or {})
     data.setdefault('created_at', int(time.time()))
     _write_json(TOKEN_PATH, data)
+    from . import token_keep
+    token_keep.keep('trakt', data)
 
 
 def clear_token():
-    try:
-        os.remove(TOKEN_PATH)
-    except FileNotFoundError:
-        pass
+    from . import token_keep
+    token_keep.forget('trakt')
+    for path in (TOKEN_PATH, TOKEN_PATH + '.bak'):
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            pass
 
 
 def authorized():

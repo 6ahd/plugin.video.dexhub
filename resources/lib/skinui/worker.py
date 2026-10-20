@@ -137,6 +137,7 @@ class Worker(object):
         self.player = xbmc.Player()
         self._republish_token = C.prop(C.PROP_REPUBLISH)
         self._progress_token = C.prop('dhs.progress.changed')
+        self._progress_action_token = C.prop('dhs.progress.action')
         self._playing = False
         self._real_since = 0.0
         self._progress_due = 0.0
@@ -151,6 +152,8 @@ class Worker(object):
         self._section_check_at = 0.0
         self._ahead_window = None
         self._pending_updates = {}
+        self._pending_metadata = set()
+        self._redraw_hashes = {}
         self._later = None              # v5.10.188: tabs published after the one on screen
         self._slow_tabs = set()         # tabs whose rows took long: profiled at the next check
         self._profiled = set()
@@ -199,6 +202,27 @@ class Worker(object):
         if last is None or last[0] != value or now - last[1] > 30.0:
             written[key] = (value, now)
             C.set_prop(key, value)
+
+    def preview_transition(self):
+        """Hold automatic row work during resolve/open/first-frame settle.
+
+        A playing background preview is deliberately not busy(), but treating
+        its *startup* as idle let enrichment rebind the neighboring lists just
+        as Kodi opened the renderer. Rebinding replaces the list's layouts and
+        its background-loaded covers briefly expose their text placeholders.
+        The director keeps preview.opening set for 0.8 s after AVStarted.
+        Never turn an abandoned loading status into a permanent refresh lock.
+        """
+        active = bool(C.prop('dhs.preview.opening')
+                      or C.prop('dhs.trailer.status') == 'loading')
+        if not active:
+            self._preview_transition_at = None
+            return False
+        now = time.monotonic()
+        since = getattr(self, '_preview_transition_at', None)
+        if since is None:
+            self._preview_transition_at = since = now
+        return now - since < 30.0
 
     def rest(self, seconds):
         self.beat()
@@ -376,6 +400,7 @@ class Worker(object):
                     C.log('theme:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
             self.watch_playback()
             now = time.time()
+            self._check_progress_actions(now)
             if self._progress_due and now >= self._progress_due:
                 self._progress_due = 0.0
                 self._progress_read_at = now
@@ -403,7 +428,7 @@ class Worker(object):
             if self._was_quiet and not quiet:
                 self._last_check = 0.0      # back from the screensaver: look at once
             self._was_quiet = quiet
-            if not self.busy() and now - self._last_check >= _CHECK_EVERY:
+            if not self.busy() and not self.preview_transition() and now - self._last_check >= _CHECK_EVERY:
                 self._last_check = now
                 self.check(quiet=quiet)
                 self.heal()
@@ -439,6 +464,8 @@ class Worker(object):
         strings.publish(force=True)
         if self.spotlight is not None:
             self.spotlight._settings = None
+        if 'ratings_shown' in changed and getattr(self, 'ratings', None) is not None:
+            self.ratings.shown = ''         # v5.10.334: the hero's ratings again, as chosen
         filters = changed & {'library_src', 'servers_src', 'show_servers'}
         if filters:
             if 'show_servers' in changed and snap.get('show_servers') == 'false' and C.prop('dhs.tab') == 'servers':
@@ -513,7 +540,7 @@ class Worker(object):
 
     def read_rows_ahead(self):
         """Expose the focused row and its neighbors, without crawling the Home."""
-        if self.mode != 'dexhub' or self.busy():
+        if self.mode != 'dexhub' or self.busy() or self.preview_transition():
             return
         layout = C.layout()
         if layout.hubs:
@@ -608,7 +635,7 @@ class Worker(object):
         return (kind == 'e', slot != center, abs(slot - center))
 
     def dispatch_requests(self, rows):
-        if self.busy():
+        if self.busy() or self.preview_transition():
             return
         requests = []
         for entry in C.take_requests():
@@ -620,7 +647,7 @@ class Worker(object):
         for _priority, (tab, row_id, kind) in requests:
             if self.request_priority(tab, row_id, kind) is None:
                 continue  # the user left this section while another request ran
-            if kind in used or self.stopped() or self.busy():
+            if kind in used or self.stopped() or self.busy() or self.preview_transition():
                 C.request_refresh(tab, row_id, enrich_only=kind == 'e')
                 continue
             used.add(kind)
@@ -807,6 +834,8 @@ class Worker(object):
             except ValueError:
                 asked = 0.0
             reason = token.partition(' ')[2] or 'request'
+            if reason not in self._AT_ONCE and self.preview_transition():
+                return False
             wait = min(settle, 0.1) if reason in self._AT_ONCE else settle
             if wait and time.time() - asked < wait:
                 return False
@@ -859,7 +888,7 @@ class Worker(object):
     def publish_later(self):
         """One of the tabs left by the last publish (v5.10.188). True when one was."""
         later = self._later
-        if later is None or time.monotonic() < later['at'] or self.busy():
+        if later is None or time.monotonic() < later['at'] or self.busy() or self.preview_transition():
             return False
         from . import rows
         screen = rows.screen_tab()      # a tab the user went to meanwhile goes next
@@ -946,6 +975,8 @@ class Worker(object):
         """The rows on show, read where they have no cache (or an old one),
         the tab on show first, then their TMDb pass."""
         from . import rows
+        if self.preview_transition():
+            return
         tab = C.prop('dhs.tab') or 'all'
         if tab not in C.TABS:
             tab = 'all'
@@ -966,7 +997,7 @@ class Worker(object):
         # the first rows of every tab before the rest
         todo.sort(key=lambda entry: (entry[1] > 4, order.index(entry[0]), entry[1]))
         for name, slot, spec in todo:
-            if self.stopped():
+            if self.stopped() or self.preview_transition():
                 return
             if self.busy():
                 return
@@ -1005,37 +1036,96 @@ class Worker(object):
         if enrich:
             self.enrich(tab, row_id, spec)
 
-    def changed(self, tab, row_id, spec, before, data):
-        from . import rows
+    def changed(self, tab, row_id, spec, before, data, metadata=False):
         served = C.prop('dhs.sv.%s.%s' % (tab, row_id))
         shape_changed = before is not None and before.get('shape') != data.get('shape')
         if (served and served != data.get('h')) or shape_changed:
-            view = self.visible_rows()
-            if (view and view[0] == tab and xbmc.getGlobalIdleTime() < 1
-                    and C.prop('dhs.%s.%d.id' % (tab, view[1])) == row_id):
+            key = (tab, row_id)
+            if metadata and not getattr(self, '_manual_progress_refresh', False):
+                # Six-title enrichment batches used to reload the entire row
+                # each time. Keep caching, then publish the completed pass once.
+                self._pending_metadata.add(key)
+                self._pending_updates[key] = spec
+                return
+            self._pending_metadata.discard(key)
+            # Protect every visible neighbor, not just the focused row. A
+            # result already in flight must wait too; holding new jobs alone
+            # still allowed its bump to flash the covers during trailer open.
+            transition = self.preview_transition()
+            if not getattr(self, '_manual_progress_refresh', False) and (
+                    self.busy() or transition or self.collection_preview(tab) or xbmc.getGlobalIdleTime() < 1):
+                if transition and (tab, row_id) not in self._pending_updates:
+                    C.log('row redraw held for trailer startup: %s/%s' % (tab, row_id))
+                if shape_changed:
+                    self.__dict__.setdefault('_pending_shapes', set()).add((tab, row_id))
                 self._pending_updates[(tab, row_id)] = spec
             else:
-                rows.bump(tab, row_id, spec)
+                self._pending_updates.pop((tab, row_id), None)
+                getattr(self, '_pending_shapes', set()).discard((tab, row_id))
+                self._bump_row(tab, row_id, spec, data)
+
+    def _bump_row(self, tab, row_id, spec, data):
+        """Do not issue the same rebind twice while Kodi still serves it."""
+        key = (tab, row_id)
+        stamp = (data.get('h'), data.get('shape'))
+        if self._redraw_hashes.get(key) == stamp:
+            return False
+        from . import rows
+        rows.bump(tab, row_id, spec)
+        self._redraw_hashes[key] = stamp
+        return True
+
+    def _metadata_focused(self, tab, row_id):
+        view = self.visible_rows()
+        if not view or view[0] != tab:
+            return False
+        slot = view[1]
+        cid = 7000 + slot if tab == 'fold' else C.layout().row_list(slot)
+        return (C.prop('dhs.%s.%d.id' % (tab, slot)) == row_id
+                and xbmc.getCondVisibility('Control.HasFocus(%d)' % cid))
+
+    def collection_preview(self, tab):
+        # Keep the collection's current row layouts alive for the entire
+        # preview, including its card expansion. Metadata may still cache.
+        if tab != 'fold':
+            return False
+        view = self.visible_rows()
+        return bool(view and view[0] == 'fold' and
+                    (C.prop('dexhub.trailer.active') or C.prop('dhs.trailer.visible')))
 
     def flush_updates(self):
-        """Keep cached refreshes off the cursor while the user scrolls."""
-        if self.busy() or xbmc.getGlobalIdleTime() < 1:
+        """Coalesce results and apply at most one rebind per settled loop."""
+        if not self._pending_updates:
+            return
+        if self.busy() or self.preview_transition() or xbmc.getGlobalIdleTime() < 1:
             return
         from . import rows
         for (tab, row_id), spec in list(self._pending_updates.items()):
-            self._pending_updates.pop((tab, row_id), None)
+            if self.collection_preview(tab):
+                continue
             data = C.read_row(C.row_file(tab, row_id)) or {}
-            if C.prop('dhs.sv.%s.%s' % (tab, row_id)) not in ('', data.get('h')):
-                rows.bump(tab, row_id, spec)
+            key = (tab, row_id)
+            if key in self._pending_metadata:
+                if (not rows.is_enriched(data) or self._metadata_focused(tab, row_id)
+                        or C.prop('dexhub.trailer.active') or C.prop('dhs.trailer.visible')):
+                    continue
+            self._pending_updates.pop(key, None)
+            self._pending_metadata.discard(key)
+            shapes = getattr(self, '_pending_shapes', set())
+            shape_changed = (tab, row_id) in shapes
+            shapes.discard((tab, row_id))
+            if shape_changed or C.prop('dhs.sv.%s.%s' % (tab, row_id)) not in ('', data.get('h')):
+                if self._bump_row(tab, row_id, spec, data):
+                    break
 
     def enrich(self, tab, row_id, spec):
         from . import rows
         try:
-            if rows.enrich(tab, row_id, stop=lambda: self.stopped() or self.busy()
+            if rows.enrich(tab, row_id, stop=lambda: self.stopped() or self.busy() or self.preview_transition()
                            or self.request_priority(tab, row_id, 'e') is None):
                 data = C.read_row(C.row_file(tab, row_id)) or {}
                 if C.prop('dhs.sv.%s.%s' % (tab, row_id)) not in ('', data.get('h')):
-                    self.changed(tab, row_id, spec, None, data)
+                    self.changed(tab, row_id, spec, None, data, metadata=True)
         except Exception:
             C.log('TMDb pass failed:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
         pending = C.read_row(C.row_file(tab, row_id)) or {}
@@ -1045,8 +1135,10 @@ class Worker(object):
             try:
                 # a Dex Hub trailer does not hold the covers back (it plays
                 # behind the spotlight all the time): the user's video does
-                if rows.fetch_gifs(tab, row_id, stop=lambda: self.stopped() or self.watching()):
-                    rows.bump(tab, row_id, spec)
+                if rows.fetch_gifs(tab, row_id, stop=lambda: self.stopped() or self.watching() or self.preview_transition()):
+                    data = C.read_row(C.row_file(tab, row_id)) or {}
+                    # A newly downloaded focus GIF must still become visible.
+                    self.changed(tab, row_id, spec, None, data)
             except Exception:
                 C.log('collection covers:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
 
@@ -1104,6 +1196,22 @@ class Worker(object):
                 rows.fetch(tab, spec['id'], spec, fresh=True)   # titles again: it asks to publish
                 if self.rest(0.2):
                     return
+
+    def _check_progress_actions(self, now):
+        action_token = C.prop('dhs.progress.action')
+        if not action_token or action_token == self._progress_action_token:
+            return False
+        # Manual edits bypass the player debounce once, even just after a refresh.
+        self._progress_action_token = action_token
+        self._progress_token = C.prop('dhs.progress.changed')
+        self._progress_due = 0.0
+        self._progress_read_at = now
+        self._manual_progress_refresh = True
+        try:
+            self.refresh_progress()
+        finally:
+            self._manual_progress_refresh = False
+        return True
 
     def refresh_progress(self):
         """Continue Watching, Next Up and the other progress rows, after

@@ -59,7 +59,14 @@ def token_key(token):
 
 
 def active_key():
-    return token_key(_read(os.path.join(root(), 'nuvio_token.json'), {}))
+    token_path = os.path.join(root(), 'nuvio_token.json')
+    token = _read(token_path, {})
+    if not token:
+        # Restore before binding a job to its profile. Restoring later in
+        # Nuvio.token() used to bind the job to 'local', then reject its RPCs.
+        from . import token_keep
+        token = token_keep.restore('nuvio', lambda data: _write(token_path, data))
+    return token_key(token)
 
 
 def key():

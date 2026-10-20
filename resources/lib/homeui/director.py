@@ -283,6 +283,11 @@ class TrailerDirector(object):
         return self._state != 'idle'
 
     @property
+    def parked(self):
+        """v5.10.362: hidden and paused (or parked while it still opened)."""
+        return self._state == 'parked' or (self._state == 'starting' and self._park_on_start)
+
+    @property
     def visible(self):
         return self._state == 'playing'
 

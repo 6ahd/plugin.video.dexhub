@@ -111,6 +111,9 @@ def listitem(item, tab='', row=''):
             except Exception:
                 pass
     props = dict(item.get('props') or {})
+    if props.get('kind') == 'work' and art.get('poster'):
+        # Carry the already-rendered Home texture through Kodi's Info dialog.
+        props['dhs.card.poster'] = art['poster']
     if tab:
         props['dhs.tab'] = tab
     if row:
@@ -119,9 +122,16 @@ def listitem(item, tab='', row=''):
         if value not in (None, ''):
             li.setProperty(key, str(value))
     menu = item.get('menu') or []
+    try:
+        from ..context_menu import with_player
+        menu = with_player(menu, item.get('path') or '', info, item.get('ids'), props)
+    except Exception:
+        pass
     if menu:
         try:
-            li.addContextMenuItems([(str(m[0]), menu_command(m[1], row)) for m in menu if len(m) > 1])
+            from ..context_menu import clean
+            from ..i18n import tr
+            li.addContextMenuItems([(tr(label), command) for label, command in clean([(str(m[0]), menu_command(m[1], row)) for m in menu if len(m) > 1])])
         except Exception:
             pass
     return li

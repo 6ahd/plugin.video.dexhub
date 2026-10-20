@@ -15,7 +15,10 @@ from .. import emby_client as _shared
 
 
 class SiloError(Exception):
-    pass
+    def __init__(self, message, status=0, problem=''):
+        super().__init__(message)
+        self.status = int(status or 0)
+        self.problem = str(problem or '')
 
 
 _refresh_lock = threading.Lock()
@@ -147,7 +150,8 @@ def _verify_remember(key, message):
         pass
 
 
-def _raw(url, method='GET', data=None, auth=None, profile=True, retry=True):
+def _raw(url, method='GET', data=None, auth=None, profile=True, retry=True,
+         headers_extra=None, return_headers=False):
     auth = dict(auth or account())
     body = json.dumps(data).encode('utf-8') if data is not None else None
     verify_key = _verify_key(url, auth) if profile else ''
@@ -159,7 +163,7 @@ def _raw(url, method='GET', data=None, auth=None, profile=True, retry=True):
     # Library/detail/search/source reads dominate Silo traffic. Reuse the same
     # keep-alive pool as Stremio/Emby instead of paying a fresh TCP/TLS
     # handshake per row. Mutating/auth POSTs deliberately stay on urllib.
-    if str(method or 'GET').upper() == 'GET' and body is None:
+    if str(method or 'GET').upper() == 'GET' and body is None and not headers_extra and not return_headers:
         available, status, payload_raw = _pooled_get(url, auth=auth, profile=profile)
         if available:
             if (status == 401 and retry and (auth is None or auth.get('profile_id'))
@@ -169,18 +173,21 @@ def _raw(url, method='GET', data=None, auth=None, profile=True, retry=True):
             if status >= 400:
                 try:
                     payload = _decode(payload_raw)
-                    message = payload.get('message') or payload.get('error')
+                    message = payload.get('detail') or payload.get('message') or payload.get('title') or payload.get('error')
                 except Exception:
                     message = ''
                 if verify_key and status in (401, 403):
                     _verify_remember(verify_key, message)
-                raise SiloError(message or 'Silo HTTP %s' % status)
+                raise SiloError(message or 'Silo HTTP %s' % status, status)
             return payload_raw
 
-    req = Request(url, data=body, headers=_headers(auth, profile), method=method)
+    headers = _headers(auth, profile)
+    headers.update(headers_extra or {})
+    req = Request(url, data=body, headers=headers, method=method)
     try:
         with urlopen(req, timeout=_shared._timeout()) as response:
-            return response.read()
+            payload = response.read()
+            return (payload, dict(response.headers)) if return_headers else payload
     except HTTPError as exc:
         # Normal media calls carry a small server-scoped copy of the selected
         # account, so ``auth`` is not literally None. It is still safe to
@@ -189,31 +196,61 @@ def _raw(url, method='GET', data=None, auth=None, profile=True, retry=True):
         if (exc.code == 401 and retry and (auth is None or auth.get('profile_id'))
                 and account().get('refresh_token')):
             renewed = refresh(auth)
-            return _raw(url, method, data, renewed, profile, retry=False)
+            return _raw(url, method, data, renewed, profile, retry=False,
+                        headers_extra=headers_extra, return_headers=return_headers)
         try:
             payload = _decode(exc.read())
-            message = payload.get('message') or payload.get('error')
+            message = payload.get('detail') or payload.get('message') or payload.get('title') or payload.get('error')
         except Exception:
             message = ''
         if verify_key and exc.code in (401, 403):
             _verify_remember(verify_key, message)
-        raise SiloError(message or 'Silo HTTP %s' % exc.code)
+        raise SiloError(message or 'Silo HTTP %s' % exc.code, exc.code,
+                        payload.get('type') if isinstance(locals().get('payload'), dict) else '')
     except SiloError:
         raise
     except Exception as exc:
         raise SiloError('%s' % exc)
 
 
-def _api(path, method='GET', data=None, params=None, auth=None, profile=True, retry=True):
+def api_major(auth=None):
+    from . import silo_contract
+    auth = dict(auth or account())
+    root = _base(auth.get('url'))
+    def probe(url, **_ignored):
+        req = Request(url, headers={'Accept': 'application/json'})
+        with urlopen(req, timeout=_shared._timeout()) as response:
+            return response.read()
+    return silo_contract.version(root, probe)
+
+
+def _api(path, method='GET', data=None, params=None, auth=None, profile=True, retry=True, major=None):
     auth = dict(auth or account())
     root = _base(auth.get('url'))
     if not root:
         raise SiloError('أدخل عنوان سيرفر Silo')
+    def read_owner():
+        if method == 'GET' and profile and auth.get('profile_id'):
+            current = account() or {}
+            if not _same_account(auth, current) or str(auth['profile_id']) != str(current.get('profile_id') or ''):
+                raise SiloError('تغير بروفايل Silo؛ أعد فتح الصفحة')
+    read_owner()
+    selected_major = major or api_major(auth)
+    if selected_major == 2:
+        from . import silo_contract
+        def send(url, **kwargs):
+            kwargs.setdefault('auth', auth)
+            return _raw(url, profile=profile, retry=retry, **kwargs)
+        result = silo_contract.request(root, str(path or ''), method, data, params, auth, send, _decode)
+        read_owner()
+        return result
     url = root + '/api/v1/' + str(path or '').lstrip('/')
     pairs = [(str(k), str(v)) for k, v in (params or {}).items() if v not in (None, '')]
     if pairs:
         url += '?' + urlencode(pairs)
-    return _decode(_raw(url, method=method, data=data, auth=auth, profile=profile, retry=retry))
+    result = _decode(_raw(url, method=method, data=data, auth=auth, profile=profile, retry=retry))
+    read_owner()
+    return result
 
 
 def _account_tokens(seed, value):
@@ -533,7 +570,8 @@ def _item(row, server):
     else:
         media_type = 'movie'
     versions = [_version(v) for v in (row.get('versions') or row.get('files') or [])]
-    user = row.get('user_data') or row.get('user_state') or {}
+    user = dict(row.get('user_state') or {})
+    user.update(row.get('user_data') or {})
     overlay = row.get('overlay_summary') or {}
     crew = list(row.get('crew') or [])
     # ``runtime`` is minutes on every catalog/detail surface. Home section
@@ -1149,13 +1187,27 @@ def _compat_playback_subtitles(server, item_id, media_source_id=''):
     return out
 
 
-def resolve_playback(server, item_id, media_source_id=''):
+def resolve_playback(server, item_id, media_source_id='', start_position=None, strict_version=False):
     item = metadata(server, item_id)
     versions = item.get('versions') or []
     selected = next((v for v in versions if str(v.get('file_id') or '') == str(media_source_id or '')), None)
+    if strict_version and media_source_id and not selected:
+        raise SiloError('نسخة Silo المحددة لم تعد متاحة؛ اختر المصدر من جديد')
     selected = selected or (versions[0] if versions else {})
     file_id = str(selected.get('file_id') or media_source_id or '')
     auth = _native_auth(server)
+    major = api_major(auth)
+    installation = ''
+    if start_position is None:
+        start_position = float(item.get('resume_ms') or 0) / 1000.0
+    if major == 2:
+        capability = _api('playback/capabilities', auth=auth, major=2)
+        installation = str(capability.get('installation_id') or '')
+        if (capability.get('state') != 'available' or not capability.get('allowed') or
+                3 not in (capability.get('protocol_versions') or []) or not installation):
+            raise SiloError('تشغيل Silo غير متاح لهذا البروفايل أو لم يكتمل إعداد السيرفر')
+        if not {'playback_plan_v3', 'sequenced_progress_v1'}.issubset(set(capability.get('features') or [])):
+            raise SiloError('سيرفر Silo يحتاج تحديث عقد جلسات التشغيل')
     # Negotiate through Silo's native v3 playback contract at the actual
     # handoff. This works for accounts without download permission and lets
     # the server choose direct/remux/transcode. The original-file route below
@@ -1183,20 +1235,23 @@ def resolve_playback(server, item_id, media_source_id=''):
             'validated_claims': [], 'transformations': [],
         }
         capabilities['codecs_video_hardware'] = list(capabilities['codecs_video'])
-        decision = _api('playback/start', method='POST', auth=auth, data={
+        request = {
             'protocol_version': 3,
             # Only advertise the feature Dex actually executes. Newer Silo
             # treats these tokens as behavioural promises, not decoration.
             'client_features': ['playback_plan_v3'],
-            'file_id': int(file_id), 'profile_id': str(auth.get('profile_id') or ''),
+            'file_id': str(file_id) if major == 2 else int(file_id),
+            'profile_id': str(auth.get('profile_id') or ''),
             'playback_attempt_id': uuid.uuid4().hex,
             'quality_preference': 'original',
+            'allow_alternate_versions': False,
             'subtitle_fidelity_preference': 'preserve',
             'progress_persistence': 'server',
+            'start_position': max(0.0, float(start_position or 0)),
             'metered': False,
             'client_capabilities': capabilities,
             'client_playback_context': {
-                'protocol_version': 3, 'form_factor': 'tv', 'app_version': '5.10.14',
+                'protocol_version': 3, 'form_factor': 'tv', 'app_version': '5.10.348',
                 'device': {'platform': 'kodi'},
                 'output': {},
                 # v5.10.172: Kodi plays the original file itself: it maps HDR and
@@ -1209,7 +1264,11 @@ def resolve_playback(server, item_id, media_source_id=''):
                                    'client_managed_dynamic_range_v1', 'client_selected_audio_track_v1']),
                                'progressive': delivery, 'hls': delivery},
             },
-        })
+        }
+        if major == 2:
+            request['installation_id'] = installation
+            request['client_features'].append('sequenced_progress_v1')
+        decision = _api('playback/start', method='POST', auth=auth, data=request, major=major)
         plan = decision.get('playback_plan') or {}
         candidate = ((plan.get('stream') or {}).get('url') or decision.get('stream_url') or '')
         if candidate:
@@ -1241,7 +1300,8 @@ def resolve_playback(server, item_id, media_source_id=''):
             # Jellyfin PlaybackInfo surface. Native playback/start may return
             # the correct stream but no sidecar inventory. Merge both surfaces
             # at handoff; never delay source discovery for subtitle enrichment.
-            compat_subtitles = _compat_playback_subtitles(server, item_id, file_id)
+            compat_subtitles = (_compat_playback_subtitles(server, item_id, file_id)
+                                if major == 1 and not subtitles else [])
             if compat_subtitles:
                 _seen_urls = {str(x.get('url') or x.get('key') or '') for x in subtitles}
                 for _sub in compat_subtitles:
@@ -1258,15 +1318,24 @@ def resolve_playback(server, item_id, media_source_id=''):
                                      len([x for x in subtitles if x.get('url')])), _shared.xbmc.LOGINFO)
             except Exception:
                 pass
-            return {'url': str(candidate) + '|' + _stream_headers(auth),
-                    'media_source_id': file_id,
+            from .silo_playback import session_context, stream_headers
+            session = session_context(auth, major, installation, request, decision)
+            return {'url': str(candidate) + '|' + stream_headers(auth, plan.get('stream') or {}),
+                    'media_source_id': str(plan.get('effective_media_file_id') or file_id),
                     'play_session_id': str(decision.get('session_id') or ''),
+                    'silo_session': session,
                     'version': selected}
         # v5.10.170: say why the native plan was not used (no stream in it)
         _shared.xbmc.log('[DexHub] Silo playback v3: no stream in the plan (outcome %s, %s)' % (
             decision.get('outcome') or '', ((decision.get('terminal') or {}).get('reason') or '')),
             _shared.xbmc.LOGWARNING)
+        raise SiloError('لم يسمح Silo بخطة تشغيل: %s' %
+                        ((decision.get('terminal') or {}).get('reason') or decision.get('outcome') or 'invalid_plan'))
     except Exception as exc:
+        # A terminal decision or a failed modern API is not permission to
+        # bypass the session through a download URL.
+        if major == 2 or not isinstance(exc, SiloError) or exc.status not in (404, 405, 426):
+            raise
         try:
             _shared.xbmc.log('[DexHub] Silo playback v3 failed, direct file used: %s' % (
                 str(exc)[:200]), _shared.xbmc.LOGWARNING)

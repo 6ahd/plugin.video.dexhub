@@ -715,6 +715,9 @@ class DetailsWindow(W._BaseWindow):
                 number = _int(video.get('season'))
             by_season.setdefault(number, []).append(video)
         if by_season:
+            from .episode_meta import unique_episodes
+            by_season = {number: unique_episodes(rows, season=number) for number, rows in by_season.items()}
+            videos = [video for rows in by_season.values() for video in rows]
             self._remember_series(api, meta, videos, provider)
             ids = self._ids(api)
             for number, rows in by_season.items():
@@ -864,6 +867,9 @@ class DetailsWindow(W._BaseWindow):
     def _season_rows(self, number):
         """The season's episodes, TMDb's language and pictures merged in."""
         rows = self.episodes.get(number)
+        if rows is not None:
+            from .episode_meta import unique_episodes
+            rows = self.episodes[number] = unique_episodes(rows, season=number)
         from .. import episode_titles as ET
         # v5.10.214: TMDb also names the episodes a source only numbers
         unnamed = rows is not None and ET.mode() != 'off' and any(ET.generic(r.get('title')) for r in rows)
@@ -1020,6 +1026,7 @@ class DetailsWindow(W._BaseWindow):
 
         def add(key, label, icon, icon_on='', on=False):
             li = xbmcgui.ListItem(label=label)
+            li.setProperty('primary', '1' if key == 'play' else '')
             li.setProperty('icon', self.app.media_path(icon))
             li.setProperty('icon_on', self.app.media_path(icon_on or icon))
             if on:
@@ -1328,6 +1335,8 @@ class DetailsWindow(W._BaseWindow):
                                100.0, '', 'watched', tmdb_id='' if self.series else (self.tmdb_id or ''),
                                imdb_id='' if self.series else (self.hero.get('imdb_id') or ''),
                                show_tmdb_id=self.tmdb_id if self.series else '')
+                from .. import progress_events
+                progress_events.changed()
                 # v5.10.171: Floppy hears it too (playback reaches it through
                 # the Floppy service add-on; a mark by hand never played)
                 try:
@@ -1344,6 +1353,8 @@ class DetailsWindow(W._BaseWindow):
             elif existing:
                 P.delete_entry(existing.get('media_type') or media, existing.get('canonical_id') or self.canonical,
                                existing.get('video_id') or video_id)
+                from .. import progress_events
+                progress_events.changed()
         except Exception:
             self.app.log('watched failed:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
         self._load_progress()
@@ -1366,19 +1377,21 @@ class DetailsWindow(W._BaseWindow):
         elif not self.series:
             entries.append((self.tr('تعليم كغير مشاهد') if watched else self.tr('تعليم كمشاهد'),
                             'unwatch' if watched else 'watch'))
-        helper = self.tmdbhelper_path(dict(self.hero), force=True)
-        if helper:
-            entries.append((self.tr('فتح في TMDb Helper'), 'helper'))
+        from ..play_with import from_tile, command as player_command
+        play_tile = dict(self.hero, canonical_id=self.canonical, source_provider_id=self.source_provider_id)
+        if row:
+            play_tile.update(path=row.get('path') or '', season=row['season'], episode=row['episode'], media_type='episode', show=self.hero.get('title') or '')
+        entries.insert(0, (self.tr('التشغيل باستخدام…'), 'play_with'))
         if self.series:
             entries.append((self.tr('الصفحة الكلاسيكية'), 'classic'))
         choice = choose(self.hero.get('title') or '', [e[0] for e in entries], subtitle=self.tr('المزيد'))
         if choice < 0:
             return
         key = entries[choice][1]
-        if key in ('watch', 'unwatch'):
+        if key == 'play_with':
+            self._launch(player_command(from_tile(play_tile)))
+        elif key in ('watch', 'unwatch'):
             self._set_watched(row, key == 'watch')
-        elif key == 'helper':
-            self._launch('ActivateWindow(Videos,%s,return)' % self._arg(helper))
         elif key == 'classic':
             tile = dict(self.hero)
             if self.series:
@@ -1414,7 +1427,7 @@ class DetailsWindow(W._BaseWindow):
             return
         code = 'S%dE%d' % (row['season'], row['episode'])
         watched = self._watched(self.progress.get((row['season'], row['episode'])))
-        entries = [(self.tr('تشغيل'), 'play'), (self.tr('اختيار المصدر'), 'sources'),
+        entries = [(self.tr('تشغيل'), 'play'), (self.tr('التشغيل باستخدام…'), 'play_with'), (self.tr('اختيار المصدر'), 'sources'),
                    (self.tr('تعليم كغير مشاهدة') if watched else self.tr('تعليم كمشاهدة'),
                     'unwatch' if watched else 'watch')]
         title = '%s  •  %s' % (self.hero.get('title') or '', code)
@@ -1424,6 +1437,10 @@ class DetailsWindow(W._BaseWindow):
         key = entries[choice][1]
         if key == 'play':
             self._play_episode(row)
+        elif key == 'play_with':
+            from ..play_with import from_tile, command as player_command
+            tile = dict(self.hero, canonical_id=self.canonical, source_provider_id=self.source_provider_id, path=row.get('path') or '', media_type='episode', season=row['season'], episode=row['episode'], show=self.hero.get('title') or '')
+            self._launch(player_command(from_tile(tile)))
         elif key == 'sources':
             self._play_episode(row, choose=True)
         else:

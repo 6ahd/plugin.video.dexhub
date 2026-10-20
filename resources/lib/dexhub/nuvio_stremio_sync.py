@@ -23,6 +23,7 @@ import base64
 import json
 import os
 import time
+import math
 import secrets
 import urllib.request
 import urllib.error
@@ -320,7 +321,14 @@ def _jwt_sub(access):
 class Nuvio:
     @staticmethod
     def token():
-        return read_json(_NUVIO_TOKEN, {}) or {}
+        # v5.10.337: the file can vanish on Apple TV (Kodi's folder is a
+        # cache there); the copy in the settings brings the sign-in back
+        from .. import token_keep
+        data = read_json(_NUVIO_TOKEN, {}) or {}
+        if data:
+            token_keep.keep('nuvio', data)
+            return data
+        return token_keep.restore('nuvio', lambda d: write_json(_NUVIO_TOKEN, d))
 
     @staticmethod
     def save_token(data):
@@ -329,6 +337,8 @@ class Nuvio:
         if not d.get('user_id') and d.get('access_token'):
             d['user_id'] = _jwt_sub(d.get('access_token')) or None
         write_json(_NUVIO_TOKEN, d)
+        from .. import token_keep
+        token_keep.keep('nuvio', d)
 
     @staticmethod
     def ensure_identity():
@@ -359,6 +369,8 @@ class Nuvio:
                 if data.get('email') and not latest.get('email'):
                     latest['email'] = data['email']
                 write_json(_NUVIO_TOKEN, latest)
+                from .. import token_keep
+                token_keep.keep('nuvio', latest)
                 # v5.10.292: the files kept while the id was missing ('local')
                 # follow the account; the settings stay as they are
                 _scope.seed_first_use(before, _scope.token_key(latest), full=True)
@@ -370,6 +382,8 @@ class Nuvio:
     def clear():
         # safe_io keeps a .bak snapshot; remove both or logout would silently
         # resurrect the previous session on the next read.
+        from .. import token_keep
+        token_keep.forget('nuvio')
         for path in (_NUVIO_TOKEN, _NUVIO_TOKEN + '.bak'):
             try:
                 os.remove(path)
@@ -753,14 +767,43 @@ class Nuvio:
 
     @staticmethod
     def _progress_to_nuvio(rows):
+        # v5.10.337: Nuvio's apps key a row as <id>_s<S>e<E> (an episode) or
+        # <id> (a film) and order rows by last_watched in milliseconds. Rows
+        # went with <id>:<video> and seconds (a 1970 date), so the apps kept
+        # their own older place and never showed what was watched here.
         out = []
         for r in rows or []:
-            cid = r.get('imdb_id') or r.get('tmdb_id') or r.get('canonical_id') or ''
-            if not cid:
+            if not isinstance(r, dict):
                 continue
-            is_series = (r.get('media_type') in ('tv', 'series') or r.get('season') is not None)
-            position = float(r.get('position') or 0)
-            duration = float(r.get('duration') or 0)
+            cid = str(r.get('imdb_id') or '').strip()
+            if not cid.startswith('tt'):
+                canon = str(r.get('canonical_id') or '').strip()
+                tmdb = str(r.get('tmdb_id') or '').strip()
+                if canon.startswith('tt') or canon.startswith('tmdb:'):
+                    cid = canon.split(':', 1)[0] if canon.startswith('tt') else canon
+                elif tmdb:
+                    cid = tmdb if tmdb.startswith('tmdb:') else 'tmdb:%s' % tmdb
+                else:
+                    cid = cid or canon
+            if not cid or cid.startswith(('plex:', 'emby:', 'jellyfin:', 'silo:')):
+                continue
+            is_series = (r.get('media_type') in ('tv', 'series', 'show', 'anime') or r.get('season') is not None)
+            try:
+                position = float(r.get('position') or 0)
+                duration = float(r.get('duration') or 0)
+                season = int(r['season']) if r.get('season') is not None else None
+                episode = int(r['episode']) if r.get('episode') is not None else None
+                if not math.isfinite(position) or not math.isfinite(duration):
+                    continue
+                position, duration = max(0.0, position), max(0.0, duration)
+            except (TypeError, ValueError, OverflowError):
+                continue
+            if is_series and (season is None or episode is None):
+                # Do not collapse unrelated episodes into a movie-shaped key.
+                match = re.search(r':(\d+):(\d+)$', str(r.get('video_id') or ''))
+                if not match:
+                    continue
+                season, episode = map(int, match.groups())
             if r.get('finished'):
                 # done: a full position, so Nuvio drops it from Continue Watching
                 duration = duration if duration > 0 else max(position, 1.0)
@@ -769,12 +812,13 @@ class Nuvio:
                 'content_id': str(cid),
                 'content_type': 'series' if is_series else 'movie',
                 'video_id': str(r.get('video_id') or cid),
-                'season': int(r['season']) if r.get('season') is not None else None,
-                'episode': int(r['episode']) if r.get('episode') is not None else None,
+                'season': season,
+                'episode': episode,
                 'position': int(round(position * 1000)),
                 'duration': int(round(duration * 1000)),
-                'last_watched': int(r.get('updated_at') or time.time()),
-                'progress_key': r.get('progress_key') or ('%s:%s' % (cid, r.get('video_id') or '')),
+                'last_watched': _nuvio_ms(r.get('updated_at')),
+                'progress_key': _nuvio_key(cid, is_series, season, episode,
+                                           r.get('progress_key')),
             })
         return out
 
@@ -1123,10 +1167,12 @@ class Nuvio:
         out, seen = [], set()
         for r in rows or []:
             cid = str((r or {}).get('canonical_id') or '').strip()
-            if not cid or cid in seen:
-                continue
-            seen.add(cid)
             mt = str(r.get('media_type') or 'movie').strip().lower()
+            kind = 'series' if mt in ('series', 'show', 'tv', 'anime') else 'movie'
+            key = (kind, cid)
+            if not cid or key in seen or cid.startswith(('plex:', 'emby:', 'jellyfin:', 'silo:')):
+                continue
+            seen.add(key)
             try:
                 added = int(float(r.get('added_at') or 0)) * 1000
             except Exception:
@@ -1158,22 +1204,56 @@ class Nuvio:
         return out
 
     @staticmethod
-    def _library_to_dex(rows):
-        out = []
-        for r in rows or []:
-            if not isinstance(r, dict):
+    def _send_library_deletes(pid):
+        from .. import favorites_store
+        # Import the old JSON outbox once. A title re-added since that delete
+        # is no longer a delete; explicit changes now live in one SQLite txn.
+        state = _load_sync_state()
+        legacy = state.get('nuvio_lib_deletes') or []
+        if legacy:
+            existing = {(r['content_type'], r['content_id']) for r in favorites_store.pending_nuvio_library()}
+            for pair in legacy:
+                if not isinstance(pair, list) or len(pair) != 2:
+                    continue
+                cid, kind = pair
+                if (kind, cid) not in existing and not favorites_store.is_favorite(kind, cid):
+                    favorites_store.queue_nuvio_delete(kind, cid)
+            state.pop('nuvio_lib_deletes', None)
+            _save_sync_state(state)
+        pending = [r for r in favorites_store.pending_nuvio_library() if r['operation'] == 'delete']
+        for start in range(0, len(pending), 500):
+            batch = pending[start:start + 500]
+            Nuvio._rpc('sync_delete_library_items', {
+                'p_keys': [{'content_id': r['content_id'], 'content_type': r['content_type']} for r in batch],
+                'p_profile_id': pid,
+                'p_origin_client_id': _nuvio_client_id()})
+            favorites_store.ack_nuvio_library(batch)
+        if pending:
+            state = _load_sync_state()
+            state.pop('fp_nuvio_lib_remote', None)
+            _save_sync_state(state)
+            _log('nuvio library: %d title(s) removed' % len(pending))
+        return {(r['content_type'], r['content_id']) for r in pending}
+
+    @staticmethod
+    def _library_to_dex(rows, with_stats=False):
+        from .stremio_contract import epoch
+        out, skipped = [], 0
+        for index, r in enumerate(rows or []):
+            cid = (r.get('content_id') or r.get('contentId') or r.get('id')) if isinstance(r, dict) else None
+            if not isinstance(cid, (str, int)) or isinstance(cid, bool) or not str(cid).strip():
+                skipped += 1
+                _log('nuvio library: skipped row %d (missing or invalid content id)' % index)
                 continue
-            cid = r.get('content_id') or r.get('contentId') or r.get('id') or ''
-            if not cid:
-                continue
+            cid = str(cid).strip()
             ctype = str(r.get('content_type') or r.get('contentType') or 'movie').lower()
             year = str(r.get('release_info') or r.get('releaseInfo') or '')[:4]
             added = r.get('added_at') or r.get('addedAt') or 0
             try:
                 added = float(added)
                 added = int(added / 1000 if added > 10 ** 11 else added)
-            except (ValueError, TypeError):
-                added = int(_parse_ts(added))
+            except (ValueError, TypeError, OverflowError):
+                added = int(epoch(added))
             out.append({
                 'canonical_id': str(cid),
                 'media_type': 'series' if ctype in ('series', 'show', 'tv') else 'movie',
@@ -1185,7 +1265,7 @@ class Nuvio:
                 'year': int(year) if year.isdigit() else 0,
                 'added_at': added,
             })
-        return out
+        return (out, skipped) if with_stats else out
 
     @staticmethod
     def sync_library(rows, direction='both'):
@@ -1196,6 +1276,8 @@ class Nuvio:
         the reverse. Pull is paged exactly like NuvioWeb does.
         """
         pid = Nuvio._profile_id()
+        from .. import favorites_store
+        rows, changes = favorites_store.nuvio_library_snapshot()
         # Account watchlists stay independent. Only locally saved favorites
         # are eligible for a two-way Nuvio push. Nuvio's own cached rows are
         # included on explicit push-only, and otherwise come from this pull.
@@ -1204,6 +1286,13 @@ class Nuvio:
                   or (direction == 'push' and 'nuvio' in
                       (r.get('sources') or [r.get('source') or 'local']))]
         local_for_push = list(merged)
+        deleted = set()
+        if direction != 'pull':
+            # v5.10.337: titles removed here leave Nuvio first, so the pull
+            # below does not bring them back
+            deleted = Nuvio._send_library_deletes(pid)
+            local_for_push = [r for r in local_for_push if _library_key(r) not in deleted]
+            merged = list(local_for_push)
         if direction != 'push':
             remote_rows, offset = [], 0
             for _page in range(20):          # 10k items ceiling, same as web
@@ -1220,14 +1309,22 @@ class Nuvio:
             else:
                 raise RuntimeError('Nuvio library is incomplete; previous library retained')
             _scope.require_current()
-            remote_dex = Nuvio._library_to_dex(remote_rows)
+            remote_dex, skipped = Nuvio._library_to_dex(remote_rows, with_stats=True)
+            if skipped:
+                # A damaged row has no usable identity. Update valid rows,
+                # but retain cached memberships until a complete pull can
+                # authoritatively tell us which titles were removed.
+                cached_rows = favorites_store.list_favorites(limit=0, source='nuvio')
+                remote_dex = _merge_library(cached_rows, remote_dex)
+                _log('nuvio library: %d invalid row(s) skipped; cached membership retained' % skipped)
             # v5.10.241: the same library as last time is not written again
             # (every sync deleted and wrote back every title, and pushed them
             # all: "library +36" every half hour all night)
             state = _load_sync_state()
             fp_remote = _fingerprint(remote_rows)
-            if not fp_remote or state.get('fp_nuvio_lib_remote') != fp_remote:
-                from .. import favorites_store
+            cached = favorites_store.favorite_keys(source='nuvio')
+            expected = {(r['media_type'], r['canonical_id']) for r in remote_dex}
+            if not fp_remote or state.get('fp_nuvio_lib_remote') != fp_remote or cached != expected:
                 favorites_store.replace_source_mirror('nuvio', remote_dex)
                 _log('nuvio library pull: %d item(s)' % len(remote_dex))
             else:
@@ -1235,14 +1332,23 @@ class Nuvio:
             merged = _merge_library(merged, remote_dex)
         if direction != 'pull':
             items = Nuvio._library_to_nuvio(local_for_push)
+            state = _load_sync_state()
+            changes = [r for r in changes if r['operation'] == 'upsert']
+            dirty = {(r['content_type'], r['content_id']) for r in changes}
+            bootstrap = not state.get('nuvio_library_bootstrap_338') or direction == 'push'
+            items = [r for r in items if bootstrap or (r['content_type'], r['content_id']) in dirty]
+            for start in range(0, len(items), 500):
+                batch = items[start:start + 500]
+                Nuvio._rpc('sync_push_library_items', {
+                    'p_items': batch, 'p_profile_id': pid,
+                    'p_origin_client_id': _nuvio_client_id()})
+                sent = {(r['content_type'], r['content_id']) for r in batch}
+                favorites_store.ack_nuvio_library([r for r in changes if (r['content_type'], r['content_id']) in sent])
             if items:
-                state = _load_sync_state()
-                fp_push = _fingerprint(items)
-                if not fp_push or state.get('fp_nuvio_lib_push') != fp_push:
-                    Nuvio._rpc('sync_push_library', {'p_profile_id': pid, 'p_items': items})
-                    _log('nuvio library push: %d item(s)' % len(items))
-                    state['fp_nuvio_lib_push'] = fp_push
-                    _save_sync_state(state)
+                _log('nuvio library push: %d changed item(s)' % len(items))
+            state = _load_sync_state()
+            state['nuvio_library_bootstrap_338'] = True
+            _save_sync_state(state)
         if direction != 'push':
             state = _load_sync_state()
             state['fp_nuvio_lib_remote'] = fp_remote
@@ -1252,19 +1358,39 @@ class Nuvio:
     @staticmethod
     def sync_progress(rows, direction='both'):
         pid = Nuvio._profile_id()
-        merged = rows or []
-        if direction != 'pull':
-            entries = Nuvio._progress_to_nuvio(rows)
-            if entries:
-                Nuvio._rpc('sync_push_watch_progress', {
-                    'p_profile_id': pid, 'p_entries': entries,
-                    'p_origin_client_id': _nuvio_client_id()})
+        remote, old_keys = [], []
+        # Read before writing: an older local resume must never rewind a
+        # fresher session saved by another device.
         if direction != 'push':
             remote = Nuvio._rpc('sync_pull_watch_progress', {'p_profile_id': pid})
             if not isinstance(remote, list):
                 raise RuntimeError('Invalid Nuvio progress snapshot')
-            remote_dex = Nuvio._progress_to_dex(remote)
-            merged = _merge_progress(rows, remote_dex)
+        merged = _merge_progress(rows, Nuvio._progress_to_dex(remote))
+        if direction != 'pull':
+            entries = Nuvio._progress_to_nuvio(rows)
+            migrated, old_keys = _old_key_rows(remote)
+            newest = {}
+            for entry in migrated + entries:
+                key = entry['progress_key']
+                if key not in newest or entry['last_watched'] >= newest[key]['last_watched']:
+                    newest[key] = entry
+            good = {str(e.get('progress_key') or ''): _nuvio_ms(e.get('last_watched'))
+                    for e in remote if isinstance(e, dict) and e.get('progress_key') not in old_keys}
+            entries = [e for key, e in newest.items() if e['last_watched'] >= good.get(key, 0)]
+            for start in range(0, len(entries), 500):
+                Nuvio._rpc('sync_push_watch_progress', {
+                    'p_profile_id': pid, 'p_entries': entries[start:start + 500],
+                    'p_origin_client_id': _nuvio_client_id()})
+            if old_keys:
+                # Delete old keys only after their replacement was accepted,
+                # or a newer native row was already present on the server.
+                keys = sorted(set(old_keys))
+                for start in range(0, len(keys), 500):
+                    Nuvio._rpc('sync_delete_watch_progress', {
+                        'p_keys': keys[start:start + 500], 'p_profile_id': pid,
+                        'p_origin_client_id': _nuvio_client_id()})
+                remote = [e for e in remote if e.get('progress_key') not in old_keys] + migrated
+                merged = _merge_progress(rows, Nuvio._progress_to_dex(remote))
         return merged
 
 
@@ -1276,14 +1402,23 @@ class Stremio:
 
     @staticmethod
     def token():
-        return read_json(_STREMIO_TOKEN, {}) or {}
+        from .. import token_keep
+        data = read_json(_STREMIO_TOKEN, {}) or {}
+        if data:
+            token_keep.keep('stremio', data)
+            return data
+        return token_keep.restore('stremio', lambda d: write_json(_STREMIO_TOKEN, d))
 
     @staticmethod
     def save_token(data):
         write_json(_STREMIO_TOKEN, dict(data or {}))
+        from .. import token_keep
+        token_keep.keep('stremio', dict(data or {}))
 
     @staticmethod
     def clear():
+        from .. import token_keep
+        token_keep.forget('stremio')
         for path in (_STREMIO_TOKEN, _STREMIO_TOKEN + '.bak'):
             try:
                 os.remove(path)
@@ -1473,6 +1608,75 @@ def _merge_by_url(local, remote):
 
 
 
+def _nuvio_ms(stamp):
+    """A time in Nuvio's milliseconds (seconds are turned up)."""
+    try:
+        value = float(stamp or 0)
+    except (TypeError, ValueError):
+        value = 0.0
+    if not math.isfinite(value) or value <= 0:
+        return 0
+    if value < 100000000000:
+        value *= 1000.0
+    return int(value)
+
+
+def _nuvio_key(cid, is_series, season, episode, saved=''):
+    """Nuvio's progress key: <id>_s<S>e<E> for an episode, <id> for a film."""
+    try:
+        if is_series and season is not None and episode is not None:
+            return '%s_s%de%d' % (cid, int(season), int(episode))
+    except (TypeError, ValueError):
+        pass
+    return str(cid)
+
+
+def _old_key_rows(remote):
+    """Rows Dex Hub sent before 5.10.337 (key <id>:<video>, seconds): each
+    one again in Nuvio's shape when Nuvio has nothing newer, and the old keys
+    to remove."""
+    rows = [e for e in remote or [] if isinstance(e, dict)]
+    good = {}
+    old = []
+    for entry in rows:
+        key = str(entry.get('progress_key') or '')
+        cid = str(entry.get('content_id') or '')
+        video = str(entry.get('video_id') or '')
+        if cid and key == '%s:%s' % (cid, video):
+            old.append(entry)
+        elif key:
+            try:
+                good[key] = max(good.get(key, 0), _nuvio_ms(entry.get('last_watched')))
+            except Exception:
+                pass
+    again, keys = {}, []
+    for entry in old:
+        cid = str(entry.get('content_id') or '')
+        series = str(entry.get('content_type') or '') in ('series', 'tv')
+        if series and (entry.get('season') is None or entry.get('episode') is None):
+            continue
+        key = _nuvio_key(cid, series, entry.get('season'), entry.get('episode'))
+        stamp = _nuvio_ms(entry.get('last_watched'))
+        try:
+            position = max(0, int(float(entry.get('position') or 0)))
+            duration = max(0, int(float(entry.get('duration') or 0)))
+            if stamp <= 0:
+                continue
+        except (TypeError, ValueError, OverflowError):
+            continue
+        keys.append(str(entry.get('progress_key')))
+        if good.get(key, 0) >= stamp or (key in again and again[key]['last_watched'] >= stamp):
+            continue
+        row = {'content_id': cid, 'content_type': 'series' if series else 'movie',
+               'video_id': str(entry.get('video_id') or cid),
+               'season': entry.get('season'), 'episode': entry.get('episode'),
+               'position': position,
+               'duration': duration,
+               'last_watched': stamp, 'progress_key': key}
+        again[key] = row
+    return list(again.values()), keys
+
+
 def _percent_of(position, duration):
     """Watched share (0 to 100) from a position and a duration in seconds.
 
@@ -1601,26 +1805,31 @@ def _gather_providers():
             for r in rows if r.get('manifest_url')]
 
 
+def _library_key(row):
+    kind = 'series' if row.get('media_type') in ('series', 'show', 'tv', 'anime') else 'movie'
+    return kind, str(row.get('canonical_id') or '').strip()
+
+
 def _merge_library(local, remote):
     """Union by canonical id; the newer 'added_at' wins on a collision."""
     by_id = {}
     for row in list(local or []) + list(remote or []):
-        cid = str((row or {}).get('canonical_id') or '').strip()
-        if not cid:
+        key = _library_key(row)
+        if not key[1]:
             continue
-        prev = by_id.get(cid)
+        prev = by_id.get(key)
         if not prev:
-            by_id[cid] = row
+            by_id[key] = row
             continue
         try:
             if float(row.get('added_at') or 0) > float(prev.get('added_at') or 0):
-                by_id[cid] = row
+                by_id[key] = row
         except Exception:
             pass
     return list(by_id.values())
 
 
-def _gather_library(limit=1000):
+def _gather_library(limit=0):
     try:
         from .. import favorites_store
         return favorites_store.list_favorites(limit=limit) or []
@@ -1839,6 +2048,10 @@ def _writeback_progress(rows):
         return 0
     pending = []
     for r in rows:
+        # Only cloud imports belong here. Rewriting the local half of a
+        # merge erased its stream URL and pending local event after errors.
+        if r.get('event_type') != 'account_sync':
+            continue
         try:
             cid = r.get('canonical_id') or r.get('imdb_id') or r.get('tmdb_id') or ''
             if not cid:
@@ -1988,6 +2201,31 @@ def _load_sync_state():
     return read_json(_FP_FILE, {}) or {}
 
 
+def queue_library_delete(media_type, canonical_id):
+    """v5.10.337: a title removed from the library here leaves Nuvio's
+    library on the next sync (the push only adds now)."""
+    cid = str(canonical_id or '').strip()
+    if not cid or cid.startswith(('plex:', 'emby:', 'jellyfin:', 'silo:')):
+        return
+    try:
+        if 'nuvio' not in enabled_targets():
+            return
+    except Exception:
+        return
+    from .. import favorites_store
+    favorites_store.queue_nuvio_delete(media_type, cid)
+
+
+def _progress_identity(row):
+    return json.dumps([row.get(k) for k in ('media_type', 'canonical_id', 'video_id')], separators=(',', ':'))
+
+
+def _progress_signature(row):
+    return _fingerprint([{k: row.get(k) for k in (
+        'canonical_id', 'video_id', 'media_type', 'imdb_id', 'tmdb_id',
+        'season', 'episode', 'position', 'duration', 'percent', 'finished', 'updated_at')}])
+
+
 def _save_sync_state(state):
     try:
         write_json(_FP_FILE, state)
@@ -1996,7 +2234,50 @@ def _save_sync_state(state):
 
 
 @_scope.bound
-def run_sync(direction=None, targets=None, force_full=False, sections=None, only=None):
+def next_retry_at(targets=None):
+    """Earliest pending retry for an enabled section of the active profile."""
+    retries = _load_sync_state().get('section_retry_339') or {}
+    times = []
+    for svc in (targets if targets is not None else enabled_targets()):
+        if svc == 'nuvio' and not Nuvio.has_profile():
+            continue
+        allowed = _sections_for(svc)
+        allowed['home'] = svc == 'nuvio' and _direction_for(svc) != 'push' and (
+            allowed.get('addons') or allowed.get('collections'))
+        for section, entry in (retries.get(svc) or {}).items():
+            if allowed.get(section):
+                try:
+                    at = float(entry.get('next_at') or 0)
+                    if math.isfinite(at) and at > 0:
+                        times.append(at)
+                except (TypeError, ValueError):
+                    pass
+    return min(times) if times else 0.0
+
+
+def _record_section_results(report):
+    state = _load_sync_state()
+    retries = state.setdefault('section_retry_339', {})
+    successes = state.setdefault('section_success_339', {})
+    now = int(time.time())
+    for result in report:
+        svc = result['service']
+        pending = retries.setdefault(svc, {})
+        good = successes.setdefault(svc, {})
+        for section, outcome in result.get('sections', {}).items():
+            if outcome.get('ok'):
+                pending.pop(section, None)
+                good[section] = now
+            else:
+                failures = min(30, int((pending.get(section) or {}).get('failures') or 0) + 1)
+                delay = min(1800, 300 * (2 ** min(failures - 1, 3)))
+                pending[section] = {'failures': failures, 'next_at': now + delay}
+    _save_sync_state(state)
+
+
+@_scope.bound
+def run_sync(direction=None, targets=None, force_full=False, sections=None, only=None,
+             background=False, retry_only=False):
     """Synchronize selected sections independently.
 
     v4.0.0: `direction` and `sections` are now optional *overrides*. When
@@ -2028,6 +2309,20 @@ def run_sync(direction=None, targets=None, force_full=False, sections=None, only
         svc_dir['stremio'] = 'pull'
     svc_sections = dict((svc, dict(sections) if sections else _sections_for(svc))
                         for svc in targets)
+    retry_state = _load_sync_state().get('section_retry_339') or {}
+    now = time.time()
+    for svc in targets:
+        sec = svc_sections[svc]
+        # Home can be retried on its own, without re-fetching healthy add-ons
+        # and collections just to enter the old implicit Home branch.
+        sec['home'] = svc == 'nuvio' and svc_dir[svc] != 'push' and (
+            sec.get('addons') or sec.get('collections'))
+        for section in list(sec):
+            pending = (retry_state.get(svc) or {}).get(section) or {}
+            if retry_only:
+                sec[section] = bool(sec[section] and pending and now >= float(pending.get('next_at') or 0))
+            elif background and not force_full and pending and now < float(pending.get('next_at') or 0):
+                sec[section] = False
     if only:
         for svc in targets:
             svc_sections[svc] = dict((key, bool(value) and key in only)
@@ -2050,9 +2345,6 @@ def run_sync(direction=None, targets=None, force_full=False, sections=None, only
     fp_collections = _fingerprint(collections)
     addons_changed = want['addons'] and (force_full or not fp_addons or state.get('fp_addons') != fp_addons)
     collections_changed = want['collections'] and (force_full or not fp_collections or state.get('fp_collections') != fp_collections)
-    progress_delta_push = [r for r in progress
-        if r.get('event_type') != 'account_sync' and
-        (force_full or not last_ok or int(r.get('updated_at') or 0) > last_ok)]
 
     _log('sync plan: %s' % ' '.join(
         '%s[%s:%s]' % (svc, svc_dir[svc],
@@ -2070,7 +2362,6 @@ def run_sync(direction=None, targets=None, force_full=False, sections=None, only
         sec = svc_sections[svc]
         impl = Nuvio if svc == 'nuvio' else Stremio
         section_report = {'service': svc, 'ok': False, 'direction': d, 'sections': {}}
-        any_ok = False
         if svc == 'stremio' and sec.get('collections'):
             section_report['sections']['collections'] = {
                 'ok': False,
@@ -2087,7 +2378,6 @@ def run_sync(direction=None, targets=None, force_full=False, sections=None, only
                 if c_dir != 'skip':
                     merged_collections = impl.sync_collections(collections, c_dir)
                 section_report['sections']['collections'] = {'ok': True, 'count': len(merged_collections)}
-                any_ok = True
             except Exception as e:
                 section_report['sections']['collections'] = {'ok': False, 'error': str(e)}
                 _log('%s collections sync failed: %s' % (svc, e))
@@ -2105,7 +2395,6 @@ def run_sync(direction=None, targets=None, force_full=False, sections=None, only
                 if a_dir != 'skip':
                     merged_addons = _merge_by_url(merged_addons, impl.sync_addons(addons, a_dir))
                 section_report['sections']['addons'] = {'ok': True, 'count': len(merged_addons)}
-                any_ok = True
             except Exception as e:
                 section_report['sections']['addons'] = {'ok': False, 'error': str(e)}
                 _log('%s addons sync failed: %s' % (svc, e))
@@ -2113,7 +2402,7 @@ def run_sync(direction=None, targets=None, force_full=False, sections=None, only
         # a separate sync payload. Pull it whenever Home data (addons or
         # Collections) participates so Dex Hub mirrors Nuvio instead of
         # rebuilding a local order. This path is pull-only by design.
-        if svc == 'nuvio' and d != 'push' and (sec.get('addons') or sec.get('collections')):
+        if sec.get('home'):
             try:
                 home_snapshot = impl.pull_home_catalog_settings()
                 mirror = _save_nuvio_home_settings(
@@ -2122,17 +2411,32 @@ def run_sync(direction=None, targets=None, force_full=False, sections=None, only
                 section_report['sections']['home'] = {
                     'ok': True, 'count': len((mirror or {}).get('items') or [])
                 }
-                any_ok = True
             except Exception as e:
                 section_report['sections']['home'] = {'ok': False, 'error': str(e)}
                 _log('nuvio home settings sync failed: %s' % e)
 
         if sec.get('progress'):
             try:
-                seed = progress_delta_push if d in ('both', 'push') else progress
+                current_state = _load_sync_state()
+                acked = (current_state.get('progress_acks_338') or {}).get(svc) or {}
+                repair = svc == 'nuvio' and not current_state.get('nuvio_progress_contract_338')
+                candidates = [r for r in progress if r.get('event_type') != 'account_sync' or repair]
+                delta = [r for r in candidates if force_full or acked.get(_progress_identity(r)) != _progress_signature(r)]
+                seed = delta if d in ('both', 'push') else progress
                 merged_progress = _merge_progress(merged_progress, impl.sync_progress(seed, d))
+                if d in ('both', 'push'):
+                    current_state = _load_sync_state()
+                    all_acks = current_state.setdefault('progress_acks_338', {})
+                    # Acknowledge the captured snapshot only. New playback
+                    # writes during the HTTP request remain different/pending.
+                    latest = dict(all_acks.get(svc) or {})
+                    latest.update({_progress_identity(r): _progress_signature(r) for r in seed})
+                    all_acks[svc] = {key: latest[key] for key in
+                                     (_progress_identity(r) for r in progress) if key in latest}
+                    if svc == 'nuvio':
+                        current_state['nuvio_progress_contract_338'] = True
+                    _save_sync_state(current_state)
                 section_report['sections']['progress'] = {'ok': True, 'count': len(merged_progress)}
-                any_ok = True
             except Exception as e:
                 section_report['sections']['progress'] = {'ok': False, 'error': str(e)}
                 _log('%s progress sync failed: %s' % (svc, e))
@@ -2142,17 +2446,18 @@ def run_sync(direction=None, targets=None, force_full=False, sections=None, only
             try:
                 merged_library = impl.sync_library(merged_library, d)
                 section_report['sections']['library'] = {'ok': True, 'count': len(merged_library)}
-                any_ok = True
             except Exception as e:
                 section_report['sections']['library'] = {'ok': False, 'error': str(e)}
                 _log('%s library sync failed: %s' % (svc, e))
-        section_report['ok'] = any_ok
+        section_report['ok'] = all(
+            item.get('ok') for item in section_report['sections'].values())
         report.append(section_report)
 
     wb = {'providers': 0, 'collections': 0, 'progress': 0, 'library': 0}
 
     def _pulled(section):
-        return any(svc_dir[s] != 'push' and svc_sections[s].get(section) for s in targets)
+        return any(svc_dir[r['service']] != 'push' and
+                   r.get('sections', {}).get(section, {}).get('ok') for r in report)
 
     _scope.require_current()
     if _pulled('addons'):
@@ -2167,15 +2472,19 @@ def run_sync(direction=None, targets=None, force_full=False, sections=None, only
         wb['library'] = sum(int(r.get('sections', {}).get('library', {}).get('count') or 0)
                             for r in report if r.get('sections', {}).get('library', {}).get('ok'))
 
-    ok=any(r.get('ok') for r in report)
-    if ok:
+    ok=bool(report) and all(r.get('ok') for r in report) and not waiting
+    if report:
         all_ok = all(section.get('ok') for result in report for section in result.get('sections', {}).values())
-        new_state = {'last_ok_at': int(time.time()) if all_ok else last_ok,
-                     'fp_addons': fp_addons if all_ok else state.get('fp_addons'),
-                     'fp_collections': fp_collections if all_ok else state.get('fp_collections')}
+        new_state = dict(_load_sync_state())
+        new_state.update({'last_ok_at': int(time.time()) if all_ok else last_ok})
+        for section, key, value in (('addons', 'fp_addons', fp_addons),
+                                    ('collections', 'fp_collections', fp_collections)):
+            outcomes = [r['sections'][section] for r in report if section in r.get('sections', {})]
+            if outcomes and all(item.get('ok') for item in outcomes):
+                new_state[key] = value
         # v5.10.241: the library fingerprints and failed manifests written during this sync stay
         _current = _load_sync_state()
-        for _key in ('fp_nuvio_lib_remote', 'fp_nuvio_lib_push', 'failed_manifests'):
+        for _key in ('fp_nuvio_lib_remote', 'fp_nuvio_lib_items', 'nuvio_lib_deletes', 'failed_manifests'):
             if _key in _current:
                 new_state[_key] = _current[_key]
         if only:
@@ -2186,12 +2495,13 @@ def run_sync(direction=None, targets=None, force_full=False, sections=None, only
                 if section not in only:
                     new_state[key] = previous.get(key) or ''
         _save_sync_state(new_state)
+    _record_section_results(report)
     try: addon().setSetting('last_account_sync_at', str(int(time.time())))
     except Exception: pass
     _log('sync result: providers +%d collections +%d progress %d library %d'
          % (wb['providers'], wb['collections'], wb['progress'], wb['library']))
     report.extend(waiting)
-    return {'ok':ok,'report':report,'writeback':wb,
+    return {'ok':ok,'report':report,'writeback':wb,'retry_at':next_retry_at(targets),
             'totals':{'addons':len(merged_addons),'collections':len(merged_collections),
                       'progress':len(merged_progress),'library':len(merged_library)}}
 

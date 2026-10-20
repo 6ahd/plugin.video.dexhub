@@ -286,6 +286,11 @@ def _clear_tidb_next_episode(ctx):
 
 
 class BaseReporter(object):
+    def paused_tick(self, ctx, position_ms):
+        # Pause callbacks already send a scrobble. A stationary periodic tick
+        # must not repeat cloud pause requests or synthesize a resume.
+        return None
+
     def started(self, ctx, position_ms=0):
         raise NotImplementedError
     def progress(self, ctx, position_ms):
@@ -486,48 +491,7 @@ class EmbyReporter(BaseReporter):
         payload = self._payload(ctx, position_ms or int(ctx.get('duration_ms', 0)), paused=False); payload['EventName']='Stop'; return self._post(ctx, '/Sessions/Playing/Stopped', payload)
 
 
-class SiloReporter(BaseReporter):
-    """Progress for a native Silo v3 playback session/profile."""
-    def _auth(self):
-        try:
-            from .providers import silo_provider
-            return silo_provider.account() or {}
-        except Exception:
-            return {}
-
-    def _request(self, ctx, method='POST', position_ms=0, paused=False):
-        session_id = str(ctx.get('session_id') or '')
-        if not session_id:
-            return None
-        auth = self._auth()
-        headers = {'Content-Type': 'application/json',
-                   'Authorization': 'Bearer ' + str(auth.get('token') or ctx.get('token') or '')}
-        if auth.get('profile_id'):
-            headers['X-Profile-Id'] = str(auth.get('profile_id'))
-        if auth.get('profile_token'):
-            headers['X-Profile-Token'] = str(auth.get('profile_token'))
-        url = '%s/api/v1/playback/%s' % (ctx['server_url'].rstrip('/'), session_id)
-        data = None
-        if method == 'POST':
-            url += '/progress'
-            data = json.dumps({'position': max(0.0, float(position_ms) / 1000.0),
-                               'is_paused': bool(paused)}).encode('utf-8')
-        req = urllib.request.Request(url, data=data, headers=headers, method=method)
-        with urllib.request.urlopen(req, timeout=_timeout()) as resp:
-            return resp.read()
-
-    def started(self, ctx, position_ms=0):
-        return self._request(ctx, position_ms=position_ms)
-    def progress(self, ctx, position_ms):
-        return self._request(ctx, position_ms=position_ms)
-    def paused(self, ctx, position_ms):
-        return self._request(ctx, position_ms=position_ms, paused=True)
-    def stopped(self, ctx, position_ms):
-        self._request(ctx, position_ms=position_ms)
-        return self._request(ctx, method='DELETE')
-    def ended(self, ctx, position_ms=0):
-        self._request(ctx, position_ms=position_ms or int(ctx.get('duration_ms', 0)))
-        return self._request(ctx, method='DELETE')
+from .providers.silo_playback import NativeReporter as SiloReporter
 
 
 
@@ -712,6 +676,9 @@ class MultiReporter(BaseReporter):
 
     def progress(self, ctx, position_ms):
         return self._call('progress', ctx, position_ms)
+
+    def paused_tick(self, ctx, position_ms):
+        return self._call('paused_tick', ctx, position_ms)
 
     def paused(self, ctx, position_ms):
         return self._call('paused', ctx, position_ms)
@@ -1298,7 +1265,9 @@ class CompanionPlayer(xbmc.Player):
     def _position_ms(self):
         try:
             if self._player_looks_active_for_clock():
-                value = int(self.getTime() * 1000)
+                offset = float(((self.ctx.get('silo_session') or {}).get('timeline') or {}).get(
+                    'timeline_offset_seconds') or 0)
+                value = int((self.getTime() + offset) * 1000)
                 if value >= 0:
                     self._last_position_ms = value
                     return value
@@ -1307,6 +1276,9 @@ class CompanionPlayer(xbmc.Player):
         return int(self._last_position_ms or 0)
 
     def _duration_ms(self):
+        source_duration = (self.ctx.get('silo_session') or {}).get('source_duration')
+        if source_duration:
+            return int(float(source_duration) * 1000)
         try:
             if self._player_looks_active_for_clock():
                 total = int(self.getTotalTime() * 1000)
@@ -1698,12 +1670,13 @@ class CompanionPlayer(xbmc.Player):
         return False
 
     def _report(self, method_name, position_ms=None):
-        if not companion_enabled():
-            return
         if not self.reporter:
             return
         try:
-            getattr(self.reporter, method_name)(self.ctx, self._position_ms() if position_ms is None else position_ms)
+            from .silo_lifecycle import send_report
+            return send_report(self.reporter, self.ctx, method_name,
+                               self._position_ms() if position_ms is None else position_ms,
+                               companion_enabled())
         except TypeError:
             getattr(self.reporter, method_name)(self.ctx)
         except urllib.error.HTTPError as exc:
@@ -1724,11 +1697,19 @@ class CompanionPlayer(xbmc.Player):
             return
         try:
             target = float(self.ctx.get('resume_seconds') or 0.0)
+            timeline = (self.ctx.get('silo_session') or {}).get('timeline') or {}
+            if 'player_start_seconds' in timeline:
+                target = float(timeline['player_start_seconds'])
         except Exception:
             target = 0.0
         try:
             resume_pct = float(self.ctx.get('resume_percent') or 0.0)
         except Exception:
+            resume_pct = 0.0
+        has_silo_timeline = 'player_start_seconds' in ((self.ctx.get('silo_session') or {}).get('timeline') or {})
+        if has_silo_timeline:
+            # A remux can start at source 1200s and player 0s. Deriving a
+            # percentage seek here would apply the source resume twice.
             resume_pct = 0.0
         # A 30s floor is right for an ORDINARY resume (ignore trivial offsets),
         # but WRONG for an explicit source switch: switch_source captures any
@@ -1736,7 +1717,7 @@ class CompanionPlayer(xbmc.Player):
         # silently dropped here and the new source restarted from 00:00.
         # When a switch is pending, honour whatever was captured.
         switching = bool(self.ctx.get('source_switch_pending'))
-        min_resume = 1.0 if switching else 30.0
+        min_resume = 1.0 if switching or has_silo_timeline else 30.0
 
         if target < min_resume and not (1.0 < resume_pct < 95.0):
             self._resume_applied = True
@@ -1942,7 +1923,7 @@ class CompanionPlayer(xbmc.Player):
                     _save_local_progress(self.ctx, pos, dur, finished=False)
                     ticks += 1
                     if ticks % 2 == 0:
-                        self._report('progress', position_ms=pos)
+                        self._report('paused_tick' if xbmc.getCondVisibility('Player.Paused') else 'progress', position_ms=pos)
                     # Hand the next episode to service.upnext once, early. The
                     # Up Next add-on owns the near-end popup + countdown timing
                     # from the runtime we supply (same pattern DPlex/Umbrella
@@ -2342,6 +2323,15 @@ class CompanionPlayer(xbmc.Player):
             self._maybe_play_next(next_ep)
 
     def onPlayBackEnded(self):
+        if not self._foreign_active and self.ctx.get('server_type') == 'silo':
+            from .providers.silo_playback import early_end
+            position, duration = self._position_ms(), self._duration_ms()
+            if early_end(position, duration):
+                _monitor('silo-early-eof', position_ms=position, duration_ms=duration)
+                # Keep the source and the measured resume point. Do not
+                # manufacture a completion or auto-play the following episode.
+                self._fallback_chain = []
+                return self.onPlayBackStopped()
         if not self._foreign_active:
             _widgets_changed()
         self._stop_progress_heartbeat()
@@ -2539,6 +2529,11 @@ class ProgressLoop(object):
         """
         monitor = xbmc.Monitor()
         while not monitor.abortRequested():
+            try:
+                from .service_lease import pulse
+                pulse()
+            except Exception:
+                pass
             playing = False
             try:
                 playing = bool(self.player.isPlayingVideo())
@@ -2546,8 +2541,17 @@ class ProgressLoop(object):
                 playing = False
             if playing:
                 interval = _interval_seconds()
-                if companion_enabled() and self.player.reporter:
-                    self.player._report('progress')
+                try:
+                    from .silo_lifecycle import maintain
+                    maintain(self.player)
+                except Exception as exc:
+                    xbmc.log('[DexHub] Silo lifecycle: %s' % type(exc).__name__, xbmc.LOGWARNING)
+                if str((getattr(self.player, 'ctx', None) or {}).get('server_type') or '') == 'silo':
+                    interval = min(interval, 10)
+                if self.player.reporter:
+                    # Paused video is still isPlayingVideo(). Do not undo the
+                    # explicit pause heartbeat with is_paused=false every tick.
+                    self.player._report('paused_tick' if xbmc.getCondVisibility('Player.Paused') else 'progress')
             else:
                 interval = _PROGRESS_IDLE_POLL
             # Unchanged from before: a plain field reset, kept on every pass.

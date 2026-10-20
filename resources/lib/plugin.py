@@ -9049,6 +9049,10 @@ def silo_menu():
              art=collection_banner_art('Collections', fanart=addon_fanart()),
              info={'title': 'كوليكشناتي', 'plot': 'الكوليكشنات الشخصية بترتيب Silo.'},
              properties={'dexhub.tile_shape': 'landscape'})
+    add_item('إدارة كوليكشنات Silo', build_url(action='silo_tools'), is_folder=False,
+             art=root_art('settings'))
+    add_item('تنبيهات Silo والجزيرة', build_url(action='silo_inbox'), is_folder=False,
+             art=root_art('history'))
     add_item('المفضلة', build_url(action='silo_personal', source='favorites', title='المفضلة'),
              art=root_art('favorites'), info={'title': 'المفضلة', 'plot': 'مفضلة بروفايل Silo.'})
     add_item('قائمة المشاهدة',
@@ -9168,6 +9172,8 @@ def _silo_render_one(item, server):
             label, int(item.get('season') or 0), int(item.get('index') or 0))
     add_item(label, path, is_folder=is_folder, info=_plex_item_info(item),
              art=_silo_art(item), ids=_plex_item_ids(item),
+             context_menu=[(tr('قوائم وكوليكشنات Silo'),
+                            'RunPlugin(%s)' % build_url(action='silo_tools', item_id=item_id))],
              label2=('Silo • %s' % (item.get('info_line') or '')).rstrip(' •'))
     return True
 
@@ -9553,7 +9559,8 @@ def silo_play(item_id, server=None, force_native=False, resume_seconds=None, ui_
         elif not selected:
             selected = versions[0] if versions else {}
         resolved = silo_client.resolve_playback(
-            server, item_id, selected.get('media_source_id') or selected.get('file_id') or '')
+            server, item_id, selected.get('media_source_id') or selected.get('file_id') or '',
+            start_position=(resume_seconds if resume_seconds is not None else (item.get('resume_ms') or 0) / 1000))
     except Exception as exc:
         return _silo_error(exc)
     ids = item.get('ids') or {}
@@ -9604,6 +9611,7 @@ def silo_play(item_id, server=None, force_native=False, resume_seconds=None, ui_
         'show_tmdb_id': show_ids.get('tmdb_id') or '',
         'show_tvdb_id': show_ids.get('tvdb_id') or '',
         'subtitles': list((resolved.get('version') or selected).get('subtitles') or []),
+        'silo_session': resolved.get('silo_session') or {},
     }
     ctx['stream_key'] = cache_store.put('stream', {
         'stream_url': ctx['stream_url'], 'name': ctx['title'],
@@ -10091,6 +10099,10 @@ def nuvio_sync_menu():
 
     add_item(tr('مزامنة Nuvio الآن'), build_url(action='account_sync_now', service='nuvio'),
              is_folder=False, art=root_art('refresh'))
+    add_item(tr('استعادة نسخة محلية من مكتبة Nuvio'), build_url(action='nuvio_restore_library'),
+             is_folder=False, art=root_art('favorites'),
+             info={'title': tr('استعادة نسخة محلية من مكتبة Nuvio'),
+                   'plot': tr('أضف الأعمال من نسخة محفوظة إلى المفضلة؛ تُرفع عند المزامنة دون استبدال مكتبة الحساب.')})
     add_item(tr('تحديث Nuvio Home'), build_url(action='nuvio_pull_collections'),
              is_folder=False, art=root_art('movie_collections'),
              info={'title': tr('تحديث Nuvio Home'),
@@ -10098,6 +10110,25 @@ def nuvio_sync_menu():
     add_item(tr('فصل حساب Nuvio'), build_url(action='nuvio_logout'),
              is_folder=False, art=root_art('settings'))
     return end_dir(content='files', cache=False)
+
+def nuvio_restore_library():
+    snapshots = favorites_store.nuvio_library_backups()
+    if not snapshots:
+        notify(tr('لا توجد نسخة محلية محفوظة بعد. يبدأ حفظ النسخ من هذا الإصدار.'))
+        return
+    labels = ['%s • %d' % (time.strftime('%Y-%m-%d %H:%M', time.localtime(s['saved_at'])),
+                          len(s['rows'])) for s in snapshots]
+    index = xbmcgui.Dialog().select(tr('استعادة نسخة محلية من مكتبة Nuvio'), labels)
+    if index < 0:
+        return
+    if not xbmcgui.Dialog().yesno('Nuvio', tr('إضافة أعمال هذه النسخة إلى المفضلة ومزامنتها مع Nuvio؟')):
+        return
+    try:
+        count = favorites_store.restore_nuvio_library_backup(index)
+        notify(tr('تمت استعادة %s عمل إلى المفضلة') % count)
+    except Exception as exc:
+        error(str(exc))
+
 
 def stremio_repair_library():
     """v4.4.2: heal invalid datetime fields across the Stremio cloud library."""
@@ -14118,30 +14149,20 @@ def _build_player_chooser_menu(media_type='movie', canonical_id='', title='', tm
         tmdb_id=tmdb_id or '',
         imdb_id=imdb_id or '',
         tvdb_id=tvdb_id or '',
-        season=season or '',
-        episode=episode or '',
+        season='' if season is None else season,
+        episode='' if episode is None else episode,
         video_id=video_id or '',
         source_provider_id=source_provider_id or '',
     )
-    return [('اختيار المشغّل…', 'RunPlugin(%s)' % chooser_url)]
+    return [('التشغيل باستخدام…', 'RunPlugin(%s)' % chooser_url)]
 
 
 def choose_player(media_type='movie', canonical_id='', title='', tmdb_id='', imdb_id='', tvdb_id='', season='', episode='', video_id='', source_provider_id=''):
-    dex_url = _dex_player_url(media_type=media_type, canonical_id=canonical_id, title=title, season=season, episode=episode, video_id=video_id, source_provider_id=source_provider_id or '')
-    options = [('Dex Hub', dex_url)]
-    if _has_tmdbhelper():
-        route_ids = _resolve_routing_ids(media_type=media_type, canonical_id=canonical_id, title=title or canonical_id, tmdb_id=tmdb_id, imdb_id=imdb_id, tvdb_id=tvdb_id, season=season, episode=episode)
-        tmdbh_url = _tmdbh_url_from_ids(media_type=media_type, tmdb_id=route_ids.get('tmdb_id') or '', imdb_id=route_ids.get('imdb_id') or '', tvdb_id=route_ids.get('tvdb_id') or '', title=title, season=season, episode=episode)
-        if tmdbh_url:
-            options.append(('TMDb Helper', tmdbh_url))
-    choice = xbmcgui.Dialog().select(tr('اختر المشغّل'), [tr(label) for label, _ in options])
-    if choice < 0 or choice >= len(options):
-        return
-    label, url = options[choice]
-    if label == 'TMDb Helper':
-        _launch_tmdbhelper_url(url)
-    else:
-        xbmc.executebuiltin('Container.Update(%s)' % url)
+    from .play_with import run
+    return run(dict(media_type=media_type, canonical_id=canonical_id, title=title,
+                    tmdb_id=tmdb_id, imdb_id=imdb_id, tvdb_id=tvdb_id,
+                    season=season, episode=episode, video_id=video_id,
+                    source_provider_id=source_provider_id))
 
 
 def _maybe_redirect_player(meta, media_type, title=''):
@@ -14155,7 +14176,9 @@ def _maybe_redirect_player(meta, media_type, title=''):
         if _has_tmdbhelper():
             options.append('TMDb Helper')
         choice = xbmcgui.Dialog().select(tr('اختر المشغل'), [tr(x) for x in options])
-        if choice <= 0:
+        if choice < 0:
+            return True  # Cancel consumes the request; never start playback.
+        if choice == 0:
             return False
         mode = 'tmdbhelper'
     if mode == 'tmdbhelper' and _has_tmdbhelper():
@@ -15622,7 +15645,7 @@ _SESSION_CTX_COPY_KEYS = (
     # Watching row was permanently blank.  (Plex only looked fine because the
     # Plex apps write their own progress.)
     'server_type', 'server_url', 'token', 'item_id', 'rating_key',
-    'media_source_id', 'part_key', 'play_session_id', 'device_id', 'session_id',
+    'media_source_id', 'part_key', 'play_session_id', 'device_id', 'session_id', 'silo_session',
 )
 
 
@@ -15836,19 +15859,24 @@ def _refresh_native_playback_context(ctx):
         # v5.10.27: bound the refresh. It runs synchronously right before
         # Player.play, and the direct URL below is already a valid fallback.
         with emby_client.bounded_timeout(6):
-            resolved = client.resolve_playback(
-                server, item_id, str(ctx.get('media_source_id') or ''))
+            args = (server, item_id, str(ctx.get('media_source_id') or ''))
+            resolved = (client.resolve_playback(*args, start_position=ctx.get('resume_seconds'))
+                        if backend == 'silo' else client.resolve_playback(*args))
         if resolved.get('url'):
             ctx['stream_url'] = resolved.get('url')
         if resolved.get('media_source_id'):
             ctx['media_source_id'] = resolved.get('media_source_id')
         if resolved.get('play_session_id'):
             ctx['session_id'] = resolved.get('play_session_id')
+        if resolved.get('silo_session'):
+            ctx['silo_session'] = resolved['silo_session']
         version = resolved.get('version') or {}
         if version.get('subtitles'):
             ctx['subtitles'] = list(version.get('subtitles') or [])
         ctx['native_playback_resolved'] = True
     except Exception as exc:
+        if backend == 'silo':
+            raise
         # Keep the already-built direct URL as a compatibility fallback.
         try:
             xbmc.log('[DexHub] %s PlaybackInfo refresh failed; using direct fallback: %s' % (
@@ -16998,7 +17026,7 @@ def _server_client(backend):
 
 
 def _server_stream_rows(backend, server, ids, media_type, titles,
-                        season=None, episode=None, titles_loader=None):
+                        season=None, episode=None, titles_loader=None, year=''):
     """ONE lookup for both servers: ID first, titles only as a fallback.
 
     v3.9.218 — the unified path the user asked for.
@@ -17053,7 +17081,8 @@ def _server_stream_rows(backend, server, ids, media_type, titles,
     # 1) BY ID — the only lookup that survives a translated library
     try:
         with _bounded(_per_request):
-            _take(client.find_all_by_ids(server, ids, media_type=kind, title='', limit=24))
+            options = {'year': year} if backend == 'jellyfin' else {}
+            _take(client.find_all_by_ids(server, ids, media_type=kind, title='', limit=24, **options))
     except Exception as exc:
         xbmc.log('[DexHub] %s id lookup failed: %s' % (backend, exc), xbmc.LOGWARNING)
         # v5.10.91: a timed-out id lookup is a slow server, not an empty one.
@@ -17084,14 +17113,37 @@ def _server_stream_rows(backend, server, ids, media_type, titles,
             pass
         return False
 
-    # 2) BY TITLE — only if the ids found nothing (or the item has none)
-    if not matches and time.time() < _deadline:
-        if titles_loader is not None:
+    # 2) BY TITLE. Jellyfin tries local names first: remote enrichment only
+    # follows an actual miss, inside this worker's existing time budget.
+    def _title_candidates():
+        nonlocal titles
+        if backend != 'jellyfin' and titles_loader is not None:
             try:
                 titles = titles_loader() or titles
             except Exception:
                 pass
-        for title in (titles or []):
+        used = set()
+        for candidate in (titles or []):
+            value = str(candidate or '').strip()
+            if backend == 'jellyfin' and re.fullmatch(r'(?:tt\d+(?::\d+){0,2}|(?:imdb|tmdb|tvdb):.*)', value, flags=re.I):
+                continue
+            if value and value.casefold() not in used:
+                used.add(value.casefold())
+                yield value
+        if backend == 'jellyfin' and not matches and titles_loader is not None and time.time() < _deadline and not _stopped('title-enrichment'):
+            try:
+                loaded = titles_loader() or []
+            except Exception:
+                loaded = []
+            for candidate in loaded:
+                value = str(candidate or '').strip()
+                if value and value.casefold() not in used and not re.fullmatch(r'(?:tt\d+(?::\d+){0,2}|(?:imdb|tmdb|tvdb):.*)', value, flags=re.I):
+                    used.add(value.casefold())
+                    titles = list(titles or []) + [value]
+                    yield value
+
+    if not matches and time.time() < _deadline:
+        for title in _title_candidates():
             if not str(title or '').strip():
                 continue
             if time.time() >= _deadline:
@@ -17102,8 +17154,9 @@ def _server_stream_rows(backend, server, ids, media_type, titles,
                 break
             try:
                 with _bounded(_per_request):
+                    options = {'year': year} if backend == 'jellyfin' else {}
                     _take(client.find_all_by_ids(server, ids, media_type=kind,
-                                                 title=title, limit=24))
+                                                 title=title, limit=24, **options))
             except Exception:
                 continue
             # v3.9.222: do NOT stop at the first title that hits. A library
@@ -17175,7 +17228,7 @@ def _emby_stream_payload(provider, media_type):
     series = _is_series_media(media_type) and season and episode
     items = _server_stream_rows(
         backend, server, ids, media_type, titles,
-        season=season, episode=episode,
+        season=season, episode=episode, year=provider.get('_year') or '',
         titles_loader=lambda: _native_titles(provider, media_type, _tmdb_direct))
     if not items:
         return {}
@@ -20040,7 +20093,7 @@ def _add_iptv_continue_item(row):
              context_menu=menu, label2='IPTV')
 
 
-def iptv_cw_change(video_id='', watched=False):
+def iptv_cw_change(video_id='', watched=False, refresh=True, on_local=None):
     from . import iptv_progress
     try:
         if watched:
@@ -20049,9 +20102,16 @@ def iptv_cw_change(video_id='', watched=False):
         else:
             iptv_progress.remove(video_id)
             notify(tr('تم الإزالة من متابعة المشاهدة'))
+        _invalidate_nextup_cache()
+        _cw_progress_changed()
     except Exception as exc:
         error(tr('تعذّر الإزالة: %s') % exc)
-    xbmc.executebuiltin('Container.Refresh')
+        return False
+    if refresh:
+        xbmc.executebuiltin('Container.Refresh')
+    if on_local:
+        on_local()
+    return True
 
 
 def _finished_keys(row):
@@ -20158,10 +20218,15 @@ def _continue_merge(rows):
     """v5.10.214: with Merge services on, one card per title: the newest of
     its rows (another episode of the same show, or the same title from Trakt,
     Nuvio and a server), as in the Nuvio apps. Rows come newest first."""
-    if not _follow_merged():
-        return rows
     from .continue_merge import merge
-    return merge(rows, keys=_work_keys, placeholder=_own_media)
+    names = {}
+    def local_name(row):
+        key = (row.get('show_tmdb_id') or row.get('tmdb_id'), row.get('show_imdb_id') or row.get('imdb_id'))
+        if key not in names:
+            names[key] = _cw_show_name(row)
+        return names[key]
+    return merge(rows, keys=_work_keys, placeholder=_own_media, show_name=local_name,
+                 exact_only=not _follow_merged())
 
 
 def _continue_order(rows):
@@ -20584,6 +20649,7 @@ def continue_watching(page='0'):
     rows = []
     for _row, _filled in run_parallel(lambda r: r if id(r) in _iptv else _lazy_fill_row_art(r), raw_rows):
         rows.append(_filled if not isinstance(_filled, Exception) else _row)
+    rows = _continue_order(_continue_merge(rows))
     any_series = any(_continue_row_is_episode(r) for r in rows)
     any_movie = any(not _continue_row_is_episode(r) for r in rows)
     if any_series:
@@ -20639,8 +20705,8 @@ def continue_watching(page='0'):
             media_type=row.get('media_type') or ('series' if is_episode else 'movie'),
             canonical_id=row.get('canonical_id') or '',
             video_id=row.get('video_id') or '',
-            season=row.get('season') or '',
-            episode=row.get('episode') or '',
+            season='' if row.get('season') is None else row.get('season'),
+            episode='' if row.get('episode') is None else row.get('episode'),
             title=_url_title or '',
             position=row.get('position') or 0,
             resume_percent=row.get('percent') or '',
@@ -20658,8 +20724,8 @@ def continue_watching(page='0'):
             media_type=row.get('media_type') or ('series' if is_episode else 'movie'),
             canonical_id=row.get('canonical_id') or '',
             video_id=row.get('video_id') or '',
-            season=row.get('season') or '',
-            episode=row.get('episode') or '',
+            season='' if row.get('season') is None else row.get('season'),
+            episode='' if row.get('episode') is None else row.get('episode'),
             title=_url_title or '',
             provider_name=row.get('provider_name') or '',
             direct='1',
@@ -20811,8 +20877,8 @@ def continue_watching(page='0'):
             tmdb_id=row_ids.get('tmdb_id') or '',
             imdb_id=row_ids.get('imdb_id') or '',
             tvdb_id=row_ids.get('tvdb_id') or '',
-            season=row.get('season') or '',
-            episode=row.get('episode') or '',
+            season='' if row.get('season') is None else row.get('season'),
+            episode='' if row.get('episode') is None else row.get('episode'),
             video_id=row.get('video_id') or '',
         ) + [
             ('إزالة من متابعة المشاهدة', 'RunPlugin(%s)' % build_url(action='cw_remove', media_type=row.get('media_type'), canonical_id=row.get('canonical_id'), video_id=row.get('video_id'))),
@@ -20845,7 +20911,7 @@ def continue_watching(page='0'):
     end_dir(content=content_type, cache=False)
 
 
-def cw_remove(media_type='', canonical_id='', video_id='', refresh=True):
+def cw_remove(media_type='', canonical_id='', video_id='', refresh=True, on_local=None):
     # v5.10.286: the card stands for a whole title (merged since v5.10.214):
     # deleting the one row it was built from let the title's next row (an
     # older episode, the same title from Trakt, Nuvio, Floppy, Simkl or a
@@ -20864,6 +20930,8 @@ def cw_remove(media_type='', canonical_id='', video_id='', refresh=True):
         return False
     if refresh:
         xbmc.executebuiltin('Container.Refresh')
+    if on_local:
+        on_local()
     _cw_remove_remote(members, episode)
     return True
 
@@ -20912,18 +20980,9 @@ def _cw_hide_title(media_type='', canonical_id='', video_id=''):
 
 
 def _cw_progress_changed():
-    """v5.10.286: Continue Watching changed: the skin's Home reads its
-    progress rows again (skinui worker), the Dex Hub Home's progress memo
-    and the widget replay (widget_cache) drop their copy."""
-    try:
-        from . import widget_cache
-        widget_cache.mark_changed()
-    except Exception:
-        pass
-    try:
-        xbmcgui.Window(10000).setProperty('dhs.progress.changed', '%.6f' % time.time())
-    except Exception:
-        pass
+    """Invalidate progress snapshots and wake every visible Home/catalog."""
+    from . import progress_events
+    progress_events.changed()
 
 
 def _cw_remove_remote(members, episode):
@@ -20972,14 +21031,20 @@ def _cw_remove_remote(members, episode):
         xbmc.log('[DexHub] cw_remove Nuvio: %s' % exc, xbmc.LOGWARNING)
 
 
-def cw_mark_watched(media_type='', canonical_id='', video_id=''):
+def cw_mark_watched(media_type='', canonical_id='', video_id='', refresh=True, on_local=None):
     try:
         playback_store.mark_watched(media_type, canonical_id, video_id)
         _invalidate_nextup_cache()
+        _cw_progress_changed()
         notify(tr('تم وسمه كمشاهد'))
     except Exception as exc:
         error(tr('تعذّر الوسم: %s') % exc)
-    xbmc.executebuiltin('Container.Refresh')
+        return False
+    if refresh:
+        xbmc.executebuiltin('Container.Refresh')
+    if on_local:
+        on_local()
+    return True
 
 
 
@@ -27741,6 +27806,12 @@ def _dispatch(params=None):
         return silo_login()
     if action == 'silo_qr_login':
         return silo_qr_login()
+    if action == 'silo_tools':
+        from . import silo_social
+        return silo_social.dispatch(params.get('item_id', ''))
+    if action == 'silo_inbox':
+        from . import island
+        return island.inbox()
     if action == 'silo_change_profile':
         return silo_change_profile()
     if action == 'silo_logout':
@@ -28027,6 +28098,8 @@ def _dispatch(params=None):
         return media_libraries_menu()
     if action == 'nuvio_sync_menu':
         return nuvio_sync_menu()
+    if action == 'nuvio_restore_library':
+        return nuvio_restore_library()
     if action == 'stremio_repair_library':
         return stremio_repair_library()
     if action == 'stremio_sync_menu':

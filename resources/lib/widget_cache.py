@@ -237,9 +237,16 @@ def _listitem(entry):
         except Exception:
             pass
     menu = entry.get('menu') or []
+    try:
+        from .context_menu import with_player
+        menu = with_player(menu, entry.get('path') or '', entry.get('info'), entry.get('ids'), props)
+    except Exception:
+        pass
     if menu:
         try:
-            item.addContextMenuItems([tuple(m) for m in menu], replaceItems=True)
+            from .context_menu import clean
+            from .i18n import tr
+            item.addContextMenuItems([(tr(label), command) for label, command in clean(menu)], replaceItems=True)
         except Exception:
             pass
     return item

@@ -261,6 +261,9 @@ def _compat_prefix(server):
 
 
 def _api(server, path, params=None, token='', method='GET', data=None):
+    if _backend(server) == 'jellyfin' and method == 'GET':
+        from .jellyfin_compat import request_route
+        path, params = request_route(path, params)
     pairs = [(str(k), str(v)) for k, v in (params or {}).items() if v not in (None, '')]
     query = urlencode(pairs)
     url = '%s%s%s' % (_base(server), _compat_prefix(server),
@@ -572,6 +575,10 @@ def item_from_node(item, server):
         'info_line': versions[0]['info_line'] if versions else '',
         'size_label': versions[0]['size_label'] if versions else '',
     }
+    if _backend(server) == 'jellyfin':
+        from .jellyfin_compat import remember
+        out['original_title'] = str(item.get('OriginalTitle') or '')
+        remember(server, out)
     return out
 
 
@@ -849,7 +856,7 @@ def metadata(server, item_id):
     return item_from_node(data, server)
 
 
-def find_all_by_ids(server, ids, media_type='movie', title='', limit=10):
+def find_all_by_ids(server, ids, media_type='movie', title='', limit=10, year=''):
     """EVERY library item that matches — not just the first one.
 
     v3.9.209: find_by_ids() returned inside its own loop, so only the FIRST hit
@@ -858,6 +865,11 @@ def find_all_by_ids(server, ids, media_type='movie', title='', limit=10):
     Arabic libraries look like — surfaced ONE source in Dex Hub while other
     clients listed three.
     """
+    if _backend(server) == 'jellyfin':
+        from .jellyfin_compat import find_matches
+        return find_matches(server, ids, media_type, title, limit, year,
+                            search_server, _resolve_details)
+
     want_type = 'Series' if str(media_type).lower() in ('series', 'show', 'episode') else 'Movie'
     found, seen = [], set()
 
@@ -959,8 +971,11 @@ def _resolve_details(server, found, limit):
     return [detailed.get(str(r.get('rating_key')), r) for r in rows]
 
 
-def find_by_ids(server, ids, media_type='movie', title=''):
+def find_by_ids(server, ids, media_type='movie', title='', year=''):
     """GUID-first match (imdb/tmdb), title fallback — like the Plex path."""
+    if _backend(server) == 'jellyfin':
+        matches = find_all_by_ids(server, ids, media_type, title, 1, year)
+        return matches[0] if matches else None
     want_type = 'Series' if str(media_type).lower() in ('series', 'show', 'episode') else 'Movie'
     for provider, key in (('Imdb', 'imdb_id'), ('Tmdb', 'tmdb_id'), ('Tvdb', 'tvdb_id')):
         value = str((ids or {}).get(key) or '')

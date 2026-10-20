@@ -27,6 +27,10 @@ POLL = 0.2
 SETTLE = 0.25           # the cursor rests this long before a lookup
 NETWORK_AFTER = 1.2     # ... and this long before an MDbList request
 KEEP = 400
+# v5.10.334: the Home's full-screen backdrop changes once the cursor rests
+# this long (each key press loaded and faded a new 1080p picture while the
+# remote moved; skin.dexhub shows dhs.bg while dhs.bg.on is set)
+BG_SETTLE = 0.3
 _FOLD_WINDOW = 1190
 _FOLD_BASE = 7000
 
@@ -99,6 +103,22 @@ class HeroFocus(threading.Thread):
         else:
             return None
         title_id = info(prefix + 'Property(dhs.id)') or info(prefix + 'Property(dhs.gid)')
+        # v5.10.334: the card of the last look is not read again (eight labels
+        # five times a second, each a wait on Kodi's graphics lock)
+        cached = getattr(self, '_focus_cache', None)
+        if (title_id and cached is not None and cached[0] == (prefix, page, title_id)
+                and time.monotonic() - cached[4] < 3.0):
+            self._studio_seed, self._facts = cached[2], cached[3]
+            return cached[1]
+        self._focus_cache = None
+        found = self._focused_read(info, prefix, page, title_id)
+        if title_id:
+            self._focus_cache = ((prefix, page, title_id), found,
+                                 getattr(self, '_studio_seed', ('', '')), getattr(self, '_facts', ('', '')),
+                                 time.monotonic())
+        return found
+
+    def _focused_read(self, info, prefix, page, title_id):
         if not title_id or info(prefix + 'Property(kind)') not in ('work', ''):
             return None
         self._studio_seed = (title_id, info(prefix + 'Property(dhs.studio_seed)'))
@@ -124,10 +144,45 @@ class HeroFocus(threading.Thread):
             import traceback
             C.log('ratings stopped:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
 
+    def _backdrop(self):
+        """v5.10.334: dhs.bg, the backdrop the skin shows, once the cursor rests."""
+        now = time.monotonic()
+        if now - getattr(self, '_bg_checked', -1e9) > 5.0:
+            from ..ui_preferences import enabled
+            self._bg_checked = now
+            self._bg_wanted = self.home and enabled('homeui_bg_settle')
+        if not self._bg_wanted or guistate.active() != guistate.HOME or self.busy():
+            if getattr(self, '_bg_on', False) and not self._bg_wanted:
+                C.set_prop('dhs.bg.on', '')
+                self._bg_on = False
+            return
+        value = xbmc.getInfoLabel('$VAR[DhsHeroFanartLive]')
+        if value != getattr(self, '_bg_seen', None):
+            self._bg_seen, self._bg_since = value, now
+            return
+        if now - self._bg_since >= BG_SETTLE and value != getattr(self, '_bg_shown', None):
+            self._bg_shown = value
+            C.set_prop('dhs.bg', value)
+            if not getattr(self, '_bg_on', False):
+                C.set_prop('dhs.bg.on', '1')
+                self._bg_on = True
+
     def _run(self):
         from ..ui_preferences import enabled
         since, current = 0.0, None
+        try:
+            self._loop_ratings(enabled, since, current)
+        finally:
+            # the skin follows the focus again by itself (an update, a stop)
+            if getattr(self, '_bg_on', False):
+                C.set_prop('dhs.bg.on', '')
+
+    def _loop_ratings(self, enabled, since, current):
         while not self.done():
+            try:
+                self._backdrop()
+            except Exception:
+                pass
             if not (enabled('metadata_badges') or enabled('badges_home')) or self.busy():
                 if self.shown:
                     C.set_prop(PREFIX + 'id', '')

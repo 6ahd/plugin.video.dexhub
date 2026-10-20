@@ -383,25 +383,40 @@ def home(classic=False):
     return result
 
 
-def settings_cards():
+_LAST_CARD = 'dexhub.settings.card'
+
+
+def settings_cards(back=''):
     """The settings home in the menu's card window; a section that is a
-    folder opens as a page, the others run here."""
+    folder opens as a page, the others run here.
+    v5.10.358: Back from a section opens these cards again, on the same card
+    ('cancel' when the cards themselves were left with Back)."""
     from resources.lib.homeui.options import choose
     from resources.lib.settings_sections import all_sections, DESCRIPTIONS
     sections = all_sections()
     cards = [(_txt(ar, en), '', _menu_icon(icon), _txt(dar, den))
              for _key, ar, en, _action, _folder, icon, _asset, _id in sections
              for dar, den in [DESCRIPTIONS[_key]]]
+    home = xbmcgui.Window(10000)
+    last = home.getProperty(_LAST_CARD)
+    start = next((i for i, row in enumerate(sections) if row[0] == last), 0)
     pick = choose(_txt('إعدادات Dex Hub', 'Dex Hub settings'), cards,
-                  subtitle=_txt('الإعدادات', 'Settings'), layout='menu')
+                  subtitle=_txt('الإعدادات', 'Settings'), layout='menu', preselect=start)
     if pick < 0:
-        return True
+        home.clearProperty(_LAST_CARD)
+        return 'cancel'
     _key, _ar, _en, action, folder, _icon, _asset, _id = sections[pick]
+    home.setProperty(_LAST_CARD, _key)
     if folder:
         xbmc.executebuiltin('ActivateWindow(Videos,%s,return)' % _url(action=action))
     else:
         xbmc.executebuiltin('RunPlugin(%s)' % _url(action=action))
-    return True
+    try:
+        from resources.lib.skinui import common as C, menu_return
+        menu_return.back_to(C.url('skin_menu', key='settings', back=back))
+    except Exception:
+        pass
+    return 'launched'
 
 
 def settings_center():
@@ -599,6 +614,7 @@ def home_options_dialog():
         ('show_servers', 'true', 'قسم السيرفرات', 'Servers section', None),
         ('homeui_size', 'Large', 'حجم الواجهة', 'UI size', ('Normal', 'Large', 'Extra large')),
         ('homeui_title_page', 'Dex Hub', 'صفحة العمل', 'Title page', ('Dex Hub', 'TMDb Helper', 'Classic')),
+        ('homeui_title_poster', 'true', 'إظهار البوستر في صفحة العمل', 'Show poster on the title page', None),
     )
     cursor = 0
     while True:
@@ -1723,7 +1739,7 @@ def source_behavior_dialog():
 
 
 def episode_controls_dialog():
-    """One page for Next Episode plus optional TIDB-owned skip controls."""
+    """Next episode, native intro skipping and optional preview services."""
     _close_native_settings_dialog()
     while True:
         try:
@@ -1758,7 +1774,17 @@ def episode_controls_dialog():
                         'Next Episode button uses the same source'),
                    'next_episode_same_source', 'true')
 
-        if tidb_installed:
+        mode = _ADDON.getSetting('native_skip_mode') or 'Manual'
+        names = {'Manual': _txt('زر يدوي', 'Manual button'),
+                 'Automatic': _txt('تلقائي', 'Automatic'), 'Off': _txt('متوقف', 'Off')}
+        rows.append(_txt('تخطي المقدمة والملخص المدمج: ', 'Built-in intro & recap: ') + names.get(mode, names['Manual']))
+        actions.append('native_mode')
+        add_toggle(_txt('صور معاينة التقديم', 'Seek preview images'), 'seek_previews', 'true')
+        rows.append(_txt('مفتاح Seekr الاختياري: ', 'Optional Seekr API key: ') +
+                    (_txt('محفوظ', 'Saved') if _ADDON.getSetting('seekr_api_key') else _txt('غير محدد', 'Not set')))
+        actions.append('seekr_key')
+
+        if tidb_installed and mode == 'Off':
             add_toggle(_txt('فرض أزرار Intro وRecap وCredits اليدوية',
                             'Force manual Intro, Recap and Credits buttons'),
                        'introdb_manual_buttons', 'true')
@@ -1780,6 +1806,24 @@ def episode_controls_dialog():
                 _txt('مهلة تشغيل التالي', 'Next Episode countdown'), labels, pre)
             if picked >= 0:
                 _ADDON.setSetting('auto_next_prompt_seconds', str(values[picked]))
+        elif action == 'native_mode':
+            modes = ('Manual', 'Automatic', 'Off')
+            picked = _select_dialog(_txt('تخطي المقدمة والملخص', 'Intro & recap skipping'),
+                                    [names[v] for v in modes], modes.index(mode) if mode in modes else 0)
+            if picked >= 0:
+                _ADDON.setSetting('native_skip_mode', modes[picked])
+        elif action == 'seekr_key':
+            value = xbmcgui.Dialog().input(_txt('مفتاح Seekr — اتركه فارغًا للحذف',
+                                                'Seekr API key — leave empty to remove'),
+                                          defaultt=_ADDON.getSetting('seekr_api_key'),
+                                          type=xbmcgui.INPUT_ALPHANUM, option=xbmcgui.ALPHANUM_HIDE_INPUT)
+            # Kodi returns an empty string on Cancel as well: require an explicit
+            # choice before removing an existing key.
+            if value:
+                _ADDON.setSetting('seekr_api_key', value.strip())
+            elif _ADDON.getSetting('seekr_api_key') and xbmcgui.Dialog().yesno(
+                    'Seekr', _txt('حذف المفتاح المحفوظ؟', 'Remove the saved key?')):
+                _ADDON.setSetting('seekr_api_key', '')
         elif action == 'tidb_settings':
             try:
                 xbmcaddon.Addon('plugin.video.tidb').openSettings()
@@ -1788,7 +1832,7 @@ def episode_controls_dialog():
         else:
             default = 'true' if action in (
                 'auto_next_episode', 'next_episode_same_source',
-                'introdb_manual_buttons') else 'false'
+                'introdb_manual_buttons', 'seek_previews') else 'false'
             _toggle_setting(action, default)
         _invalidate_settings()
 

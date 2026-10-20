@@ -69,7 +69,8 @@ def seed_hero(hero, query):
     except (TypeError, ValueError):
         pass
     if episode:
-        values = {'title': info.get('tvshowtitle'), 'fanart': art.get('fanart'), 'clearlogo': art.get('clearlogo')}
+        values = {'title': info.get('tvshowtitle'), 'poster': art.get('tvshow.poster') or art.get('poster'),
+                  'fanart': art.get('fanart'), 'clearlogo': art.get('clearlogo')}
     for key, value in values.items():
         if value and not hero.get(key):
             hero[key] = value

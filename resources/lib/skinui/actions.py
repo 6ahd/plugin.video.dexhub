@@ -193,9 +193,36 @@ def focus_colour(params, handle):
     return None
 
 
+# v5.10.358: what each Menu entry does on its way back. In this run: the
+# Menu opens again when it is done. A page or another run: the Menu waits for
+# it to close (menu_return). The rest leave the Menu (a skin switch, a reboot).
+_BACK_HERE = ('layout', 'community', 'setup', 'player', 'badges', 'size', 'screensaver')
+_BACK_WAIT = ('search', 'sources', 'classic', 'kodi', 'theme', 'power')
+
+
 def menu(params, handle):
     """The Home's Menu: the control centre (v5.10.198, homeui/control.py);
-    the skin's Settings page names an entry at once (key=...)."""
+    the skin's Settings page names an entry at once (key=...).
+    v5.10.358: Back from what an entry opened comes back to the Menu (and
+    from a settings section to the settings cards), not to the Home."""
+    from . import menu_return
+    menu_return.forget()
+    # opened from the Menu itself, or from the settings cards it opened
+    from_menu = not (params.get('key') or '') or params.get('back') == 'menu'
+    while True:
+        key = _menu_once(params, from_menu)
+        params = {}
+        if not key or not from_menu:
+            return None
+        if key in _BACK_HERE or key == 'settings:cancel':
+            continue                    # the Menu again, on the same section
+        if key in _BACK_WAIT or key.startswith('control:'):
+            menu_return.back_to(C.url('skin_menu'))
+        return None
+
+
+def _menu_once(params, from_menu=False):
+    """One pass of the Menu: the key it handled ('' when left with Back)."""
     tr = _tr
     key = params.get('key') or ''
     # v5.10.299: the skin's settings page opens the one Appearance place
@@ -210,7 +237,7 @@ def menu(params, handle):
         if key is None:
             key = control.fallback_choose(tr)   # a skin without the window: a plain list
         if not key:
-            return None
+            return ''
     if key == 'search':
         # Dex Hub's search page over the skin (catalogs, servers, people)
         launch('RunPlugin(%s)' % _arg(C.url('home_search')))
@@ -250,8 +277,11 @@ def menu(params, handle):
         launch('ActivateWindow(Videos,%s,return)' % _arg(C.url('home_classic')))
     elif key == 'settings':
         # v5.10.147: the settings home as cards, like this menu
+        # v5.10.358: Back on the cards comes back to the Menu
         from ..routes.simple_entry import settings_cards
-        settings_cards()
+        if settings_cards(back='menu' if from_menu else '') == 'cancel':
+            return 'settings:cancel'
+        return 'settings'
     elif key == 'kodi':
         launch('ActivateWindow(Settings)')
     elif key == 'theme':
@@ -271,8 +301,9 @@ def menu(params, handle):
         launch('RunPlugin(%s)' % _arg(C.url('skin_use')))
     else:
         from ..homeui import control
-        control.launch(key)
-    return None
+        if control.launch(key):
+            return 'control:' + key
+    return key
 
 
 SKIN_SIZES = ('', 'large', 'xlarge')       # skin.dexhub 3.6's Skin.String(DexHub.CardSize)
@@ -808,7 +839,6 @@ def _set_watched(t, row, watched):
     t.publish()
     # the episodes list reads its season again; the Home's progress rows follow
     C.set_prop('dhs.tp.rev.episodes', '%d' % int(time.time() * 1000))
-    C.set_prop('dhs.progress.changed', '%.3f' % time.time())
 
 
 def open_title(params, handle):
@@ -968,13 +998,16 @@ def grid(params, handle):
     if more:
         label = '%s  ·  %d' % (app.tr('الصفحة التالية'), page_no + 1)
         nxt_url = C.url('skin_list', r=urlencode(sorted((k, v) for k, v in more.items() if v not in (None, ''))),
-                        t=title, s=shape, n='1', b=params.get('b') or (params.get('r') or ''), pn=str(page_no + 1))
+                        t=title, s=shape, n='1', b=params.get('b') or (params.get('r') or ''), pn=str(page_no + 1),
+                        lg=params.get('lg') or '')
         art = app.media_path('more_tile.png')
         items.append({'label': label, 'path': nxt_url, 'folder': True,
                       'art': {'poster': art, 'landscape': art, 'thumb': art},
                       'props': {'kind': 'more', 'dhs.click': 'grid', 'dhs.target': nxt_url}})
     props = {'dhs.grid': '1', 'dhs.title': ('%s  ·  %d' % (title, page_no)) if page_no > 1 else title,
              'dhs.shape': shape}
+    if params.get('lg'):
+        props['dhs.title_logo'] = params['lg']     # v5.10.360: the studio's logo in place of its name
     if facets is not None and not continuation:
         props.update(_facet_props(facets, state or GF.empty_state(), app))
         genres = {}
@@ -1003,6 +1036,9 @@ def grid(params, handle):
 
 
 def _page(api, params, shape):
+    if params.get('action') == 'tmdb_titles' and params.get('mode') == 'collection':
+        from .title_extras import collection_tiles
+        return collection_tiles(params.get('id') or ''), None
     from ..homeui import rows as R
     try:
         tiles, more = R.capture_tiles(params, api, shape or 'poster', works_only=False, limit=200)
@@ -1228,7 +1264,10 @@ ROUTES = {
     'skin_warm_sources': warm_sources,
     'skin_opengrid': open_grid,
     'skin_panel': lambda params, handle: _panel('listing', params, handle),
+    'skin_alert_readall': lambda params, handle: _panel('read_all', params, handle),
+    'skin_alert_open': lambda params, handle: _panel('open_alert', params, handle),
     'skin_panel_counts': lambda params, handle: _panel('counts', params, handle),
+    'skin_watch_sources': lambda params, handle: __import__('resources.lib.watch_sources', fromlist=['menu']).menu(params, handle),
     'skin_panel_refresh': lambda params, handle: _panel('refresh', params, handle),
     'skin_trailer': trailer,
     'skin_fav': favourite,

@@ -7,17 +7,24 @@ belong here. Relative feature imports remain lazy and retain package semantics.
 def build_targets(api, media_type, canonical_id, meta=None, season=None, episode=None):
     targets = []
     native_targets = []
+    seen = set()
+    meta = api._meta_with_seed_ids(meta or {}, api._apply_anime_id_policy(api._enrich_stream_ids(api.extract_ids(meta or {}), media_type, meta=meta or {}, canonical_id=canonical_id, title=(meta or {}).get('name') or (meta or {}).get('title') or ''), media_type))
+    # Jellyfin needs the seeded identity AND the same title variants as Plex.
+    # A localized name or a canonical tt... label alone cannot find an
+    # English library through Jellyfin's public title-search API.
     try:
+        from .search.native_titles import candidates as _jf_titles
         for server in api.jellyfin_client.servers():
             native_targets.append(({
                 'id': '__jellyfin__', 'name': 'Jellyfin • %s' % server.get('name', 'Jellyfin'),
                 '_server': server, '_title': (meta or {}).get('name') or (meta or {}).get('title') or '',
-                '_ids': api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id)), '_season': season, '_episode': episode,
+                '_titles': _jf_titles(meta or {}, media_type), '_enrich_titles': True,
+                '_year': (meta or {}).get('year') or str((meta or {}).get('first_air_date') or (meta or {}).get('release_date') or '')[:4],
+                '_ids': api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id)),
+                '_season': season, '_episode': episode,
             }, str(canonical_id)))
     except Exception:
         pass
-    seen = set()
-    meta = api._meta_with_seed_ids(meta or {}, api._apply_anime_id_policy(api._enrich_stream_ids(api.extract_ids(meta or {}), media_type, meta=meta or {}, canonical_id=canonical_id, title=(meta or {}).get('name') or (meta or {}).get('title') or ''), media_type))
     candidate_ids = api._candidate_ids_from_meta(canonical_id, meta=meta, season=season, episode=episode, include_episode_variants=bool(season and episode))
     try:
         from .source_addons import skipped as _skipped, key as _addon_key

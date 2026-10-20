@@ -134,6 +134,9 @@ def _run_inner():
         _home_params = dict(parse_qsl(sys.argv[2].lstrip('?'))) if len(sys.argv) > 2 else {}
     except Exception:
         _home_params = {}
+    if _home_params.get('action') == 'choose_player':
+        from .play_with import run as _choose_player
+        return _choose_player(_home_params)
     if _home_params.get('action') == 'title_seasons_pick':
         # v5.10.224: every season of the title page at once
         from .skinui.season_pick import run as _seasons

@@ -75,6 +75,7 @@ def open_page(params, handle):
     started = time.monotonic()
     ref = {'set_id': params.get('set_id') or '', 'group_id': params.get('group_id') or '',
            'folder_id': params.get('folder_id') or '', 'media_filter': params.get('media_filter') or ''}
+    request_token = params.get('_open_token') or ''
     app = rows.app()
     home = rows.HeadlessHome(app, 'all')
     try:
@@ -82,9 +83,17 @@ def open_page(params, handle):
     except Exception as exc:
         C.log('collection folder failed: %s' % exc, xbmc.LOGWARNING)
         folder, sources = None, []
+    if request_token:
+        from .. import profile_scope
+        if not _request_current(request_token) or not profile_scope.is_current():
+            if C.prop(OPEN_TOKEN) == request_token:
+                C.set_prop('dhs.fold.loading', '')
+            return None
     title = params.get('t') or (folder or {}).get('name') or ''
     window = window_id()
     if not sources or not window:
+        if request_token:
+            C.set_prop('dhs.fold.loading', '')
         # nothing to show as rows (or no page for them): the cards page of skin.dexhub 3.1
         xbmc.executebuiltin('ActivateWindow(Videos,%s,return)' % C.url(
             'skin_folder', t=title, **dict((k, v) for k, v in ref.items() if v)))
@@ -97,10 +106,22 @@ def open_page(params, handle):
     C.write_json(C.spec_file(TAB), {'t': C.now(), 'rows': specs, 'ref': ref, 'title': title})
     C.set_prop('dhs.fold.title', title)
     C.set_prop('dhs.fold.bg', background)
+    # v5.10.360: a collection whose card is its logo (its own clear logo, or a
+    # cover shown without its name) has that logo in place of the name
+    logo = ''
+    if folder:
+        logo = str(folder.get('clearlogo') or '') or (str(folder.get('poster') or '') if folder.get('hide_title') else '')
+    C.set_prop('dhs.fold.logo', wrap(logo) if logo else '')
     shown = _publish(specs, ref, title, app.tr)
     C.log('folder "%s": %d row(s) in %.0f ms' % (title, shown, (time.monotonic() - started) * 1000))
     # the page starts at its first row (dhs.fold.new: not when it shows again)
     C.set_prop('dhs.fold.new', '1')
+    if request_token:
+        # The shell is already open; its dynamic row calls use the service/cache.
+        # Do not add two competing reads or join them for thirty seconds.
+        C.set_prop('dhs.fold.loading', '')
+        _focus_first_row(window, request_token=request_token)
+        return None
     xbmc.executebuiltin('ActivateWindow(%d)' % window)
     threads = _prefetch(specs[:min(PREFETCH, SKIN_ROWS - 1)])
     _focus_first_row(window)
@@ -136,7 +157,7 @@ def _publish(specs, ref, title, tr):
     return SKIN_ROWS
 
 
-def _focus_first_row(window=WINDOW, timeout=10.0):
+def _focus_first_row(window=WINDOW, timeout=10.0, request_token=''):
     """The first row has the focus once it has titles (the page opens with
     an invisible button holding it: a list with no items takes none)."""
     monitor = xbmc.Monitor()
@@ -144,6 +165,8 @@ def _focus_first_row(window=WINDOW, timeout=10.0):
     cond = xbmc.getCondVisibility
     first = FIRST_ROW
     while time.monotonic() - started < timeout and not monitor.abortRequested():
+        if request_token and not _request_current(request_token):
+            return
         if cond('Window.IsActive(%d)' % window):
             if cond('Integer.IsGreater(Container(%d).NumItems,0)' % first):
                 if cond('Control.HasFocus(%d)' % FOCUS_HOLDER):
@@ -186,3 +209,66 @@ def republish():
     except Exception:
         tr = (lambda text: text)
     _publish(list(data.get('rows') or []), data.get('ref') or {}, data.get('title') or '', tr)
+
+
+OPEN_REQUEST = 'dhs.fold.request'
+OPEN_TOKEN = 'dhs.fold.loading_token'
+
+
+def request_open(params, handle):
+    """Show the collection shell before resolving catalogs, in the warm service."""
+    window = window_id()
+    if not window or not C.prop('dhs.fold.opener'):
+        return open_page(params, handle)
+    import uuid
+    from .. import profile_scope
+    token = uuid.uuid4().hex
+    request = {'params': dict(params), 'token': token, 'scope': profile_scope.key()}
+    C.set_prop(OPEN_TOKEN, token)
+    C.set_prop('dhs.fold.loading_label', 'Loading…' if _english() else 'جارٍ التحميل…')
+    C.set_prop('dhs.fold.loading', 'true')
+    C.set_prop('dhs.fold.new', '1')
+    xbmc.executebuiltin('ActivateWindow(%d)' % window)
+    # Publish last, after the shell is visible and its old rows are hidden.
+    C.set_prop(OPEN_REQUEST, json.dumps(request))
+    return None
+
+
+def _english():
+    from ..i18n import is_english
+    return is_english()
+
+
+def _request_current(token):
+    return bool(token and C.prop(OPEN_TOKEN) == token and
+                xbmc.getCondVisibility('Window.IsActive(%d)' % window_id()))
+
+
+def watch_open_requests(monitor):
+    """Single worker, one replaceable request; leaving/switching cancels publication."""
+    from .. import profile_scope
+    C.set_prop('dhs.fold.opener', '1')
+    try:
+        while not monitor.abortRequested():
+            raw = C.prop(OPEN_REQUEST)
+            if raw:
+                C.set_prop(OPEN_REQUEST, '')
+                token = ''
+                try:
+                    request = json.loads(raw)
+                    token = request['token']
+                    if request['scope'] == profile_scope.active_key() and _request_current(token):
+                        with profile_scope.bind(request['scope']):
+                            params = dict(request['params'], _open_token=token)
+                            open_page(params, -1)
+                except Exception as exc:
+                    C.log('collection open failed: %s' % exc, xbmc.LOGWARNING)
+                    if _request_current(token):
+                        C.set_prop('dhs.fold.loading_label', 'Could not load collection. Press Back.' if _english()
+                                   else 'تعذر تحميل الكوليكشن. اضغط رجوع.')
+            if monitor.waitForAbort(0.1 if raw else 0.25):
+                break
+    finally:
+        C.set_prop('dhs.fold.opener', '')
+        C.set_prop(OPEN_REQUEST, '')
+        C.set_prop('dhs.fold.loading', '')

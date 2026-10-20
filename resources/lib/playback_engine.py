@@ -132,7 +132,13 @@ def play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta=
     # callbacks from a replaced source. A unique id lets the service suppress
     # duplicate resume/heartbeat work and prevents an old callback from owning
     # or clearing the replacement session.
-    ctx = api._refresh_native_playback_context(ctx)
+    try:
+        ctx = api._refresh_native_playback_context(ctx)
+    except Exception as exc:
+        if str(ctx.get('server_type') or '').lower() == 'silo':
+            api._silo_error(exc)
+            return None
+        raise
     try:
         import uuid as _uuid
         ctx = dict(ctx or {})
@@ -141,6 +147,9 @@ def play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta=
     except Exception:
         ctx = dict(ctx or {})
         ctx['playback_uid'] = '%d-%s' % (int(api.time.time() * 1000), str(stream_key or 'stream'))
+    if ctx.get('server_type') == 'silo' and ctx.get('session_id'):
+        from .service_lease import ensure_started
+        ensure_started()
     ctx = api._ensure_playback_ids(ctx)
     ctx = api._ensure_playback_art_context(ctx)
     # Publish one lightweight action for TIDB's optional Next Episode button.
@@ -169,7 +178,8 @@ def play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta=
     try:
         from . import introdb_bridge as _introdb_bridge
         if _introdb_bridge.is_available():
-            if api._get_bool_setting('introdb_manual_buttons', True):
+            from .native_playback import skip_mode as _native_skip_mode
+            if _native_skip_mode() != 'off' or api._get_bool_setting('introdb_manual_buttons', True):
                 _introdb_bridge.ensure_manual_skip_buttons()
             if api._kodi22_minimal_item_enabled():
                 ctx['introdb_post_start'] = True

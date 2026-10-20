@@ -243,10 +243,15 @@ def set_prop(key, value):
     if not _scope.is_current():
         return
     try:
-        if value in (None, ''):
-            home().clearProperty(key)
+        window = home()
+        text = '' if value in (None, '') else str(value)
+        # Publishing unchanged paths/labels must not dirty the Home again.
+        if window.getProperty(key) == text:
+            return
+        if not text:
+            window.clearProperty(key)
         else:
-            home().setProperty(key, str(value))
+            window.setProperty(key, text)
     except Exception:
         pass
 
@@ -472,6 +477,8 @@ def now():
 def fresh_copy(data, ttl):
     """A cached row young enough, in this version's layout."""
     if not data or data.get('f') != FORMAT:
+        return False
+    if (data.get('kind') == 'continue' or str(data.get('key') or '').startswith('continue')) and not data.get('cw_merge_rev'):
         return False
     return now() - float(data.get('t') or 0) < float(ttl or TTL_CATALOG)
 

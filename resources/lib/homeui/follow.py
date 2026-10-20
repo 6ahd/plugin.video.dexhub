@@ -25,6 +25,7 @@ import re
 import threading
 import time
 from .. import lazy_tb as traceback
+from ..watch_timing import local_time
 from concurrent.futures import ThreadPoolExecutor
 
 import xbmc
@@ -98,15 +99,9 @@ _CODE_RE = re.compile(r'^\s*S\d+\s*E\d+', re.I)
 
 def _left(tile):
     """'34 min left' of a card half watched."""
-    total, resume = float(tile.get('total') or 0), float(tile.get('resume') or 0)
-    if total <= 0 or resume <= 0:
-        return ''
-    minutes = int(round((total - resume) / 60.0))
-    if minutes <= 0:
-        return ''
-    if minutes >= 60:
-        return _t('باقي %d س %d د', '%dh %dm left') % (minutes // 60, minutes % 60)
-    return _t('باقي %d د', '%d min left') % minutes
+    from ..watch_timing import progress
+    return progress(tile.get('resume'), tile.get('total'), _t('', 'en') == 'en')[0]
+
 
 
 def _code(season, episode):
@@ -289,6 +284,12 @@ def coming_up():
     today = datetime.date.today()
     out = []
     for ev in events:
+        try:
+            aired = datetime.datetime.fromisoformat(str(ev.get('aired') or '').replace('Z', '+00:00'))
+            if aired.tzinfo is not None:
+                ev = dict(ev, date=aired.astimezone().date())
+        except (ValueError, TypeError):
+            pass
         if ev['date'] < today - datetime.timedelta(days=1):
             continue
         code = 'S%02dE%02d' % (ev['season'], ev['episode'])
@@ -300,6 +301,8 @@ def coming_up():
             'title': ev['show'], 'line': '  ·  '.join(x for x in (code, ev.get('title') or '') if x),
             'thumb': ev.get('fanart') or '', 'poster': ev.get('poster') or '', 'logo': ev.get('logo') or '',
             'media': 'series', 'srcs': {src}, 'badge': _day_label(ev['date'], today),
+            'calendar_date': ev['date'].strftime('%d / %m'),
+            'calendar_time': local_time(ev.get('aired')),
             'hot': ev['date'] == today, 'tmdb': ev.get('tmdb') or '', 'imdb': ev.get('imdb') or '',
             'open': _query('series', ev['show'], ev.get('tmdb'), ev.get('imdb'), canonical),
         })
@@ -742,6 +745,9 @@ class FollowWindow(xbmcgui.WindowXMLDialog):
                        'clearlogo': entry.get('logo') or ''})
             if entry.get('badge'):
                 li.setProperty('badge', entry['badge'])
+            for prop in ('calendar_date', 'calendar_time'):
+                if entry.get(prop):
+                    li.setProperty(prop, entry[prop])
             if entry.get('hot'):
                 li.setProperty('hot', '1')
             if entry.get('prog'):
@@ -884,7 +890,8 @@ class FollowWindow(xbmcgui.WindowXMLDialog):
             self.open_title(entry)
         elif key == 'track':
             self.track(entry)
-        elif key.startswith('cmd:') and 'action=cw_remove' in key:
+        elif key.startswith('cmd:') and any('action=' + action in key for action in
+                ('cw_remove', 'cw_mark_watched', 'iptv_cw_remove', 'iptv_cw_watched')):
             # v5.10.286: Remove from Continue Watching in this process, the
             # section read again once the title is hidden (not on a timer)
             self._cw_remove(key[4:])
@@ -902,12 +909,19 @@ class FollowWindow(xbmcgui.WindowXMLDialog):
 
         def job():
             try:
-                self.app.api().cw_remove(media_type=params.get('media_type', ''),
-                                         canonical_id=params.get('canonical_id', ''),
-                                         video_id=params.get('video_id', ''), refresh=False)
+                api = self.app.api()
+                action = params.get('action')
+                if action in ('iptv_cw_remove', 'iptv_cw_watched'):
+                    api.iptv_cw_change(video_id=params.get('video_id', ''),
+                                       watched=action == 'iptv_cw_watched', refresh=False,
+                                       on_local=self._reload_up)
+                elif action in ('cw_remove', 'cw_mark_watched'):
+                    getattr(api, action)(media_type=params.get('media_type', ''),
+                                          canonical_id=params.get('canonical_id', ''),
+                                          video_id=params.get('video_id', ''), refresh=False,
+                                          on_local=self._reload_up)
             except Exception as exc:
                 xbmc.log('[DexHub] follow cw remove: %s' % exc, xbmc.LOGWARNING)
-            self._reload_up()
         thread = threading.Thread(target=job, name='DexHub-follow-cw-remove')
         thread.daemon = True
         thread.start()

@@ -773,7 +773,7 @@ def _store(tab, spec, tiles, more, enriched=False, old=None, src=None):
         'lang': ctx.language,
         'enriched': bool(enriched or ((not ctx.language or spec.get('own')) and not logo_pass)),
         'ttl': ttl_of(spec), 'f': C.FORMAT, 'filter_summary': spec.get('_filter_summary') or '',
-        'ev': ENRICH_V,
+        'ev': ENRICH_V, 'cw_merge_rev': 1,
     }
     # v5.10.288: read under the choice in the settings now; it is done when
     # no choice replaces posters or no title follows it (else: _poster_pass)
@@ -1075,9 +1075,12 @@ def episode_code(tile):
     return 'S%s:E%s' % (season or '?', episode)
 
 
-def list_url(params, title='', shape='', page_tile=None):
-    """A Dex Hub listing opened in the Videos window (skin_list)."""
+def list_url(params, title='', shape='', page_tile=None, logo=''):
+    """A Dex Hub listing opened in the Videos window (skin_list).
+    v5.10.360: logo, the studio's or network's logo the page shows in place of its name."""
     query = {'r': urlencode(sorted((k, v) for k, v in (params or {}).items() if v not in (None, '')))}
+    if logo:
+        query['lg'] = logo
     if title:
         query['t'] = title
     if shape:

@@ -17,6 +17,41 @@ Metacritic its score in a green, yellow or red box; Trakt as a percentage.
 
 ORDER = ('imdb', 'tmdb', 'rt_crit', 'rt_aud', 'metacritic', 'trakt', 'letterboxd', 'mdblist', 'mal')
 LIMIT = 6
+# v5.10.334: the names in the picker of the ratings shown
+NAMES = {'imdb': 'IMDb', 'tmdb': 'TMDb', 'rt_crit': 'Rotten Tomatoes', 'rt_aud': 'Popcornmeter',
+         'metacritic': 'Metacritic', 'trakt': 'Trakt', 'letterboxd': 'Letterboxd', 'mdblist': 'MDBList',
+         'mal': 'MyAnimeList'}
+
+
+def chosen(saved=None):
+    """v5.10.334: the ratings the user shows, in ORDER (all of them when the
+    setting is empty or names none we know)."""
+    if saved is None:
+        try:
+            from ..settings_cache import cached_addon
+            saved = cached_addon().getSetting('ratings_shown')
+        except Exception:
+            saved = ''
+    keys = [k for k in ORDER if k in str(saved or '').split(',')]
+    return keys or list(ORDER)
+
+
+def pick(tr=None):
+    """The picker (the Control Centre): any of the nine, at least one."""
+    import xbmcgui
+    tr = tr or (lambda text: text)
+    current = chosen()
+    picked = xbmcgui.Dialog().multiselect(tr('التقييمات الظاهرة'), [NAMES[k] for k in ORDER],
+                                          preselect=[i for i, k in enumerate(ORDER) if k in current])
+    if picked is None:
+        return False
+    keys = [ORDER[i] for i in picked]
+    value = '' if not keys or len(keys) == len(ORDER) else ','.join(keys)
+    import xbmcaddon
+    from ..settings_cache import invalidate
+    xbmcaddon.Addon().setSetting('ratings_shown', value)
+    invalidate()
+    return True
 PERCENT = ('rt_crit', 'rt_aud')
 FRESH = 60
 # Metacritic's own bands: 61 and up green, 40 to 60 yellow, below 40 red
@@ -74,7 +109,9 @@ def props(ratings, prefix='dh.rating.', limit=LIMIT):
     Metacritic box colour)."""
     ratings = ratings or {}
     # a score the page cannot draw ("N/A") is not shown and takes no place
-    shown = [key for key in ORDER if ratings.get(key) and _number(ratings[key]) is not None][:limit]
+    allowed = chosen()     # v5.10.334: the ratings the user chose
+    shown = [key for key in ORDER if key in allowed and ratings.get(key)
+             and _number(ratings[key]) is not None][:limit]
     out = {}
     for key in ORDER:
         value = str(ratings.get(key) or '').strip() if key in shown else ''

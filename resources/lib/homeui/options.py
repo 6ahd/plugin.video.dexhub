@@ -21,6 +21,10 @@ A_CONTEXT = {117, 101}
 
 
 class OptionsDialog(xbmcgui.WindowXMLDialog):
+    def __new__(cls, xml_file, addon_path, skin='Default', res='1080i', **kwargs):
+        # Keep title/options out of Kodi's native XML constructor parser.
+        return super(OptionsDialog, cls).__new__(cls, xml_file, addon_path, skin, res)
+
     def __init__(self, *args, **kwargs):
         super(OptionsDialog, self).__init__(*args)
         self.heading = kwargs.get('title') or ''
@@ -68,7 +72,8 @@ class OptionsDialog(xbmcgui.WindowXMLDialog):
     def onClick(self, control_id):
         if control_id == LIST:
             try:
-                self.choice = int(self.getControl(LIST).getSelectedPosition())
+                position = int(self.getControl(LIST).getSelectedPosition())
+                self.choice = position if 0 <= position < len(self.options) else -1
             except Exception:
                 self.choice = -1
             self.close()

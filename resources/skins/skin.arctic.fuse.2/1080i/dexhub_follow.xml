@@ -1,6 +1,5 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!-- My watching (Dex Hub 5.10.207), 1920x1080 canvas: written by gen_follow_xml.py -->
-<window>
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- My watching (Dex Hub 5.10.207), 1920x1080 canvas: written by gen_follow_xml.py --><window>
 	<defaultcontrol always="true">100</defaultcontrol>
 	<animation effect="fade" start="0" end="100" time="180">WindowOpen</animation>
 	<animation effect="fade" start="100" end="0" time="140">WindowClose</animation>
@@ -525,16 +524,16 @@
 								<visible>[!String.IsEmpty(ListItem.Property(badge))] + [String.IsEqual(ListItem.Property(hot),1)]</visible>
 							</control>
 							<control type="label">
-								<left>236</left>
+								<left>20</left>
 								<top>210</top>
-								<width>200</width>
+								<width>416</width>
 								<height>32</height>
 								<font>font_tiny</font>
 								<textcolor>DDFFFFFF</textcolor>
-								<align>right</align>
+								<align>left</align>
 								<aligny>center</aligny>
 								<label>$INFO[ListItem.Property(left)]</label>
-							</control>
+							<scroll>true</scroll></control>
 							<control type="image">
 								<left>20</left>
 								<top>242</top>
@@ -834,16 +833,16 @@
 								<visible>[!String.IsEmpty(ListItem.Property(badge))] + [String.IsEqual(ListItem.Property(hot),1)]</visible>
 							</control>
 							<control type="label">
-								<left>236</left>
+								<left>20</left>
 								<top>210</top>
-								<width>200</width>
+								<width>416</width>
 								<height>32</height>
 								<font>font_tiny</font>
 								<textcolor>DDFFFFFF</textcolor>
-								<align>right</align>
+								<align>left</align>
 								<aligny>center</aligny>
 								<label>$INFO[ListItem.Property(left)]</label>
-							</control>
+							<scroll>true</scroll></control>
 							<control type="image">
 								<left>20</left>
 								<top>242</top>
@@ -1444,7 +1443,7 @@
 								<label>$INFO[ListItem.Property(badge)]</label>
 								<visible>[!String.IsEmpty(ListItem.Property(badge))] + [String.IsEqual(ListItem.Property(hot),1)]</visible>
 							</control>
-						</control>
+						<control type="image"><left>278</left><top>12</top><width>108</width><height>76</height><texture border="12" colordiffuse="E6101726">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture></control><control type="label"><left>282</left><top>16</top><width>100</width><height>34</height><font>font12</font><textcolor>FFFFFFFF</textcolor><align>center</align><aligny>center</aligny><label>[B]$INFO[ListItem.Property(calendar_date)][/B]</label></control><control type="label"><left>282</left><top>52</top><width>100</width><height>26</height><font>font10</font><textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]</textcolor><align>center</align><label>$INFO[ListItem.Property(calendar_time)]</label><visible>!String.IsEmpty(ListItem.Property(calendar_time))</visible></control></control>
 						<control type="label">
 							<left>13</left>
 							<top>247</top>
@@ -1574,7 +1573,7 @@
 								<label>$INFO[ListItem.Property(badge)]</label>
 								<visible>[!String.IsEmpty(ListItem.Property(badge))] + [String.IsEqual(ListItem.Property(hot),1)]</visible>
 							</control>
-						</control>
+						<control type="image"><left>338</left><top>12</top><width>108</width><height>76</height><texture border="12" colordiffuse="E6101726">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/tile_bg.png</texture></control><control type="label"><left>342</left><top>16</top><width>100</width><height>34</height><font>font12</font><textcolor>FFFFFFFF</textcolor><align>center</align><aligny>center</aligny><label>[B]$INFO[ListItem.Property(calendar_date)][/B]</label></control><control type="label"><left>342</left><top>52</top><width>100</width><height>26</height><font>font10</font><textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]</textcolor><align>center</align><label>$INFO[ListItem.Property(calendar_time)]</label><visible>!String.IsEmpty(ListItem.Property(calendar_time))</visible></control></control>
 						<control type="label">
 							<left>13</left>
 							<top>247</top>

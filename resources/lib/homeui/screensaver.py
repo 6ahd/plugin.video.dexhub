@@ -16,6 +16,8 @@ from Floppy or Trakt). It is kept for six hours in the Home's profile folder
 (ss_cinema.json) so the screensaver opens at once; the Home's own saved
 titles fill in until TMDb has answered.
 
+Your List and News (v5.10.357) are drawn by ss_windows.py.
+
 As a screensaver any key ends it. Opened from the Home's menu (Screensaver,
 Preview) it can be browsed: Left and Right go through the days, Up and Down
 through the titles, OK shows the next title, Back leaves.
@@ -24,11 +26,13 @@ Layout contract with resources/skins/Default/1080i/dexhub_screensaver.xml:
   ss.slot ('a'/'b'), ss.<slot>.fanart / logo / title / meta / plot / row /
   zoom / kb / long; ss.brand, ss.empty; ss.tagline, ss.scene, ss.mark;
   ss.month, ss.heading, ss.section, ss.count, ss.count.label, ss.count.title,
-  ss.browse (browsing hint), ss.cal ('1' when the rail has entries);
+  ss.cal ('1' when the rail has entries); v5.10.357: no key hints (ss.browse,
+  ss.next, ss.resume are gone);
   list 310 the week (props weekday, day, has, sel); list 300 the titles
   (label, label2 details, props when, rel, active; art poster).
 """
 import datetime
+from .. import profile_scope as _scope
 import json
 import os
 import random
@@ -46,6 +50,9 @@ FADE = 1.8              # the crossfade (the skin's own fade time, plus a margin
 MAX_SLIDES = 80
 CINEMA_TTL = 6 * 3600
 WEEK_LIST, RELEASE_LIST = 310, 300
+# v5.10.334: the Up next style's lists (what you are watching, your week)
+CONTINUE_LIST, TIMELINE_LIST = 330, 340
+DOTS = 5
 _TYPES = {'movie': 'فيلم', 'series': 'مسلسل', 'episode': 'حلقة'}
 A_LEFT, A_RIGHT, A_UP, A_DOWN, A_SELECT = 1, 2, 3, 4, 7
 A_BACK = (9, 10, 92, 216, 247, 257, 275, 61448, 61467)
@@ -65,7 +72,7 @@ def _addon():
 
 
 def _profile():
-    return os.path.join(xbmcvfs.translatePath(_addon().getAddonInfo('profile')), 'homeui')
+    return _scope.path('homeui')
 
 
 def _tr(text):
@@ -147,8 +154,26 @@ def chosen_sections():
         raw = ''
     if not raw:
         return list(DEFAULT_SECTIONS)
+    if raw == 'none':
+        return []           # v5.10.335: no TMDb list at all
     keys = [k for k in raw.split(',') if k in SECTION_KEYS]
     return keys or list(DEFAULT_SECTIONS)
+
+
+def set_tmdb(on):
+    """v5.10.335: TMDb's lists in the screensaver, on or off (the sources
+    page). Off: none of them; on: the lists kept, else the defaults, and
+    the screensaver no longer limited to your own sources."""
+    from .. import watch_sources as W
+    cfg = W.config()
+    if on:
+        if not chosen_sections():
+            _addon().setSetting('screensaver_sources', ','.join(DEFAULT_SECTIONS))
+        cfg['personal_only'] = False
+    else:
+        _addon().setSetting('screensaver_sources', 'none')
+    W._write('watch_sources.json', cfg)
+    _forget()
 
 
 def chosen_media():
@@ -161,7 +186,8 @@ def chosen_media():
 
 
 def _config():
-    return '%s|%s' % (','.join(chosen_sections()), chosen_media())
+    from .. import watch_sources as W
+    return '%s|%s|%s|%s|%s' % (','.join(chosen_sections()), chosen_media(), _region(), W._fingerprint(W.config()), str(W.config().get('personal_only')) + ':' + str(W.snapshot().get('t') or 0))
 
 
 def _all_sections():
@@ -205,7 +231,11 @@ def _year(row):
 
 def _features():
     """Titles for the left side: five of each TMDb list, with a backdrop."""
-    out, seen = [], set()
+    from .. import watch_sources as W
+    personal = [r for r in W.features() if chosen_media() == 'both' or r['media'] == chosen_media()]
+    if W.config().get('personal_only'):
+        return personal
+    out, seen = list(personal), {(r['media'], r.get('tmdb_id')) for r in personal}
     for key, name, path, params, media in _sections():
         data = _tmdb(path, params)
         picked = 0
@@ -213,20 +243,22 @@ def _features():
             if picked >= 5:
                 break
             tid = str(row.get('id') or '')
-            if not tid or not row.get('backdrop_path') or tid in seen:
+            if not tid or not row.get('backdrop_path') or (media, tid) in seen:
                 continue
-            seen.add(tid)
+            seen.add((media, tid))
             picked += 1
             meta = [_tr(_TYPES[media]), _year(row)]
             vote = row.get('vote_average') or 0
             if vote:
                 meta.append(u'★ %.1f' % float(vote))
             out.append({'tmdb_id': tid, 'media': media, 'section': _tr(name),
+                        'chip': _tr(name), 'kind': 'tmdb', 'year': _year(row),
+                        'rating': ('%.1f' % float(vote)) if vote else '',
                         'fanart': _image(row.get('backdrop_path'), 'backdrop'),
                         'title': str(row.get('name') or row.get('title') or ''),
                         'meta': '   ·   '.join(m for m in meta if m),
                         'plot': _story(row.get('overview')), 'logo': ''})
-    random.shuffle(out)
+    # v5.10.334: the window orders them (shuffled, or what you watch first)
     return out
 
 
@@ -250,6 +282,15 @@ def _calendar():
         seen.add(key)
         entries.append({'date': day.isoformat(), 'title': title, 'detail': detail, 'poster': poster, 'kind': kind,
                         'tmdb_id': str(tmdb_id or ''), 'media': 'movie' if kind == 'movie' else 'series'})
+    from .. import watch_sources as W
+    for ev in W.calendar_events():
+        try:
+            add(datetime.date.fromisoformat(ev['date']), ev['title'], ev['detail'], ev['poster'], ev['kind'], ev['tmdb_id'])
+        except (ValueError, KeyError):
+            continue
+    if W.config().get('personal_only'):
+        entries.sort(key=lambda e: e['date'])
+        return entries[:30]
     # the user's own shows first (Floppy or Trakt, as My Library's calendar)
     try:
         from ..routes import library
@@ -258,8 +299,9 @@ def _calendar():
                 ev.get('poster') or '', 'mine', ev.get('tmdb') or '')
     except Exception:
         pass
+    tmdb_on = bool(chosen_sections())     # v5.10.335: TMDb's lists off: none of its calendar
     # films coming out
-    for row in [] if media == 'series' else (_tmdb('/movie/upcoming', {'language': lang, 'region': _region()}).get('results') or [])[:20]:
+    for row in [] if media == 'series' or not tmdb_on else (_tmdb('/movie/upcoming', {'language': lang, 'region': _region()}).get('results') or [])[:20]:
         try:
             day = datetime.date.fromisoformat(str(row.get('release_date') or '')[:10])
         except ValueError:
@@ -267,7 +309,7 @@ def _calendar():
         add(day, str(row.get('title') or ''), _tr('فيلم'), _image(row.get('poster_path'), 'poster'), 'movie',
             row.get('id'))
     # the next episodes of the series on the air this week (the most popular few)
-    shows = {} if media == 'movie' else _tmdb('/discover/tv', {'language': lang, 'sort_by': 'popularity.desc',
+    shows = {} if media == 'movie' or not tmdb_on else _tmdb('/discover/tv', {'language': lang, 'sort_by': 'popularity.desc',
                                    'air_date.gte': today.isoformat(), 'air_date.lte': end.isoformat()})
     for row in [] if media == 'movie' else (shows.get('results') or [])[:8]:
         detail = _tmdb('/tv/%s' % row.get('id'), {'language': lang}, ttl=3 * 3600)
@@ -282,6 +324,7 @@ def _calendar():
     return entries[:30]
 
 
+@_scope.bound
 def cinema(refresh=False):
     """(features, calendar, fresh) kept for six hours."""
     path = os.path.join(_profile(), 'ss_cinema.json')
@@ -324,12 +367,14 @@ def _logo_for(feature):
     feature['_logo_done'] = True
     try:
         from .. import tmdb_direct as T
-        found = T.meta_for(tmdb_id=feature.get('tmdb_id') or '', media_type=feature.get('media') or 'movie',
+        found = T.meta_for(tmdb_id=feature.get('tmdb_id') or '', imdb_id=feature.get('open_imdb') or '', media_type=feature.get('media') or 'movie',
                            language_override='en-US' if _english() else 'ar-SA') or {}
         logo = str(found.get('clearlogo') or '')
         if logo.lower().endswith('.svg'):
             logo = logo[:-4] + '.png'
         feature['logo'] = logo
+        if not feature.get('plot'):
+            feature['plot'] = _story(found.get('overview') or found.get('plot') or '')
         if found.get('genres') and feature.get('meta'):
             genres = [str(g) for g in found['genres'][:2] if g]
             if genres:
@@ -342,6 +387,9 @@ def _logo_for(feature):
 # ------------------------------------------------------------- the Home's own
 def slides():
     """The Home's saved titles that have a backdrop, shuffled."""
+    from .. import watch_sources as W
+    if W.config().get('personal_only'):
+        return [r for r in W.features(enrich=False) if chosen_media() == 'both' or r['media'] == chosen_media()]
     seen, out = set(), []
     wanted = chosen_media()
     for page in ('all', 'movie', 'series'):
@@ -448,10 +496,42 @@ def _relative(day, today):
     return _tr('بعد %d أيام') % delta
 
 
+def _ordered(features, order):
+    """v5.10.334: shuffled, or newest: what you are watching first, then your
+    lists, then TMDb's (each in its own order)."""
+    features = list(features or [])
+    if order == 'newest':
+        rank = {'continue': 0, 'mine': 1}
+        return sorted(features, key=lambda f: rank.get(f.get('kind'), 2))
+    random.shuffle(features)
+    return features
+
+
+def _pill(day, today):
+    """Today, Tomorrow, In 3 days."""
+    delta = (day - today).days
+    if delta <= 0:
+        return _tr('اليوم')
+    if delta == 1:
+        return _tr('غداً')
+    return (('In %d days' if _english() else 'بعد %d أيام') % delta) if delta > 2 else _tr('بعد يومين')
+
+
 class Saver(xbmcgui.WindowXMLDialog):
     def __init__(self, *args, **kwargs):
         super(Saver, self).__init__(*args)
-        self.features = list(kwargs.get('slides') or [])
+        try:
+            from .. import watch_sources as W
+            self.look = dict(W.look())
+        except Exception:
+            self.look = {}
+        self.style = self.look.get('style') if self.look.get('style') in ('cinema', 'spotlight', 'upnext') else 'cinema'
+        try:
+            self.slide = max(5.0, float(self.look.get('slide') or SLIDE))
+        except (TypeError, ValueError):
+            self.slide = SLIDE
+        self.slide_at = time.time()
+        self.features = _ordered(kwargs.get('slides') or [], self.look.get('order'))
         self.home = list(self.features)
         self.brand = kwargs.get('brand') or ''
         self.browse = bool(kwargs.get('browse'))
@@ -473,15 +553,25 @@ class Saver(xbmcgui.WindowXMLDialog):
         self.setProperty('ss.tagline', _tr('سينما، في استراحة'))
         self.setProperty('ss.scene', _tr('لحظة هدوء، قبل الحكاية.'))
         self.setProperty('ss.mark', _tr('بيانات TMDb'))
+        from .. import watch_sources as W
+        labels = [r['label'] for r in W.config()['sources'] if r.get('display', True)]
+        self.setProperty('ss.sources', ' · '.join(labels)[:160])
+        self.setProperty('ss.source.label', 'Personal sources' if _english() else 'مصادرك الشخصية')
         self.setProperty('ss.heading', _tr('على موعد'))
         self.setProperty('ss.count.label', _tr('الوقت المتبقي للعرض'))
         self.setProperty('ss.month', '%s %d' % ((_MONTHS_EN if english else _MONTHS_AR)[today.month - 1], today.year))
-        if self.browse:
-            self.setProperty('ss.browse', _tr('◀ ▶ الأيام    ▲ ▼ الأعمال    OK يفتح العمل    رجوع للخروج'))
-        else:
-            self.setProperty('ss.browse', _tr('OK يفتح العمل في Dex Hub    الأسهم للتصفح'))
-        self.setProperty('ss.open', _tr('OK  افتح في Dex Hub'))
+        # v5.10.357: no key hints at the bottom of the page any more
         self.setProperty('ss.aim', 'feature' if self.browse else '')
+        # v5.10.334: the style, the clock, the day, and the Up next lists
+        self.setProperty('ss.style', self.style)
+        self.setProperty('ss.clock.on', '' if self.look.get('clock') is False else '1')
+        self.setProperty('ss.dayname', (_DAYS_EN if english else _DAYS_AR)[today.weekday()])
+        self.setProperty('ss.date', '%d %s' % (today.day, (_MONTHS_EN if english else _MONTHS_AR)[today.month - 1]))
+        self.setProperty('ss.week.label', _tr('هذا الأسبوع'))
+        self.setProperty('ss.yourweek', _tr('أسبوعك'))
+        self.setProperty('ss.upnext', _tr('التالي لك'))
+        self.setProperty('ss.cw', _tr('متابعة المشاهدة'))
+        self._fill_continue()
         if self.features:
             self._show('a', self._next())
         else:
@@ -508,7 +598,7 @@ class Saver(xbmcgui.WindowXMLDialog):
             if features and [f.get('tmdb_id') for f in features] != getattr(self, '_tmdb_ids', None):
                 # TMDb's titles first, the Home's own after them
                 self._tmdb_ids = [f.get('tmdb_id') for f in features]
-                self.features = list(features) + self.home[:10]
+                self.features = _ordered(features, self.look.get('order')) + self.home[:10]
                 self.index = -1
                 self.setProperty('ss.empty', '')
                 if not self.slot:
@@ -538,6 +628,27 @@ class Saver(xbmcgui.WindowXMLDialog):
             self.setProperty('ss.%s.%s' % (slot, key), value or '')
         self.setProperty('ss.%s.long' % slot, '1' if len(feature.get('title') or '') > 24 else '')
         self.setProperty('ss.%s.kb' % slot, random.choice(('1', '2')))
+        # v5.10.334: the source chip, the progress, the chips of the styles
+        kind = feature.get('kind') or ('mine' if feature.get('section') else 'home')
+        prog = int(feature.get('prog') or 0)
+        self.setProperty('ss.%s.kind' % slot, kind)
+        self.setProperty('ss.%s.chip' % slot, feature.get('chip') or feature.get('section') or feature.get('row') or '')
+        self.setProperty('ss.%s.prog' % slot, str(prog) if prog > 0 else '')
+        self.setProperty('ss.%s.left' % slot, feature.get('left') or '')
+        self.setProperty('ss.%s.ep' % slot, feature.get('ep') or '')
+        progress_line = '  ·  '.join(p for p in (feature.get('ep') or '', feature.get('left') or '') if p)
+        self.setProperty('ss.%s.progline' % slot, progress_line)
+        chips = [c.strip() for c in (feature.get('meta') or '').replace('•', '·').split('·') if c.strip()]
+        if feature.get('rating') and not any('★' in c for c in chips):
+            chips.append('★ ' + feature['rating'])
+        for n in range(4):
+            self.setProperty('ss.%s.c%d' % (slot, n + 1), chips[n] if n < len(chips) else '')
+        badge = {'continue': _tr('متابعة المشاهدة'), 'mine': _tr('جديد في قائمتك')}.get(kind) or (
+            feature.get('section') or '')
+        self.setProperty('ss.%s.badge' % slot, badge)
+        if self.features:
+            self.setProperty('ss.dot', str(max(0, self.index) % DOTS))
+            self.setProperty('ss.dots', str(min(DOTS, len(self.features))))
 
     def _show(self, slot, feature):
         self._fill(slot, feature)
@@ -649,14 +760,17 @@ class Saver(xbmcgui.WindowXMLDialog):
 
     def _loop(self):
         monitor = xbmc.Monitor()
-        rest = SLIDE
+        rest = self.slide
         while not self.done.is_set() and not monitor.abortRequested():
             started = time.time()
+            self.slide_at = started
             while time.time() - started < rest:
-                if self.done.wait(0.25):
+                if self.done.wait(0.5):
                     return
                 if self.skip.is_set():
                     break
+                # v5.10.334: the slide's timer bar
+                self.setProperty('ss.tick', str(min(100, int(100 * (time.time() - started) / rest))))
             if self.aim == 'release' and not self.skip.is_set():
                 continue            # a coming title is on show: the slides wait
             step = -1 if getattr(self, '_back_step', False) else 1
@@ -675,6 +789,9 @@ class Saver(xbmcgui.WindowXMLDialog):
     def _fill_week(self):
         english = _english()
         marked = set(e['date'] for e in self.calendar)
+        per_day = {}
+        for entry in self.calendar:
+            per_day[entry['date']] = per_day.get(entry['date'], 0) + 1
         items = []
         # right to left: today on the right, as Arabic reads
         days = self._week()
@@ -686,6 +803,9 @@ class Saver(xbmcgui.WindowXMLDialog):
             li.setProperty('has', '1' if day.isoformat() in marked else '')
             li.setProperty('sel', '1' if self.day == day else '')
             li.setProperty('iso', day.isoformat())
+            # v5.10.334: today in gold, a dot per title (two at most)
+            li.setProperty('today', '1' if day == days[0 if english else -1] else '')
+            li.setProperty('n', str(min(2, per_day.get(day.isoformat(), 0))))
             items.append(li)
         try:
             ctrl = self.getControl(WEEK_LIST)
@@ -725,8 +845,21 @@ class Saver(xbmcgui.WindowXMLDialog):
             li.setProperty('rel', _relative(day, today))
             li.setProperty('active', '1' if index == self.active else '')
             li.setProperty('sel', '1' if (self.browse and self.aim == 'release' and index == self.active) else '')
+            li.setProperty('pill', _pill(day, today))       # v5.10.334
+            li.setProperty('today', '1' if day == today else '')
             items.append(li)
         self.setProperty('ss.cal', '1' if self.calendar else '')
+        week = [e for e in self.calendar if e.get('date', '') <= (today + datetime.timedelta(days=6)).isoformat()]
+        self.setProperty('ss.coming', (('%d coming up' if english else '%d قادم') % len(week)) if week else '')
+        shows = len([e for e in week if e.get('kind') != 'movie'])
+        films = len(week) - shows
+        parts = []
+        if shows:
+            parts.append(('%d shows' if english else '%d مسلسلات') % shows)
+        if films:
+            parts.append(('%d films' if english else '%d أفلام') % films)
+        self.setProperty('ss.week.count', ' · '.join(parts))
+        self._fill_timeline(week)
         self.setProperty('ss.none', '' if items else _tr('لا توجد عروض في هذا اليوم'))
         try:
             ctrl = self.getControl(RELEASE_LIST)
@@ -737,6 +870,57 @@ class Saver(xbmcgui.WindowXMLDialog):
         self._entries_shown = entries
         self.active = min(self.active, max(0, len(entries) - 1))
         self._count_now()
+
+    def _fill_timeline(self, week):
+        """v5.10.334: Your week (the Up next style): five coming titles."""
+        if self.style != 'upnext':
+            return
+        english = _english()
+        today = datetime.date.today()
+        items = []
+        for entry in week[:5]:
+            try:
+                day = datetime.date.fromisoformat(entry['date'])
+            except Exception:
+                continue
+            li = xbmcgui.ListItem(label=entry.get('title') or '', label2=entry.get('detail') or '', offscreen=True)
+            if entry.get('poster'):
+                li.setArt({'poster': entry['poster']})
+            li.setProperty('day', _tr('اليوم') if day == today else (_WEEK_EN if english else _WEEK_AR)[day.weekday()])
+            li.setProperty('num', str(day.day))
+            li.setProperty('today', '1' if day == today else '')
+            items.append(li)
+        try:
+            ctrl = self.getControl(TIMELINE_LIST)
+            ctrl.reset()
+            ctrl.addItems(items)
+        except Exception:
+            pass
+
+    def _fill_continue(self):
+        """v5.10.334: what you are watching (the Up next style), three cards."""
+        if self.style != 'upnext':
+            return
+        try:
+            from .. import watch_sources as W
+            rows = W.continue_items(3)
+        except Exception:
+            rows = []
+        items = []
+        for row in rows:
+            line = '  ·  '.join(p for p in (row.get('ep') or '', row.get('left') or '') if p)
+            li = xbmcgui.ListItem(label=row.get('title') or '', label2=line, offscreen=True)
+            li.setArt({'thumb': row.get('fanart') or row.get('poster') or '', 'clearlogo': row.get('logo') or ''})
+            li.setProperty('prog', str(int(row.get('prog') or 0)))
+            li.setProperty('pct', str(int(row.get('prog') or 0)) if row.get('prog') else '')
+            items.append(li)
+        self.setProperty('ss.cw.on', '1' if items else '')
+        try:
+            ctrl = self.getControl(CONTINUE_LIST)
+            ctrl.reset()
+            ctrl.addItems(items)
+        except Exception:
+            pass
 
     def _rotate_release(self):
         shown = getattr(self, '_entries_shown', []) or []
@@ -761,7 +945,6 @@ class Saver(xbmcgui.WindowXMLDialog):
         if self.browse:
             return
         self.browse = True
-        self.setProperty('ss.browse', _tr('◀ ▶ الأيام    ▲ ▼ الأعمال    OK يفتح العمل    رجوع للخروج'))
         self._mark_active()
 
     def _count_now(self):
@@ -772,6 +955,9 @@ class Saver(xbmcgui.WindowXMLDialog):
             return
         entry = shown[min(self.active, len(shown) - 1)]
         self.setProperty('ss.count.title', entry.get('title') or '')
+        self.setProperty('ss.count.detail', entry.get('detail') or '')     # v5.10.334
+        self.setProperty('ss.count.until', _tr('حتى %s') % (entry.get('title') or '') if not _english()
+                         else 'Until %s' % (entry.get('title') or ''))
         try:
             day = datetime.date.fromisoformat(entry['date'])
         except Exception:
@@ -825,6 +1011,14 @@ class Saver(xbmcgui.WindowXMLDialog):
             self.stop()
             return
         english = _english()
+        if self.style != 'cinema' and aid in (A_LEFT, A_RIGHT, A_UP, A_DOWN):
+            # v5.10.334: Spotlight and Up next have no day rail: the arrows
+            # go to the next or the previous title
+            self.aim = 'feature'
+            back = aid == A_UP or aid == (A_LEFT if english else A_RIGHT)
+            self._back_step = back
+            self.skip.set()
+            return
         if aid in (A_LEFT, A_RIGHT):
             days = self._week()
             if self.day is None:
@@ -928,6 +1122,15 @@ class _Monitor(xbmc.Monitor):
 
 def run(browse=False):
     """Kodi starts the screensaver (screensaver.py), or the user opens it to browse."""
+    # v5.10.357: Your List (the 'upnext' key) and News have windows of their own
+    try:
+        from .. import watch_sources as W
+        style = W.look().get('style')
+    except Exception:
+        style = ''
+    if style in ('upnext', 'news'):
+        from . import ss_windows
+        return ss_windows.run(style, browse=browse)
     addon = _addon()
     path = addon.getAddonInfo('path')
     brand = os.path.join(path, 'resources', 'media', 'fanart.jpg')
@@ -1012,12 +1215,14 @@ def pick_sources(tr=None):
     tr = tr or _tr
     keep = chosen_sections()
     names = [tr(SECTION_NAMES[k]) for k in SECTION_KEYS]
-    picked = xbmcgui.Dialog().multiselect(tr('مصادر شاشة التوقف'), names,
+    # v5.10.360: named for what it is (the old title read "add-ons" in English)
+    picked = xbmcgui.Dialog().multiselect(_t('قوائم TMDb في شاشة التوقف', 'TMDb lists in the screensaver'), names,
                                           preselect=[i for i, k in enumerate(SECTION_KEYS) if k in keep])
     if picked is None:
         return False
-    keys = [SECTION_KEYS[i] for i in picked] or list(DEFAULT_SECTIONS)
-    _addon().setSetting('screensaver_sources', ','.join(keys))
+    keys = [SECTION_KEYS[i] for i in picked]
+    # v5.10.335: none picked is none (it came back as the defaults)
+    _addon().setSetting('screensaver_sources', ','.join(keys) if keys else 'none')
     _forget()
     return True
 
@@ -1035,42 +1240,96 @@ def pick_media(tr=None):
     return True
 
 
-def setup_menu(tr=None):
-    """The screensaver options (Home menu, Dex Hub settings)."""
-    tr = tr or _tr
+def _t(ar, en):
+    return en if _english() else ar
+
+
+STYLE_NAMES = {'cinema': ('سينما', 'Cinema'), 'spotlight': ('سبوتلايت', 'Spotlight'),
+               'upnext': ('Your List', 'Your List'), 'news': ('أخبار السينما', 'Film news')}
+
+
+def _pick_style():
     from .options import choose
+    from .. import watch_sources as W
+    keys = list(W.STYLES)
+    current = W.look().get('style') or 'cinema'
+    choice = choose(_t('شكل شاشة التوقف', 'Screensaver style'), [_t(*STYLE_NAMES[k]) for k in keys],
+                    preselect=keys.index(current) if current in keys else 0)
+    if choice < 0:
+        return
+    W.set_look('style', keys[choice])
+    if keys[choice] == 'upnext' and not W.look().get('yourlist'):
+        from .ss_page import pick_yourlist
+        pick_yourlist()
+    _forget()
+
+
+def setup_menu(tr=None):
+    """The screensaver options (Home menu, Dex Hub settings). v5.10.360: each
+    line names what it sets and shows its value; the lines follow the style."""
+    from .options import choose
+    from .. import watch_sources as W
     while True:
         on = current_mode() == ADDON_ID
-        options = []
-        if on:
-            options.append(('off', tr('إيقاف شاشة توقف Dex Hub')))
+        look = W.look()
+        style = look.get('style') if look.get('style') in STYLE_NAMES else 'cinema'
+        options = [('onoff', (_t('شاشة توقف Dex Hub', 'Dex Hub screensaver'), _t('شغالة', 'On') if on else _t('مطفأة', 'Off'))),
+                   ('style', (_t('الشكل', 'Style'), _t(*STYLE_NAMES[style])))]
+        if style == 'upnext':
+            from .ss_windows import yourlist_source
+            options.append(('yourlist', (_t('القائمة اللي تنعرض', 'The list it shows'),
+                                         (yourlist_source() or {}).get('label') or _t('اختر قائمة', 'Pick a list'))))
+        elif style == 'news':
+            from .ss_windows import news_sources
+            from . import ss_news
+            names = [label for key, label, _k, _u in ss_news.SOURCES if key in news_sources()]
+            options.append(('news', (_t('مصادر الأخبار', 'News sources'), ', '.join(names))))
         else:
-            options.append(('on', tr('استخدام شاشة توقف Dex Hub')))
-        keep = chosen_sections()
-        options.append(('sources', '%s  ·  %s' % (tr('المصادر'), tr('%d من %d') % (len(keep), len(SECTION_KEYS)))))
-        options.append(('media', '%s  ·  %s' % (tr('تعرض'), tr(MEDIA_NAMES[chosen_media()]))))
-        options.append(('preview', tr('افتحها وتصفحها الآن')))
-        subtitle = tr('شاشة التوقف مفعّلة') if on else tr('أعمال من TMDb مع الساعة وتقويم القادم')
-        choice = choose(tr('شاشة التوقف'), [label for _key, label in options], subtitle=subtitle)
+            keep = chosen_sections()
+            shown = [r for r in W.config()['sources'] if r.get('display', True)]
+            options.append(('tmdb', (_t('قوائم TMDb', 'TMDb lists'),
+                                     (_t('%d من %d', '%d of %d') % (len(keep), len(SECTION_KEYS))) if keep
+                                     else _t('متوقفة', 'Off'))))
+            options.append(('personal', (_t('قوائمك: Trakt و MDBList والكتالوجات ومتابعة المشاهدة',
+                                            'Your lists: Trakt, MDBList, catalogs, Continue Watching'),
+                                         _t('%d معروضة', '%d shown') % len(shown))))
+        options.append(('media', (_t('تعرض', 'Shows'), _t(*{'both': ('أفلام ومسلسلات', 'Films and series'),
+                                                               'movie': ('أفلام فقط', 'Films only'),
+                                                               'series': ('مسلسلات فقط', 'Series only')}[chosen_media()]))))
+        options.append(('page', (_t('كل الإعدادات', 'All settings'), _t('الأشكال والمصادر والتوقيت', 'Styles, sources, timing'))))
+        options.append(('preview', (_t('افتحها الآن', 'Preview now'), '')))
+        subtitle = _t('شاشة التوقف شغالة', 'The screensaver is on') if on else _t('شاشة التوقف مطفأة', 'The screensaver is off')
+        choice = choose(_t('شاشة التوقف', 'Screensaver'), [label for _key, label in options], subtitle=subtitle)
         if choice < 0:
             return
         key = options[choice][0]
-        if key == 'sources':
-            pick_sources(tr)
-            continue
-        if key == 'media':
-            pick_media(tr)
-            continue
-        message = ''
-        if key == 'on':
-            message = tr('شاشة توقف Dex Hub مفعّلة') if enable() else tr('تعذر تغيير شاشة التوقف')
-        elif key == 'off':
-            message = tr('رجعت شاشة التوقف السابقة') if disable() else tr('تعذر تغيير شاشة التوقف')
-        elif key == 'preview':
-            preview()
-        if message:
+        if key == 'onoff':
+            ok = disable() if on else enable()
+            message = (_t('رجعت شاشة التوقف السابقة', 'The previous screensaver is back') if on
+                       else _t('شاشة توقف Dex Hub شغالة', 'The Dex Hub screensaver is on')) if ok \
+                else _t('تعذر تغيير شاشة التوقف', 'The screensaver could not be changed')
             try:
                 xbmcgui.Dialog().notification('Dex Hub', message, xbmcgui.NOTIFICATION_INFO, 2500, sound=False)
             except Exception:
                 pass
-        return
+        elif key == 'style':
+            _pick_style()
+        elif key == 'yourlist':
+            from .ss_page import pick_yourlist
+            pick_yourlist()
+        elif key == 'news':
+            from .ss_windows import pick_news_sources
+            pick_news_sources()
+        elif key == 'tmdb':
+            pick_sources()
+        elif key == 'personal':
+            from .. import watch_sources
+            watch_sources.menu()
+        elif key == 'media':
+            pick_media()
+        elif key == 'page':
+            from . import ss_page
+            ss_page.open_page()
+        elif key == 'preview':
+            preview()
+            return

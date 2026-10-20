@@ -1541,3 +1541,48 @@ msgstr "داخل البطاقة"
 msgctxt "#32931"
 msgid "Open sections on focus"
 msgstr "فتح الأقسام بالتمرير"
+
+msgctxt "#32932"
+msgid "Backdrop waits for the cursor"
+msgstr "الخلفية تتبع التحديد بعد التوقف"
+
+msgctxt "#32933"
+msgid "Clean trailer"
+msgstr "تريلر بدون كتابة"
+
+msgctxt "#32934"
+msgid "Ratings shown"
+msgstr "التقييمات الظاهرة"
+
+
+msgctxt "#32935"
+msgid "Show poster on the title page"
+msgstr "إظهار البوستر في صفحة العمل"
+
+msgctxt "#32960"
+msgid "Playback assistance"
+msgstr "مساعد التشغيل"
+
+msgctxt "#32961"
+msgid "Intro and recap skipping (built in)"
+msgstr "تخطي المقدمة والملخص المدمج"
+
+msgctxt "#32962"
+msgid "Manual button"
+msgstr "زر يدوي"
+
+msgctxt "#32963"
+msgid "Automatic"
+msgstr "تلقائي"
+
+msgctxt "#32964"
+msgid "Off"
+msgstr "متوقف"
+
+msgctxt "#32965"
+msgid "Seek preview images (server or Seekr)"
+msgstr "صور معاينة التقديم (السيرفر أو Seekr)"
+
+msgctxt "#32966"
+msgid "Seekr API key (optional)"
+msgstr "مفتاح Seekr (اختياري)"

@@ -13,6 +13,7 @@ import os
 import sqlite3
 import threading
 import time
+import uuid
 
 import xbmc
 
@@ -108,6 +109,10 @@ def _ensure_db():
             conn.execute('CREATE INDEX IF NOT EXISTS idx_fav_source ON favorites(source)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_fav_identity ON favorites(media_type, canonical_id)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_fav_source_page ON favorites(source, added_at DESC, canonical_id)')
+            conn.execute('''CREATE TABLE IF NOT EXISTS nuvio_library_outbox (
+                content_type TEXT NOT NULL, content_id TEXT NOT NULL,
+                operation TEXT NOT NULL, generation TEXT NOT NULL,
+                PRIMARY KEY(content_type, content_id))''')
             # Older merged artwork enrichment accidentally created membership
             # under "mixed". Move its cached art to the actual owners; keep
             # an otherwise orphaned saved title in the local list.
@@ -146,6 +151,68 @@ def _mark_sync_dirty():
         pass
 
 
+def _queue_nuvio_change(conn, media_type, canonical_id, operation):
+    cid = str(canonical_id or '').strip()
+    if not cid or cid.startswith(('plex:', 'emby:', 'jellyfin:', 'silo:')):
+        return
+    kind = 'series' if media_type in ('series', 'show', 'tv', 'anime') else 'movie'
+    conn.execute('INSERT OR REPLACE INTO nuvio_library_outbox VALUES (?, ?, ?, ?)',
+                 (kind, cid, operation, uuid.uuid4().hex))
+
+
+@_scope.bound
+def nuvio_library_snapshot():
+    """Read mutations and their payloads from the same database snapshot."""
+    _ensure_db()
+    conn = _connect()
+    try:
+        conn.execute('BEGIN')
+        cursor = conn.execute("SELECT * FROM favorites WHERE source IN ('local', 'nuvio')")
+        names = [column[0] for column in cursor.description]
+        rows = [dict(zip(names, row)) for row in cursor.fetchall()]
+        pending = [dict(zip(('content_type', 'content_id', 'operation', 'generation'), row))
+                   for row in conn.execute('SELECT * FROM nuvio_library_outbox').fetchall()]
+        return rows, pending
+    finally:
+        conn.close()
+
+
+@_scope.bound
+def pending_nuvio_library():
+    _ensure_db()
+    conn = _connect()
+    try:
+        return [dict(zip(('content_type', 'content_id', 'operation', 'generation'), row))
+                for row in conn.execute('SELECT * FROM nuvio_library_outbox').fetchall()]
+    finally:
+        conn.close()
+
+
+@_scope.bound
+def ack_nuvio_library(changes):
+    _ensure_db()
+    conn = _connect()
+    try:
+        # A request in flight must not acknowledge a newer add/remove.
+        conn.executemany('DELETE FROM nuvio_library_outbox WHERE content_type=? '
+                         'AND content_id=? AND generation=?',
+                         [(r['content_type'], r['content_id'], r['generation']) for r in changes])
+        conn.commit()
+    finally:
+        conn.close()
+
+
+@_scope.bound
+def queue_nuvio_delete(media_type, canonical_id):
+    _ensure_db()
+    conn = _connect()
+    try:
+        _queue_nuvio_change(conn, media_type, canonical_id, 'delete')
+        conn.commit()
+    finally:
+        conn.close()
+
+
 @_scope.bound
 def add(media_type, canonical_id, title, poster='', background='', clearlogo='',
         year=0, plot='', source='local'):
@@ -170,6 +237,8 @@ def add(media_type, canonical_id, title, poster='', background='', clearlogo='',
              poster or '', background or '', clearlogo or '', int(year or 0),
              plot or '', source or 'local', int(time.time())),
         )
+        if (source or 'local') in ('local', 'nuvio'):
+            _queue_nuvio_change(conn, media_type, canonical_id, 'upsert')
         conn.commit()
     finally:
         conn.close()
@@ -210,6 +279,8 @@ def remove(media_type, canonical_id, source=None):
                 "DELETE FROM favorites WHERE media_type=? AND canonical_id=?",
                 (media_type or '', canonical_id or ''),
             )
+        if source in (None, '', 'local', 'nuvio'):
+            _queue_nuvio_change(conn, media_type, canonical_id, 'delete')
         conn.commit()
     finally:
         conn.close()
@@ -320,6 +391,36 @@ def list_favorites(limit=200, source=None, offset=0):
 
 
 @_scope.bound
+def nuvio_library_backups():
+    from .dexhub.safe_io import read_json
+    return read_json(_scope.ScopedPath('nuvio_library_backups.json'), [])
+
+
+def _backup_nuvio_library(rows):
+    if not rows:
+        return
+    from .dexhub.safe_io import write_json
+    snapshots = nuvio_library_backups()
+    keys = lambda items: sorted((r['media_type'], r['canonical_id']) for r in items)
+    if snapshots and keys(snapshots[0]['rows']) == keys(rows):
+        return
+    snapshots.insert(0, {'saved_at': int(time.time()), 'rows': list(rows)})
+    write_json(_scope.ScopedPath('nuvio_library_backups.json'), snapshots[:5])
+
+
+@_scope.bound
+def restore_nuvio_library_backup(index):
+    snapshot = nuvio_library_backups()[int(index)]
+    _scope.require_current()
+    for row in snapshot['rows']:
+        add(row['media_type'], row['canonical_id'], row.get('title') or '',
+            poster=row.get('poster') or '', background=row.get('background') or '',
+            clearlogo=row.get('clearlogo') or '', year=row.get('year') or 0,
+            plot=row.get('plot') or '', source='local')
+    return len(snapshot['rows'])
+
+
+@_scope.bound
 def replace_source_mirror(source, rows):
     """Atomically replace one successful provider snapshot; retain cached art.
 
@@ -332,6 +433,10 @@ def replace_source_mirror(source, rows):
         raise ValueError('Invalid favorites snapshot')
     previous = {(r['media_type'], r['canonical_id']): r
                 for r in list_favorites(limit=0, source=source)}
+    if source == 'nuvio':
+        # Keep nonempty snapshots separately from the live mirror, including
+        # when the server legitimately returns an empty library.
+        _backup_nuvio_library(list(previous.values()))
     values = []
     seen = set()
     for row in rows:

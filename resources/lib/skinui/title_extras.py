@@ -15,10 +15,6 @@ production_companies, networks), kept with the title (title.py); the
 collection's parts are one more TMDb call, cached a month.
 """
 import os
-import struct
-import threading
-import time
-import zlib
 
 import xbmc
 
@@ -155,128 +151,10 @@ def _logos_folder():
     return C.folder('logos')
 
 
-def _png_white(raw):
-    """A cut-out logo (PNG with transparency) as white on its own alpha;
-    None for a logo with its own background, or a PNG this does not read.
-    Only the alpha channel is unfiltered: each channel's filter reads the
-    same channel, so a quarter of the work of a full decode."""
-    if raw[:8] != b'\x89PNG\r\n\x1a\n':
-        return None
-    pos, ihdr, idat, trns = 8, None, [], None
-    while pos + 8 <= len(raw):
-        size = struct.unpack('>I', raw[pos:pos + 4])[0]
-        kind = raw[pos + 4:pos + 8]
-        body = raw[pos + 8:pos + 8 + size]
-        pos += 12 + size
-        if kind == b'IHDR':
-            ihdr = body
-        elif kind == b'IDAT':
-            idat.append(body)
-        elif kind == b'tRNS':
-            trns = body
-        elif kind == b'IEND':
-            break
-    if not ihdr or not idat:
-        return None
-    width, height, depth, ctype, _comp, _filt, interlace = struct.unpack('>IIBBBBB', ihdr)
-    if depth != 8 or interlace or width * height > 600000:
-        return None
-    if ctype == 6:
-        bpp, off = 4, 3
-    elif ctype == 4:
-        bpp, off = 2, 1
-    elif ctype == 3 and trns:
-        bpp, off = 1, 0
-    else:
-        return None
-    data = zlib.decompress(b''.join(idat))
-    stride = width * bpp + 1
-    if len(data) < stride * height:
-        return None
-    prev = [0] * width
-    alpha_rows = []
-    for y in range(height):
-        line = data[y * stride:(y + 1) * stride]
-        f = line[0]
-        vals = line[1 + off::bpp]
-        cur = [0] * width
-        if f == 0:
-            cur = list(vals)
-        elif f == 2:
-            cur = [(v + p) & 255 for v, p in zip(vals, prev)]
-        elif f == 1:
-            left = 0
-            for x in range(width):
-                left = (vals[x] + left) & 255
-                cur[x] = left
-        elif f == 3:
-            left = 0
-            for x in range(width):
-                left = (vals[x] + ((left + prev[x]) >> 1)) & 255
-                cur[x] = left
-        elif f == 4:
-            left = upleft = 0
-            for x in range(width):
-                up = prev[x]
-                p = left + up - upleft
-                pa, pb, pc = abs(p - left), abs(p - up), abs(p - upleft)
-                pred = left if pa <= pb and pa <= pc else (up if pb <= pc else upleft)
-                left = (vals[x] + pred) & 255
-                cur[x] = left
-                upleft = up
-        else:
-            return None
-        alpha_rows.append(cur)
-        prev = cur
-    if ctype == 3:
-        table = list(trns) + [255] * (256 - len(trns))
-        alpha_rows = [[table[i] for i in row] for row in alpha_rows]
-    corners = (alpha_rows[0][0], alpha_rows[0][-1], alpha_rows[-1][0], alpha_rows[-1][-1])
-    clear = sum(1 for row in alpha_rows for a in row[::4] if a < 16)
-    if min(corners) > 200 or clear * 4 < (width * height) // 20:
-        return None                     # its own background: drawn as it is
-    body = bytearray()
-    white = b'\xff' * (width * 4)
-    for row in alpha_rows:
-        line = bytearray(white)
-        line[3::4] = bytes(row)
-        body += b'\x00' + line
-
-    def chunk(kind, payload):
-        return (struct.pack('>I', len(payload)) + kind + payload
-                + struct.pack('>I', zlib.crc32(kind + payload) & 0xffffffff))
-    return (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 6, 0, 0, 0))
-            + chunk(b'IDAT', zlib.compress(bytes(body), 6)) + chunk(b'IEND', b''))
-
-
 def _logo_files(url):
     name = C.short_id(url)
     folder = _logos_folder()
     return os.path.join(folder, 'w_%s.png' % name), os.path.join(folder, 'k_%s' % name)
-
-
-def _whiten(url):
-    white, keep = _logo_files(url)
-    try:
-        import urllib.request
-        request = urllib.request.Request(url, headers={'User-Agent': 'DexHub'})
-        with urllib.request.urlopen(request, timeout=5) as answer:
-            raw = answer.read(2 * 1024 * 1024)
-        out = _png_white(raw)
-    except Exception as exc:
-        C.log('studio logo %s: %s' % (url, exc), xbmc.LOGDEBUG)
-        return
-    try:
-        if out:
-            tmp = white + '.tmp'
-            with open(tmp, 'wb') as handle:
-                handle.write(out)
-            os.replace(tmp, white)
-        else:
-            with open(keep, 'w') as handle:
-                handle.write('1')
-    except Exception:
-        pass
 
 
 def _logo_for(row):
@@ -305,25 +183,21 @@ def studio_route(row, series):
     from . import rows as RW
     mode = 'network' if row.get('kind') == 'network' else 'company'
     media = 'series' if (series or mode == 'network') else 'movie'
+    # v5.10.360: its page shows the logo in place of the name (a light logo,
+    # or one on its own background; a cut-out still being made white could be
+    # dark on the page, so the name stays for it)
+    texture, logo_mode = _logo_for(row)
     return RW.list_url({'action': 'tmdb_titles', 'mode': mode, 'id': row['id'], 'media': media,
-                        'name': row.get('name') or ''}, title=row.get('name') or '', shape='poster')
+                        'name': row.get('name') or ''}, title=row.get('name') or '', shape='poster',
+                       logo=texture if logo_mode in ('white', 'plate') else '')
 
 
 def studio_items(title):
     rows = list((title.extras or {}).get('studios') or [])
     if not rows:
         return []
-    pending = [r['logo'] for r in rows if _logo_for(r)[1] == 'wait']
-    if pending:
-        # made once per logo (kept in the profile): a few at a time, for a
-        # few seconds; the ones not ready keep their plate this time
-        threads = [threading.Thread(target=_whiten, args=(u,), name='DexHubLogo', daemon=True)
-                   for u in pending[:8]]
-        for th in threads:
-            th.start()
-        deadline = time.monotonic() + 4.0
-        for th in threads:
-            th.join(max(0.0, deadline - time.monotonic()))
+    # Keep the listing CPU/network-free. Kodi's background texture loader
+    # fetches the original small logo; cached white/installed pack art still wins.
     out = []
     for row in rows:
         texture, mode = _logo_for(row)
@@ -336,3 +210,23 @@ def studio_items(title):
                     'props': {'kind': 'studio', 'logo_mode': mode, 'logo': texture,
                               'dhs.click': 'run', 'dhs.target': C.url('skin_opengrid', u=target)}})
     return out
+
+
+
+def collection_tiles(coll_id):
+    """Reuse the exact parts already read for the title page's collection card."""
+    if not str(coll_id).isdigit():
+        return []
+    tiles = []
+    for part in (collection_parts(str(coll_id)) or {}).get('parts') or []:
+        tmdb = part.get('tmdb') or ''
+        if not str(tmdb).isdigit():
+            continue
+        title = part.get('title') or ''
+        tiles.append({'kind': 'work', 'media_type': 'movie', 'tmdb_id': str(tmdb),
+                      'title': title, 'year': part.get('year') or '', 'plot': part.get('overview') or '',
+                      'poster': part.get('poster') or '', 'fanart': part.get('backdrop') or '',
+                      'landscape': part.get('backdrop') or '', 'rating': part.get('rating') or 0,
+                      'folder': True, 'path': C.url('item_open', media_type='movie',
+                          canonical_id='tmdb:' + str(tmdb), tmdb_id=str(tmdb), title=title)})
+    return tiles

@@ -1,6 +1,40 @@
 # -*- coding: utf-8 -*-
 """Bounded series metadata lookup; exact source video IDs are retained."""
 
+def unique_episodes(rows, season=None):
+    """One card per numbered episode; keep the first provider's playback id.
+
+    Also handles cached resolved rows. Unnumbered extras stay separate unless
+    they repeat the same explicit video id. Never merge by title or artwork.
+    """
+    def coordinate(value):
+        text = str(value).strip()
+        try:
+            return int(text) if text.isascii() and text.isdigit() else None
+        except ValueError:
+            return None
+
+    out, seen = [], {}
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        s = coordinate(row.get('season') if season is None else season)
+        e = coordinate(row.get('episode') if row.get('episode') not in (None, '') else row.get('number'))
+        identity = str(row.get('video_id') or row.get('id') or '')
+        key = ('episode', s, e) if s is not None and e is not None else (('id', identity) if identity else None)
+        if key is None or key not in seen:
+            if key is not None:
+                seen[key] = len(out)
+            out.append(dict(row))
+            continue
+        first = out[seen[key]]
+        for name in ('title', 'name', 'plot', 'overview', 'description', 'thumb', 'thumbnail',
+                     'aired', 'released', 'firstAired', 'runtime'):
+            if not first.get(name) and row.get(name):
+                first[name] = row[name]
+    return out
+
+
 def lookup(api, media, canonical, source=''):
     try:
         providers = api._provider_order_for_id_with_context(

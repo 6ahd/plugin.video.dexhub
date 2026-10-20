@@ -28,6 +28,10 @@ _POLL = 0.25
 # left on all night played 29 trailers an hour, reloaded the lists after
 # each and kept the screensaver away); the next key press brings them back
 _IDLE_STOP = 600
+# v5.10.361: a preview opens only once the keys have rested this long (whole
+# seconds, Kodi's idle clock). Opening a stream puts up Kodi's busy dialog for
+# a moment, and a key pressed then was swallowed (11 times in one log)
+_START_REST = 1
 _SETTINGS_EVERY = 2.0
 _SPOTLIGHT = 301
 _FOLD_WINDOW = 1190     # a collection folder's page of rows (folderpage.py)
@@ -281,7 +285,19 @@ class Spotlight(threading.Thread):
                 # v5.10.187: a trailer stopped before it showed says why (INFO)
                 C.log('trailer: no target (%s)' % self.why,
                       xbmc.LOGINFO if self.director.opening else xbmc.LOGDEBUG)
-                self.stop_trailer()
+                if (self.why.startswith('item ') or self.why == 'container'
+                        or (self.why == 'busy' and self.director.parked)):
+                    # v5.10.362: Kodi's busy dialog of a trailer parked while it
+                    # opened (the cursor left the hero at that moment) closed it
+                    # 0.3 s later, a freeze in the middle of the move: it stays parked
+                    # v5.10.361: down from the hero to a row (or along the
+                    # hub): parked, as between two titles, not stopped. Kodi
+                    # froze 0.3 to 0.5 s closing the player right as the
+                    # cursor moved; parked, it closes once the keys rest, and
+                    # back on the title it carries on without opening again
+                    self.leave_trailer()
+                else:
+                    self.stop_trailer()
             else:
                 if self.key is not None:
                     C.log('trailer: title gone (%s)' % self.why, xbmc.LOGDEBUG)
@@ -298,8 +314,9 @@ class Spotlight(threading.Thread):
             # for the next one to take the open player over
             self.director.next_token()
             self.key, self.since, self.tried = target['key'], now, None
+            if self.immersive:          # v5.10.334: written only when it was set
+                C.set_prop('dhs.immersive', '')
             self.immersive = False
-            C.set_prop('dhs.immersive', '')
             if self.ours():
                 self.visible_since = 0.0
                 self._revealed = False
@@ -314,6 +331,8 @@ class Spotlight(threading.Thread):
             return
         if self.director.foreign_playback():
             return
+        if xbmc.getGlobalIdleTime() < _START_REST:
+            return              # v5.10.361: not while the keys are moving
         self.begin(target, settings)
 
     def target(self):
@@ -327,8 +346,9 @@ class Spotlight(threading.Thread):
         self.why = 'no hub'
         # a collection folder's page of rows (skin.dexhub 3.2, folderpage.py)
         fold = layout.major >= 3 and guistate.is_active(_FOLD_WINDOW)
-        tab = None if fold else layout.tab_on_show()
-        if tab is None and not fold:
+        grid = bool(guistate.active() == guistate.VIDEOS and xbmc.getInfoLabel('Container.Property(dhs.grid)'))
+        tab = None if fold or grid else layout.tab_on_show()
+        if tab is None and not fold and not grid:
             return None
         self.why = 'dialog'
 
@@ -347,12 +367,31 @@ class Spotlight(threading.Thread):
             return None         # real playback (or a paused film behind the hub)
         self.why = 'container'
 
-        if fold:
+        if grid:
+            try:
+                container = int(info('System.CurrentControlId') or 0)
+            except ValueError:
+                container = 0
+            if container not in (600, 601):
+                if target is not None and self.ours() and (self.director.opening or _busy_now()):
+                    self.why = 'grid focus away while it opens'
+                    self.last = target
+                    return target
+                return None
+        elif fold:
             try:
                 container = _FOLD_BASE + int(C.prop('dhs.ffr') or 1)
             except ValueError:
                 container = _FOLD_BASE + 1
             if not _focused(container):
+                # Kodi's opening dialog can briefly take the row's focus
+                # before the cached busy-dialog state catches up. Home had
+                # this grace path; collection rows did not, so they stopped
+                # and reopened their own trailer.
+                if target is not None and self.ours() and (self.director.opening or _busy_now()):
+                    self.why = 'collection focus away while it opens'
+                    self.last = target
+                    return target
                 return None
         elif layout.hubs:
             _name, window_id = layout.tab_window(tab)
@@ -368,7 +407,7 @@ class Spotlight(threading.Thread):
                 container = layout.spotlight if fr == '0' else layout.row_list(int(fr))
             except ValueError:
                 container = layout.spotlight
-        if fold:
+        if fold or grid:
             pass
         elif container == layout.spotlight:
             if not _has_items(container):
@@ -385,6 +424,16 @@ class Spotlight(threading.Thread):
             return None
         self.why = 'item %d' % container
         prefix = 'Container(%d).ListItem.' % container
+        # v5.10.334: the same card as the last look (the cursor rests, or a
+        # trailer plays) is not read again: six labels four times a second,
+        # each a wait on Kodi's graphics lock, while the remote moves
+        seen_id = info(prefix + 'Property(dhs.id)')
+        cached = getattr(self, '_target_cache', None)
+        if (seen_id and cached is not None and cached[0] == (container, seen_id)
+                and time.monotonic() - cached[2] < 3.0):
+            self.last = cached[1]
+            return self.last
+        self._target_cache = None
         video = info(prefix + 'Property(dhs.hero_video)')
         if info(prefix + 'Property(kind)') == 'folder' and video:
             if not C.prop('dhs.opt.kenburns'):
@@ -392,12 +441,15 @@ class Spotlight(threading.Thread):
             self.last = {'key': 'banner:' + C.short_id(video + info(prefix + 'Label')),
                          'video': video, 'imdb': '', 'title': info(prefix + 'Label')}
             return self.last
-        title_id = info(prefix + 'Property(dhs.id)')
+        title_id = seen_id
         imdb = info(prefix + 'UniqueID(imdb)')
         if not title_id or not imdb.startswith('tt'):
+            if title_id:
+                self._target_cache = ((container, title_id), None, time.monotonic())
             return None
         self.last = {'key': title_id, 'imdb': imdb, 'title': info(prefix + 'Label'),
                      'q': info(prefix + 'Property(dhs.q)')}
+        self._target_cache = ((container, title_id), self.last, time.monotonic())
         return self.last
 
     PREFETCH_DWELL = 1.2
@@ -476,7 +528,8 @@ class Spotlight(threading.Thread):
         idle = xbmc.getGlobalIdleTime()
         compact = settings.get('layout') == 'two_rows' and guistate.is_active(10000)
         # v5.10.326: a trailer inside a row's card neither grows nor moves the page
-        if settings.get('mode') == 'card' and (C.prop('dhs.fr') or '0') != '0':
+        if settings.get('mode') == 'card' and (guistate.is_active(_FOLD_WINDOW)
+                or guistate.active() == guistate.VIDEOS or (C.prop('dhs.fr') or '0') != '0'):
             compact = True
         want = bool(not compact and settings.get('immersive') and showing
                     and time.monotonic() - self.visible_since > 16.0 and idle >= 16)
@@ -504,6 +557,21 @@ class Spotlight(threading.Thread):
             C.set_prop('dhs.immersive', '')
             self._stage = False
             C.set_prop('dhs.stage', '')
+
+    def leave_trailer(self):
+        """v5.10.361: the cursor left the title for another place in the hub:
+        the preview is hidden and parked (paused at once; Kodi's player closes
+        when the keys rest, or carries on if the cursor comes back)."""
+        if self.ours():
+            C.log('trailer parked (the hub left the title)', xbmc.LOGDEBUG)
+            self.director.park(8.0)
+        self._revealed = False
+        self.visible_since = 0.0
+        C.set_prop('dhs.trailer.visible', '')
+        self.immersive = False
+        C.set_prop('dhs.immersive', '')
+        self._stage = False
+        C.set_prop('dhs.stage', '')
 
     def stop_trailer(self, wait=False):
         if self.ours():

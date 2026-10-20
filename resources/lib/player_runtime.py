@@ -2811,7 +2811,8 @@ def silo_play(item_id, server=None, force_native=False, resume_seconds=None, ui_
         elif not selected:
             selected = versions[0] if versions else {}
         resolved = silo_client.resolve_playback(
-            server, item_id, selected.get('media_source_id') or selected.get('file_id') or '')
+            server, item_id, selected.get('media_source_id') or selected.get('file_id') or '',
+            start_position=(resume_seconds if resume_seconds is not None else (item.get('resume_ms') or 0) / 1000))
     except Exception as exc:
         return _silo_error(exc)
     ids = item.get('ids') or {}
@@ -2862,6 +2863,7 @@ def silo_play(item_id, server=None, force_native=False, resume_seconds=None, ui_
         'show_tmdb_id': show_ids.get('tmdb_id') or '',
         'show_tvdb_id': show_ids.get('tvdb_id') or '',
         'subtitles': list((resolved.get('version') or selected).get('subtitles') or []),
+        'silo_session': resolved.get('silo_session') or {},
     }
     ctx['stream_key'] = cache_store.put('stream', {
         'stream_url': ctx['stream_url'], 'name': ctx['title'],
@@ -5550,7 +5552,7 @@ _SESSION_CTX_COPY_KEYS = (
     'source_provider_id', 'server_id', 'source_addon', 'source_indexer',
     'source_service', 'source_type', 'binge_group', 'behaviorHints',
     'show_imdb_id', 'show_tmdb_id', 'show_tvdb_id', 'external_ids',
-    'introdb_post_start',
+    'introdb_post_start', 'episode_order', 'displayorder',
     'provider_name', 'provider_base_url', 'subtitles', 'stream_url', 'poster',
     'background', 'clearlogo', 'genre', 'rating', 'studio', 'premiered',
     'duration', 'duration_ms', 'kodi_info', 'cast', 'resume_seconds', 'resume_percent',
@@ -5565,7 +5567,7 @@ _SESSION_CTX_COPY_KEYS = (
     # Watching row was permanently blank.  (Plex only looked fine because the
     # Plex apps write their own progress.)
     'server_type', 'server_url', 'token', 'item_id', 'rating_key',
-    'media_source_id', 'part_key', 'play_session_id', 'device_id', 'session_id',
+    'media_source_id', 'part_key', 'play_session_id', 'device_id', 'session_id', 'silo_session',
 )
 
 def _augment_session_ctx(target, ctx, fallback_keys, include_stream_url=True):
@@ -5775,19 +5777,24 @@ def _refresh_native_playback_context(ctx):
         # v5.10.27: bound the refresh. It runs synchronously right before
         # Player.play, and the direct URL below is already a valid fallback.
         with emby_client.bounded_timeout(6):
-            resolved = client.resolve_playback(
-                server, item_id, str(ctx.get('media_source_id') or ''))
+            args = (server, item_id, str(ctx.get('media_source_id') or ''))
+            resolved = (client.resolve_playback(*args, start_position=ctx.get('resume_seconds'))
+                        if backend == 'silo' else client.resolve_playback(*args))
         if resolved.get('url'):
             ctx['stream_url'] = resolved.get('url')
         if resolved.get('media_source_id'):
             ctx['media_source_id'] = resolved.get('media_source_id')
         if resolved.get('play_session_id'):
             ctx['session_id'] = resolved.get('play_session_id')
+        if resolved.get('silo_session'):
+            ctx['silo_session'] = resolved['silo_session']
         version = resolved.get('version') or {}
         if version.get('subtitles'):
             ctx['subtitles'] = list(version.get('subtitles') or [])
         ctx['native_playback_resolved'] = True
     except Exception as exc:
+        if backend == 'silo':
+            raise
         # Keep the already-built direct URL as a compatibility fallback.
         try:
             xbmc.log('[DexHub] %s PlaybackInfo refresh failed; using direct fallback: %s' % (
@@ -6878,7 +6885,7 @@ def _server_client(backend):
     return emby_client
 
 def _server_stream_rows(backend, server, ids, media_type, titles,
-                        season=None, episode=None, titles_loader=None):
+                        season=None, episode=None, titles_loader=None, year=''):
     """ONE lookup for both servers: ID first, titles only as a fallback.
 
     v3.9.218 — the unified path the user asked for.
@@ -6933,7 +6940,8 @@ def _server_stream_rows(backend, server, ids, media_type, titles,
     # 1) BY ID — the only lookup that survives a translated library
     try:
         with _bounded(_per_request):
-            _take(client.find_all_by_ids(server, ids, media_type=kind, title='', limit=24))
+            options = {'year': year} if backend == 'jellyfin' else {}
+            _take(client.find_all_by_ids(server, ids, media_type=kind, title='', limit=24, **options))
     except Exception as exc:
         xbmc.log('[DexHub] %s id lookup failed: %s' % (backend, exc), xbmc.LOGWARNING)
         # v5.10.91: a timed-out id lookup is a slow server, not an empty one.
@@ -6964,14 +6972,37 @@ def _server_stream_rows(backend, server, ids, media_type, titles,
             pass
         return False
 
-    # 2) BY TITLE — only if the ids found nothing (or the item has none)
-    if not matches and time.time() < _deadline:
-        if titles_loader is not None:
+    # 2) BY TITLE. Jellyfin tries local names first: remote enrichment only
+    # follows an actual miss, inside this worker's existing time budget.
+    def _title_candidates():
+        nonlocal titles
+        if backend != 'jellyfin' and titles_loader is not None:
             try:
                 titles = titles_loader() or titles
             except Exception:
                 pass
-        for title in (titles or []):
+        used = set()
+        for candidate in (titles or []):
+            value = str(candidate or '').strip()
+            if backend == 'jellyfin' and re.fullmatch(r'(?:tt\d+(?::\d+){0,2}|(?:imdb|tmdb|tvdb):.*)', value, flags=re.I):
+                continue
+            if value and value.casefold() not in used:
+                used.add(value.casefold())
+                yield value
+        if backend == 'jellyfin' and not matches and titles_loader is not None and time.time() < _deadline and not _stopped('title-enrichment'):
+            try:
+                loaded = titles_loader() or []
+            except Exception:
+                loaded = []
+            for candidate in loaded:
+                value = str(candidate or '').strip()
+                if value and value.casefold() not in used and not re.fullmatch(r'(?:tt\d+(?::\d+){0,2}|(?:imdb|tmdb|tvdb):.*)', value, flags=re.I):
+                    used.add(value.casefold())
+                    titles = list(titles or []) + [value]
+                    yield value
+
+    if not matches and time.time() < _deadline:
+        for title in _title_candidates():
             if not str(title or '').strip():
                 continue
             if time.time() >= _deadline:
@@ -6982,8 +7013,9 @@ def _server_stream_rows(backend, server, ids, media_type, titles,
                 break
             try:
                 with _bounded(_per_request):
+                    options = {'year': year} if backend == 'jellyfin' else {}
                     _take(client.find_all_by_ids(server, ids, media_type=kind,
-                                                 title=title, limit=24))
+                                                 title=title, limit=24, **options))
             except Exception:
                 continue
             # v3.9.222: do NOT stop at the first title that hits. A library
@@ -7054,7 +7086,7 @@ def _emby_stream_payload(provider, media_type):
     series = _is_series_media(media_type) and season and episode
     items = _server_stream_rows(
         backend, server, ids, media_type, titles,
-        season=season, episode=episode,
+        season=season, episode=episode, year=provider.get('_year') or '',
         titles_loader=lambda: _native_titles(provider, media_type, _tmdb_direct))
     if not items:
         return {}

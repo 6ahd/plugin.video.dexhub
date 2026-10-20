@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Same white surface, black text, font, dimensions and fade as Next Episode. -->
+<window>
+ <defaultcontrol always="true">100</defaultcontrol>
+ <coordinates>
+  <system>1</system>
+  <width>1920</width>
+  <height>1080</height>
+ </coordinates>
+ <animation effect="fade" start="0" end="100" time="320" tween="sine">WindowOpen</animation>
+ <animation effect="fade" start="100" end="0" time="200">WindowClose</animation>
+ <controls>
+  <control type="button" id="100">
+   <left>1472</left>
+   <top>866</top>
+   <width>328</width>
+   <height>74</height>
+   <font>font25_title</font>
+   <align>center</align>
+   <aligny>center</aligny>
+   <textcolor>FF0B0E13</textcolor>
+   <focusedcolor>FF0B0E13</focusedcolor>
+   <selectedcolor>FF0B0E13</selectedcolor>
+   <disabledcolor>FF48494C</disabledcolor>
+   <shadowcolor>00000000</shadowcolor>
+   <texturefocus border="30" colordiffuse="FFFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/pill.png</texturefocus>
+   <texturenofocus border="30" colordiffuse="FFFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/pill.png</texturenofocus>
+   <pulseonselect>false</pulseonselect>
+   <onleft>100</onleft>
+   <onright>100</onright>
+   <onup>100</onup>
+   <ondown>100</ondown>
+  </control>
+ </controls>
+</window>

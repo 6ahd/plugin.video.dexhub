@@ -366,7 +366,7 @@ def _calendar_events():
             out.append({'show': item.get('title') or '', 'season': season, 'episode': episode, 'date': day,
                         'tmdb': str(item.get('media_id') or '') if item.get('source') == 'tmdb' else '',
                         'imdb': '', 'poster': item.get('image') or '', 'fanart': item.get('backdrop') or '',
-                        'title': ''})
+                        'title': '', 'aired': str(ev.get('datetime') or '')})
     if not out:
         out = _trakt_calendar()
     out.sort(key=lambda e: (e['date'], e['show']))

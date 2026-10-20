@@ -204,6 +204,11 @@ def add_item(label, path, is_folder=True, info=None, art=None, properties=None, 
         item.setProperties(props)
     except Exception:
         pass
+    try:
+        from .context_menu import with_player
+        context_menu = with_player(context_menu, path, info, ids, props)
+    except Exception:
+        pass
     if context_menu:
         try:
             # replaceItems=True so we OWN the menu. Previously False appended
@@ -213,7 +218,8 @@ def add_item(label, path, is_folder=True, info=None, art=None, properties=None, 
             # poster — making the heart meaningless as a "this is favourited"
             # marker. Replacing the menu also gives us full control over
             # the available actions.
-            item.addContextMenuItems([(tr(lbl), _menu_command(act)) for (lbl, act) in list(context_menu)], replaceItems=True)
+            from .context_menu import clean
+            item.addContextMenuItems([(tr(lbl), act) for lbl, act in clean([(lbl, _menu_command(act)) for lbl, act in context_menu])], replaceItems=True)
         except Exception:
             pass
     # v5.10.96: the Dex Hub Home window runs normal routes with a capture

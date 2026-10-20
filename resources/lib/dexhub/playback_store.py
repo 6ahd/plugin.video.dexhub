@@ -154,17 +154,23 @@ def _upsert_params(conn, row):
             ts //= 1000
     except Exception:
         ts = int(time.time())
-    # We avoid clobbering updated_at on no-op local updates: when the new
-    # position is within ~30s of the stored one, keep the existing timestamp.
+    # Preserve time only for an actual no-op. A short seek, pause or watched
+    # event is a real update even when the position moved less than 30s.
     existing = None
     if ext_updated_at is None:
         existing = conn.execute(
-            "SELECT position, updated_at FROM playback WHERE media_type=? AND canonical_id=? AND video_id=?",
+            "SELECT position, updated_at, event_type, percent, duration FROM playback "
+            "WHERE media_type=? AND canonical_id=? AND video_id=?",
             (media_type, canonical_id, video_id),
         ).fetchone()
+        # v5.10.334: where it was, for the watching-time log (watch_log.py)
+        row['_old_position'] = existing[0] if existing else None
     if existing:
         try:
-            if abs(float(row.get('position') or 0.0) - float(existing[0] or 0.0)) < 30.0:
+            if (abs(float(row.get('position') or 0.0) - float(existing[0] or 0.0)) < 0.5
+                    and (row.get('event_type') or '') == (existing[2] or '')
+                    and abs(float(row.get('percent') or 0.0) - float(existing[3] or 0.0)) < 0.01
+                    and abs(float(row.get('duration') or 0.0) - float(existing[4] or 0.0)) < 0.5):
                 ts = int(existing[1] or ts)
         except Exception:
             pass
@@ -238,6 +244,11 @@ def upsert_entries(entries, mark_dirty=True):
             conn.close()
     if changed and mark_dirty:
         _mark_sync_dirty()
+        try:
+            from .. import watch_log    # v5.10.334: the island's week
+            watch_log.record([row for row in rows if '_old_position' in row])
+        except Exception:
+            pass
     return changed
 
 
@@ -305,7 +316,7 @@ def list_continue_items(limit=50):
         SELECT media_type, canonical_id, video_id, title, provider_name, poster, background, clearlogo,
                season, episode, position, duration, percent, updated_at,
                tmdb_id, imdb_id, tvdb_id, show_tmdb_id, native_server_id, native_item_id,
-               show_title
+               show_title, event_type, stream_url
         FROM playback
         WHERE percent < (CASE WHEN LOWER(COALESCE(provider_name,'')) LIKE '%simkl%' THEN 80.0 ELSE 90.0 END)
         ORDER BY updated_at DESC, title COLLATE NOCASE ASC, canonical_id ASC, video_id ASC
@@ -324,6 +335,7 @@ def list_continue_items(limit=50):
             'tmdb_id': row[14], 'imdb_id': row[15], 'tvdb_id': row[16], 'show_tmdb_id': row[17],
             'native_server_id': row[18], 'native_item_id': row[19],
             'show_title': row[20] or '',
+            'event_type': row[21] or '', 'stream_url': row[22] or '',
         })
     return out
 
@@ -525,16 +537,24 @@ def delete_entry(media_type, canonical_id, video_id):
 
 @_scope.bound
 def mark_watched(media_type, canonical_id, video_id):
-    """Set percent=100 so the row is filtered out of continue_watching without deleting it."""
-    import time as _t
+    """Finish an existing row and schedule the usual local-progress sync."""
     _ensure_db()
-    conn = _connect()
-    conn.execute(
-        "UPDATE playback SET percent=100.0, updated_at=? WHERE media_type=? AND canonical_id=? AND video_id=?",
-        (int(_t.time()), media_type or '', canonical_id or '', video_id or ''),
-    )
-    conn.commit()
-    conn.close()
+    with _DB_LOCK:
+        conn = _connect()
+        try:
+            cursor = conn.execute(
+                "UPDATE playback SET percent=100.0, event_type='watched', "
+                "position=CASE WHEN duration>0 THEN duration ELSE position END, updated_at=? "
+                "WHERE media_type=? AND canonical_id=? AND video_id=?",
+                (int(time.time()), media_type or '', canonical_id or '', video_id or ''),
+            )
+            changed = cursor.rowcount > 0
+            conn.commit()
+        finally:
+            conn.close()
+    if changed:
+        _mark_sync_dirty()
+    return changed
 
 
 @_scope.bound

@@ -313,8 +313,9 @@ class HeadlessTitle(object):
         self.tmdb = {'seasons': list(data.get('tmdb_seasons') or [])}
         self.seasons = [tuple(s) for s in data.get('seasons') or []]
         self.episodes = {}
+        from ..homeui.episode_meta import unique_episodes
         for key, value in (data.get('episodes') or {}).items():
-            self.episodes[_int(key)] = value
+            self.episodes[_int(key)] = unique_episodes(value, season=_int(key)) if value is not None else None
         self._tmdb_seasons = {}
         for key, value in (data.get('tmdb_season_cache') or {}).items():
             self._tmdb_seasons[_int(key)] = dict((_int(e), r) for e, r in (value or {}).items())
@@ -475,7 +476,8 @@ class HeadlessTitle(object):
             mine = {}
         props['dhs.tp.art.fanart'] = mine.get('fanart') or ''
         props['dhs.tp.art.clearlogo'] = mine.get('clearlogo') or ''
-        C.set_prop('dhs.tp.id', '')
+        if C.prop('dhs.tp.id') != self.title_id:
+            C.set_prop('dhs.tp.id', '')
         for key, value in props.items():
             C.set_prop(key, value)
         # the id last: the page takes the labels together, once they are all this title's
@@ -725,8 +727,14 @@ def listing(action, params, handle):
         out = X.collection_items(title) if action == 'skin_collection' else X.studio_items(title)
     name = {'skin_seasons': 'seasons', 'skin_episodes': 'episodes', 'skin_cast': 'cast',
             'skin_related': 'related', 'skin_collection': 'collection', 'skin_studios': 'studios'}.get(action)
-    if name and not out:
-        # nothing to list: the page's next list loads without waiting for items
-        C.set_prop('dhs.tp.none.%s' % name, title.title_id)
+    if name:
+        # Keep a section loadable until its request actually finishes empty.
+        key = 'dhs.tp.none.%s' % name
+        if not out:
+            C.set_prop(key, title.title_id)
+        elif C.prop(key) == title.title_id:
+            C.set_prop(key, '')
+    for item in out:
+        item.setdefault('props', {})['dhs.tp.owner'] = title.title_id
     I.directory(handle, out, content=content)
     return None

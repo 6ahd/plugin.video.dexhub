@@ -224,6 +224,8 @@ class _BaseWindow(xbmcgui.WindowXML):
         self._trailer_visible_at = 0.0
         self._real_playing = False
         self._resume_at = 0.0
+        from .. import progress_events
+        self._progress_revision = progress_events.revision()
         self._user_moved = False
         # v5.10.108: when the page showed again (back from the player or from
         # a page above it): a Back that arrives right then is the same press
@@ -491,6 +493,7 @@ class _BaseWindow(xbmcgui.WindowXML):
             'dh.rating.star': star,
             'dh.hero.icon': (tile.get('icon') or '') if kind == 'addon' else '',
             'dh.backdrop': backdrop,
+            'dh.poster': tile.get('poster') or '',
             'dh.logo': logo,
             # v5.10.105: the network (series) or studio (film) beside the meta line
             'dh.studio': studio,
@@ -709,6 +712,21 @@ class _BaseWindow(xbmcgui.WindowXML):
             settings['language'] = 'ar' if override == 'arabic' else 'en'
         self.app._tmdb_settings = (_now(), settings)
         return settings
+
+    def _refresh_row_sources(self):
+        """Update visible source captions without fetching any catalog again."""
+        from ..ui_preferences import enabled
+        show = enabled('homeui_show_row_source')
+        rows = getattr(self, 'rows', None)
+        if rows is None or not hasattr(self, '_row_visible'):
+            return
+        with self._lock:
+            index = self.ri
+            first = rows[index] if self._row_visible(index) else None
+            next_index = self._next_visible(index, 1) if first is not None else None
+            second = rows[next_index] if next_index is not None else None
+            for slot, row in (('A', first), ('B', second)):
+                self.prop('dh.row%s.subtitle' % slot, (row.subtitle or '') if show and row else '')
 
     def reload_preferences(self):
         """Apply motion switches and locale while this page stays open."""
@@ -1393,11 +1411,20 @@ class _BaseWindow(xbmcgui.WindowXML):
         self.prop('dh.trailer.visible', '')
         self.prop('dh.trailer.muted', '')
         self.prop('dh.trailer.on', '')
+        self.prop('dh.trailer.cardactive', '')
         if getattr(self, '_stage', False):
             self._stage = False
             self.prop('dh.stage', '')
         if self._immersive:
             self.exit_immersive()
+
+    def _card_preview(self):
+        # Card previews apply to browse rows and grids, never to Live TV or
+        # the title page's playback actions.
+        from ..trailer_preferences import display_mode
+        return (display_mode(self.s.text('homeui_trailer_mode', 'background')) == 'card'
+                and getattr(self, 'mode', '') != 'live'
+                and self.focus_id() in ROW_A_IDS + ROW_B_IDS + GRID_IDS)
 
     def on_trailer_visible(self):
         director = self.app.director
@@ -1409,6 +1436,7 @@ class _BaseWindow(xbmcgui.WindowXML):
             self._watch_pending = ''
             self._hand_over_channel(self._watch_tile or {'path': pending})
             return
+        self.prop('dh.trailer.cardactive', '1' if self._card_preview() else '')
         self.trace('trailer visible')
         self._trailer_visible_at = _now()
         self._revealed = False
@@ -1558,15 +1586,18 @@ class _BaseWindow(xbmcgui.WindowXML):
                 except Exception:
                     pass
             return
+        self._check_progress_changed()
         showing = director.visible and director.owner() is self and not self.dialog_open()
+        card_preview = self._card_preview()
+        self.prop('dh.trailer.cardactive', '1' if card_preview and showing else '')
         # v5.10.176: Apple TV's way: the trailer first takes most of the
         # screen (the hero's text and the rows slide down), then full screen
-        stage = (showing and not self._immersive and _now() - self._last_input > 2.5
+        stage = (showing and not card_preview and not self._immersive and _now() - self._last_input > 2.5
                  and _now() - self._trailer_visible_at > 1.5)
         if stage != getattr(self, '_stage', False):
             self._stage = stage
             self.prop('dh.stage', '1' if stage else '')
-        if (showing and not self._immersive
+        if (showing and not card_preview and not self._immersive
                 and self.immersive_on and _now() - self._last_input > 16.0
                 and _now() - self._trailer_visible_at > 15.0):
             self.enter_immersive()
@@ -1577,6 +1608,18 @@ class _BaseWindow(xbmcgui.WindowXML):
 
     def on_playback_returned(self):
         pass
+
+    def _check_progress_changed(self):
+        from .. import progress_events
+        revision = progress_events.revision()
+        if revision and revision != self._progress_revision:
+            self._progress_revision = revision
+            self.on_progress_changed()
+            return True
+        return False
+
+    def on_progress_changed(self):
+        self.on_playback_returned()
 
     def on_real_playback(self, playing):
         pass
@@ -2072,9 +2115,11 @@ class _BaseWindow(xbmcgui.WindowXML):
                     # the click opens a page; playing or listing it stays one step away
                     entries.append((self.tr('تشغيل مباشر') if tile.get('media_type') == 'movie'
                                     else self.tr('فتح في Dex Hub'), '__dexhub_open__'))
-                if page != 'tmdbhelper' and self.tmdbhelper_path(tile, force=True):
-                    entries.append((self.tr('فتح في TMDb Helper'), '__helper__'))
-                if tile.get('_src_li') is not None:
+                from ..play_with import from_tile, command as player_command
+                original_menu = tile.get('menu') or []
+                if not any('action=choose_player' in str(item[1]) for item in original_menu if len(item) > 1):
+                    entries.append((self.tr('التشغيل باستخدام…'), player_command(from_tile(tile))))
+                if tile.get('_src_li') is not None and not details.supported(tile):
                     entries.append((self.tr('التفاصيل'), '__info__'))
                 if tile.get('imdb_id') or tile.get('tmdb_id'):
                     entries.append((self.tr('مشاهدة التريلر'), '__trailer__'))
@@ -2083,15 +2128,25 @@ class _BaseWindow(xbmcgui.WindowXML):
                     entries.append((item[0], item[1]))
                 except Exception:
                     continue
-        entries.extend(self.row_menu())
+        from ..context_menu import clean
+        entries = [(self.tr(label), cmd) for label, cmd in clean(entries)]
+        row_entries = [(self.tr(label), cmd) for label, cmd in clean(self.row_menu())]
+        if row_entries:
+            entries.append((self.tr('خيارات الصف…'), '__row_options__'))
         if not entries:
             return
         from .options import choose
         heading, subtitle = self._menu_heading(tile)
-        choice = choose(heading, [e[0] for e in entries], subtitle=subtitle)
-        if choice < 0:
-            return
-        command = entries[choice][1]
+        while True:
+            choice = choose(heading, [e[0] for e in entries], subtitle=subtitle)
+            if not 0 <= choice < len(entries): return
+            command = entries[choice][1]
+            if command != '__row_options__': break
+            row_choice = choose(self.tr('خيارات الصف…'), [e[0] for e in row_entries], subtitle=heading)
+            if 0 <= row_choice < len(row_entries):
+                command = row_entries[row_choice][1]
+                break
+            # Back from row tools returns to the title menu.
         if command == '__channel_watch__':
             self.watch_channel(tile)
         elif command == '__channel_favorite__':
@@ -2126,20 +2181,14 @@ class _BaseWindow(xbmcgui.WindowXML):
             self.play_trailer_fullscreen(tile)
         elif command.startswith('__row_'):
             self.row_command(command)
-        elif 'action=cw_remove' in command:
-            # v5.10.286: Remove from Continue Watching, here and at once
+        elif any('action=' + action in command for action in
+                 ('cw_remove', 'cw_mark_watched', 'iptv_cw_remove', 'iptv_cw_watched')):
             self.cw_remove(tile, command)
         else:
             self.run_builtin(command)
 
-    def cw_remove(self, tile, command):
-        """v5.10.286: the card leaves its rows at once, the title is hidden
-        in this process (plugin.cw_remove: every source's rows of it, Trakt
-        and Nuvio told), then the Continue Watching rows are read again. As
-        a RunPlugin the card stayed: nothing read the rows again."""
-        from urllib.parse import parse_qsl, urlsplit
-        match = re.search(r'plugin://[^)"\s]+', str(command or ''))
-        params = dict(parse_qsl(urlsplit(match.group(0)).query)) if match else {}
+    def _discard_progress_tile(self, tile):
+        """Hide the chosen card immediately; persisted filtering follows."""
         path = (tile or {}).get('path') or ''
         touched = []
         with self._lock:
@@ -2151,23 +2200,40 @@ class _BaseWindow(xbmcgui.WindowXML):
                     row.selected = min(row.selected, max(0, len(kept) - 1))
                     row.state = 'ready' if kept else 'empty'
                     row.version += 1
+                    row.meta['choice_changed'] = True
+                    row.meta['_choice_epoch'] = int(row.meta.get('_choice_epoch') or 0) + 1
                     touched.append(row)
         loaded = getattr(self, '_row_loaded', None)
         for row in touched:
             if loaded:
                 loaded(row)
 
+    def cw_remove(self, tile, command):
+        """Apply Remove/Watched here; a Container.Refresh cannot redraw WindowXML."""
+        from urllib.parse import parse_qsl, urlsplit
+        match = re.search(r'plugin://[^)"\s]+', str(command or ''))
+        params = dict(parse_qsl(urlsplit(match.group(0)).query)) if match else {}
+        action = params.get('action')
+        if action not in ('cw_remove', 'cw_mark_watched', 'iptv_cw_remove', 'iptv_cw_watched'):
+            return
+        self._discard_progress_tile(tile)
+
         def job():
+            ok = False
             try:
-                self.app.api().cw_remove(media_type=params.get('media_type', ''),
-                                         canonical_id=params.get('canonical_id', ''),
-                                         video_id=params.get('video_id', ''), refresh=False)
+                api = self.app.api()
+                if action.startswith('iptv_'):
+                    ok = api.iptv_cw_change(video_id=params.get('video_id', ''),
+                                            watched=action == 'iptv_cw_watched', refresh=False)
+                else:
+                    ok = getattr(api, action)(media_type=params.get('media_type', ''),
+                                               canonical_id=params.get('canonical_id', ''),
+                                               video_id=params.get('video_id', ''), refresh=False)
             except Exception:
-                self.app.log('cw remove failed:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
-            reload = getattr(self, 'on_playback_returned', None)
-            if reload and not self._closing:
-                reload()
-        thread = threading.Thread(target=job, name='DexHub-homeui-cw-remove')
+                self.app.log('progress edit failed:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
+            if not ok and not self._closing:
+                self.on_progress_changed()  # Restore the saved state if the write failed.
+        thread = threading.Thread(target=job, name='DexHub-homeui-progress-edit')
         thread.daemon = True
         thread.start()
 
@@ -5872,6 +5938,16 @@ class BrowseWindow(_BaseWindow):
                 if row.kind == 'continue' and row.loader is not None:
                     self._load_row(row, priority=0, refresh=True)
 
+    def on_progress_changed(self):
+        with self._lock:
+            for row in self.rows:
+                params = row.meta.get('params') or {}
+                if row.loader is not None and (row.kind == 'continue' or
+                        row.meta.get('progress') or row.key in R.OWN_KEYS or
+                        str(params.get('action') or '').startswith('silo_')):
+                    row.meta['choice_changed'] = True
+                    self._load_row(row, priority=0, refresh=True)
+
     def on_uncover(self):
         super(BrowseWindow, self).on_uncover()
         if (self.mode == 'home' and self._built
@@ -6356,7 +6432,9 @@ class GridWindow(_BaseWindow):
                     self.app.bg.submit(lambda: self.fill_epg(added), priority=4,
                                        key=('epg', self.key, json.dumps(params, sort_keys=True)))
             else:
-                hit = R.take_page(params) if params.get('action') in R.SERVER_FOLDER_ACTIONS else None
+                from ..dexhub import client as _client
+                hit = (R.take_page(params) if params.get('action') in R.SERVER_FOLDER_ACTIONS
+                       and not getattr(_client._FRESH, 'on', False) else None)
                 if hit is not None:
                     # read ahead while the cursor rested on it (used once, so
                     # watched marks and progress are fresh the next time)
@@ -6391,7 +6469,12 @@ class GridWindow(_BaseWindow):
             if self._closing:
                 return
             _notes_begin()
-            tiles, more, reason = self._fetch(params)
+            if gen == getattr(self, '_progress_fresh_gen', -1):
+                from ..dexhub import client as _client
+                with _client.fresh_reads():
+                    tiles, more, reason = self._fetch(params)
+            else:
+                tiles, more, reason = self._fetch(params)
             read = len(tiles)
             read_on = False
             with self._lock:
@@ -6463,7 +6546,12 @@ class GridWindow(_BaseWindow):
             _notes_begin()
             collected, seen, nxt, pages, reason = [], set(), params, 0, ''
             while nxt and pages < GF.SORT_PAGES and len(collected) < GF.SORT_CAP:
-                tiles, more, failed = self._fetch(nxt)
+                if gen == getattr(self, '_progress_fresh_gen', -1):
+                    from ..dexhub import client as _client
+                    with _client.fresh_reads():
+                        tiles, more, failed = self._fetch(nxt)
+                else:
+                    tiles, more, failed = self._fetch(nxt)
                 if gen != self._gen or self._closing:
                     return
                 pages += 1
@@ -7081,6 +7169,43 @@ class GridWindow(_BaseWindow):
     def on_real_playback(self, playing):
         if not playing and self.focus_id() == NP:
             self.focus(self.default_focus())
+
+    def _discard_progress_tile(self, tile):
+        path = (tile or {}).get('path') or ''
+        pos = self.selected_pos(self._grid_id, 0)
+        with self._lock:
+            self._gen += 1  # An older in-flight page cannot put the card back.
+            self._loading = False
+            self.tiles = [t for t in self.tiles if not
+                          (t is tile or (path and t.get('path') == path))]
+            self._show(reset=True)
+            self.prop('dh.empty', '' if self.tiles else '1')
+        try:
+            self._control(self._grid_id).selectItem(min(pos, max(0, len(self.tiles) - 1)))
+        except Exception:
+            pass
+        if not self.tiles:
+            self.show_hero(self.page_hero or {'kind': 'nav', 'title': self.title, 'label': self.title})
+        self._focus_changed()
+
+    def on_progress_changed(self):
+        """Manual edits reload this catalog, including an empty Continue page."""
+        if self._closing or self.params.get('live_src') or self.params.get('live_group') is not None:
+            return
+        with self._lock:
+            self._gen += 1
+            self._loading = False
+            self._exhausted = False
+            self._local_reads = 0
+            self._capped = False
+            self.tiles = []
+            self.more = None
+            self._show(reset=True)
+        self.prop('dh.empty', '')
+        self.prop('dh.loading', '1')
+        # Fresh client reads bypass remote/plugin replay caches for this edit.
+        self._progress_fresh_gen = self._gen
+        self._load_page(dict(self.params), first=True)
 
     def on_playback_returned(self):
         """A show's or season's own page shows the progress of what was

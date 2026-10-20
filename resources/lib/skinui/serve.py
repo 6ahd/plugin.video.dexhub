@@ -27,6 +27,15 @@ _WIDGET_ACTIONS = ('skin_row', 'skin_search')
 
 def run(params):
     action = params.get('action') or ''
+    if action == 'skin_fold':
+        from .folderpage import request_open
+        return request_open(params, _handle())
+    if action == 'skin_empty':
+        from .items import directory
+        handle = _handle()
+        if handle >= 0:
+            directory(handle, [], content='videos')
+        return None
     if action == 'skin_trailer_config':
         from ..trailer_preferences import publish_presentation
         publish_presentation()
