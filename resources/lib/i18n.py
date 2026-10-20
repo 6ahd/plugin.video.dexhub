@@ -3410,6 +3410,10 @@ STRINGS.update({
     'إخفاء القائمة عند التمرير': 'Hide the menu while scrolling',
     'الشريط العلوي أو القائمة الجانبية تختفي لما تنزل للصفوف وترجع لما تطلع أو تروح يسار': 'The top bar or the side menu hides when you go down the rows and comes back when you go up or left',
     'فتح الأقسام بالتمرير': 'Open sections on focus',
+    'الرجوع من القائمة يسأل عن الخروج': 'Back on the menu asks to exit Kodi',
+    'زر الرجوع على الشريط العلوي أو القائمة الجانبية يسألك تطلع من كودي': 'Back on the top bar or the side menu asks if you want to exit Kodi',
+    'الخروج من كودي': 'Exit Kodi',
+    'تبي تطلع من كودي؟': 'Do you want to exit Kodi?',
     # v5.10.334: the screensaver's styles
     'هذا الأسبوع': 'This week',
     'أسبوعك': 'Your week',

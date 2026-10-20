@@ -68,6 +68,7 @@ SECTION_LIST = (
         ('nav_icons', 'toggle', 'bars', 'القائمة الجانبية أيقونات فقط', 'ما تنفتح بالكلمات لما تروح لها', 'skin'),
         ('nav_autohide', 'toggle', 'eye-slash', 'إخفاء القائمة عند التمرير', 'الشريط العلوي أو القائمة الجانبية تختفي لما تنزل للصفوف وترجع لما تطلع أو تروح يسار', 'skin'),
         ('nav_focus_open', 'toggle', 'circle-dot', 'فتح الأقسام بالتمرير', 'القسم ينفتح لما توقف على أيقونته ثانية، بدون ضغط', 'skin'),
+        ('back_exit', 'toggle', 'power-off', 'الرجوع من القائمة يسأل عن الخروج', 'زر الرجوع على الشريط العلوي أو القائمة الجانبية يسألك تطلع من كودي', 'skin'),
         ('bg_settle', 'toggle', 'image', 'الخلفية تتبع التحديد بعد التوقف', 'خلفية الرئيسية تتغير لما توقف على العمل، فالتنقل أخف', 'skin'),
         ('nav_names', 'toggle', 'list-ul', 'أسماء الأقسام', 'أسماء بجانب أيقونات الشريط', ''),
         ('size', 'open', 'up-right-and-down-left-from-center', 'حجم الواجهة والبطاقات', 'من 50% إلى 200%', ''),
@@ -276,7 +277,7 @@ PICK_LINES = {
 TOGGLES = {'title_poster': ('homeui_title_poster', 'true'), 'library_split': ('library_split_media', 'true'), 'badges_visible': ('player_badges_visible', 'true'),
            'row_source': ('homeui_show_row_source', 'true'), 'plot_scroll': ('homeui_plot_scroll', 'true'),
            'hide_plot': ('homeui_hide_plot', 'false'), 'rating_inline': ('homeui_rating_inline', 'true'),
-           'compact_hero': ('homeui_compact_hero', 'true'), 'nav_icons': ('homeui_nav_icons_only', 'false'), 'nav_autohide': ('homeui_nav_autohide', 'false'), 'nav_focus_open': ('homeui_nav_focus_open', 'false'), 'bg_settle': ('homeui_bg_settle', 'true'), 'trailer_clean': ('homeui_trailer_clean', 'true'), 'carousel': ('homeui_carousel', 'true'),'trailer_sound': ('homeui_trailer_sound', 'true'), 'ratings': ('metadata_badges', 'true'),
+           'compact_hero': ('homeui_compact_hero', 'true'), 'nav_icons': ('homeui_nav_icons_only', 'false'), 'nav_autohide': ('homeui_nav_autohide', 'false'), 'nav_focus_open': ('homeui_nav_focus_open', 'false'), 'back_exit': ('homeui_back_exit', 'true'), 'bg_settle': ('homeui_bg_settle', 'true'), 'trailer_clean': ('homeui_trailer_clean', 'true'), 'carousel': ('homeui_carousel', 'true'),'trailer_sound': ('homeui_trailer_sound', 'true'), 'ratings': ('metadata_badges', 'true'),
            'nav_names': ('homeui_nav_names', 'false'), 'follow_merge': ('follow_merge', 'true'),
            'trakt_smart': ('trakt_smart_sync', 'true'), 'season_names': ('season_names', 'true'),
            'reminders': ('episode_reminders', 'true'),
@@ -284,7 +285,7 @@ TOGGLES = {'title_poster': ('homeui_title_poster', 'true'), 'library_split': ('l
            'kenburns': ('homeui_kenburns', 'true'), 'focus_gif': ('homeui_focus_gif', 'true')}
 SIZES = {'': 'عادي', 'large': 'كبير', 'xlarge': 'كبير جداً',
          'normal': 'عادي', 'extra large': 'كبير جداً'}
-_SETTINGS = ('homeui_title_poster', 'homeui_nav_icons_only', 'homeui_nav_autohide', 'homeui_nav_focus_open', 'homeui_bg_settle', 'homeui_trailer_clean', 'ratings_shown', 'library_split_media', 'player_badges_visible', 'player_badges_brightness', 'homeui_poster_scale', 'homeui_show_row_source', 'homeui_title_style', 'homeui_background_style', 'homeui_plot_scroll', 'homeui_hide_plot', 'homeui_rating_inline', 'homeui_compact_hero', 'homeui_carousel', 'homeui_layout_mode', 'homeui_nav_position', 'homeui_metadata_language', 'server_metadata', 'homeui_card_style', 'homeui_focus_motion',
+_SETTINGS = ('homeui_title_poster', 'homeui_nav_icons_only', 'homeui_nav_autohide', 'homeui_nav_focus_open', 'homeui_back_exit', 'homeui_bg_settle', 'homeui_trailer_clean', 'ratings_shown', 'library_split_media', 'player_badges_visible', 'player_badges_brightness', 'homeui_poster_scale', 'homeui_show_row_source', 'homeui_title_style', 'homeui_background_style', 'homeui_plot_scroll', 'homeui_hide_plot', 'homeui_rating_inline', 'homeui_compact_hero', 'homeui_carousel', 'homeui_layout_mode', 'homeui_nav_position', 'homeui_metadata_language', 'server_metadata', 'homeui_card_style', 'homeui_focus_motion',
              'homeui_row_dim', 'homeui_trailer_sound', 'metadata_badges', 'homeui_nav_names', 'homeui_trailers',
              'homeui_trailer_delay', 'homeui_trailer_volume', 'homeui_trailer_mode', 'homeui_size', 'global_meta_source_id', 'global_meta_source_all',
              'tmdb_api_key', 'global_poster_source_id', 'follow_order', 'library_sort', 'follow_merge',

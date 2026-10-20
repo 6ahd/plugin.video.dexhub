@@ -6,8 +6,8 @@
 
 Stremio & Nuvio add-ons · Plex, Emby, Jellyfin & Silo · Live TV · Native Trakt, Simkl & MDBList · Arabic-first UI · TMDb Helper integration
 
-[![Version](https://img.shields.io/badge/version-5.10.362-7c3aed)]()
-[![Skin](https://img.shields.io/badge/skin-3.28.91-ffd23f)]()
+[![Version](https://img.shields.io/badge/version-5.10.363-7c3aed)]()
+[![Skin](https://img.shields.io/badge/skin-3.28.92-ffd23f)]()
 [![Kodi](https://img.shields.io/badge/Kodi-21%20Omega%20%7C%2022%20Piers-33d8f7)]()
 [![License](https://img.shields.io/badge/license-all%20rights%20reserved-ef4444)](LICENSE.txt)
 [![Ko-fi](https://img.shields.io/badge/support-Ko--fi-ff5e5b)](https://ko-fi.com/dexworld)
@@ -20,8 +20,9 @@ Stremio & Nuvio add-ons · Plex, Emby, Jellyfin & Silo · Live TV · Native Trak
 
 ## What's new
 
-**Dex Hub 5.10.362 · Dex Hub skin 3.28.91**
+**Dex Hub 5.10.363 · Dex Hub skin 3.28.92**
 
+* **Exit from the remote:** press Back a few times on the Home (rows, hero, then the menu) and Dex Hub asks if you want to exit Kodi, with OK and Cancel. Handy on Shield and Android TV boxes. Turn it off in Settings, Look, Back on the menu asks to exit Kodi.
 * **A lighter, faster Home:** the backdrop is drawn the way the Nimbus skin draws it (one 16:9 picture that fades into the background instead of a full screen picture under a full screen shade), about 60% less work while you move. Rows move like Arctic Fuse 3 (the focus walks along the cards and the row only scrolls at its edge), and windows open and close about a third faster.
 * **No more stall leaving the hero:** the trailer pauses and hides when you move down to the rows, closes once the keys rest and carries on if you come back. Trailers start only after the keys rest a second, so Kodi's busy dialog no longer swallows a key press.
 * **Screensaver, four styles:** Your List (any list you pick: Continue Watching, Favorites, Trakt, MDBList, Silo or a Home catalog, as a carousel with the next and previous titles peeking, OK opens the title), Movie news (IMDb, Variety, Deadline, Screen Rant and more, with the film's poster, More reads the full story), Cinema and Spotlight. A screensaver page with your sources, alerts and a preview.

@@ -42,6 +42,10 @@ def run(params):
         from ..home_preferences import publish as publish_home
         publish_home()
         return None
+    if action == 'skin_exit':
+        # v5.10.363 (GitHub #27): Back on the Home's menu asks to exit Kodi
+        from .exit_prompt import ask
+        return ask()
     if action in _WIDGET_ACTIONS:
         return widget(action, params)
     started = time.monotonic()
