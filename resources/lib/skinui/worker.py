@@ -428,6 +428,10 @@ class Worker(object):
             if self._was_quiet and not quiet:
                 self._last_check = 0.0      # back from the screensaver: look at once
             self._was_quiet = quiet
+            if quiet:
+                # v5.10.365: once per screensaver, the Home is made ready
+                from . import preload
+                preload.tick(self, now)
             if not self.busy() and not self.preview_transition() and now - self._last_check >= _CHECK_EVERY:
                 self._last_check = now
                 self.check(quiet=quiet)
@@ -464,6 +468,14 @@ class Worker(object):
         strings.publish(force=True)
         if self.spotlight is not None:
             self.spotlight._settings = None
+        if 'homeui_hero_shuffle' in changed:
+            # v5.10.364: the banner's titles in their new order
+            try:
+                from . import board
+                for tab in C.TABS:
+                    board.update_spot(tab)
+            except Exception:
+                C.log('hero order:\n%s' % traceback.format_exc(), xbmc.LOGDEBUG)
         if 'ratings_shown' in changed and getattr(self, 'ratings', None) is not None:
             self.ratings.shown = ''         # v5.10.334: the hero's ratings again, as chosen
         filters = changed & {'library_src', 'servers_src', 'show_servers'}

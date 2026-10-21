@@ -180,6 +180,14 @@ def server_episodes(route, api):
 
 
 class DetailsWindow(W._BaseWindow):
+    def trailer_wanted(self, tile):
+        # v5.10.364: the title page plays a title's trailer only from its
+        # Trailer button, as skin.dexhub's does (it played behind the page to
+        # its end while the details stayed over it)
+        if tile and tile.get('kind') == 'work':
+            return False
+        return super(DetailsWindow, self).trailer_wanted(tile)
+
     def __init__(self, *args, **kwargs):
         super(DetailsWindow, self).__init__(*args, **kwargs)
         tile = dict(kwargs.get('tile') or {})
@@ -898,7 +906,17 @@ class DetailsWindow(W._BaseWindow):
                     str(row.get('name') or ''), str(row.get('overview') or ''),
                     _img(row.get('still_path'), 'w780'), str(row.get('air_date') or ''), ids))
             self.episodes[number] = rows
+        try:
+            from ..title_reviews import with_votes      # v5.10.365: TMDb's episode ratings
+            with_votes(self.tmdb_id or (self.hero or {}).get('tmdb_id') or '', number, rows)
+        except Exception:
+            pass
             return rows
+        try:
+            from ..title_reviews import with_votes      # v5.10.365: TMDb's episode ratings
+            with_votes(self.tmdb_id or (self.hero or {}).get('tmdb_id') or '', number, rows)
+        except Exception:
+            pass
         for row in rows:
             extra = tmdb.get(row['episode'])
             if not extra:
@@ -1159,6 +1177,8 @@ class DetailsWindow(W._BaseWindow):
                 sub.append(row['aired'])
             if row.get('runtime'):
                 sub.append(self.tr('%d دقيقة') % row['runtime'])
+            if row.get('rating'):
+                sub.append('★ %.1f' % float(row['rating']))     # v5.10.365
             li.setProperty('sub', '  •  '.join(sub))
             li.setProperty('plot', row.get('plot') or '')
             progress = self.progress.get((number, row['episode']))
@@ -1382,12 +1402,32 @@ class DetailsWindow(W._BaseWindow):
         if row:
             play_tile.update(path=row.get('path') or '', season=row['season'], episode=row['episode'], media_type='episode', show=self.hero.get('title') or '')
         entries.insert(0, (self.tr('التشغيل باستخدام…'), 'play_with'))
+        # v5.10.365: its reviews (Trakt, TMDb); rating stays in the Track panel
+        entries.append((self.tr('المراجعات'), 'reviews'))
+        entries.append((self.tr('مشاهدة جماعية'), 'party'))      # v5.10.366
         if self.series:
             entries.append((self.tr('الصفحة الكلاسيكية'), 'classic'))
         choice = choose(self.hero.get('title') or '', [e[0] for e in entries], subtitle=self.tr('المزيد'))
         if choice < 0:
             return
         key = entries[choice][1]
+        if key == 'party':
+            from .. import watch_party
+            hero = self.hero or {}
+            watch_party.from_title({'media': 'series' if self.series else 'movie', 'canonical': self.canonical or '',
+                                    'imdb': hero.get('imdb_id') or '', 'tmdb': str(self.tmdb_id or hero.get('tmdb_id') or ''),
+                                    'title': hero.get('title') or '', 'poster': hero.get('poster') or '',
+                                    'fanart': hero.get('fanart') or '', 'clearlogo': hero.get('clearlogo') or ''})
+            return
+        if key == 'reviews':
+            from .. import tracking, title_reviews
+            hero = self.hero or {}
+            work = tracking.Work('series' if self.series else 'movie', canonical=self.canonical,
+                                 tmdb=self.tmdb_id or hero.get('tmdb_id') or '', imdb=hero.get('imdb_id') or '',
+                                 title=hero.get('title') or '', year=hero.get('year') or 0,
+                                 poster=hero.get('poster') or '')
+            title_reviews.show(work.media, work.imdb, work.tmdb, work.title, self.tr)
+            return
         if key == 'play_with':
             self._launch(player_command(from_tile(play_tile)))
         elif key in ('watch', 'unwatch'):

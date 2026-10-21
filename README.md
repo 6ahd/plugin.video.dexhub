@@ -6,8 +6,8 @@
 
 Stremio & Nuvio add-ons · Plex, Emby, Jellyfin & Silo · Live TV · Native Trakt, Simkl & MDBList · Arabic-first UI · TMDb Helper integration
 
-[![Version](https://img.shields.io/badge/version-5.10.363-7c3aed)]()
-[![Skin](https://img.shields.io/badge/skin-3.28.92-ffd23f)]()
+[![Version](https://img.shields.io/badge/version-5.10.376-7c3aed)]()
+[![Skin](https://img.shields.io/badge/skin-3.28.98-ffd23f)]()
 [![Kodi](https://img.shields.io/badge/Kodi-21%20Omega%20%7C%2022%20Piers-33d8f7)]()
 [![License](https://img.shields.io/badge/license-all%20rights%20reserved-ef4444)](LICENSE.txt)
 [![Ko-fi](https://img.shields.io/badge/support-Ko--fi-ff5e5b)](https://ko-fi.com/dexworld)
@@ -20,18 +20,19 @@ Stremio & Nuvio add-ons · Plex, Emby, Jellyfin & Silo · Live TV · Native Trak
 
 ## What's new
 
-**Dex Hub 5.10.363 · Dex Hub skin 3.28.92**
+**Dex Hub 5.10.376 · Dex Hub skin 3.28.98**
 
-* **Exit from the remote:** press Back a few times on the Home (rows, hero, then the menu) and Dex Hub asks if you want to exit Kodi, with OK and Cancel. Handy on Shield and Android TV boxes. Turn it off in Settings, Look, Back on the menu asks to exit Kodi.
-* **A lighter, faster Home:** the backdrop is drawn the way the Nimbus skin draws it (one 16:9 picture that fades into the background instead of a full screen picture under a full screen shade), about 60% less work while you move. Rows move like Arctic Fuse 3 (the focus walks along the cards and the row only scrolls at its edge), and windows open and close about a third faster.
-* **No more stall leaving the hero:** the trailer pauses and hides when you move down to the rows, closes once the keys rest and carries on if you come back. Trailers start only after the keys rest a second, so Kodi's busy dialog no longer swallows a key press.
-* **Screensaver, four styles:** Your List (any list you pick: Continue Watching, Favorites, Trakt, MDBList, Silo or a Home catalog, as a carousel with the next and previous titles peeking, OK opens the title), Movie news (IMDb, Variety, Deadline, Screen Rant and more, with the film's poster, More reads the full story), Cinema and Spotlight. A screensaver page with your sources, alerts and a preview.
-* **Notification center and your week:** All, New, Continue and Upcoming alerts, watching time for the last 7 days, and Silo alerts in the same panel.
-* **Title page:** studios, networks and collections show their logo in place of the name, a poster-led layout, and TheIntroDB v4 Skip intro and Skip recap buttons (manual, automatic or off). Jellyfin and Emby chapter previews.
-* **Play with:** Dex Hub's sources or any compatible add-on through TMDb Helper.
-* **Nuvio sync you can trust:** progress sent in Nuvio's own format so Nuvio's apps show it, library adds and removes that never replace the whole library, independent retries per section, and local library backups. Sign-ins to Nuvio, Stremio and Trakt are kept.
-* **Menu:** Back returns to the step before (a settings section to its cards, the cards to the Menu) instead of the Home.
-* **Ratings shown:** pick any of IMDb, TMDb, Rotten Tomatoes, Popcornmeter, Metacritic, Trakt, Letterboxd, MDBList and MyAnimeList.
+* **Watch party:** start one from the player bar or a title page, share the code or an invite link (QR), and play, pause and seek reach everyone. Each TV plays from its own sources, or, if the host turns it on, from the host's own Plex, Emby, Jellyfin or Silo link, shown to guests as the source Dex Hub+ (no subscription needed on their side; the link is wrapped by the hub and dies with the party). A TV stays in its party after a restart or a lost connection until it leaves or the host ends it.
+* **Dex Hub Extra (free while in testing):** link your TV to an account at hub.dexworld.cc with a QR code, sign in with Telegram or email.
+  * **Set up your TV from anywhere:** the same setup page you open with the QR at home, from your account on the website, no same network needed.
+  * **Your whole setup in your account:** sources and add-ons, Home, collections, lists, accounts and settings. Apply it to a new TV in one step.
+  * **Sync your devices:** pick what syncs, and a change on one TV reaches the others at once.
+  * **Telegram alerts:** new episodes and seasons, movies you follow, party invites.
+* **Image quality:** Menu › Look › Image quality › High keeps backdrops and posters sharp on 1080p and 4K screens (Kodi caches pictures at 1080 instead of 720, original TMDb backdrops).
+* **Skin:** an island that opens like the iPhone's Dynamic Island (watch party, alerts, what plays), a Full screen background style, the episode name on the info line instead of over the ratings, a long press menu that wraps both ways.
+* **Next episode:** episodes not out yet show the day they air, or hide until then.
+* **Trailers:** titles wrongly kept as "no trailer" are asked again, and the log says why when there is none.
+* **Also:** reviews from Trakt and TMDb, a TMDb rating on every episode, navigation sounds in the style of Apple TV, the screensaver gets the Home ready, Back to exit Kodi never shows on CoreELEC, LibreELEC and OSMC.
 
 Full history in [changelog.txt](changelog.txt).
 

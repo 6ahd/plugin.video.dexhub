@@ -715,6 +715,17 @@ def favourite(params, handle):
     return None
 
 
+def _work(t, params):
+    """v5.10.365: the title as the tracking services know it."""
+    from .. import tracking
+    tile = _hero_tile(t, params)
+    return tracking.Work('series' if t.series else 'movie', canonical=t.canonical,
+                         tmdb=t.tmdb_id or tile.get('tmdb_id') or '', imdb=tile.get('imdb_id') or t._imdb() or '',
+                         title=tile.get('title') or dialog_label('Title'), year=tile.get('year') or 0,
+                         poster=tile.get('poster') or '', fanart=tile.get('fanart') or '',
+                         clearlogo=tile.get('clearlogo') or '', plot=tile.get('plot') or '')
+
+
 def track(params, handle):
     """v5.10.153: the tracking panel (status, rating, lists) for this title."""
     from .. import tracking, tracking_ui
@@ -762,6 +773,9 @@ def more(params, handle):
     if t.hero.get('plot'):
         entries.append((_tr('قراءة النبذة'), 'synopsis'))
     entries.append((_tr('تغيير الصور'), 'artwork'))
+    # v5.10.365: its reviews (Trakt, TMDb); rating stays in the Track panel
+    entries.append((_tr('المراجعات'), 'reviews'))
+    entries.append((_tr('مشاهدة جماعية'), 'party'))      # v5.10.366
     if t.series:
         entries.append((_tr('الصفحة الكلاسيكية'), 'classic'))
     what = (params.get('what') or '').strip()     # v5.10.309: the title page's own shortcut discs
@@ -776,6 +790,16 @@ def more(params, handle):
         _set_watched(t, row, what == 'watch')
     elif what == 'synopsis':
         _synopsis(t)
+    elif what == 'party':
+        from .. import watch_party
+        work = _work(t, params)
+        watch_party.from_title({'media': work.media, 'canonical': t.canonical or '', 'imdb': work.imdb or '',
+                                'tmdb': str(work.tmdb or ''), 'title': t.hero.get('title') or work.title or '',
+                                'poster': work.poster or '', 'fanart': work.fanart or '', 'clearlogo': work.clearlogo or ''})
+    elif what == 'reviews':
+        from .. import title_reviews
+        work = _work(t, params)
+        title_reviews.show(work.media, work.imdb, work.tmdb, t.hero.get('title') or work.title, _tr)
     elif what == 'artwork':
         from .. import art_choice
         tmdb = t.tmdb_id or t.hero.get('tmdb_id') or ''

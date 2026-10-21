@@ -18,6 +18,17 @@ def coreelec():
         return False
 
 
+def appliance():
+    """v5.10.367: Kodi is the box's whole system (CoreELEC, LibreELEC, OSMC):
+    leaving Kodi leaves nothing, so Dex Hub never offers to exit it there."""
+    try:
+        return bool(xbmc.getCondVisibility(
+            'System.HasAddon(service.coreelec.settings) | System.HasAddon(service.libreelec.settings) | '
+            'System.HasAddon(service.osmc.settings) | System.HasAddon(script.osmc.settings)'))
+    except Exception:
+        return False
+
+
 def reboot_to_android(tr=None, confirm=True):
     """Restart the box into Android; False when the user changed their mind."""
     tr = tr or (lambda text: text)

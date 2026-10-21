@@ -239,6 +239,8 @@ def _build_nextup_items(limit, trakt_mod, playback_store_mod, series_videos_load
                 'video_id': picked.get('id') or canonical,
                 'title': row.get('title') or canonical,
                 'episode_title': picked.get('title') or '',
+                # v5.10.374: when it comes out (the Next episode row shows it)
+                'aired': picked.get('released') or picked.get('firstAired') or '',
                 'show_tmdb_id': str(row.get('show_tmdb_id') or ''),
                 'imdb_id': str(row.get('imdb_id') or ''),
                 'season': next_s,

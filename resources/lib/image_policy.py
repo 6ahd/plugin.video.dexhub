@@ -74,6 +74,20 @@ def cap_url(url, cap):
     return match.group(1) + cap + match.group(3)
 
 
+def sharp_fanart(url):
+    """v5.10.376: with Look › Image quality on High (the fanart cap is
+    original), a TMDb backdrop of any smaller size is asked at its original
+    size (Kodi keeps it at 1080, image_quality). Other URLs as they are."""
+    if not isinstance(url, str) or 'image.tmdb.org/t/p/' not in url:
+        return url
+    if _caps()[1] != 'original':
+        return url
+    match = _TMDB.match(url)
+    if not match or match.group(2) in ('original',) or match.group(2).startswith('h'):
+        return url
+    return match.group(1) + 'original' + match.group(3)
+
+
 def bound_art(art):
     if not isinstance(art, dict) or not art:
         return art
@@ -84,7 +98,7 @@ def bound_art(art):
             continue
         lowered = str(key).lower()
         if lowered in FANART_KEYS:
-            new = cap_url(value, fanart)
+            new = sharp_fanart(cap_url(value, fanart))
         elif lowered in LOGO_KEYS:
             new = cap_url(value, 'w500')
         elif lowered in BANNER_KEYS:

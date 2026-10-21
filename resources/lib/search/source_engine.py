@@ -34,6 +34,11 @@ def _fetch_uncached(target, media_type, api):
     payload = {}
     failed = False
     try:
+        if (provider or {}).get('id') == '__party__':
+            # v5.10.373: the watch party host's own link (party_share)
+            from .. import party_share as _party
+            payload = _party.payload(provider)
+            return payload
         if (provider or {}).get('id') in ('__plex__', '__emby__', '__silo__', '__jellyfin__'):
             backend = provider['id'].strip('_')
             server = (provider or {}).get('_server') or {}
@@ -157,6 +162,9 @@ def fetch(target, media_type, api):
             return {'streams': [], '_source_status': 'cancelled'}
     except Exception:
         pass
+    if (provider or {}).get('id') == '__party__':
+        # v5.10.373: a ticket of this moment, never from the results cache
+        return _fetch_uncached(target, media_type, api)
     cache_key = ''
     try:
         from . import results_cache as _results

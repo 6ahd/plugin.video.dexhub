@@ -611,6 +611,8 @@ class HeadlessTitle(object):
                 sub.append(row['aired'])
             if row.get('runtime'):
                 sub.append(self.tr('%d دقيقة') % _int(row['runtime']))
+            if row.get('rating'):
+                sub.append('★ %.1f' % float(row['rating']))     # v5.10.365: TMDb's episode rating
             progress = self.progress.get((number, _int(row.get('episode'))))
             watched = self._watched(progress)
             percent = 0 if watched else int(self._percent(progress)) if progress else 0

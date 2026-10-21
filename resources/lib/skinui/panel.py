@@ -372,7 +372,31 @@ def _alerts():
         rows.extend(silo_notifications.notices())
     except Exception as exc:
         C.log('panel: Silo inbox unavailable: %s' % type(exc).__name__, xbmc.LOGWARNING)
-    return {'rows': rows, 'count': len(rows)}
+    count = len(rows)
+    # v5.10.371: the watch party first (the island opens this tab), not counted
+    rows.insert(0, _party_row())
+    return {'rows': rows, 'count': count}
+
+
+_USERS_ART = 'special://home/addons/%s/resources/media/menu/users.png' % C.BASE.split('/')[2]
+
+
+def _party_row():
+    import json
+    home = C.home()
+    code = home.getProperty('dhs.party.code')
+    try:
+        media = json.loads(home.getProperty('dhs.party.media') or '{}') or {}
+    except ValueError:
+        media = {}
+    if home.getProperty('dhs.party.room') and code:
+        watching = home.getProperty('dhs.party.title') or _t('ينتظرون المضيف يشغّل', 'Waiting for the host to play')
+        sub = '%s  ·  %s' % (_t('%s متصلين', '%s watching') % (home.getProperty('dhs.party.count') or '1'), watching)
+        title = _t('مشاهدة جماعية · %s', 'Watch party · %s') % code
+    else:
+        title, sub = _t('مشاهدة جماعية', 'Watch party'), _t('ابدأ مشاهدة وعط الكود لأهلك أو ربعك، أو انضم بكود', 'Start one and give the code to family or friends, or join with a code')
+    return {'kind': 'party', 'title': title, 'sub': sub, 'poster': media.get('poster') or '',
+            'fanart': media.get('fanart') or '', 'action': C.BASE + '?action=party'}
 
 
 def refresh_alerts():
@@ -608,6 +632,15 @@ def _alert_items(got):
             # the reminder's address names the add-on it was made for
             action = C.BASE + action[action.index('/?') + 1:] if '/?' in action else action
         monitoring = ev.get('kind') == 'monitor'
+        if ev.get('kind') == 'party':
+            # v5.10.371: the watch party's own row
+            art = ev.get('fanart') or ev.get('poster') or _USERS_ART
+            items.append({'label': ev.get('title') or '', 'label2': ev.get('sub') or '', 'path': '', 'folder': False,
+                          'art': {'thumb': art, 'poster': ev.get('poster') or art, 'landscape': ev.get('fanart') or art, 'fanart': ev.get('fanart') or ''},
+                          'props': {'kind': 'work', 'when': 'party', 'dhs.target': action,
+                                    'badge': _t('مع بعض', 'Together'), 'wday': '', 'mday': '',
+                                    'kick': _t('OK للمشاهدة الجماعية', 'OK FOR THE WATCH PARTY')}})
+            continue
         if not monitoring and ev.get('key'):
             action = C.BASE + '?' + urlencode({'action': 'skin_alert_open', 'key': ev['key'], 'target': action})
         props = {'kind': 'work', 'when': 'monitor' if monitoring else 'today', 'dhs.target': action,

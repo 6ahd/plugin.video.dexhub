@@ -1468,7 +1468,7 @@ const OPTS={
  ],
  cards:[
   O('homeui_title_style','p','seg','عنوان العمل','Title style',['شعار العمل الرسمي أو اسمه نصًا','The official clear logo or the title as text'],[['logo','شعار','Logo'],['text','نص','Text']]),
-  O('homeui_background_style','p','seg','نمط الخلفية','Background style',['خلفية العمل المحدد خلف الصفوف','The selected title’s artwork behind the rows'],[['cinematic','سينمائي','Cinematic'],['soft','هادئ','Soft'],['dark','داكن','Dark']]),
+  O('homeui_background_style','p','seg','نمط الخلفية','Background style',['خلفية العمل المحدد خلف الصفوف','The selected title’s artwork behind the rows'],[['cinematic','سينمائي','Cinematic'],['soft','هادئ','Soft'],['dark','داكن','Dark'],['fullscreen','ملء الشاشة','Full screen']]),
   O('homeui_focus_motion','p','seg','حركة التحديد','Focus motion',['كيف تتحرك البطاقة المحددة','How the selected card moves'],[['zoom','تكبير','Zoom'],['lift','رفع','Lift'],['pop','قفزة','Pop'],['glow','إضاءة','Glow']]),
   O('homeui_row_dim','p','seg','تعتيم الصفوف غير المحددة','Dim unfocused rows',['يبرز الصف اللي أنت عليه','Makes the row you are on stand out'],[['off','بدون','None'],['light','خفيف','Light'],['strong','قوي','Strong']]),
   O('card_style','c','seg','عناوين البطاقات','Card titles',['اسم العمل على الصورة أو تحتها أو بدون','The title on the artwork, below it, or none'],[['Overlay','على الصورة','On artwork'],['Below','تحت الصورة','Below'],['None','بدون','None']]),
@@ -1637,6 +1637,7 @@ function renderLayouts(){
   const cur=(S.prefs||{}).homeui_layout_mode||S.homeui_layout_mode||'cinematic';
   const side=((S.prefs||{}).homeui_nav_position||S.homeui_nav_position)==='side';
   $('#layouts').innerHTML=LAYOUTS.filter(l=>allow.includes(l[0])).map(l=>`<button type="button" class="lay" role="radio" data-lay="${l[0]}" aria-pressed="${l[0]===cur}" aria-checked="${l[0]===cur}">${layoutSVG(l[0],side)}<div><b>${esc(l[1])}</b><span>${esc(l[2])}</span></div></button>`).join('');
+  {const none=!$('#layouts').innerHTML;$('#layouts').hidden=none;$('#layouts').previousElementSibling.hidden=none}
   $('#twoRowsNote').hidden=cur!=='two_rows';
 }
 $('#layouts').addEventListener('click',async e=>{

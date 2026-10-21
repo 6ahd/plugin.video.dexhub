@@ -812,7 +812,11 @@ def get_json(url, ttl_seconds=0, timeout_override=None, memory_only=False,
     _foreground(1)
     try:
         try:
-            text = _http_get(url, headers, timeout, retry=retry, rate_wait=rate_wait)
+            # v5.10.366: Dex Hub Extra's shared cache first (public catalogue
+            # pages only, never with an add-on's own headers); the add-on as always after
+            text = _hub_catalog(url, timeout) if (catalog and not extra_headers) else None
+            if text is None:
+                text = _http_get(url, headers, timeout, retry=retry, rate_wait=rate_wait)
         except Exception as exc:
             if catalog and _is_timeout(exc):
                 _hold(url, 'down')
@@ -839,6 +843,14 @@ def get_json(url, ttl_seconds=0, timeout_override=None, memory_only=False,
                 if _FLIGHTS.get(url) is flight:
                     _FLIGHTS.pop(url, None)
             flight.set()
+
+
+def _hub_catalog(url, timeout):
+    try:
+        from .. import hub_client
+        return hub_client.catalog_text(url, timeout)
+    except Exception:
+        return None
 
 
 def _http_get(url, headers, timeout, retry=True, rate_wait=2.0):

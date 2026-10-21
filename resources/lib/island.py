@@ -74,8 +74,10 @@ def _json(prop):
     return value
 
 
-def _set(kind, title='', sub='', poster='', action=''):
+def _set(kind, title='', sub='', poster='', action='', kicker=''):
     home = _home()
+    if home.getProperty('dhs.island.kicker') != kicker:
+        home.setProperty('dhs.island.kicker', kicker)
     if home.getProperty('dhs.island.kind') == kind and home.getProperty('dhs.island.title') == title \
             and home.getProperty('dhs.island.sub') == sub:
         return
@@ -189,10 +191,19 @@ def clear():
     changed()
 
 
-def notices(soon=False):
+def notices(soon=False, party=False):
     """Every notice, the newest kind first: [dict]. ``soon``: this week's
     coming episodes and films too (the inbox only, never the badge)."""
     home, out, now = _home(), [], time.time()
+    if party:
+        # v5.10.372: only the inbox lists the party; the island shows it itself
+        try:
+            from . import watch_party
+            row = watch_party.notice()
+            if row:
+                out.append(row)
+        except Exception:
+            pass
     resume = _json('dhs.island.resume')
     if isinstance(resume, dict):
         if float(resume.get('until') or 0) > now:
@@ -228,6 +239,16 @@ def _on_home():
                                   '!System.HasModalDialog')
 
 
+def _words(home):
+    """v5.10.372: the island's own words, in the interface's language."""
+    words = {'dhs.island.t.hint': _t('والتنبيهات، اضغط OK', 'and alerts, press OK'),
+             'dhs.island.t.playing': _t('يعرض الحين', 'Now playing'),
+             'dhs.island.t.party': _t('مشاهدة جماعية', 'Watch party')}
+    for prop, text in words.items():
+        if home.getProperty(prop) != text:
+            home.setProperty(prop, text)
+
+
 def refresh(force=False):
     """What the bell says now (the service calls it every second or so)."""
     home = _home()
@@ -236,6 +257,7 @@ def refresh(force=False):
     if not force and not _STATE['busy'] and version == _STATE['v'] and now - _STATE['at'] < 60:
         return
     _STATE['v'], _STATE['at'] = version, now
+    _words(home)
     items = notices()
     count = str(len(items)) if items else ''
     if home.getProperty('dhs.island.count') != count:
@@ -243,7 +265,7 @@ def refresh(force=False):
     if items:
         first = items[0]
         _set(first['kind'], first.get('title') or '', first.get('sub') or '', first.get('poster') or '',
-             first.get('action') or '')
+             first.get('action') or '', first.get('kicker') or '')
     elif home.getProperty('dhs.island.kind'):
         _set('')
     # the banner: shown once for each new notice, while the Home is in front
@@ -300,7 +322,8 @@ class Inbox(xbmcgui.WindowXMLDialog):
             tabs.addItem(xbmcgui.ListItem(text))
         buttons = self.getControl(BUTTONS)
         buttons.reset()
-        for text in (_t('قراءة الكل', 'Read all'), _t('إدارة المراقبة', 'Manage monitoring'), _t('إغلاق', 'Close')):
+        for text in (_t('قراءة الكل', 'Read all'), _t('إدارة المراقبة', 'Manage monitoring'),
+                     _t('مشاهدة جماعية', 'Watch party'), _t('إغلاق', 'Close')):
             buttons.addItem(xbmcgui.ListItem(text))
         self._paint()
         self.setFocusId(LIST if self.shown else 200)
@@ -342,7 +365,7 @@ class Inbox(xbmcgui.WindowXMLDialog):
                 self.close()
         elif control_id == BUTTONS:
             pos = self.getControl(BUTTONS).getSelectedPosition()
-            self.chosen = {'kind': ('dismiss', 'manage', 'close')[max(0, min(2, pos))]}
+            self.chosen = {'kind': ('dismiss', 'manage', 'party', 'close')[max(0, min(3, pos))]}
             self.close()
 
     def onAction(self, action):
@@ -380,7 +403,7 @@ def inbox():
                       'sub': code + timeline,
                       'poster': xbmc.getInfoLabel('Player.Art(poster)') or xbmc.getInfoLabel('Player.Art(tvshow.poster)'),
                       'fanart': xbmc.getInfoLabel('Player.Art(fanart)') or xbmc.getInfoLabel('Player.Art(tvshow.fanart)')})
-    items += notices(soon=True)
+    items += notices(soon=True, party=True)
     _home().clearProperty('dhs.island.toast')
     import xbmcaddon
     path = xbmcaddon.Addon('plugin.video.dexhub').getAddonInfo('path')
@@ -396,6 +419,9 @@ def inbox():
         watch_sources.mark_read([i.get('alert_key') for i in items if i.get('kind') == 'newep' and i.get('alert_key')])
         watch_sources.sync_alerts()
         dismiss()
+    elif kind == 'party' and not chosen.get('action'):
+        from . import watch_party
+        watch_party.menu()
     elif kind == 'manage':
         from . import watch_sources
         from .providers import silo_provider

@@ -146,6 +146,11 @@ class TrailerResolver(object):
         except Exception:
             data = {}
         data = data if isinstance(data, dict) else {}
+        if not data.get('_v374'):
+            # v5.10.374: titles kept as "no trailer" are asked again once (a
+            # throttled IMDb answer could put them there for a day)
+            data = dict((k, v) for k, v in data.items() if not (isinstance(v, dict) and v.get('none')))
+            data['_v374'] = {'t': 4102444800}     # a dict, kept by the trimming (newest first)
         _DISK[self._path] = data
         return data
 
@@ -307,6 +312,10 @@ class TrailerResolver(object):
                 pass
         data = self._request(_Q_STRIP, {'id': imdb_id}, timeout=timeout)
         title = data.get('title') or {}
+        if not title:
+            # v5.10.374: IMDb answered without the title (throttled, a partial
+            # answer): trouble, not "no trailer" (it was kept as none for a day)
+            raise ValueError('imdb gave no title')
         nodes = [edge.get('node') or {} for edge in
                  ((title.get('videoStrip') or {}).get('edges') or []) if isinstance(edge, dict)]
         nodes = [n for n in nodes if _VIDEO_RE.match(str(n.get('id') or ''))]

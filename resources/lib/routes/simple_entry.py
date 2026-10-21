@@ -616,6 +616,9 @@ def home_options_dialog():
         ('homeui_title_page', 'Dex Hub', 'صفحة العمل', 'Title page', ('Dex Hub', 'TMDb Helper', 'Classic')),
         ('homeui_title_poster', 'true', 'إظهار البوستر في صفحة العمل', 'Show poster on the title page', None),
     )
+    if xbmc.getSkinDir() != 'skin.dexhub':
+        # v5.10.364: the add-on's own Home has one design (no layouts, top tabs)
+        options = tuple(o for o in options if o[0] not in ('homeui_layout_mode', 'homeui_nav_position'))
     cursor = 0
     while True:
         rows = [_row(_txt('ترتيب الصفوف والويدجت', 'Arrange rows & widgets')), _row('Nuvio Home')]
@@ -1522,8 +1525,11 @@ def _refresh_continue():
 
 
 def appearance():
-    _add(_txt('مكان تبويبات الأقسام', 'Section tabs position'), 'ui_option', 'settings.png', folder=False, query={'key': 'homeui_nav_position'})
-    _add(_txt('وضع الواجهة', 'Home layout'), 'ui_option', 'dexhub_infinity.png', folder=False, query={'key': 'homeui_layout_mode'})
+    if xbmc.getSkinDir() == 'skin.dexhub':
+        # v5.10.364: the layouts and the tabs' place are skin.dexhub's; the
+        # add-on's own Home under another skin has one design
+        _add(_txt('مكان تبويبات الأقسام', 'Section tabs position'), 'ui_option', 'settings.png', folder=False, query={'key': 'homeui_nav_position'})
+        _add(_txt('وضع الواجهة', 'Home layout'), 'ui_option', 'dexhub_infinity.png', folder=False, query={'key': 'homeui_layout_mode'})
     _add(_txt('الثيم', 'Theme'), 'theme_select', 'dexhub_infinity.png', folder=False)
     _add(_txt('مظهر المشغّل: الشعار والنبذة والبيانات', 'Player appearance: logo, plot & details'), 'player_appearance', 'play.png', folder=False)
     # v5.10.288: the player bar's buttons (skin.dexhub 3.28.40)
@@ -2240,6 +2246,17 @@ def dispatch():
         return tmdbh_install_action()
     if action == 'simple_watching':
         return watching_dialog()
+    if action in ('hub_extra', 'party', 'party_join', 'party_leave', 'party_player', 'party_invite'):
+        # v5.10.366: Dex Hub Extra
+        _close_native_settings_dialog()
+        if action == 'hub_extra':
+            from resources.lib import hub_client
+            hub_client.menu()
+        else:
+            from resources.lib import watch_party
+            {'party': watch_party.menu, 'party_join': watch_party.join, 'party_leave': watch_party.leave,
+             'party_player': watch_party.player_button, 'party_invite': watch_party.invite}[action]()
+        return None
     if action == 'backup_menu':
         # v5.10.212: backup and restore part by part
         _close_native_settings_dialog()

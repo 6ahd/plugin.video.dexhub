@@ -22,7 +22,7 @@ import xbmcgui
 SETTING = 'osd_buttons'
 SLOTS = 10     # skin.dexhub draws 9 slots, skin.dexhub.tvos 10 (with External)
 # bar order, left to right; "-" = hidden by default
-DEFAULT = ('sources', 'episodes', 'info', 'audio', 'subtitles', 'subsync', '-nextsub', 'external', 'video', 'ppi')
+DEFAULT = ('sources', 'episodes', 'info', 'party', 'audio', 'subtitles', 'subsync', '-nextsub', 'external', 'video', 'ppi')
 KEYS = tuple(k.lstrip('-') for k in DEFAULT)
 NAMES = {
     'sources': ('المصادر', 'Sources'),
@@ -35,6 +35,7 @@ NAMES = {
     'external': ('المشغل الخارجي', 'External player'),
     'video': ('إعدادات المشغل', 'Player settings'),
     'ppi': ('معلومات التشغيل PPI', 'PPI playback info'),
+    'party': ('مشاهدة جماعية', 'Watch party'),     # v5.10.372
 }
 # when the skin shows a kept button
 NOTES = {
@@ -58,11 +59,13 @@ DOES = {
     'external': ('يفتح الفيديو في مشغل خارجي', 'Opens the video in an external player'),
     'video': ('إعدادات الصورة والتشغيل', 'Picture and playback settings'),
     'ppi': ('معلومات التشغيل وأوضاع Dolby Vision', 'Playback info and Dolby Vision modes'),
+    'party': ('تبدأ مشاهدة جماعية بهذا العمل، أو تفتح المشاهدة اللي أنت فيها', 'Starts a watch party with this title, or opens the one you are in'),
 }
 # the bar's icons, copies of the OSD's own (resources/media/osdbar)
 ICONS = {
     'sources': 'layers', 'episodes': 'list-video', 'info': 'info', 'audio': 'audio-lines', 'subtitles': 'captions',
     'subsync': 'subsync', 'nextsub': 'subnext', 'external': 'external', 'video': 'ratio', 'ppi': 'ppi',
+    'party': 'party',
 }
 LEFT_ICONS = ('pause-f', 'skip-back', 'skip-forward', 'stop-f')
 

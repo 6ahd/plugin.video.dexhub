@@ -460,6 +460,9 @@ def stream_sort_key(entry, settings, preferred_source=None):
     # v3.9.33: user-defined source priority. When set, listed providers
     # rank above unlisted ones in the listed order — overrides quality.
     priority_bonus = _source_priority_bonus(entry, settings.get('source_priority_order') or [])
+    # v5.10.373: the watch party host's own link is always first
+    if str(entry.get('provider_name_raw') or '') == 'Dex Hub+':
+        priority_bonus = 1000000
     return (
         priority_bonus,
         q_rank,
@@ -518,6 +521,8 @@ def addon_order(entries, settings):
         pos = entry.get('_addon_pos')
         row = entry.get('_addon_row')
         has = isinstance(pos, int) and isinstance(row, int)
+        if str(entry.get('provider_name_raw') or '') == 'Dex Hub+':
+            return (-1000000, -1, -1)
         return (-_source_priority_bonus(entry, priority),
                 pos if has else 99999, row if has else idx)
     return [entry for _idx, entry in sorted(enumerate(rows), key=key)]

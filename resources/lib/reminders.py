@@ -522,6 +522,11 @@ def _notify(events):
 @_scope.bound
 def check(force=False):
     """Announce once what came out and can be played. Returns how many."""
+    try:
+        from . import hub_client      # v5.10.367: new episode messages on Telegram
+        hub_client.follows()
+    except Exception:
+        pass
     if not force and not enabled():
         return 0
     out, soon = scan()

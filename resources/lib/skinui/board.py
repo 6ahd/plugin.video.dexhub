@@ -96,7 +96,8 @@ def update_spot(tab, specs=None):
         if spec.get('own') or spec.get('progress') or (spec.get('kind') or 'catalog') != 'catalog':
             continue
         data = C.read_row(C.row_file(tab, spec['id'])) or {}     # v5.10.188: its quick copy
-        items = [item for item in data.get('items') or [] if _spot_worthy(item)][:SPOT_ITEMS]
+        from ..ui_preferences import hero_order       # v5.10.364
+        items = hero_order([item for item in data.get('items') or [] if _spot_worthy(item)], spec['id'])[:SPOT_ITEMS]
         if len(items) >= 3:
             source = spec
             break

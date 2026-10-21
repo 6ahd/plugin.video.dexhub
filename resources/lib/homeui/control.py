@@ -49,6 +49,7 @@ SECTION_LIST = (
         ('community', 'open', 'users', 'Dex Community', 'كتالوجات جاهزة تضيفها بضغطة', ''),
         ('refresh', 'open', 'arrows-rotate', 'تحديث الرئيسية', 'جلب الصفوف من جديد', ''),
         ('screensaver', 'open', 'moon', 'شاشة التوقف', 'الخلفيات ووقت التشغيل', ''),
+        ('ss_preload', 'toggle', 'moon', 'تجهيز الرئيسية وقت شاشة التوقف', 'الصفوف والصور تتجهز والجهاز فاضي، فترجع للرئيسية وهي جاهزة', 'skin'),
     )),
     # v5.10.299: one Appearance place, in three steps (colours, the Home's
     # shape, motion); every choice shows at once, the skin's settings page
@@ -68,7 +69,7 @@ SECTION_LIST = (
         ('nav_icons', 'toggle', 'bars', 'القائمة الجانبية أيقونات فقط', 'ما تنفتح بالكلمات لما تروح لها', 'skin'),
         ('nav_autohide', 'toggle', 'eye-slash', 'إخفاء القائمة عند التمرير', 'الشريط العلوي أو القائمة الجانبية تختفي لما تنزل للصفوف وترجع لما تطلع أو تروح يسار', 'skin'),
         ('nav_focus_open', 'toggle', 'circle-dot', 'فتح الأقسام بالتمرير', 'القسم ينفتح لما توقف على أيقونته ثانية، بدون ضغط', 'skin'),
-        ('back_exit', 'toggle', 'power-off', 'الرجوع من القائمة يسأل عن الخروج', 'زر الرجوع على الشريط العلوي أو القائمة الجانبية يسألك تطلع من كودي', 'skin'),
+        ('back_exit', 'toggle', 'power-off', 'الرجوع من القائمة يسأل عن الخروج', 'زر الرجوع على الشريط العلوي أو القائمة الجانبية يسألك تطلع من كودي', 'skin_exit'),
         ('bg_settle', 'toggle', 'image', 'الخلفية تتبع التحديد بعد التوقف', 'خلفية الرئيسية تتغير لما توقف على العمل، فالتنقل أخف', 'skin'),
         ('nav_names', 'toggle', 'list-ul', 'أسماء الأقسام', 'أسماء بجانب أيقونات الشريط', ''),
         ('size', 'open', 'up-right-and-down-left-from-center', 'حجم الواجهة والبطاقات', 'من 50% إلى 200%', ''),
@@ -81,9 +82,13 @@ SECTION_LIST = (
         ('season_names', 'toggle', 'tags', 'أسماء المواسم', 'الموسم 1: Murder House بدل الموسم 1', ''),
         ('rating_inline', 'toggle', 'star', 'التقييم في سطر التفاصيل', 'بعد التصنيفات والسنة والمدة بدل سطر لحاله', ''),
         ('compact_hero', 'toggle', 'display', 'هيرو الصفين أصغر', 'أزرار وأسماء صفوف أصغر ونبذة أعرض في وضع الصفين', ''),
+        ('servers', 'toggle', 'server', 'قسم السيرفرات', 'Plex وEmby وJellyfin وSilo في الرئيسية', ''),
     )),
     ('look_motion', 'wand-magic-sparkles', 'المظهر: الحركة والتريلرات', 'التحديد والخلفيات والتريلر', (
         ('focus_motion', 'pick', 'wand-magic-sparkles', 'حركة التحديد', 'تكبير أو رفع أو قفزة أو إضاءة', ''),
+        ('ui_sounds', 'run', 'sliders', 'أصوات التنقل', 'نقرة ناعمة مثل Apple TV، أو أصوات كودي، أو بدون', ''),
+        # v5.10.376: sharper backdrops and posters (Kodi's 720 cache, TMDb sizes)
+        ('image_quality', 'run', 'image', 'جودة الصور', 'الخلفيات والبوسترات: عادية، أو عالية 1080 للأجهزة القوية', ''),
         ('kenburns', 'toggle', 'image', 'تحريك الخلفيات', 'حركة بطيئة للصورة خلف العمل', ''),
         ('focus_gif', 'toggle', 'film', 'الصور المتحركة', 'صور GIF للأعمال اللي فيها', ''),
         ('carousel', 'toggle', 'clapperboard', 'تدوير البانر', 'التنقل التلقائي بين الأعمال', ''),
@@ -94,6 +99,8 @@ SECTION_LIST = (
         ('trailer_volume', 'pick', 'film', 'مستوى صوت التريلر', 'من 0 إلى 100؛ يرجع صوت المشاهدة بعد التريلر', ''),
         ('trailer_place', 'pick', 'clapperboard', 'مكان التريلر', 'خلف الصفحة، أو داخل البطاقة المحددة وهي مفتوحة في صفها', ''),
         ('trailer_clean', 'toggle', 'eye-slash', 'تريلر بدون كتابة', 'الشعار والتصنيفات والتقييمات تختفي وقت التريلر وترجع مع أي زر', ''),
+        ('immersive_after', 'pick', 'clapperboard', 'ملء الشاشة بعد', 'بعد كم ثانية يملأ التريلر الشاشة وتختفي الصفوف', ''),
+        ('hero_shuffle', 'toggle', 'clapperboard', 'خلط أعمال البانر', 'ترتيب جديد كل يوم من نفس الكتالوج', ''),
     )),
     ('player', 'circle-play', 'المشغل', 'التشغيل والرموز والترجمة', (
         ('player', 'open', 'circle-play', 'خيارات المشغل', 'الشعار والتقييمات وسطر المعلومات', 'player'),
@@ -128,6 +135,8 @@ SECTION_LIST = (
         ('episode_art', 'pick', 'image', 'صور الحلقات', 'صورة الحلقة نفسها بدل صورة المسلسل', ''),
         ('episode_titles', 'pick', 'tags', 'أسماء الحلقات', 'اسم الحلقة بدل «الحلقة 3»', ''),
         ('follow_merge', 'toggle', 'layer-group', 'دمج الخدمات', 'العمل مرة وحدة ولو كان في أكثر من خدمة', ''),
+        # v5.10.374 (Reddit): an episode not out yet in Next episode, with its day, or hidden
+        ('nextup_unaired', 'toggle', 'clock-rotate-left', 'الحلقات اللي ما نزلت', 'في الحلقة التالية مع يوم نزولها، أو تختفي لين تنزل', ''),
         ('lib_sort', 'pick', 'list-ul', 'ترتيب المفضلة وقوائم المشاهدة', 'في المكتبة وفي متابعتي', ''),
         ('trakt_smart', 'toggle', 'arrows-rotate', 'مزامنة Trakt الذكية', 'يجلب من Trakt بس لما يتغير شي فيه', ''),
         ('reminders', 'toggle', 'clock-rotate-left', 'تذكير بالحلقات الجديدة', 'إشعار يوم ما تنزل حلقة من مسلسل تتابعه', ''),
@@ -151,6 +160,8 @@ SECTION_LIST = (
         ('add_source', 'open', 'circle-plus', 'إضافة مصدر', 'رابط إضافة Stremio أو Nuvio', ''),
         ('nuvio', 'open', 'id-card', 'مزامنة Nuvio', 'الهوم والمجموعات ومتابعة المشاهدة', ''),
         ('trakt', 'open', 'clock-rotate-left', 'Trakt', 'سجل المشاهدة والمزامنة', ''),
+        ('hub_extra', 'open', 'star', 'Dex Hub Extra', 'شكلك في حسابك، صفوف أسرع، ومشاهدة جماعية', ''),
+        ('party', 'open', 'users', 'مشاهدة جماعية', 'تتفرجون مع بعض، كل واحد على تلفزيونه', ''),
     )),
     ('system', 'gears', 'النظام', 'الإعدادات والسكين والتشخيص', (
         ('settings', 'open', 'sliders', 'إعدادات Dex Hub', 'مركز الإعداد', ''),
@@ -187,6 +198,8 @@ ROUTES = {
     'speed': 'setup_stability',
     'diagnostics': 'setup_diagnostics',
     'backup': 'backup_menu',
+    'hub_extra': 'hub_extra',         # v5.10.366
+    'party': 'party',
     'clear_cache': 'clear_cache',
     'osd_buttons': 'osd_buttons',     # v5.10.299
 }
@@ -197,7 +210,7 @@ TRAILER_STEPS = ((0, 'فوري'), (1, 'بعد ثانية'), (2, 'بعد ثاني
 PICKS = {
     'badges_brightness': ('player_badges_brightness', (('solid', 'واضح بلا تعتيم'), ('soft', 'هادئ'))),
     'title_style': ('homeui_title_style', (('logo', 'شعار العمل'), ('text', 'نص'))),
-    'background_style': ('homeui_background_style', (('cinematic', 'سينمائي'), ('soft', 'هادئ'), ('dark', 'داكن'))),
+    'background_style': ('homeui_background_style', (('cinematic', 'سينمائي'), ('soft', 'هادئ'), ('dark', 'داكن'), ('fullscreen', 'ملء الشاشة'))),
     # v5.10.286: the two new Home layouts first (cinematic keeps the default: options[0]
     # is only the fallback label, the setting's default stays cinematic)
     'home_layout_mode': ('homeui_layout_mode', (('cinematic', 'هيرو وصفوف'), ('legacy', 'ليقسي'), ('cinema', 'سينمائي ملء الشاشة'), ('shelf', 'رف بطاقات عريضة'),
@@ -206,6 +219,7 @@ PICKS = {
     'nav_position': ('homeui_nav_position', (('top', 'أعلى الشاشة'), ('side', 'قائمة جانبية'))),
     'trailer_volume': ('homeui_trailer_volume', tuple((str(v), str(v) + '%') for v in range(0,101,5))),
     'trailer_place': ('homeui_trailer_mode', (('background', 'خلفية الشاشة'), ('card', 'داخل البطاقة'))),
+    'immersive_after': ('homeui_immersive_delay', tuple((v, 'بعد %s ثوانٍ' % v) for v in ('4', '6', '8', '10')) + (('12', 'بعد 12 ثانية'), ('16', 'بعد 16 ثانية'), ('20', 'بعد 20 ثانية'))),
     'meta_lang': ('homeui_metadata_language', (('Auto', 'تلقائي (لغة الواجهة)'), ('Arabic', 'العربية'),
                                                 ('English', 'English'))),
     'server_meta': ('server_metadata', (('0', 'من السيرفر أولاً'), ('1', 'من المصدر المختار'))),
@@ -277,15 +291,16 @@ PICK_LINES = {
 TOGGLES = {'title_poster': ('homeui_title_poster', 'true'), 'library_split': ('library_split_media', 'true'), 'badges_visible': ('player_badges_visible', 'true'),
            'row_source': ('homeui_show_row_source', 'true'), 'plot_scroll': ('homeui_plot_scroll', 'true'),
            'hide_plot': ('homeui_hide_plot', 'false'), 'rating_inline': ('homeui_rating_inline', 'true'),
-           'compact_hero': ('homeui_compact_hero', 'true'), 'nav_icons': ('homeui_nav_icons_only', 'false'), 'nav_autohide': ('homeui_nav_autohide', 'false'), 'nav_focus_open': ('homeui_nav_focus_open', 'false'), 'back_exit': ('homeui_back_exit', 'true'), 'bg_settle': ('homeui_bg_settle', 'true'), 'trailer_clean': ('homeui_trailer_clean', 'true'), 'carousel': ('homeui_carousel', 'true'),'trailer_sound': ('homeui_trailer_sound', 'true'), 'ratings': ('metadata_badges', 'true'),
+           'compact_hero': ('homeui_compact_hero', 'true'), 'nav_icons': ('homeui_nav_icons_only', 'false'), 'nav_autohide': ('homeui_nav_autohide', 'false'), 'nav_focus_open': ('homeui_nav_focus_open', 'false'), 'back_exit': ('homeui_back_exit', 'true'), 'hero_shuffle': ('homeui_hero_shuffle', 'false'), 'ss_preload': ('homeui_ss_preload', 'true'), 'servers': ('show_servers', 'true'), 'bg_settle': ('homeui_bg_settle', 'true'), 'trailer_clean': ('homeui_trailer_clean', 'true'), 'carousel': ('homeui_carousel', 'true'),'trailer_sound': ('homeui_trailer_sound', 'true'), 'ratings': ('metadata_badges', 'true'),
            'nav_names': ('homeui_nav_names', 'false'), 'follow_merge': ('follow_merge', 'true'),
+           'nextup_unaired': ('nextup_show_unaired', 'true'),
            'trakt_smart': ('trakt_smart_sync', 'true'), 'season_names': ('season_names', 'true'),
            'reminders': ('episode_reminders', 'true'),
            'new_rows': ('home_hide_new_rows', 'false'), 'group_recs': ('home_group_recs', 'false'),
            'kenburns': ('homeui_kenburns', 'true'), 'focus_gif': ('homeui_focus_gif', 'true')}
 SIZES = {'': 'عادي', 'large': 'كبير', 'xlarge': 'كبير جداً',
          'normal': 'عادي', 'extra large': 'كبير جداً'}
-_SETTINGS = ('homeui_title_poster', 'homeui_nav_icons_only', 'homeui_nav_autohide', 'homeui_nav_focus_open', 'homeui_back_exit', 'homeui_bg_settle', 'homeui_trailer_clean', 'ratings_shown', 'library_split_media', 'player_badges_visible', 'player_badges_brightness', 'homeui_poster_scale', 'homeui_show_row_source', 'homeui_title_style', 'homeui_background_style', 'homeui_plot_scroll', 'homeui_hide_plot', 'homeui_rating_inline', 'homeui_compact_hero', 'homeui_carousel', 'homeui_layout_mode', 'homeui_nav_position', 'homeui_metadata_language', 'server_metadata', 'homeui_card_style', 'homeui_focus_motion',
+_SETTINGS = ('homeui_title_poster', 'homeui_nav_icons_only', 'homeui_nav_autohide', 'homeui_nav_focus_open', 'homeui_back_exit', 'homeui_immersive_delay', 'homeui_hero_shuffle', 'homeui_ss_preload', 'show_servers', 'homeui_bg_settle', 'homeui_trailer_clean', 'ratings_shown', 'library_split_media', 'player_badges_visible', 'player_badges_brightness', 'homeui_poster_scale', 'homeui_show_row_source', 'homeui_title_style', 'homeui_background_style', 'homeui_plot_scroll', 'homeui_hide_plot', 'homeui_rating_inline', 'homeui_compact_hero', 'homeui_carousel', 'homeui_layout_mode', 'homeui_nav_position', 'homeui_metadata_language', 'server_metadata', 'homeui_card_style', 'homeui_focus_motion',
              'homeui_row_dim', 'homeui_trailer_sound', 'metadata_badges', 'homeui_nav_names', 'homeui_trailers',
              'homeui_trailer_delay', 'homeui_trailer_volume', 'homeui_trailer_mode', 'homeui_size', 'global_meta_source_id', 'global_meta_source_all',
              'tmdb_api_key', 'global_poster_source_id', 'follow_order', 'library_sort', 'follow_merge',
@@ -305,10 +320,12 @@ def _where():
     try:
         from .. import power
         coreelec = bool(power.coreelec())
+        appliance = bool(power.appliance())
     except Exception:
-        coreelec = False
+        coreelec = appliance = False
     return {'skin': skin == 'skin.dexhub', 'addon': skin != 'skin.dexhub',
-            'player': skin in ('skin.dexhub', 'skin.arctic.fuse.3'), 'coreelec': coreelec, '': True}
+            'player': skin in ('skin.dexhub', 'skin.arctic.fuse.3'), 'coreelec': coreelec, '': True,
+            'skin_exit': skin == 'skin.dexhub' and not appliance}     # v5.10.367
 
 
 def sections():
@@ -443,7 +460,13 @@ def apply_entry(key, value):
                 except Exception:
                     pass
             _skin_follows()
-        return key == 'library_split'
+        if key == 'nextup_unaired':
+            try:
+                from ..nextup_logic import invalidate_nextup_cache
+                invalidate_nextup_cache(xbmcgui.Window(10000))
+            except Exception:
+                pass
+        return key in ('library_split', 'nextup_unaired')
     if key == 'continue_split':
         from .layout import continue_split
         if isinstance(value, str):
@@ -510,6 +533,13 @@ class ControlCentre(xbmcgui.WindowXMLDialog):
             except Exception:
                 split = False
             return (tr('صفين: أفلام ومسلسلات') if split else tr('صف واحد')), ''
+        if key == 'image_quality':
+            from ..image_quality import current as _iq
+            return (tr('عالية 1080') if _iq() == 'high' else tr('عادية')), ''
+        if key == 'ui_sounds':
+            from ..ui_sounds import current
+            return tr({'dexhub': 'ناعمة مثل Apple TV', 'kodi': 'أصوات كودي', 'off': 'بدون',
+                       'other': 'حزمة أخرى'}[current()]), ''
         if key == 'trailers':
             if (snap.get('homeui_trailers') or 'true').lower() != 'true':
                 return tr('متوقفة'), ''
@@ -858,6 +888,35 @@ class ControlCentre(xbmcgui.WindowXMLDialog):
         if key == 'focus_colour':
             from ..skinui import actions
             actions.focus_colour({}, -1)
+            return True
+        if key == 'ui_sounds':
+            # v5.10.365: Kodi's navigation sounds (no skin has its own)
+            from .options import choose
+            from .. import ui_sounds
+            names = [tr('ناعمة مثل Apple TV'), tr('أصوات كودي'), tr('بدون')]
+            now = ui_sounds.current()
+            pick = choose(tr('أصوات التنقل'), names, preselect=ui_sounds.CHOICES.index(now) if now in ui_sounds.CHOICES else 0,
+                          subtitle=tr('تنسمع لما يتحرك التحديد وOK والرجوع'))
+            if pick < 0:
+                return False
+            return ui_sounds.apply(ui_sounds.CHOICES[pick], notify=lambda: xbmcgui.Dialog().notification(
+                'Dex Hub', tr('ثبّت Dex Hub UI Sounds من مستودع Dex Hub'), sound=False))
+        if key == 'image_quality':
+            from .options import choose
+            from .. import image_quality
+            now = image_quality.current()
+            rows = [(tr('عادية'), tr('خلفيات 720 وبوسترات w500: الأخف للأجهزة الصغيرة')),
+                    (tr('عالية 1080'), tr('خلفيات 1080 من الأصل وبوسترات أوضح: Shield وApple TV 4K والماك'))]
+            pick = choose(tr('جودة الصور'), rows, preselect=image_quality.CHOICES.index(now), subtitle=tr('الخلفيات والبوسترات'))
+            if pick < 0 or image_quality.CHOICES[pick] == now:
+                return False
+            done = image_quality.apply(image_quality.CHOICES[pick])
+            if done.get('own'):
+                xbmcgui.Dialog().ok('Dex Hub', tr('ملف advancedsettings.xml فيه imageres من قبل، فما غيرناه. الصور من TMDb تغيرت.'))
+            if done.get('changed') and xbmcgui.Dialog().yesno('Dex Hub', tr('كودي يقرأ جودة الصور لما يشتغل. نعيد تشغيله الحين؟'),
+                                                            nolabel=tr('لاحقًا'), yeslabel=tr('أعد التشغيل')):
+                xbmc.executebuiltin('RestartApp')
+            self.refresh_after = True
             return True
         if key == 'continue_split':
             from .options import choose

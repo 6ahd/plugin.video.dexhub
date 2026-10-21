@@ -32,6 +32,14 @@ _IDLE_STOP = 600
 # seconds, Kodi's idle clock). Opening a stream puts up Kodi's busy dialog for
 # a moment, and a key pressed then was swallowed (11 times in one log)
 _START_REST = 1
+
+
+def _immersive_after(value):
+    """v5.10.364: seconds before a trailer fills the screen (4 to 60, 16)."""
+    try:
+        return max(4.0, min(60.0, float(value or 16)))
+    except ValueError:
+        return 16.0
 _SETTINGS_EVERY = 2.0
 _SPOTLIGHT = 301
 _FOLD_WINDOW = 1190     # a collection folder's page of rows (folderpage.py)
@@ -182,13 +190,15 @@ class Spotlight(threading.Thread):
                     'volume': volume_level(addon.getSetting('homeui_trailer_volume')),
                     'mode': display_mode(addon.getSetting('homeui_trailer_mode')),
                     'immersive': flag('homeui_immersive', True),
+                    # v5.10.364: how long the trailer waits before it fills the screen
+                    'immersive_after': _immersive_after(addon.getSetting('homeui_immersive_delay')),
                     'on': flag('homeui_trailers', True),
                     'delay': max(0.6, min(20.0, delay)),
                     'sound': flag('homeui_trailer_sound', True),
                     'quality': int(quality) if quality.isdigit() else 720,
                 }
             except Exception:
-                self._settings = {'on': True, 'delay': 3.0, 'sound': True, 'quality': 720, 'immersive': True, 'volume': 30, 'mode': 'background'}
+                self._settings = {'on': True, 'delay': 3.0, 'sound': True, 'quality': 720, 'immersive': True, 'volume': 30, 'mode': 'background', 'immersive_after': 16.0}
             self._settings_at = now
             self._settings_profile = profile
         return self._settings
@@ -495,12 +505,17 @@ class Spotlight(threading.Thread):
             test = C.prop('dhs.test.trailer')
             if test and not os.path.isfile(test):
                 test = ''
+            why = ''
             try:
                 stream = ({'url': test, 'mime': 'video/mp4', 'title': 'Trailer'} if test
                           else {'url': target['video'], 'mime': 'video/mp4'} if target.get('video')
                           else self._resolver_for(settings).resolve(target['imdb']))
-            except Exception:
-                stream = None
+            except Exception as exc:
+                stream, why = None, '%s: %s' % (exc.__class__.__name__, exc)
+            if not stream and director.is_current(token) and self.key == target['key'] and not self.halt.is_set():
+                # v5.10.374: said in a normal log (it was DEBUG only and an
+                # error was swallowed): no trailer, and why (no network, none found)
+                C.log('trailer: none for "%s" (%s)' % (target['title'], why or 'no trailer found'), xbmc.LOGINFO)
             if (not stream or self.halt.is_set() or self.monitor.abortRequested()
                     or not director.is_current(token) or self.key != target['key']):
                 C.log('trailer for "%s" dropped (stream %s, current %s, key %s)' % (
@@ -513,7 +528,7 @@ class Spotlight(threading.Thread):
             ok = director.play(self, token, stream, title=target['title'], muted=not settings['sound'], volume=settings['volume'])
             if not ok and director.is_current(token):
                 publish_status('unavailable')
-            C.log('trailer for "%s" started: %s' % (target['title'], ok), xbmc.LOGDEBUG)
+            C.log('trailer for "%s" started: %s' % (target['title'], ok), xbmc.LOGDEBUG if ok else xbmc.LOGINFO)
         self._resolve_thread = threading.Thread(target=job, name='dexhub-skin-trailer', daemon=True)
         self._resolve_thread.start()
 
@@ -531,8 +546,9 @@ class Spotlight(threading.Thread):
         if settings.get('mode') == 'card' and (guistate.is_active(_FOLD_WINDOW)
                 or guistate.active() == guistate.VIDEOS or (C.prop('dhs.fr') or '0') != '0'):
             compact = True
+        after = float(settings.get('immersive_after') or 16.0)
         want = bool(not compact and settings.get('immersive') and showing
-                    and time.monotonic() - self.visible_since > 16.0 and idle >= 16)
+                    and time.monotonic() - self.visible_since > after and idle >= int(after))
         if want != self.immersive:
             self.immersive = want
             C.set_prop('dhs.immersive', '1' if want else '')

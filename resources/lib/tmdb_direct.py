@@ -30,8 +30,21 @@ API_BASE = 'https://api.themoviedb.org/3'
 # variants for free, so we now request appropriate widths per image kind.
 # Reference sizes per TMDb docs: posters w185/w342/w500/w780, backdrops
 # w300/w780/w1280, logos w92/w154/w300/w500.
-IMAGE_BASE_POSTER = 'https://image.tmdb.org/t/p/w500'      # ~70 KB per item
-IMAGE_BASE_BACKDROP = 'https://image.tmdb.org/t/p/w1280'   # ~200 KB per item
+def _quality_sizes():
+    """v5.10.376: Look › Image quality: High asks for w780 posters and the
+    original backdrops (Kodi then keeps them at 1080, image_quality)."""
+    try:
+        import xbmcaddon
+        if (xbmcaddon.Addon().getSetting('image_quality') or '').strip().lower() == 'high':
+            return 'w780', 'original'
+    except Exception:
+        pass
+    return 'w500', 'w1280'
+
+
+_POSTER_SIZE, _BACKDROP_SIZE = _quality_sizes()
+IMAGE_BASE_POSTER = 'https://image.tmdb.org/t/p/' + _POSTER_SIZE      # ~70 KB per item (w500)
+IMAGE_BASE_BACKDROP = 'https://image.tmdb.org/t/p/' + _BACKDROP_SIZE  # ~200 KB per item (w1280)
 IMAGE_BASE_LOGO = 'https://image.tmdb.org/t/p/w500'        # logos are small
 # Kept for backwards compatibility — used only if a caller passes raw paths
 # without specifying a kind.
@@ -238,6 +251,9 @@ def _cache_get(cache_key):
             conn.close()
             return None
         conn.close()
+        if _BACKDROP_SIZE == 'original' and 'image.tmdb.org/t/p/w1280/' in (payload or ''):
+            # v5.10.376: kept before Image quality went High: the backdrops at their original size
+            payload = payload.replace('image.tmdb.org/t/p/w1280/', 'image.tmdb.org/t/p/original/')
         result = json.loads(payload or '{}')
         _mem_put(cache_key, result)
         return result

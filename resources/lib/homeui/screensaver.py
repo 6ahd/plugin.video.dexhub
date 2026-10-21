@@ -549,6 +549,11 @@ class Saver(xbmcgui.WindowXMLDialog):
     def onInit(self):
         english = _english()
         today = datetime.date.today()
+        try:
+            from ..skinui import preload      # v5.10.365: the Home's pictures, cached meanwhile
+            preload.feed(self, self.done)
+        except Exception:
+            pass
         self.setProperty('ss.brand', self.brand)
         self.setProperty('ss.tagline', _tr('سينما، في استراحة'))
         self.setProperty('ss.scene', _tr('لحظة هدوء، قبل الحكاية.'))

@@ -1312,7 +1312,10 @@ class Context(object):
             # belongs in the compact facts line, never server/file details.
             code = episode_code(tile)
             if code:
-                out.append(code)
+                # v5.10.374: the episode's name ends the facts line (it had a
+                # label of its own on the ratings' line and ran over them)
+                name = R.card_episode_name(tile) if tile.get('media_type') == 'episode' and tile.get('episode') else ''
+                out.append('%s  ·  %s' % (code, name) if name else code)
         elif kind == 'library':
             out.append(tile.get('brand') or '')
         return '   •   '.join([m for m in out if m])
@@ -1422,8 +1425,9 @@ class Context(object):
         if media == 'episode' and (tile.get('season') or tile.get('episode')):
             parts = [episode_code(tile), episode_name]
             subtitle = '  ·  '.join([p for p in parts if p])
-            if show:
-                hero_sub = subtitle
+            # v5.10.374: no hero_sub for an episode: its code and name are on
+            # the facts line (dhs.meta), the hero's own sub label sat on the
+            # ratings' line and the two ran into each other
             if spec.get('grid') and (episode_name or title):
                 # a season's page: the cards name the episodes, not the show
                 label = episode_name or (title if R.card_episode_name({'episode_name': title}) else
@@ -1440,6 +1444,12 @@ class Context(object):
             fanart = tile.get('fanart') or ''
         if kind == 'folder' and not fanart:
             fanart = tile.get('group_fanart') or ''
+        try:
+            # v5.10.376: Image quality on High: the backdrop behind the Home at its original size
+            from ..image_policy import sharp_fanart
+            fanart = sharp_fanart(fanart)
+        except Exception:
+            pass
         art = {'poster': poster, 'thumb': poster if spec.get('shape') not in ('landscape', 'wide', 'wide_ranked', 'feature', 'landscape_info') else landscape,
                'landscape': landscape, 'fanart': fanart, 'clearlogo': tile.get('clearlogo') or ''}
         if kind == 'channel':

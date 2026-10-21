@@ -25669,8 +25669,60 @@ def _nextup_items_cached(limit=40):
     )
 
 
+_MONTHS_EN = ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec')
+_MONTHS_AR = ('يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر')
+_WEEK_EN = ('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun')
+_WEEK_AR = ('الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد')
+
+
+def _nextup_airs(row, now=None):
+    """v5.10.374: (not out yet, 'Airs Thu') for a Next episode row, from its
+    air date (Trakt first_aired, the add-on's released). (False, '') when it
+    is out or the date is unknown."""
+    import datetime
+    text = str((row or {}).get('aired') or '').strip()
+    if not text:
+        return False, ''
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    try:
+        if len(text) <= 10:
+            day = datetime.date.fromisoformat(text[:10])
+            today = now.astimezone().date()
+            if day <= today:
+                return False, ''
+        else:
+            when = datetime.datetime.fromisoformat(text.replace('Z', '+00:00'))
+            if when.tzinfo is None:
+                when = when.replace(tzinfo=datetime.timezone.utc)
+            if when <= now:
+                return False, ''
+            day, today = when.astimezone().date(), now.astimezone().date()
+    except (TypeError, ValueError):
+        return False, ''
+    from .i18n import is_english
+    english = is_english()
+    delta = (day - today).days
+    if delta <= 0:
+        label = 'Airs today' if english else 'تنزل اليوم'
+    elif delta == 1:
+        label = 'Airs tomorrow' if english else 'تنزل بكرة'
+    elif delta < 7:
+        label = ('Airs %s' % _WEEK_EN[day.weekday()]) if english else ('تنزل %s' % _WEEK_AR[day.weekday()])
+    else:
+        label = ('Airs %s %d' % (_MONTHS_EN[day.month - 1], day.day)) if english \
+            else ('تنزل %d %s' % (day.day, _MONTHS_AR[day.month - 1]))
+    return True, label
+
+
+def _nextup_show_unaired():
+    """v5.10.374: Episodes not out yet in Next episode (with their date), or hidden."""
+    return (ADDON.getSetting('nextup_show_unaired') or 'true').strip().lower() != 'false'
+
+
 def nextup():
     rows = _nextup_items_cached(limit=60)
+    # v5.10.374: an episode not out yet shows when it comes out, or is left out
+    _show_unaired = _nextup_show_unaired()
     if not rows:
         notify(tr('لا توجد حلقات قادمة بعد. شاهد حلقة من أي مسلسل ليظهر هنا.'))
         return end_dir(content='episodes', cache=False)
@@ -25739,6 +25791,11 @@ def nextup():
                 continue
             # v5.10.214: not begun yet, so «Episodes you started» names it by number
             ep_title  = _episode_card_name(row, row.get('episode_title') or '', started=False)
+            _unaired, _airs = _nextup_airs(row)
+            if _unaired and not _show_unaired:
+                continue
+            if _airs:
+                ep_title = ('%s  ·  %s' % (_airs, ep_title)) if ep_title else _airs
             display = '%s — S%02dE%02d%s' % (
                 title, season, episode,
                 (' — %s' % ep_title) if ep_title else '')

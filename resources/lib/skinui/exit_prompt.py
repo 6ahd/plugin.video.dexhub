@@ -17,6 +17,12 @@ def ask():
         return None
     if xbmc.getCondVisibility('System.Platform.TVOS | Player.HasVideo | System.HasModalDialog'):
         return None
+    try:
+        from ..power import appliance      # v5.10.367: Kodi is the system there
+        if appliance():
+            return None
+    except Exception:
+        pass
     from ..i18n import tr
     home.setProperty(_ASKING, '1')
     try:

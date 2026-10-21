@@ -31,6 +31,15 @@ def _t(ar, en):
         return ar
 
 
+def _backdrop_size():
+    """v5.10.376: the title page's backdrop follows Look › Image quality."""
+    try:
+        import xbmcaddon
+        return 'original' if (xbmcaddon.Addon().getSetting('image_quality') or '') == 'high' else 'w1280'
+    except Exception:
+        return 'w1280'
+
+
 def _img(path, size):
     path = str(path or '')
     if not path:
@@ -104,7 +113,7 @@ def collection_parts(coll_id, language=''):
     # released first by day; the ones without a day (announced) last
     parts.sort(key=lambda p: (not p['date'], p['date']))
     out = {'name': str(raw.get('name') or ''), 'overview': str(raw.get('overview') or ''),
-           'poster': _img(raw.get('poster_path'), 'w342'), 'backdrop': _img(raw.get('backdrop_path'), 'w1280'),
+           'poster': _img(raw.get('poster_path'), 'w342'), 'backdrop': _img(raw.get('backdrop_path'), _backdrop_size()),
            'parts': parts}
     T._cache_set(key, out if parts else {}, T.POSITIVE_TTL // 4 if parts else 3600)
     return out if parts else {}

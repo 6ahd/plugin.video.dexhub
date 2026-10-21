@@ -679,6 +679,22 @@ class Nuvio:
         if (created + exp - 60) > int(time.time()):
             return data
         # refresh
+        if data.get('via_hub'):
+            # v5.10.370: signed in from hub.dexworld.cc: the hub alone holds
+            # the refresh token (one refresh chain), it hands a new access token
+            try:
+                from .. import hub_client
+                fresh = hub_client.nuvio_access()
+                if fresh and fresh.get('access_token'):
+                    latest = Nuvio.token()
+                    if str(latest.get('user_id') or '') == str(fresh.get('user_id') or latest.get('user_id') or ''):
+                        latest.update(access_token=fresh['access_token'], created_at=int(time.time()),
+                                      expires_in=max(60, int(float(fresh.get('expires_at') or 0) / 1000 - time.time())))
+                        Nuvio.save_token(latest)
+                        return latest
+            except Exception as exc:
+                _log('nuvio token from the hub: %s' % exc)
+            return data
         if not data.get('refresh_token'):
             return data
         try:

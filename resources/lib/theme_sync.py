@@ -228,6 +228,11 @@ def tick(force=False):
     if look != st['look']:
         st['look'] = look
         T.publish_theme()
+        try:
+            from . import cloud_look      # v5.10.366: the skin's look goes to the cloud
+            cloud_look.mark()
+        except Exception:
+            pass
     if st['pending'] and now - st['asked_at'] > 10.0 and not busy():
         st['asked_at'] = now
         if st['pending'] == from_colour:

@@ -955,6 +955,12 @@ if __name__ == '__main__':
                     _skin_common.ask_republish('badges')
                 except Exception:
                     pass
+            try:
+                # v5.10.366: a look choice goes to the cloud once it settled
+                from resources.lib import cloud_look as _cloud_look
+                _cloud_look.settings_changed(changed)
+            except Exception:
+                pass
             from resources.lib.ui_preferences import DISPLAY_ONLY
             if changed and set(changed).issubset(DISPLAY_ONLY):
                 return          # display-only choices do not rebuild Home/widgets
@@ -996,6 +1002,13 @@ if __name__ == '__main__':
         _thr.Thread(target=_infuse_returns, args=(monitor,), name='DexHub-Infuse-return', daemon=True).start()
 
     SYNC_DIRTY_PROP = 'dexhub.sync_dirty'
+
+    def _hub_worker(mon):
+        try:
+            from resources.lib import hub_worker as _hub_worker_mod
+            _hub_worker_mod.run(mon)
+        except Exception as exc:
+            xbmc.log('[DexHub] hub thread not started: %s' % exc, xbmc.LOGWARNING)
 
     def _cloud_sync_loop(mon):
         """Native Nuvio/Stremio sync.
@@ -1250,6 +1263,8 @@ if __name__ == '__main__':
     try:
         import threading as _thr
         _thr.Thread(target=_background_sync_loop, args=(monitor,), name='DexHubCoreLoop', daemon=True).start()
+        # v5.10.366: Dex Hub Extra (cloud look, watch party); sleeps when not linked
+        _thr.Thread(target=_hub_worker, args=(monitor,), name='DexHub-hub', daemon=True).start()
         _thr.Thread(target=_cloud_sync_loop, args=(monitor,), name='DexHubCloudLoop', daemon=True).start()
         _thr.Thread(target=_tmdbh_player_maintenance, name='DexHubTMDbHMaintenance', daemon=True).start()
         _thr.Thread(target=_bytecode_warm_job, name='DexHubBytecodeWarm', daemon=True).start()

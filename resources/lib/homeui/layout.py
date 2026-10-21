@@ -207,6 +207,11 @@ class Layout(object):
             os.replace(tmp, self._path)
             self._mtime = (_scope.key(), os.path.getmtime(self._path))
             _skin_follows()
+            try:
+                from .. import cloud_look      # v5.10.366: the order goes to the cloud
+                cloud_look.mark()
+            except Exception:
+                pass
             return True
         except Exception:
             return False

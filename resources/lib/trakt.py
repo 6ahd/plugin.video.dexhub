@@ -969,7 +969,8 @@ def fetch_next_up(limit=40):
             if not slug:
                 continue
             try:
-                progress = _request('/shows/%s/progress/watched?hidden=false&specials=false' % slug,
+                # v5.10.374: extended=full carries the next episode's air date
+                progress = _request('/shows/%s/progress/watched?hidden=false&specials=false&extended=full' % slug,
                                     method='GET', auth=True) or {}
             except Exception:
                 continue
@@ -987,6 +988,7 @@ def fetch_next_up(limit=40):
                 'video_id': '%s:%s:%s' % (canonical, season_n, episode_n),
                 'title': title,
                 'episode_title': nxt.get('title') or '',
+                'aired': nxt.get('first_aired') or '',
                 'show_tmdb_id': str(ids.get('tmdb') or ''),
                 'imdb_id': str(ids.get('imdb') or ''),
                 'season': season_n,

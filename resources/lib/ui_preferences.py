@@ -7,7 +7,7 @@ import xbmcgui
 OPTIONS = {
     'homeui_show_row_source': ('true', None, 'إظهار مصدر الصف', 'Show row source'),
     'homeui_title_style': ('logo', ('logo', 'text'), 'عنوان العمل', 'Title style'),
-    'homeui_background_style': ('cinematic', ('cinematic', 'soft', 'dark'), 'نمط الخلفية', 'Background style'),
+    'homeui_background_style': ('cinematic', ('cinematic', 'soft', 'dark', 'fullscreen'), 'نمط الخلفية', 'Background style'),
     'library_split_media': ('true', None, 'فصل الأفلام والمسلسلات في المكتبة', 'Separate movie and show library rows'),
     'player_badges_visible': ('true', None, 'إظهار رموز الجودة في المشغّل', 'Show player badges'),
     'player_badges_brightness': ('solid', ('solid', 'soft'), 'وضوح رموز الجودة', 'Badge appearance'),
@@ -74,6 +74,12 @@ OPTIONS = {
     'homeui_trailer_delay': ('3', tuple(str(n) for n in range(16)), 'انتظار التريلر', 'Trailer delay'),
     'homeui_trailer_quality': ('720p', ('480p', '720p', '1080p'), 'جودة التريلر', 'Trailer quality'),
     'homeui_immersive': ('true', None, 'التريلر بملء الشاشة', 'Fullscreen trailer'),
+    # v5.10.364: how long a trailer waits before it fills the screen
+    'homeui_immersive_delay': ('16', ('4', '6', '8', '10', '12', '16', '20'), 'ملء الشاشة بعد', 'Full screen after'),
+    # v5.10.364: the banner's titles in a new order every day
+    'homeui_hero_shuffle': ('false', None, 'خلط أعمال البانر', 'Shuffle banner titles'),
+    # v5.10.365: the Home's rows and pictures made ready while the screensaver runs
+    'homeui_ss_preload': ('true', None, 'تجهيز الرئيسية وقت شاشة التوقف', 'Prepare the Home during the screensaver'),
     # v5.10.326: the trailer behind the page or inside the focused card
     'homeui_trailer_mode': ('background', ('background', 'card'), 'مكان التريلر', 'Trailer place'),
     'homeui_carousel': ('true', None, 'تدوير البانر', 'Banner carousel'),
@@ -109,7 +115,7 @@ OPTIONS = {
     'homeui_show_nextup': ('false', None, 'صف الحلقة التالية', 'Next Up row'),
     'favorites_layout': ('separate', ('separate', 'merged'), 'ترتيب المفضلة', 'Favorites layout'),
 }
-DISPLAY_ONLY = frozenset(('homeui_title_poster',)) | frozenset(k for k in OPTIONS if k.startswith('player_') or k in ('homeui_trailers', 'homeui_trailer_mode', 'homeui_trailer_delay', 'homeui_trailer_sound', 'homeui_trailer_quality', 'homeui_immersive', 'homeui_carousel', 'homeui_carousel_interval', 'homeui_kenburns', 'homeui_focus_gif', 'homeui_plot_scroll', 'homeui_hide_plot', 'homeui_rating_inline', 'homeui_compact_hero', 'homeui_nav_icons_only', 'homeui_nav_autohide', 'homeui_nav_focus_open', 'homeui_back_exit', 'homeui_bg_settle', 'homeui_trailer_clean', 'homeui_focus_motion', 'homeui_live_preview', 'homeui_nav_names')) | frozenset(('show_servers', 'metadata_badges', 'badges_home', 'iptv_epg_enabled', 'iptv_show_live', 'iptv_show_vod', 'iptv_show_movies', 'iptv_show_series', 'favorites_layout', 'player_badge_style', 'player_badges_json_url', 'player_badges_folder', 'homeui_row_dim'))
+DISPLAY_ONLY = frozenset(('homeui_title_poster',)) | frozenset(k for k in OPTIONS if k.startswith('player_') or k in ('homeui_trailers', 'homeui_trailer_mode', 'homeui_trailer_delay', 'homeui_trailer_sound', 'homeui_trailer_quality', 'homeui_immersive', 'homeui_carousel', 'homeui_carousel_interval', 'homeui_kenburns', 'homeui_focus_gif', 'homeui_plot_scroll', 'homeui_hide_plot', 'homeui_rating_inline', 'homeui_compact_hero', 'homeui_nav_icons_only', 'homeui_nav_autohide', 'homeui_nav_focus_open', 'homeui_back_exit', 'homeui_bg_settle', 'homeui_immersive_delay', 'homeui_ss_preload', 'homeui_trailer_clean', 'homeui_focus_motion', 'homeui_live_preview', 'homeui_nav_names')) | frozenset(('show_servers', 'metadata_badges', 'badges_home', 'iptv_epg_enabled', 'iptv_show_live', 'iptv_show_vod', 'iptv_show_movies', 'iptv_show_series', 'favorites_layout', 'player_badge_style', 'player_badges_json_url', 'player_badges_folder', 'homeui_row_dim'))
 # Source/player choices affect the next handoff, not catalog contents. The
 # service already invalidates settings and publishes player properties first.
 DISPLAY_ONLY |= frozenset(('homeui_show_row_source', 'homeui_title_style', 'homeui_background_style', 'homeui_poster_scale', 'homeui_layout_mode', 'homeui_nav_position', 'remember_last_source', 'source_resolution_mode',
@@ -130,12 +136,37 @@ def _addon():
     return cached_addon()
 
 
+def hero_order(items, source_id=''):
+    """v5.10.364: the banner's titles, shuffled when 'Shuffle banner titles'
+    is on: one order a day for each catalogue, so a refresh does not reshuffle
+    them and a catalogue that changes once a day still shows other titles."""
+    items = list(items)
+    try:
+        if not enabled('homeui_hero_shuffle'):
+            return items
+        import random
+        import time
+        random.Random('%s:%s' % (time.strftime('%Y%m%d'), source_id)).shuffle(items)
+    except Exception:
+        pass
+    return items
+
+
 def value(key):
     default, choices, _, _ = OPTIONS[key]
     result = _addon().getSetting(key) or default
     if key == 'homeui_trailer_mode':
         from .trailer_preferences import display_mode
         return display_mode(result)
+    if key == 'homeui_back_exit':
+        # v5.10.367: never on CoreELEC, LibreELEC or OSMC (the skin reads
+        # dhs.pref.homeui_back_exit: false keeps Back as it was)
+        try:
+            from .power import appliance
+            if appliance():
+                return 'false'
+        except Exception:
+            pass
     if key == 'library_playback_mode':
         # Old Kodi labelenum editors saved the translated label. Playback and
         # its visible selector must interpret that existing value identically.
@@ -328,6 +359,11 @@ def set_value(key, selected):
         xbmc.executebuiltin('Skin.SetString(DexHub.BadgesPlace,%s)' % selected)
         _remember_applied(dict(_applied(), **{'DexHub.BadgesPlace': selected}))
         xbmc.executebuiltin('ReloadSkin()')
+    try:
+        from . import cloud_look      # v5.10.366
+        cloud_look.mark()
+    except Exception:
+        pass
     return True
 
 
@@ -341,6 +377,7 @@ def edit(key, txt):
     labels = {
         'logo': txt('شعار العمل', 'Clear logo'), 'text': txt('نص', 'Text'),
         'soft': txt('هادئ', 'Soft'), 'dark': txt('داكن', 'Dark'), 'solid': txt('واضح بلا تعتيم', 'Solid'),
+        'fullscreen': txt('ملء الشاشة', 'Full screen'),  # v5.10.374 (skin.dexhub 3.28.98)
         'cinematic': txt('سينمائي', 'Cinematic') if key == 'homeui_background_style' else txt('هيرو وصفوف', 'Hero and rows'),
         'shelf': txt('رف بطاقات عريضة', 'Wide card shelf'),
         'legacy': txt('ليقسي', 'Legacy'),  # v5.10.325: the Nuvio Legacy stage

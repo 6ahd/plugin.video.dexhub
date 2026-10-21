@@ -245,6 +245,7 @@ class _BaseWindow(xbmcgui.WindowXML):
         self.trailer_delay = self.s.number('homeui_trailer_delay', 3, 0, 20)
         self.trailer_sound = self.s.flag('homeui_trailer_sound', True)
         self.immersive_on = self.s.flag('homeui_immersive', True)
+        self.immersive_after = self.s.number('homeui_immersive_delay', 16, 4, 60)
         self.live_preview = self.s.flag('homeui_live_preview', True)
         # live TV: the channel OK asked for while its preview opens (its key)
         self._watch_pending = ''
@@ -750,6 +751,18 @@ class _BaseWindow(xbmcgui.WindowXML):
         self.immersive_on = self.s.flag('homeui_immersive', True)
         self.live_preview = self.s.flag('homeui_live_preview', True)
         self.carousel_on = self.s.flag('homeui_carousel', True) and getattr(self, 'mode', '') == 'home'
+        self.immersive_after = self.s.number('homeui_immersive_delay', 16, 4, 60)
+        if getattr(self, 'mode', '') in TAB_MODES:
+            # v5.10.364: the Servers switch applies at once
+            hidden = self._servers_hidden()
+            self.prop('dh.nav.noservers', '1' if hidden else '')
+            if hidden and self.mode == 'servers':
+                self.close_window()
+                return
+        shuffle = self.s.flag('homeui_hero_shuffle', False)
+        if shuffle != getattr(self, '_hero_shuffle', shuffle) and getattr(self, 'mode', '') == 'home':
+            self.carousel = []          # v5.10.364: picked again in the new order
+        self._hero_shuffle = shuffle
         if not self.s.flag('homeui_trailers', True):
             self.stop_trailer(wait=False)
         language = self._tmdb_language()
@@ -1598,8 +1611,8 @@ class _BaseWindow(xbmcgui.WindowXML):
             self._stage = stage
             self.prop('dh.stage', '1' if stage else '')
         if (showing and not card_preview and not self._immersive
-                and self.immersive_on and _now() - self._last_input > 16.0
-                and _now() - self._trailer_visible_at > 15.0):
+                and self.immersive_on and _now() - self._last_input > self.immersive_after
+                and _now() - self._trailer_visible_at > self.immersive_after - 1):
             self.enter_immersive()
         self.tick_extra()
 
@@ -3061,8 +3074,16 @@ class BrowseWindow(_BaseWindow):
                 ('servers', 'السيرفرات'), ('live', 'IPTV'), ('library', 'مكتبتي'), ('addons', 'الإضافات'))
     NAV_ICON_TABS = (('search', 'بحث'), ('menu', 'القائمة'))
 
+    def _servers_hidden(self):
+        """v5.10.364: the Servers switch as it is now (it was read once, when
+        the Home first opened, so the tab came back until Kodi restarted)."""
+        shown = xbmcgui.Window(10000).getProperty('dhs.pref.show_servers')
+        if shown in ('true', 'false'):
+            return shown == 'false'
+        return (self.app.settings.text('show_servers', 'true') or 'true').lower() == 'false'
+
     def _setup_nav(self):
-        hide_servers = (self.app.settings.text('show_servers', 'true') or 'true').lower() == 'false'
+        hide_servers = self._servers_hidden()
         # v5.10.167: tabs as skin.dexhub's: labels and colours are properties
         for key, label in self.NAV_TABS:
             self.prop('dh.nav.%s' % key, self.tr(label))
@@ -3163,6 +3184,8 @@ class BrowseWindow(_BaseWindow):
         while key and not self._closing:
             self.app.nav_next = ''
             if key == 'servers':
+                if self._servers_hidden():
+                    return          # v5.10.364: switched off
                 self.app.open_servers()
             elif key == 'library':
                 self.app.open_library()
@@ -4016,6 +4039,8 @@ class BrowseWindow(_BaseWindow):
         one row of posters per library once its libraries are known, Silo's
         own Home sections, and the libraries as cards.
         """
+        if self._servers_hidden():
+            return []           # v5.10.364
         from . import servers as S
         api = self.app.api()
         found = S.linked_servers(api)
@@ -5775,7 +5800,9 @@ class BrowseWindow(_BaseWindow):
                         or any(r.state == 'loading' for r in self.rows)):
                     return
                 source = fallback
-            picks = [t for t in source.tiles if t.get('kind') == 'work'][:8]
+            from ..ui_preferences import hero_order
+            picks = hero_order([t for t in source.tiles if t.get('kind') == 'work'],
+                               getattr(source, 'key', '') or '')[:8]
             if not picks:
                 return
             self.carousel = picks

@@ -81,6 +81,11 @@ class _Base(xbmcgui.WindowXMLDialog):
         self.setProperty('ss.date', '%d %s' % (today.day, (SS._MONTHS_EN if english else SS._MONTHS_AR)[today.month - 1]))
 
     def _start(self, *jobs):
+        try:
+            from ..skinui import preload      # v5.10.365: the Home's pictures, cached meanwhile
+            preload.feed(self, self.done)
+        except Exception:
+            pass
         for name, job in jobs + (('clock', self._watch),):
             threading.Thread(target=job, name='DexHub-ss-' + name, daemon=True).start()
 

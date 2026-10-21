@@ -251,4 +251,15 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
             for p, _rid in combined_targets[:8]), api.xbmc.LOGDEBUG)
     except Exception:
         pass
+    # v5.10.373: in a watch party whose host shares its own link, «Dex Hub+»
+    # goes first (one quick call to the hub, no scan)
+    try:
+        from .party_share import target as _party_target
+        _party = _party_target(api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id)),
+                               canonical_id, season, episode)
+        if _party:
+            combined_targets = [_party] + list(combined_targets)
+            api.xbmc.log('[DexHub] watch party: Dex Hub+ (the host\'s link) first', api.xbmc.LOGINFO)
+    except Exception as _party_exc:
+        api.xbmc.log('[DexHub] watch party source: %s' % _party_exc, api.xbmc.LOGWARNING)
     return combined_targets

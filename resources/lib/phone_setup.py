@@ -62,7 +62,7 @@ TOGGLES = {
 LABELS = (
     ('homeui_show_row_source', ('true', 'false')),
     ('homeui_title_style', ('logo', 'text')),
-    ('homeui_background_style', ('cinematic', 'soft', 'dark')),
+    ('homeui_background_style', ('cinematic', 'soft', 'dark', 'fullscreen')),
     ('library_split_media', ('true', 'false')),
     ('player_badges_visible', ('true', 'false')),
     ('player_badges_brightness', ('solid', 'soft')),
@@ -529,6 +529,10 @@ class Session(object):
             from . import ui_preferences as UP
             data['prefs'] = dict((k, UP.value(k)) for k in UP.OPTIONS)
             data['prefs_choices'] = dict((k, list(v[1]) if v[1] else None) for k, v in UP.OPTIONS.items())
+            if xbmc.getSkinDir() != 'skin.dexhub':
+                # v5.10.364: layouts and the tabs' place are skin.dexhub's
+                data['prefs_choices']['homeui_layout_mode'] = []
+                data['prefs'].pop('homeui_nav_position', None)
         except Exception:
             _log('prefs: %s' % traceback.format_exc(), xbmc.LOGWARNING)
             data['prefs'], data['prefs_choices'] = {}, {}
