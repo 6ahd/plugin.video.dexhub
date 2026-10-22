@@ -93,8 +93,8 @@
 			</control>
 			<control type="button" id="10">
 				<left>40</left><top>280</top><width>190</width><height>54</height>
-				<texturefocus border="16" colordiffuse="FFF3F5F9">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/track/round.png</texturefocus>
-				<texturenofocus border="16" colordiffuse="1FFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/track/round.png</texturenofocus>
+				<texturefocus border="16" colordiffuse="FFF3F5F9">special://home/addons/plugin.video.dexhub/resources/media/track/round.png</texturefocus>
+				<texturenofocus border="16" colordiffuse="1FFFFFFF">special://home/addons/plugin.video.dexhub/resources/media/track/round.png</texturenofocus>
 				<font>font12</font><align>center</align><aligny>center</aligny>
 				<textcolor>FFF3F5F9</textcolor><focusedcolor>FF101218</focusedcolor>
 				<label>[B]$INFO[Window.Property(skip)][/B]</label>
@@ -108,7 +108,7 @@
 			</control>
 			<control type="progress" id="20">
 				<left>496</left><top>304</top><width>170</width><height>6</height>
-				<texturebg border="3" colordiffuse="1FFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/track/round.png</texturebg>
+				<texturebg border="3" colordiffuse="1FFFFFFF">special://home/addons/plugin.video.dexhub/resources/media/track/round.png</texturebg>
 				<midtexture border="3" colordiffuse="FFA3ABB9">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/track/round.png</midtexture>
 			</control>
 			<control type="label">

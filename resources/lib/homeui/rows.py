@@ -381,6 +381,8 @@ def tile_from_entry(entry, default_shape='poster'):
         'facts_line': split_server_facts(info.get('plot'))[0],
         'tagline': _txt(info.get('tagline')),
         'year': _txt(info.get('year')) if _txt(info.get('year')) not in ('0',) else '',
+        # v5.10.378: the full date (clean look: «1 Oct 2025» instead of the year)
+        'aired': _txt(info.get('premiered') or info.get('aired') or '')[:10],
         'rating': round(_num(info.get('rating')), 1),
         'genres': _list(info.get('genre'))[:3],
         'studio': _list(info.get('studio'))[:1],

@@ -324,6 +324,11 @@ class SourcesLoadingDialog(object):
         _TRACE_T0[0] = 0.0
         _trace('opening window')
         try:
+            from . import screensaver_hold      # v5.10.377: no screensaver over the search
+            screensaver_hold.hold()
+        except Exception:
+            pass
+        try:
             self._win = _LoadingWindow(_SKIN_FILE, _addon_path(), _SKIN_RES, _SKIN_DIMS)
             # v3.9.52: feed the initial art values to the window so its
             # onInit() can clear and re-set the corresponding properties,
@@ -357,6 +362,11 @@ class SourcesLoadingDialog(object):
             log.silent('LOADING_DLG', _silent_exc)
         self._win = None
         self._opened = False
+        try:
+            from . import screensaver_hold
+            screensaver_hold.release()
+        except Exception:
+            pass
         return False  # don't suppress exceptions
 
     def _apply_initial_props(self):

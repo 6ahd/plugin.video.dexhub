@@ -215,7 +215,7 @@
 						<top>233</top>
 						<width>400</width>
 						<height>6</height>
-						<texturebg colordiffuse="40FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texturebg>
+						<texturebg colordiffuse="40FFFFFF">special://home/addons/plugin.video.dexhub/resources/media/white.png</texturebg>
 						<midtexture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</midtexture>
 						<info>ListItem.Property(percent)</info>
 						<visible>!String.IsEmpty(ListItem.Property(percent))</visible>
@@ -336,7 +336,7 @@
 						<top>233</top>
 						<width>400</width>
 						<height>6</height>
-						<texturebg colordiffuse="40FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texturebg>
+						<texturebg colordiffuse="40FFFFFF">special://home/addons/plugin.video.dexhub/resources/media/white.png</texturebg>
 						<midtexture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</midtexture>
 						<info>ListItem.Property(percent)</info>
 						<visible>!String.IsEmpty(ListItem.Property(percent))</visible>

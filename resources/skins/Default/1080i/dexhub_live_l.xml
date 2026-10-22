@@ -4612,7 +4612,7 @@
 									<width>157</width>
 									<height>236</height>
 									<aspectratio>scale</aspectratio>
-									<texture background="true" diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/mask_poster.png">$INFO[ListItem.Art(poster)]</texture>
+									<texture background="true" diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/mask_poster.png">$INFO[ListItem.Art(poster)]</texture>
 									<fadetime>160</fadetime>
 								</control>
 							</control>
@@ -4658,7 +4658,7 @@
 									<width>157</width>
 									<height>236</height>
 									<aspectratio>scale</aspectratio>
-									<texture background="true" diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/mask_poster.png">$INFO[ListItem.Art(poster)]</texture>
+									<texture background="true" diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/mask_poster.png">$INFO[ListItem.Art(poster)]</texture>
 									<fadetime>160</fadetime>
 								</control>
 								<control type="image">

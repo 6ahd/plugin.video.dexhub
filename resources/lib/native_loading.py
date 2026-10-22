@@ -54,6 +54,11 @@ class SourcesLoadingDialog(object):
 
     def __enter__(self):
         try:
+            from . import screensaver_hold      # v5.10.377: no screensaver over the search
+            screensaver_hold.hold()
+        except Exception:
+            pass
+        try:
             self._dialog = xbmcgui.DialogProgress()
             self._win = self._dialog
             try:
@@ -81,6 +86,11 @@ class SourcesLoadingDialog(object):
         self._dialog = None
         self._win = None
         self._opened = False
+        try:
+            from . import screensaver_hold
+            screensaver_hold.release()
+        except Exception:
+            pass
         return False
 
     def _percent(self):

@@ -50,6 +50,11 @@ def apply(home, roots):
                 os.replace(destination, previous)
             applied.append((destination, previous, source))
             os.replace(source, destination)
+            try:
+                from .settings_version import normalize_file
+                normalize_file(str(destination / 'settings.xml'))   # v5.10.378: written by a newer Kodi
+            except Exception:
+                pass
         # Plain Kodi stores settings.xml on disk. The snapshot may have come
         # from tvOS, whose XML exists only in VFS, so materialize saved values.
         import xml.etree.ElementTree as ET
@@ -71,6 +76,11 @@ def apply(home, roots):
                 node.attrib.pop('value', None)
                 node.text = str(value)
             tree.write(filename, encoding='utf-8', xml_declaration=True)
+            try:
+                from .settings_version import normalize_file
+                normalize_file(str(filename))      # v5.10.378: a version this Kodi reads
+            except Exception:
+                pass
         fonts = pending / 'fonts'
         if fonts.is_dir():
             target = home / 'media' / 'Fonts'

@@ -73,47 +73,86 @@ def bump(tab, row_id, spec=None):
 
 
 SPOT = 'spot'           # the row id of a tab's spotlight picks (skin.dexhub 2)
-SPOT_ITEMS = 8          # as many picks as the add-on's billboard
+SPOT_ITEMS = 8          # as many picks as the add-on's billboard (v5.10.379: spot_source.count)
 
 
-def _spot_worthy(item):
+def _spot_worthy(item, chosen=False):
+    """A title the spotlight can show: a work with a backdrop that opens its
+    page (any work with a backdrop when the user chose the row, v5.10.379:
+    Continue watching plays on)."""
     props = item.get('props') or {}
-    return (props.get('kind') == 'work' and props.get('dhs.click') == 'info'
-            and bool((item.get('art') or {}).get('fanart')))
+    if props.get('kind') != 'work' or not (item.get('art') or {}).get('fanart'):
+        return False
+    return chosen or props.get('dhs.click') == 'info'
+
+
+def _spot_label(tab, spec):
+    """The spotlight's source as the tab shows it (its row's published name)."""
+    for n in range(1, C.ROWS + 1):
+        row_id = C.prop('dhs.%s.%d.id' % (tab, n))
+        if not row_id:
+            break
+        if row_id == spec.get('id'):
+            return C.prop('dhs.%s.%d.title' % (tab, n)) or spec.get('title') or ''
+    return spec.get('title') or ''
 
 
 def update_spot(tab, specs=None):
-    """The tab's spotlight: the first titles with artwork of its first
-    catalog row (as the add-on's billboard picks them), saved as a row of
-    its own (rows/<tab>_spot.json) and published as dhs.<tab>.spot.*.
-    True when the picks changed."""
+    """The tab's spotlight: by default the first titles with artwork of its
+    first catalog row (as the add-on's billboard picks them); v5.10.379: or
+    the row the user chose for it, or none (spot_source), and as many titles
+    as chosen (5 to 20). Saved as a row of its own (rows/<tab>_spot.json) and
+    published as dhs.<tab>.spot.*; each title carries the source's name
+    (dhs.spot_label) for the skin. True when the picks changed."""
+    from . import spot_source
     if tab in ('library', 'servers'):
         specs = []          # v5.10.155: the Library has its own header, no spotlight
     if specs is None:
         specs = [spec for _slot, spec in published(tab)]
+    wanted = spot_source.choice(tab) if specs else spot_source.AUTO
+    limit = spot_source.count()
+    from ..ui_preferences import hero_order       # v5.10.364
     source, data, items = None, None, []
-    for spec in specs:
-        if spec.get('own') or spec.get('progress') or (spec.get('kind') or 'catalog') != 'catalog':
-            continue
-        data = C.read_row(C.row_file(tab, spec['id'])) or {}     # v5.10.188: its quick copy
-        from ..ui_preferences import hero_order       # v5.10.364
-        items = hero_order([item for item in data.get('items') or [] if _spot_worthy(item)], spec['id'])[:SPOT_ITEMS]
-        if len(items) >= 3:
-            source = spec
-            break
-        items = []
+    if wanted == spot_source.OFF:
+        specs = []
+    elif wanted != spot_source.AUTO:
+        chosen = [spec for spec in specs if spec.get('id') == wanted]
+        for spec in chosen:
+            data = C.read_row(C.row_file(tab, spec['id'])) or {}
+            items = hero_order([item for item in data.get('items') or [] if _spot_worthy(item, True)], spec['id'])[:limit]
+            if items:
+                source = spec
+        if source is None:
+            C.log('spotlight of %s: the chosen row %s has no titles with a backdrop yet' % (tab, wanted))
+    if source is None:
+        for spec in specs:
+            if spec.get('own') or spec.get('progress') or (spec.get('kind') or 'catalog') != 'catalog':
+                continue
+            data = C.read_row(C.row_file(tab, spec['id'])) or {}     # v5.10.188: its quick copy
+            items = hero_order([item for item in data.get('items') or [] if _spot_worthy(item)], spec['id'])[:limit]
+            if len(items) >= 3:
+                source = spec
+                break
+            items = []
     prefix = 'dhs.%s.spot.' % tab
     if source is None:
         for field in ('id', 'title', 'key', 'path', 'empty'):
             C.set_prop(prefix + field, '')
         return False
+    label = _spot_label(tab, source)
+    marked = []
+    for item in items:
+        item = dict(item)
+        item['props'] = dict(item.get('props') or {}, **{'dhs.spot_label': label})
+        marked.append(item)
+    items = marked
     digest = C.content_hash(items, {'src': source['id']})
     old = C.read_row(C.row_file(tab, SPOT)) or {}
     changed = old.get('h') != digest
     if changed:
         C.write_json(C.row_file(tab, SPOT), {
             't': C.now(), 'key': SPOT, 'title': source.get('title') or '', 'shape': 'landscape',
-            'kind': 'spot', 'items': items, 'more': None, 'h': digest, 'lang': data.get('lang'),
+            'kind': 'spot', 'items': items, 'more': None, 'h': digest, 'lang': (data or {}).get('lang'),
             'enriched': True, 'ttl': 10.0 ** 9, 'f': C.FORMAT, 'src': source['id']})
         C.set_prop(prefix + 'empty', '')
         served = C.prop('dhs.sv.%s.%s' % (tab, SPOT))
@@ -121,7 +160,8 @@ def update_spot(tab, specs=None):
             # Kodi holds the old picks: a new path makes it read the new ones
             C.set_prop('dhs.v.%s.%s' % (tab, SPOT), _version(tab, SPOT) + 1)
     C.set_prop(prefix + 'id', SPOT)
-    C.set_prop(prefix + 'title', source.get('title') or '')
+    C.set_prop(prefix + 'title', label)
+    C.set_prop(prefix + 'src', source['id'])
     C.set_prop(prefix + 'key', '%s:%s' % (tab, SPOT))
     C.set_prop(prefix + 'path', row_path(tab, SPOT, _version(tab, SPOT)))
     return changed
@@ -183,9 +223,60 @@ def show_source():
         return True
 
 
+# v5.10.378: a row's name as people say it (the clean look): «Dex Max - Continue
+# Watching Movies - Movie» from Dex Max is «Continue Watching Movies»
+_KINDS = frozenset(('movie', 'movies', 'series', 'tv', 'show', 'shows', 'tv shows', 'anime', 'channel', 'channels',
+                    'film', 'films', 'فيلم', 'أفلام', 'افلام', 'مسلسل', 'مسلسلات', 'أنمي', 'انمي'))
+_DASHES = (' - ', ' – ', ' — ', ' | ')
+
+
+def clean_look():
+    try:
+        from ..ui_preferences import enabled
+        return enabled('homeui_clean_look')
+    except Exception:
+        return True
+
+
+def _split(title):
+    for dash in _DASHES:
+        if dash in title:
+            return [p.strip() for p in title.split(dash)], dash
+    return [title.strip()], ' - '
+
+
+def tidy_title(title, source='', keep_kind=False):
+    """The row's name without its source in front and its type at the end."""
+    text = str(title or '').strip()
+    parts, dash = _split(text)
+    if len(parts) < 2:
+        return text
+    src = str(source or '').strip().lower()
+    if src and parts[0].lower() == src:
+        parts = parts[1:]
+    if not keep_kind and len(parts) >= 2 and parts[-1].lower() in _KINDS:
+        parts = parts[:-1]
+    return dash.join(p for p in parts if p) or text
+
+
+def tidy_titles(specs):
+    """{spec id: name} for a tab's rows; two rows that would read the same
+    keep their type (Popular Movies and Popular Series stay apart)."""
+    first = dict((s['id'], tidy_title(s.get('title'), s.get('sub'))) for s in specs)
+    seen = {}
+    for name in first.values():
+        seen[name.lower()] = seen.get(name.lower(), 0) + 1
+    out = {}
+    for s in specs:
+        name = first[s['id']]
+        out[s['id']] = tidy_title(s.get('title'), s.get('sub'), keep_kind=True) if seen[name.lower()] > 1 else name
+    return out
+
+
 def _publish_tab(tab, specs):
     shown = 0
     source_on = show_source()       # v5.10.286
+    names = tidy_titles(specs) if clean_look() else {}
     shapes = []
     shown_specs = []
     for spec in specs:
@@ -216,7 +307,7 @@ def _publish_tab(tab, specs):
                     and not spec.get('progress') and bool((spec.get('params') or {}).get('action')))
         C.set_prop(prefix + 'filterable', '1' if eligible else '')
         C.set_prop(prefix + 'id', spec['id'])
-        C.set_prop(prefix + 'title', spec['title'])
+        C.set_prop(prefix + 'title', names.get(spec['id']) or spec['title'])
         sub = (spec.get('sub') or '') if source_on else ''     # v5.10.286: hidden source
         sub = '' if sub.strip().lower() == (spec.get('title') or '').strip().lower() else sub
         C.set_prop(prefix + 'sub', '  ·  '.join(p for p in (sub, (data or {}).get('filter_summary')) if p))

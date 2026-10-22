@@ -88,7 +88,7 @@
 			<top>778</top>
 			<width>960</width>
 			<height>6</height>
-			<texturebg colordiffuse="33FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texturebg>
+			<texturebg colordiffuse="33FFFFFF">special://home/addons/plugin.video.dexhub/resources/media/white.png</texturebg>
 			<midtexture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</midtexture>
 			<info>Player.Progress</info>
 			<visible>Player.HasVideo</visible>
@@ -198,7 +198,7 @@
 				<top>739</top>
 				<width>692</width>
 				<height>6</height>
-				<texturebg colordiffuse="40FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texturebg>
+				<texturebg colordiffuse="40FFFFFF">special://home/addons/plugin.video.dexhub/resources/media/white.png</texturebg>
 				<midtexture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</midtexture>
 				<visible>!String.IsEmpty(Window.Property(cp.count))</visible>
 			</control>

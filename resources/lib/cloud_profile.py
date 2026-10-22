@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""v5.10.371: the whole setup in the account (Dex Hub Extra).
+"""v5.10.371: the whole setup in the account (DexCloud).
 
 Everything the backup holds goes to the account, so a TV linked later takes
 it all at once: the sources and add-ons, the Home (rows, order, shapes, look),
@@ -150,6 +150,15 @@ def push(force=False):
     from . import hub_client
     if not hub_client.linked() or not hub_client.active(network=force):
         return False
+    try:
+        # v5.10.378: settings Kodi cannot read are defaults: never sent to the account
+        from .settings_version import kodi_reads
+        from .profile_scope import ADDON_ID as _own_id
+        if not kodi_reads(_own_id):
+            xbmc.log('[DexHub] DexCloud: saved settings unreadable by Kodi on this TV, nothing sent', xbmc.LOGWARNING)
+            return False
+    except Exception:
+        pass
     data = collect()
     sig = signature(data)
     mine = hub_client.state().get('profile') or {}
@@ -227,7 +236,7 @@ def offer(first=False):
     answer = remote()
     if not answer or not answer.get('z'):
         if not first:
-            xbmcgui.Dialog().ok('Dex Hub Extra', _t('ما فيه إعداد محفوظ في حسابك للحين. ارفعه من التلفزيون اللي فيه كل شي.',
+            xbmcgui.Dialog().ok('DexCloud', _t('ما فيه إعداد محفوظ في حسابك للحين. ارفعه من التلفزيون اللي فيه كل شي.',
                                                     'Nothing is kept in your account yet. Upload it from the TV that has everything.'))
         return False
     if answer.get('mine') and first:
@@ -235,15 +244,15 @@ def offer(first=False):
     text = _t('حسابك فيه إعداد كامل من «%s» (%s):\nالمصادر والإضافات، الرئيسية وشكلها، الكوليكشن، المفضلة، المتابعة، حسابات Plex وEmby وJellyfin وSilo وStremio، اللغة والمشغل وإعدادات الواجهة.\n\nتطبقه على هذا التلفزيون؟ (Trakt تربطه هنا مرة وحدة)',
               'Your account holds a whole setup from “%s” (%s):\nsources and add-ons, the Home and its look, collections, favourites, watching, Plex, Emby, Jellyfin, Silo and Stremio, the language, player and interface settings.\n\nApply it to this TV? (Trakt is linked once on each TV)') % (
         answer.get('from') or 'Kodi', _when(answer.get('updated_at')))
-    if not xbmcgui.Dialog().yesno('Dex Hub Extra', text, nolabel=_t('لا', 'No'), yeslabel=_t('طبّقه', 'Apply')):
+    if not xbmcgui.Dialog().yesno('DexCloud', text, nolabel=_t('لا', 'No'), yeslabel=_t('طبّقه', 'Apply')):
         return False
     progress = xbmcgui.DialogProgressBG()
-    progress.create('Dex Hub Extra', _t('يطبق إعدادك…', 'Applying your setup…'))
+    progress.create('DexCloud', _t('يطبق إعدادك…', 'Applying your setup…'))
     try:
         apply(answer)
     finally:
         progress.close()
-    if xbmcgui.Dialog().yesno('Dex Hub Extra', _t('انطبق إعدادك ✓\nنعيد تشغيل كودي الحين عشان يقرأه كله؟',
+    if xbmcgui.Dialog().yesno('DexCloud', _t('انطبق إعدادك ✓\nنعيد تشغيل كودي الحين عشان يقرأه كله؟',
                                                   'Your setup is applied ✓\nRestart Kodi now so it reads all of it?')):
         xbmc.executebuiltin('RestartApp')
     return True

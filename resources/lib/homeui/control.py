@@ -77,6 +77,11 @@ SECTION_LIST = (
         ('title_poster', 'toggle', 'image', 'إظهار البوستر في صفحة العمل', 'مع بوستر بجانب المعلومات، أو بدون بوستر مثل التخطيط السابق', ''),
         ('title_style', 'pick', 'image', 'عنوان العمل', 'شعار العمل أو نص', ''),
         ('background_style', 'pick', 'display', 'نمط الخلفية', 'سينمائي أو هادئ أو داكن', ''),
+        ('clean_look', 'toggle', 'wand-magic-sparkles', 'مظهر نظيف', 'تحديد أبيض، سطر المعلومات كلام بدون كبسولات ملونة، وأسماء الصفوف مختصرة', 'skin'),
+        # v5.10.379: the spotlight as in Arctic Fuse 3: its row, its size, the section
+        ('spotlight', 'run', 'clapperboard', 'أعمال السبوت لايت', 'الصف اللي تجي منه أعمال السبوت لايت في هذا القسم، أو بدون', 'skin'),
+        ('spot_count', 'run', 'clapperboard', 'عدد أعمال السبوت لايت', 'من 5 إلى 20 عمل', 'skin'),
+        ('spot_section', 'toggle', 'display', 'سبوت لايت كامل', 'لما تطلع للسبوت لايت تنزل الصفوف تحت ويصير العمل قدامك مثل Arctic Fuse 3', 'skin'),
         ('row_dim', 'pick', 'display', 'تعتيم الصفوف', 'الصفوف غير المحددة', ''),
         ('row_source', 'toggle', 'tags', 'إظهار مصدر الصف', 'From بجانب عنوان الصف', ''),
         ('season_names', 'toggle', 'tags', 'أسماء المواسم', 'الموسم 1: Murder House بدل الموسم 1', ''),
@@ -160,7 +165,7 @@ SECTION_LIST = (
         ('add_source', 'open', 'circle-plus', 'إضافة مصدر', 'رابط إضافة Stremio أو Nuvio', ''),
         ('nuvio', 'open', 'id-card', 'مزامنة Nuvio', 'الهوم والمجموعات ومتابعة المشاهدة', ''),
         ('trakt', 'open', 'clock-rotate-left', 'Trakt', 'سجل المشاهدة والمزامنة', ''),
-        ('hub_extra', 'open', 'star', 'Dex Hub Extra', 'شكلك في حسابك، صفوف أسرع، ومشاهدة جماعية', ''),
+        ('hub_extra', 'open', 'star', 'DexCloud', 'شكلك في حسابك، صفوف أسرع، ومشاهدة جماعية', ''),
         ('party', 'open', 'users', 'مشاهدة جماعية', 'تتفرجون مع بعض، كل واحد على تلفزيونه', ''),
     )),
     ('system', 'gears', 'النظام', 'الإعدادات والسكين والتشخيص', (
@@ -291,7 +296,7 @@ PICK_LINES = {
 TOGGLES = {'title_poster': ('homeui_title_poster', 'true'), 'library_split': ('library_split_media', 'true'), 'badges_visible': ('player_badges_visible', 'true'),
            'row_source': ('homeui_show_row_source', 'true'), 'plot_scroll': ('homeui_plot_scroll', 'true'),
            'hide_plot': ('homeui_hide_plot', 'false'), 'rating_inline': ('homeui_rating_inline', 'true'),
-           'compact_hero': ('homeui_compact_hero', 'true'), 'nav_icons': ('homeui_nav_icons_only', 'false'), 'nav_autohide': ('homeui_nav_autohide', 'false'), 'nav_focus_open': ('homeui_nav_focus_open', 'false'), 'back_exit': ('homeui_back_exit', 'true'), 'hero_shuffle': ('homeui_hero_shuffle', 'false'), 'ss_preload': ('homeui_ss_preload', 'true'), 'servers': ('show_servers', 'true'), 'bg_settle': ('homeui_bg_settle', 'true'), 'trailer_clean': ('homeui_trailer_clean', 'true'), 'carousel': ('homeui_carousel', 'true'),'trailer_sound': ('homeui_trailer_sound', 'true'), 'ratings': ('metadata_badges', 'true'),
+           'compact_hero': ('homeui_compact_hero', 'true'), 'nav_icons': ('homeui_nav_icons_only', 'false'), 'nav_autohide': ('homeui_nav_autohide', 'false'), 'nav_focus_open': ('homeui_nav_focus_open', 'false'), 'back_exit': ('homeui_back_exit', 'true'), 'hero_shuffle': ('homeui_hero_shuffle', 'false'), 'clean_look': ('homeui_clean_look', 'true'), 'spot_section': ('homeui_spot_section', 'true'), 'ss_preload': ('homeui_ss_preload', 'true'), 'servers': ('show_servers', 'true'), 'bg_settle': ('homeui_bg_settle', 'true'), 'trailer_clean': ('homeui_trailer_clean', 'true'), 'carousel': ('homeui_carousel', 'true'),'trailer_sound': ('homeui_trailer_sound', 'true'), 'ratings': ('metadata_badges', 'true'),
            'nav_names': ('homeui_nav_names', 'false'), 'follow_merge': ('follow_merge', 'true'),
            'nextup_unaired': ('nextup_show_unaired', 'true'),
            'trakt_smart': ('trakt_smart_sync', 'true'), 'season_names': ('season_names', 'true'),
@@ -300,7 +305,7 @@ TOGGLES = {'title_poster': ('homeui_title_poster', 'true'), 'library_split': ('l
            'kenburns': ('homeui_kenburns', 'true'), 'focus_gif': ('homeui_focus_gif', 'true')}
 SIZES = {'': 'عادي', 'large': 'كبير', 'xlarge': 'كبير جداً',
          'normal': 'عادي', 'extra large': 'كبير جداً'}
-_SETTINGS = ('homeui_title_poster', 'homeui_nav_icons_only', 'homeui_nav_autohide', 'homeui_nav_focus_open', 'homeui_back_exit', 'homeui_immersive_delay', 'homeui_hero_shuffle', 'homeui_ss_preload', 'show_servers', 'homeui_bg_settle', 'homeui_trailer_clean', 'ratings_shown', 'library_split_media', 'player_badges_visible', 'player_badges_brightness', 'homeui_poster_scale', 'homeui_show_row_source', 'homeui_title_style', 'homeui_background_style', 'homeui_plot_scroll', 'homeui_hide_plot', 'homeui_rating_inline', 'homeui_compact_hero', 'homeui_carousel', 'homeui_layout_mode', 'homeui_nav_position', 'homeui_metadata_language', 'server_metadata', 'homeui_card_style', 'homeui_focus_motion',
+_SETTINGS = ('homeui_title_poster', 'homeui_nav_icons_only', 'homeui_nav_autohide', 'homeui_nav_focus_open', 'homeui_back_exit', 'homeui_immersive_delay', 'homeui_hero_shuffle', 'homeui_clean_look', 'homeui_spot_section', 'homeui_spot_count', 'homeui_spot_source', 'homeui_ss_preload', 'show_servers', 'homeui_bg_settle', 'homeui_trailer_clean', 'ratings_shown', 'library_split_media', 'player_badges_visible', 'player_badges_brightness', 'homeui_poster_scale', 'homeui_show_row_source', 'homeui_title_style', 'homeui_background_style', 'homeui_plot_scroll', 'homeui_hide_plot', 'homeui_rating_inline', 'homeui_compact_hero', 'homeui_carousel', 'homeui_layout_mode', 'homeui_nav_position', 'homeui_metadata_language', 'server_metadata', 'homeui_card_style', 'homeui_focus_motion',
              'homeui_row_dim', 'homeui_trailer_sound', 'metadata_badges', 'homeui_nav_names', 'homeui_trailers',
              'homeui_trailer_delay', 'homeui_trailer_volume', 'homeui_trailer_mode', 'homeui_size', 'global_meta_source_id', 'global_meta_source_all',
              'tmdb_api_key', 'global_poster_source_id', 'follow_order', 'library_sort', 'follow_merge',
@@ -533,6 +538,12 @@ class ControlCentre(xbmcgui.WindowXMLDialog):
             except Exception:
                 split = False
             return (tr('صفين: أفلام ومسلسلات') if split else tr('صف واحد')), ''
+        if key == 'spotlight':
+            from ..skinui import spot_source
+            return spot_source.summary(tr), ''
+        if key == 'spot_count':
+            from ..skinui import spot_source
+            return tr('%d أعمال') % spot_source.count(), ''
         if key == 'image_quality':
             from ..image_quality import current as _iq
             return (tr('عالية 1080') if _iq() == 'high' else tr('عادية')), ''
@@ -901,6 +912,12 @@ class ControlCentre(xbmcgui.WindowXMLDialog):
                 return False
             return ui_sounds.apply(ui_sounds.CHOICES[pick], notify=lambda: xbmcgui.Dialog().notification(
                 'Dex Hub', tr('ثبّت Dex Hub UI Sounds من مستودع Dex Hub'), sound=False))
+        if key == 'spotlight':
+            from ..skinui import spot_source
+            return spot_source.pick(tr)
+        if key == 'spot_count':
+            from ..skinui import spot_source
+            return spot_source.pick_count(tr)
         if key == 'image_quality':
             from .options import choose
             from .. import image_quality

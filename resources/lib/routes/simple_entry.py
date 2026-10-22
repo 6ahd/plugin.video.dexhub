@@ -2247,7 +2247,7 @@ def dispatch():
     if action == 'simple_watching':
         return watching_dialog()
     if action in ('hub_extra', 'party', 'party_join', 'party_leave', 'party_player', 'party_invite'):
-        # v5.10.366: Dex Hub Extra
+        # v5.10.366: DexCloud
         _close_native_settings_dialog()
         if action == 'hub_extra':
             from resources.lib import hub_client

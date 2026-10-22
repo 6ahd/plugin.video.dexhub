@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Same white surface, black text, font, dimensions and fade as Next Episode. -->
+<!-- v5.10.383: a white rounded rectangle with black text, as Apple TV and Netflix. The texture path is
+     written out: Kodi reads a button's textures literally, so the old $INFO[...assetroot] path never
+     loaded and the button showed only its dark text. -->
 <window>
  <defaultcontrol always="true">100</defaultcontrol>
  <coordinates>
@@ -18,13 +20,13 @@
    <font>font25_title</font>
    <align>center</align>
    <aligny>center</aligny>
-   <textcolor>FF0B0E13</textcolor>
-   <focusedcolor>FF0B0E13</focusedcolor>
-   <selectedcolor>FF0B0E13</selectedcolor>
+   <textcolor>FF000000</textcolor>
+   <focusedcolor>FF000000</focusedcolor>
+   <selectedcolor>FF000000</selectedcolor>
    <disabledcolor>FF48494C</disabledcolor>
    <shadowcolor>00000000</shadowcolor>
-   <texturefocus border="30" colordiffuse="FFFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/pill.png</texturefocus>
-   <texturenofocus border="30" colordiffuse="FFFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/pill.png</texturenofocus>
+   <texturefocus border="16" colordiffuse="FFFFFFFF">special://home/addons/plugin.video.dexhub/resources/media/homeui/skip_rect.png</texturefocus>
+   <texturenofocus border="16" colordiffuse="FFFFFFFF">special://home/addons/plugin.video.dexhub/resources/media/homeui/skip_rect.png</texturenofocus>
    <pulseonselect>false</pulseonselect>
    <onleft>100</onleft>
    <onright>100</onright>

@@ -6,8 +6,8 @@
 
 Stremio & Nuvio add-ons · Plex, Emby, Jellyfin & Silo · Live TV · Native Trakt, Simkl & MDBList · Arabic-first UI · TMDb Helper integration
 
-[![Version](https://img.shields.io/badge/version-5.10.376-7c3aed)]()
-[![Skin](https://img.shields.io/badge/skin-3.28.98-ffd23f)]()
+[![Version](https://img.shields.io/badge/version-5.10.383-7c3aed)]()
+[![Skin](https://img.shields.io/badge/skin-3.28.110-ffd23f)]()
 [![Kodi](https://img.shields.io/badge/Kodi-21%20Omega%20%7C%2022%20Piers-33d8f7)]()
 [![License](https://img.shields.io/badge/license-all%20rights%20reserved-ef4444)](LICENSE.txt)
 [![Ko-fi](https://img.shields.io/badge/support-Ko--fi-ff5e5b)](https://ko-fi.com/dexworld)
@@ -20,19 +20,17 @@ Stremio & Nuvio add-ons · Plex, Emby, Jellyfin & Silo · Live TV · Native Trak
 
 ## What's new
 
-**Dex Hub 5.10.376 · Dex Hub skin 3.28.98**
+**Dex Hub 5.10.383 · Dex Hub skin 3.28.110**
 
-* **Watch party:** start one from the player bar or a title page, share the code or an invite link (QR), and play, pause and seek reach everyone. Each TV plays from its own sources, or, if the host turns it on, from the host's own Plex, Emby, Jellyfin or Silo link, shown to guests as the source Dex Hub+ (no subscription needed on their side; the link is wrapped by the hub and dies with the party). A TV stays in its party after a restart or a lost connection until it leaves or the host ends it.
-* **Dex Hub Extra (free while in testing):** link your TV to an account at hub.dexworld.cc with a QR code, sign in with Telegram or email.
-  * **Set up your TV from anywhere:** the same setup page you open with the QR at home, from your account on the website, no same network needed.
-  * **Your whole setup in your account:** sources and add-ons, Home, collections, lists, accounts and settings. Apply it to a new TV in one step.
-  * **Sync your devices:** pick what syncs, and a change on one TV reaches the others at once.
-  * **Telegram alerts:** new episodes and seasons, movies you follow, party invites.
-* **Image quality:** Menu › Look › Image quality › High keeps backdrops and posters sharp on 1080p and 4K screens (Kodi caches pictures at 1080 instead of 720, original TMDb backdrops).
-* **Skin:** an island that opens like the iPhone's Dynamic Island (watch party, alerts, what plays), a Full screen background style, the episode name on the info line instead of over the ratings, a long press menu that wraps both ways.
-* **Next episode:** episodes not out yet show the day they air, or hide until then.
-* **Trailers:** titles wrongly kept as "no trailer" are asked again, and the log says why when there is none.
-* **Also:** reviews from Trakt and TMDb, a TMDb rating on every episode, navigation sounds in the style of Apple TV, the screensaver gets the Home ready, Back to exit Kodi never shows on CoreELEC, LibreELEC and OSMC.
+* **Spotlight like Arctic Fuse 3:** pick, for each tab (Home, Movies, Series), the row its spotlight titles come from (any catalog, Your list, a watchlist, Continue watching, or none) and how many titles it shows (5 to 20). The row's name shows next to the spotlight dots. **Full spotlight** fills the screen with the title and moves the rows down when you go up to it.
+* **Clean look:** white focus, a dotted info line, full release dates, "Ends at", shorter row names, and the selected episode's details at the top of the title page. Turn it off in Menu › Look › Clean look.
+* **Title page:** no longer cut at the top when you go down to the episodes, and the backdrop keeps clear of the logo and the text.
+* **Studio logos:** bigger on the Home and the title page, white logos preferred, sharper TMDb logos, and studio packs inside Textures.xbt are read.
+* **Skip intro** is a white rounded button with black text, as on Apple TV and Netflix. The same fix brings back the button backgrounds and rounded corners in every Dex Hub window.
+* **Watch party (in testing):** the host gets "Back to what we watch" after a restart and returns to the room's place, and an empty party now waits 15 minutes before it closes.
+* **Dex Hub Extra is now DexCloud (in testing):** on first run, under the phone setup QR, link the TV to your DexCloud account with a small QR or a code.
+* **Kodi 22 beta fixes:** the screensaver no longer opens over the source search when you play from a TMDb Helper widget (Arctic Fuse 3), and settings save again on Kodi 22 beta 1 (CoreELEC) when the settings file was written by a newer Kodi.
+* **Rows:** the selected row stays below the tab bar at every card size, tabs open as soon as you land on them (Live TV on OK), and watch progress keeps clear of the row title on big cards.
 
 Full history in [changelog.txt](changelog.txt).
 

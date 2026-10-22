@@ -651,8 +651,13 @@ def _fetch_marked(tab, row_id, spec, old, fresh, patience, started):
 
 def _follow_spot(tab, spec):
     """A catalog row on show was read again: the tab's spotlight picks may
-    come from it (skin.dexhub 2)."""
-    if spec.get('own') or spec.get('progress') or (spec.get('kind') or 'catalog') != 'catalog':
+    come from it (skin.dexhub 2); v5.10.379: or any row chosen for it."""
+    try:
+        from .spot_source import choice
+        chosen = choice(tab) == spec.get('id')
+    except Exception:
+        chosen = False
+    if not chosen and (spec.get('own') or spec.get('progress') or (spec.get('kind') or 'catalog') != 'catalog'):
         return
     if tab not in C.TABS or not is_published(tab, spec.get('id')):
         return
@@ -1293,7 +1298,10 @@ class Context(object):
             elif count == 1:
                 out.append(self.tr('كتالوج واحد'))
         elif kind == 'work':
-            if tile.get('year'):
+            when = self.full_date(tile)
+            if when:
+                out.append(when)
+            elif tile.get('year'):
                 out.append(str(tile['year']))
             from ..durations import sane  # v5.10.286
             duration = sane(tile.get('duration'))
@@ -1319,6 +1327,28 @@ class Context(object):
         elif kind == 'library':
             out.append(tile.get('brand') or '')
         return '   •   '.join([m for m in out if m])
+
+    _MONTHS = (('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'),
+               ('يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'))
+
+    def full_date(self, tile):
+        """v5.10.378: the clean look's date (as AF3): «1 Oct 2025», «1 أكتوبر
+        2025»; '' when off, unknown, or only a year is known."""
+        text = str(tile.get('aired') or '').strip()
+        if len(text) < 10 or text[4] != '-' or text[7] != '-':
+            return ''
+        try:
+            from .board import clean_look
+            if not clean_look():
+                return ''
+            year, month, day = int(text[:4]), int(text[5:7]), int(text[8:10])
+            if not (1 <= month <= 12 and 1 <= day <= 31 and year > 1800):
+                return ''
+        except Exception:
+            return ''
+        if self.arabic:
+            return '%d %s %d' % (day, self._MONTHS[1][month - 1], year)
+        return '%d %s %d' % (day, self._MONTHS[0][month - 1], year)
 
     @staticmethod
     def rating(tile):

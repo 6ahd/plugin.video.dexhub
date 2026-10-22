@@ -95,8 +95,8 @@
                 <focusedcolor>FF12141C</focusedcolor>
                 <align>center</align>
                 <textoffsetx>0</textoffsetx><textoffsety>0</textoffsety>
-                <texturefocus border="22">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturefocus>
-                <texturenofocus border="22">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturenofocus>
+                <texturefocus border="22">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texturefocus>
+                <texturenofocus border="22">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texturenofocus>
                 <colordiffuse>D81F2336</colordiffuse>
                 <onup>2200</onup><ondown>2300</ondown><onleft>2000</onleft>
             </control>
@@ -143,11 +143,11 @@
                 <control type="image" id="200">
                     <left>0</left><top>0</top><width>340</width><height>510</height>
                     <aspectratio aligny="top" align="center">scale</aspectratio>
-                    <texture background="true" diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/poster_mask.png" fallback="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/default_video.png">$INFO[Window.Property(dexhub.results.poster)]</texture>
+                    <texture background="true" diffuse="special://home/addons/plugin.video.dexhub/resources/media/poster_mask.png" fallback="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/default_video.png">$INFO[Window.Property(dexhub.results.poster)]</texture>
                 </control>
                 <control type="image">
                     <left>0</left><top>384</top><width>340</width><height>126</height>
-                    <texture diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/poster_mask_bottom.png">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/scrim_vertical.png</texture>
+                    <texture diffuse="special://home/addons/plugin.video.dexhub/resources/media/poster_mask_bottom.png">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/scrim_vertical.png</texture>
                 </control>
                 <control type="image">
                     <left>0</left><top>0</top><width>340</width><height>2</height>

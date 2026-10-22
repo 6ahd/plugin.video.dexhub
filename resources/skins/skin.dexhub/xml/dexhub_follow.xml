@@ -465,14 +465,14 @@
 								<width>456</width>
 								<height>256</height>
 								<aspectratio>scale</aspectratio>
-								<texture background="true" diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/mask_landscape.png">$INFO[ListItem.Art(thumb)]</texture>
+								<texture background="true" diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/mask_landscape.png">$INFO[ListItem.Art(thumb)]</texture>
 							</control>
 							<control type="image">
 								<left>0</left>
 								<top>0</top>
 								<width>456</width>
 								<height>256</height>
-								<texture diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/mask_landscape.png" colordiffuse="B3000000">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/grad_bottom.png</texture>
+								<texture diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/mask_landscape.png" colordiffuse="B3000000">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/grad_bottom.png</texture>
 							</control>
 							<control type="image">
 								<left>20</left>
@@ -766,14 +766,14 @@
 								<width>456</width>
 								<height>256</height>
 								<aspectratio>scale</aspectratio>
-								<texture background="true" diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/mask_landscape.png">$INFO[ListItem.Art(thumb)]</texture>
+								<texture background="true" diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/mask_landscape.png">$INFO[ListItem.Art(thumb)]</texture>
 							</control>
 							<control type="image">
 								<left>0</left>
 								<top>0</top>
 								<width>456</width>
 								<height>256</height>
-								<texture diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/mask_landscape.png" colordiffuse="B3000000">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/grad_bottom.png</texture>
+								<texture diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/mask_landscape.png" colordiffuse="B3000000">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/grad_bottom.png</texture>
 							</control>
 							<control type="image">
 								<left>20</left>
@@ -1120,7 +1120,7 @@
 								<width>214</width>
 								<height>320</height>
 								<aspectratio>scale</aspectratio>
-								<texture background="true" diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/mask_poster.png">$INFO[ListItem.Art(poster)]</texture>
+								<texture background="true" diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/mask_poster.png">$INFO[ListItem.Art(poster)]</texture>
 							</control>
 							<control type="image">
 								<left>12</left>
@@ -1226,7 +1226,7 @@
 								<width>214</width>
 								<height>320</height>
 								<aspectratio>scale</aspectratio>
-								<texture background="true" diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/mask_poster.png">$INFO[ListItem.Art(poster)]</texture>
+								<texture background="true" diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/mask_poster.png">$INFO[ListItem.Art(poster)]</texture>
 							</control>
 							<control type="image">
 								<left>0</left>
@@ -1385,14 +1385,14 @@
 								<width>400</width>
 								<height>225</height>
 								<aspectratio>scale</aspectratio>
-								<texture background="true" diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/mask_landscape.png">$INFO[ListItem.Art(thumb)]</texture>
+								<texture background="true" diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/mask_landscape.png">$INFO[ListItem.Art(thumb)]</texture>
 							</control>
 							<control type="image">
 								<left>0</left>
 								<top>0</top>
 								<width>400</width>
 								<height>225</height>
-								<texture diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/mask_landscape.png" colordiffuse="B3000000">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/grad_bottom.png</texture>
+								<texture diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/mask_landscape.png" colordiffuse="B3000000">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/grad_bottom.png</texture>
 							</control>
 							<control type="image">
 								<left>20</left>
@@ -1507,14 +1507,14 @@
 								<width>400</width>
 								<height>225</height>
 								<aspectratio>scale</aspectratio>
-								<texture background="true" diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/mask_landscape.png">$INFO[ListItem.Art(thumb)]</texture>
+								<texture background="true" diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/mask_landscape.png">$INFO[ListItem.Art(thumb)]</texture>
 							</control>
 							<control type="image">
 								<left>0</left>
 								<top>0</top>
 								<width>400</width>
 								<height>225</height>
-								<texture diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/mask_landscape.png" colordiffuse="B3000000">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/grad_bottom.png</texture>
+								<texture diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/mask_landscape.png" colordiffuse="B3000000">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/grad_bottom.png</texture>
 							</control>
 							<control type="image">
 								<left>20</left>
@@ -1682,7 +1682,7 @@
 								<width>214</width>
 								<height>320</height>
 								<aspectratio>scale</aspectratio>
-								<texture background="true" diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/mask_poster.png">$INFO[ListItem.Art(poster)]</texture>
+								<texture background="true" diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/mask_poster.png">$INFO[ListItem.Art(poster)]</texture>
 							</control>
 							<control type="image">
 								<left>12</left>
@@ -1788,7 +1788,7 @@
 								<width>214</width>
 								<height>320</height>
 								<aspectratio>scale</aspectratio>
-								<texture background="true" diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/mask_poster.png">$INFO[ListItem.Art(poster)]</texture>
+								<texture background="true" diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/mask_poster.png">$INFO[ListItem.Art(poster)]</texture>
 							</control>
 							<control type="image">
 								<left>0</left>

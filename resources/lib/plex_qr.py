@@ -36,8 +36,10 @@ def _profile_dir():
         return xbmc.translatePath('special://profile/addon_data/plugin.video.dexhub')
 
 
-def qr_png(data, box_size=8, border=4):
-    """Write a QR PNG for `data` and return its path ('' on failure)."""
+def qr_png(data, box_size=8, border=4, family='plex_link_qr'):
+    """Write a QR PNG for `data` and return its path ('' on failure).
+    v5.10.378: `family` names the file family; the old files of the same
+    family are cleared, so two QRs on one screen use two families."""
     try:
         import qrcode  # bundled pure-Python encoder
         qr = qrcode.QRCode(version=None,
@@ -76,8 +78,8 @@ def qr_png(data, box_size=8, border=4):
         ).hexdigest()[:10]
         prof = _profile_dir()
         os.makedirs(prof, exist_ok=True)
-        path = os.path.join(prof, 'plex_link_qr_%s.png' % digest)
-        for stale in _glob.glob(os.path.join(prof, 'plex_link_qr*.png')):
+        path = os.path.join(prof, '%s_%s.png' % (family, digest))
+        for stale in _glob.glob(os.path.join(prof, '%s_*.png' % family)) + ([] if family != 'plex_link_qr' else _glob.glob(os.path.join(prof, 'plex_link_qr.png'))):
             if os.path.abspath(stale) != os.path.abspath(path):
                 try:
                     os.remove(stale)

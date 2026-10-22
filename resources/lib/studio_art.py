@@ -16,6 +16,7 @@ import xbmcvfs
 
 _CACHE = {}
 _PACK_ROOTS = {}
+_PACK_BUNDLES = {}
 _BUILTIN_ROOT = None
 _PLATFORMS = {
     'netflix': 'netflix', 'netflix studios': 'netflix', 'netflix animation': 'netflix',
@@ -49,6 +50,27 @@ def _pack_root(pack):
         root = ''
     _PACK_ROOTS[pack] = root
     return root
+
+
+def _pack_texture(pack, root, name):
+    """Probe loose PNGs and Kodi's compiled texture VFS without network I/O.
+
+    Image resource packs normally contain only resources/Textures.xbt.
+    Checking resources/<studio>.png alone misses every bundled studio.
+    Kodi's xbt file system checks the bundle index, including cached misses.
+    """
+    filename = '%s.png' % name
+    for candidate in dict.fromkeys((filename, filename.lower())):
+        if xbmcvfs.exists(os.path.join(root, candidate)):
+            return 'resource://%s/%s' % (pack, candidate)
+    if root not in _PACK_BUNDLES:
+        from urllib.parse import quote
+        bundle = os.path.join(root, 'Textures.xbt')
+        _PACK_BUNDLES[root] = ('xbt://' + quote(bundle, safe='') + '/') if xbmcvfs.exists(bundle) else ''
+    prefix = _PACK_BUNDLES[root]
+    if prefix and xbmcvfs.exists(prefix + filename.lower()):
+        return 'resource://%s/%s' % (pack, filename.lower())
+    return ''
 
 
 def _names(value):
@@ -100,10 +122,9 @@ def resolve(value):
             root = _pack_root(pack)
             if not root:
                 continue
-            physical_path = os.path.join(root, '%s.png' % name)
             try:
-                if xbmcvfs.exists(physical_path):
-                    resource_path = 'resource://%s/%s.png' % (pack, name)
+                resource_path = _pack_texture(pack, root, name)
+                if resource_path:
                     _CACHE[key] = resource_path
                     return resource_path
             except Exception:
@@ -137,8 +158,8 @@ def resolve_player(value):
             if not root:
                 continue
             try:
-                if xbmcvfs.exists(os.path.join(root, '%s.png' % name)):
-                    found = 'resource://%s/%s.png' % (pack, name)
+                found = _pack_texture(pack, root, name)
+                if found:
                     break
             except Exception:
                 continue
@@ -152,6 +173,7 @@ def clear_cache():
     global _BUILTIN_ROOT
     _CACHE.clear()
     _PACK_ROOTS.clear()
+    _PACK_BUNDLES.clear()
     _BUILTIN_ROOT = None
 
 
@@ -173,11 +195,11 @@ def pick(rows=None, names=None, limit=1):
         if not name or name.casefold() in seen:
             continue
         seen.add(name.casefold())
-        local = resolve(name)
+        local = resolve_player(name) or resolve(name)
         if local:
             out.append((local, False))
         elif row.get('logo'):
-            out.append((str(row.get('logo')), True))
+            out.append((_display_logo_url(row.get('logo')), True))
         if len(out) >= limit:
             return out
     if not out:
@@ -185,9 +207,15 @@ def pick(rows=None, names=None, limit=1):
             if name.casefold() in seen:
                 continue
             seen.add(name.casefold())
-            local = resolve(name)
+            local = resolve_player(name) or resolve(name)
             if local:
                 out.append((local, False))
             if len(out) >= limit:
                 break
     return out
+
+
+def _display_logo_url(value):
+    """Use a crisp TMDb studio image without rewriting other image services."""
+    value = str(value or '')
+    return re.sub(r'^(https://image\.tmdb\.org/t/p/)w\d+/', r'\g<1>w500/', value)

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""v5.10.366: Dex Hub Extra, the TV's side of hub.dexworld.cc.
+"""v5.10.366: DexCloud, the TV's side of hub.dexworld.cc.
 
 The TV is linked once with a QR code (the hub's /api/pair/start and poll):
 the phone signs in on the hub's page and approves it, the TV keeps the
@@ -259,7 +259,7 @@ class _PairWindow(xbmcgui.WindowDialog):
         w, h = 980, 500
         x, y = pairing_ui.surface(self, w, h)
         pairing_ui.qr(self, kwargs.get('qr_path') or '', x + 52, y + 75, 350)
-        self.addControl(xbmcgui.ControlLabel(x + 430, y + 55, w - 470, 42, kwargs.get('title') or 'Dex Hub Extra', textColor='FFFFFFFF'))
+        self.addControl(xbmcgui.ControlLabel(x + 430, y + 55, w - 470, 42, kwargs.get('title') or 'DexCloud', textColor='FFFFFFFF'))
         self._body = xbmcgui.ControlTextBox(x + 430, y + 115, w - 470, 340, textColor='FFF0F3FA')
         self.addControl(self._body)
         self._body.setText(
@@ -276,16 +276,56 @@ class _PairWindow(xbmcgui.WindowDialog):
             self.close()
 
 
+def pair_start(timeout=10):
+    """v5.10.378: a pairing code from the hub ({code, url, device_id,
+    pair_token, label}); raises when the hub cannot be reached."""
+    label = xbmc.getInfoLabel('System.FriendlyName') or 'Kodi'
+    start = request('POST', '/api/pair/start', {
+        'label': label, 'addon_version': _version(),
+        'kodi_version': xbmc.getInfoLabel('System.BuildVersion').split(' ')[0],
+        'platform': _platform()}, timeout=timeout, auth=False)
+    start = dict(start or {})
+    start['label'] = label
+    return start
+
+
+def pair_check(start):
+    """One look at the pairing: True once the phone approved it (the TV's
+    link is saved then); None when the code is gone (expired, refused)."""
+    try:
+        answer = request('POST', '/api/pair/poll', {'device_id': start.get('device_id'),
+                                                    'pair_token': start.get('pair_token')},
+                         timeout=8, auth=False)
+    except HubError as exc:
+        return None if exc.status in (404, 410) else False
+    except Exception:
+        return False
+    if answer.get('status') == 'paired' and answer.get('device_secret'):
+        save(device_id=start.get('device_id'), secret=answer['device_secret'], label=start.get('label') or 'Kodi',
+             linked_at=int(time.time()), extra=None, look=None)
+        return True
+    return False
+
+
+def after_pair():
+    """Just linked: say so, wake the hub thread, offer the account's setup."""
+    info = extra(force=True)
+    who = info.get('account') or ''
+    xbmcgui.Dialog().notification('DexCloud', (_t('انربط بحساب %s ✓', 'Linked to %s ✓') % who) if who
+                                  else _t('تم ربط التلفزيون ✓', 'TV linked ✓'),
+                                  xbmcgui.NOTIFICATION_INFO, 5000)
+    wake()
+    if info.get('active'):
+        _first_look()
+    pull_accounts(force=True)       # v5.10.370: Nuvio and Stremio from the page
+
+
 def pair():
     """Link this TV with a QR code: True once the phone approved it."""
     try:
-        label = xbmc.getInfoLabel('System.FriendlyName') or 'Kodi'
-        start = request('POST', '/api/pair/start', {
-            'label': label, 'addon_version': _version(),
-            'kodi_version': xbmc.getInfoLabel('System.BuildVersion').split(' ')[0],
-            'platform': _platform()}, timeout=10, auth=False)
+        start = pair_start()
     except Exception as exc:
-        xbmcgui.Dialog().ok('Dex Hub Extra', _t('تعذر الوصول إلى %s', 'Could not reach %s') % base() + '\n' + str(exc))
+        xbmcgui.Dialog().ok('DexCloud', _t('تعذر الوصول إلى %s', 'Could not reach %s') % base() + '\n' + str(exc))
         return False
     code, url = start.get('code') or '', start.get('url') or ''
     qr_path = ''
@@ -302,29 +342,12 @@ def pair():
         while time.time() < deadline and not monitor.abortRequested() and not win.cancelled:
             if monitor.waitForAbort(3):
                 break
-            try:
-                answer = request('POST', '/api/pair/poll', {'device_id': start.get('device_id'),
-                                                            'pair_token': start.get('pair_token')},
-                                 timeout=8, auth=False)
-            except HubError as exc:
-                if exc.status in (404, 410):
-                    break
-                continue
-            except Exception:
-                continue
-            if answer.get('status') == 'paired' and answer.get('device_secret'):
-                save(device_id=start.get('device_id'), secret=answer['device_secret'], label=label,
-                     linked_at=int(time.time()), extra=None, look=None)
+            done = pair_check(start)
+            if done is None:
+                break
+            if done:
                 win.close()
-                info = extra(force=True)
-                who = info.get('account') or ''
-                xbmcgui.Dialog().notification('Dex Hub Extra', (_t('انربط بحساب %s ✓', 'Linked to %s ✓') % who) if who
-                                              else _t('تم ربط التلفزيون ✓', 'TV linked ✓'),
-                                              xbmcgui.NOTIFICATION_INFO, 5000)
-                wake()
-                if info.get('active'):
-                    _first_look()
-                pull_accounts(force=True)       # v5.10.370: Nuvio and Stremio from the page
+                after_pair()
                 return True
     finally:
         try:
@@ -332,7 +355,7 @@ def pair():
         except Exception:
             pass
     if not win.cancelled:
-        xbmcgui.Dialog().ok('Dex Hub Extra', _t('انتهت مهلة الربط. حاول مرة ثانية.', 'Linking timed out. Try again.'))
+        xbmcgui.Dialog().ok('DexCloud', _t('انتهت مهلة الربط. حاول مرة ثانية.', 'Linking timed out. Try again.'))
     return False
 
 
@@ -361,7 +384,7 @@ def _first_look():
         if cloud and cloud.get('look'):
             when = cloud.get('updated_at') or 0
             stamp = time.strftime('%Y-%m-%d', time.localtime(when / 1000.0)) if when else ''
-            if xbmcgui.Dialog().yesno('Dex Hub Extra', _t(
+            if xbmcgui.Dialog().yesno('DexCloud', _t(
                     'حسابك فيه شكل وترتيب محفوظ %s. تبي تطبقه على هذا التلفزيون؟\n(لا: يرتفع شكل هذا التلفزيون بداله)',
                     'Your account has a saved look and order %s. Apply it to this TV?\n(No: this TV\'s look goes up instead)')
                     % stamp, nolabel=_t('لا', 'No'), yeslabel=_t('طبّقه', 'Apply')):
@@ -409,19 +432,19 @@ def _status_line():
                'subscriber': _t('مشترك DexWorld', 'DexWorld subscriber')}.get(info.get('reason'), '')
         tg = (info.get('telegram') or {})
         tg_line = (' · Telegram' + ((' @' + tg['username']) if tg.get('username') else '')) if tg.get('linked') else ''
-        return _t('مربوط بحساب %s · Extra مفعّل', 'Linked to %s · Extra on') % who + ((' · ' + why) if why else '') + tg_line
-    return _t('مربوط بحساب %s · Extra للداعمين', 'Linked to %s · Extra is for supporters') % who
+        return _t('مربوط بحساب %s · DexCloud مفعّل', 'Linked to %s · DexCloud on') % who + ((' · ' + why) if why else '') + tg_line
+    return _t('مربوط بحساب %s · DexCloud للداعمين', 'Linked to %s · DexCloud is for supporters') % who
 
 
 def menu():
-    """Dex Hub Extra: link, the cloud look, the shared cache, watch parties."""
+    """DexCloud: link, the cloud look, the shared cache, watch parties."""
     from .homeui.options import choose
     while True:
         if not linked():
-            pick = choose('Dex Hub Extra', [
+            pick = choose('DexCloud', [
                 (_t('ربط التلفزيون بالباركود', 'Link this TV with a QR code'),
                  _t('حساب واحد على hub.dexworld.cc', 'One account on hub.dexworld.cc')),
-                (_t('وش فيه Extra؟', 'What is in Extra?'), '')], subtitle=_status_line())
+                (_t('وش فيه DexCloud؟', 'What is in DexCloud?'), '')], subtitle=_status_line())
             if pick == 0:
                 if not pair():
                     return
@@ -451,10 +474,10 @@ def menu():
              _t('ينرفع لحاله كل 6 ساعات لو تغير شي', 'Goes up by itself every six hours when something changed')),
             ('accounts', _t('سحب حساباتي من الصفحة', 'Bring my accounts from the page'),
              _t('Nuvio وStremio اللي ربطتها في hub.dexworld.cc: إضافاتها وواجهاتها وكوليكشنها', 'Nuvio and Stremio linked on hub.dexworld.cc: their add-ons, Home and collections')),
-            ('about', _t('وش فيه Extra؟', 'What is in Extra?'), ''),
+            ('about', _t('وش فيه DexCloud؟', 'What is in DexCloud?'), ''),
             ('unlink', _t('فك ربط هذا التلفزيون', 'Unlink this TV'), _t('يطلع من حسابك ويبقى شكله عليه', 'Leaves your account; its look stays on it')),
         ]
-        pick = choose('Dex Hub Extra', [r[1:] for r in rows], subtitle=_status_line())
+        pick = choose('DexCloud', [r[1:] for r in rows], subtitle=_status_line())
         if pick < 0:
             return
         key = rows[pick][0]
@@ -497,7 +520,7 @@ def menu():
         elif key == 'about':
             _about()
         elif key == 'unlink':
-            if xbmcgui.Dialog().yesno('Dex Hub Extra', _t('تفك ربط هذا التلفزيون من حساب %s؟', 'Unlink this TV from %s?')
+            if xbmcgui.Dialog().yesno('DexCloud', _t('تفك ربط هذا التلفزيون من حساب %s؟', 'Unlink this TV from %s?')
                                       % (info.get('account') or _t('حسابك', 'your account'))):
                 unlink()
                 _note(_t('انفك الربط', 'Unlinked'))
@@ -679,26 +702,26 @@ def follows(shows=None, names=None, force=False, movies=None):
 
 
 def _note(text):
-    xbmcgui.Dialog().notification('Dex Hub Extra', text, xbmcgui.NOTIFICATION_INFO, 3500, sound=False)
+    xbmcgui.Dialog().notification('DexCloud', text, xbmcgui.NOTIFICATION_INFO, 3500, sound=False)
 
 
 def _about(locked=False):
     text = _t(
-        '[B]Dex Hub Extra[/B]\n\n'
+        '[B]DexCloud[/B]\n\n'
         '• الشكل والترتيب في السحابة: الثيم والواجهة وترتيب الصفوف ينحفظ في حسابك، وأي تلفزيون تربطه يجيه نفس الشكل.\n'
         '• كاش الصفوف المشترك: صفحات الكتالوج تجي من السيرفر جاهزة بدل ما ينتظر كل تلفزيون الإضافة.\n'
         '• المشاهدة الجماعية: تسوي غرفة وتعطي الكود لأهلك أو ربعك، تشغيل وإيقاف وتقديم مع بعض، وكل واحد يشغّل من مصادره.\n\n'
         'الحين تجريبي ومفتوح للكل. لاحقًا للداعمين على Ko-fi ومشتركي DexWorld.\n'
         'ما يشتغل شي في الخلفية: التلفزيون يسأل السيرفر بس لما يحتاجه.',
-        '[B]Dex Hub Extra[/B]\n\n'
+        '[B]DexCloud[/B]\n\n'
         '• Look and order in the cloud: the theme, the layout and the order of your rows are kept in your account; any TV you link gets the same look.\n'
         '• Shared row cache: catalogue pages come ready from the hub instead of every TV waiting for the add-on.\n'
         '• Watch party: make a room and give the code to family or friends; play, pause and seek together, each TV playing from its own sources.\n\n'
         'It is a trial now, open to everyone. Later for Ko-fi supporters and DexWorld subscribers.\n'
         'Nothing runs in the background: the TV asks the hub only when it needs it.')
     if locked:
-        text = _t('Extra حاليًا للداعمين ومشتركي DexWorld.\n\n', 'Extra is for supporters and DexWorld subscribers right now.\n\n') + text
-    xbmcgui.Dialog().textviewer('Dex Hub Extra', text)
+        text = _t('DexCloud حاليًا للداعمين ومشتركي DexWorld.\n\n', 'DexCloud is for supporters and DexWorld subscribers right now.\n\n') + text
+    xbmcgui.Dialog().textviewer('DexCloud', text)
 
 
 # ------------------------------------------------------------------ shared catalogue cache

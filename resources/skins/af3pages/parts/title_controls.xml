@@ -117,7 +117,7 @@
 						<width>36</width>
 						<height>36</height>
 						<aspectratio>scale</aspectratio>
-						<texture background="true" diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/mask_square.png">$VAR[DhsTpStudio]</texture>
+						<texture background="true" diffuse="special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/mask_square.png">$VAR[DhsTpStudio]</texture>
 					</control>
 				</control>
 				<control type="group">
@@ -157,8 +157,8 @@
 					<disabledcolor>FFFFFFFF</disabledcolor>
 					<align>center</align>
 					<aligny>center</aligny>
-					<texturenofocus border="16" colordiffuse="$VAR[DhAccentDim]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/tile_bg.png</texturenofocus>
-					<texturefocus border="16" colordiffuse="$VAR[DhAccentDim]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/tile_bg.png</texturefocus>
+					<texturenofocus border="16" colordiffuse="$VAR[DhAccentDim]">special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/tile_bg.png</texturenofocus>
+					<texturefocus border="16" colordiffuse="$VAR[DhAccentDim]">special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/tile_bg.png</texturefocus>
 					<label>[B]$INFO[ListItem.Property(dhs.badge)][/B]</label>
 					<enable>false</enable>
 					<visible>!String.IsEmpty(ListItem.Property(dhs.badge))</visible>
@@ -437,8 +437,8 @@
 				<top>0</top>
 				<width>262</width>
 				<height>62</height>
-				<texturefocus border="30" colordiffuse="FFFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/pill.png</texturefocus>
-				<texturenofocus border="30" colordiffuse="33FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/pill.png</texturenofocus>
+				<texturefocus border="30" colordiffuse="FFFFFFFF">special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/pill.png</texturefocus>
+				<texturenofocus border="30" colordiffuse="33FFFFFF">special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/pill.png</texturenofocus>
 				<font>font_mini</font>
 				<textcolor>FFFFFFFF</textcolor>
 				<focusedcolor>FF101010</focusedcolor>
@@ -479,8 +479,8 @@
 				<top>0</top>
 				<width>232</width>
 				<height>62</height>
-				<texturefocus border="30" colordiffuse="FFFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/pill.png</texturefocus>
-				<texturenofocus border="30" colordiffuse="33FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/pill.png</texturenofocus>
+				<texturefocus border="30" colordiffuse="FFFFFFFF">special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/pill.png</texturefocus>
+				<texturenofocus border="30" colordiffuse="33FFFFFF">special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/pill.png</texturenofocus>
 				<font>font_mini</font>
 				<textcolor>FFFFFFFF</textcolor>
 				<focusedcolor>FF101010</focusedcolor>
@@ -520,8 +520,8 @@
 				<top>0</top>
 				<width>232</width>
 				<height>62</height>
-				<texturefocus border="30" colordiffuse="FFFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/pill.png</texturefocus>
-				<texturenofocus border="30" colordiffuse="33FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/pill.png</texturenofocus>
+				<texturefocus border="30" colordiffuse="FFFFFFFF">special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/pill.png</texturefocus>
+				<texturenofocus border="30" colordiffuse="33FFFFFF">special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/pill.png</texturenofocus>
 				<font>font_mini</font>
 				<textcolor>FFFFFFFF</textcolor>
 				<focusedcolor>FF101010</focusedcolor>
@@ -561,8 +561,8 @@
 				<top>0</top>
 				<width>232</width>
 				<height>62</height>
-				<texturefocus border="30" colordiffuse="FFFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/pill.png</texturefocus>
-				<texturenofocus border="30" colordiffuse="33FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/pill.png</texturenofocus>
+				<texturefocus border="30" colordiffuse="FFFFFFFF">special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/pill.png</texturefocus>
+				<texturenofocus border="30" colordiffuse="33FFFFFF">special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/pill.png</texturenofocus>
 				<font>font_mini</font>
 				<textcolor>FFFFFFFF</textcolor>
 				<focusedcolor>FF101010</focusedcolor>
@@ -620,8 +620,8 @@
 				<top>0</top>
 				<width>232</width>
 				<height>62</height>
-				<texturefocus border="30" colordiffuse="FFFFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/pill.png</texturefocus>
-				<texturenofocus border="30" colordiffuse="33FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/pill.png</texturenofocus>
+				<texturefocus border="30" colordiffuse="FFFFFFFF">special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/pill.png</texturefocus>
+				<texturenofocus border="30" colordiffuse="33FFFFFF">special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/pill.png</texturenofocus>
 				<font>font_mini</font>
 				<textcolor>FFFFFFFF</textcolor>
 				<focusedcolor>FF101010</focusedcolor>
@@ -793,7 +793,7 @@
 						<width>400</width>
 						<height>225</height>
 						<aspectratio>scale</aspectratio>
-						<texture diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/mask_landscape.png" background="true">$INFO[ListItem.Art(thumb)]</texture>
+						<texture diffuse="special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/mask_landscape.png" background="true">$INFO[ListItem.Art(thumb)]</texture>
 						<fadetime>160</fadetime>
 					</control>
 					<control type="progress">
@@ -801,7 +801,7 @@
 						<top>209</top>
 						<width>376</width>
 						<height>6</height>
-						<texturebg border="3" colordiffuse="66FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/bar.png</texturebg>
+						<texturebg border="3" colordiffuse="66FFFFFF">special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/bar.png</texturebg>
 						<midtexture border="3" colordiffuse="$VAR[DhAccent]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/bar.png</midtexture>
 						<info>ListItem.PercentPlayed</info>
 						<visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
@@ -873,7 +873,7 @@
 						<width>400</width>
 						<height>225</height>
 						<aspectratio>scale</aspectratio>
-						<texture diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/mask_landscape.png" background="true">$INFO[ListItem.Art(thumb)]</texture>
+						<texture diffuse="special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/mask_landscape.png" background="true">$INFO[ListItem.Art(thumb)]</texture>
 						<fadetime>160</fadetime>
 					</control>
 					<control type="progress">
@@ -881,7 +881,7 @@
 						<top>209</top>
 						<width>376</width>
 						<height>6</height>
-						<texturebg border="3" colordiffuse="66FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/bar.png</texturebg>
+						<texturebg border="3" colordiffuse="66FFFFFF">special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/bar.png</texturebg>
 						<midtexture border="3" colordiffuse="$VAR[DhAccent]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/bar.png</midtexture>
 						<info>ListItem.PercentPlayed</info>
 						<visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
@@ -983,7 +983,7 @@
 						<width>150</width>
 						<height>150</height>
 						<aspectratio scalediffuse="false">scale</aspectratio>
-						<texture background="true" diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/mask_circle.png">$INFO[ListItem.Art(thumb)]</texture>
+						<texture background="true" diffuse="special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/mask_circle.png">$INFO[ListItem.Art(thumb)]</texture>
 					</control>
 					<control type="label">
 						<left>0</left>
@@ -1022,7 +1022,7 @@
 						<width>150</width>
 						<height>150</height>
 						<aspectratio scalediffuse="false">scale</aspectratio>
-						<texture background="true" diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/mask_circle.png">$INFO[ListItem.Art(thumb)]</texture>
+						<texture background="true" diffuse="special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/mask_circle.png">$INFO[ListItem.Art(thumb)]</texture>
 					</control>
 					<control type="image">
 						<left>29</left>
@@ -1133,7 +1133,7 @@
 								<width>176</width>
 								<height>264</height>
 								<aspectratio>scale</aspectratio>
-								<texture diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/mask_poster.png" background="true">$INFO[ListItem.Art(poster)]</texture>
+								<texture diffuse="special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/mask_poster.png" background="true">$INFO[ListItem.Art(poster)]</texture>
 								<fadetime>160</fadetime>
 								<visible>![String.IsEqual(ListItem.Property(kind),more) | ListItem.IsParentFolder]</visible>
 							</control>
@@ -1193,7 +1193,7 @@
 								<top>92</top>
 								<width>176</width>
 								<height>172</height>
-								<texture diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/mask_poster.png">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/tile_shade.png</texture>
+								<texture diffuse="special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/mask_poster.png">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/tile_shade.png</texture>
 								<visible>[[String.IsEqual(ListItem.Property(kind),folder) + String.IsEmpty(ListItem.Property(hide_title))] | String.IsEqual(ListItem.Property(kind),library) | String.IsEqual(ListItem.Property(kind),action) | String.IsEqual(ListItem.Property(kind),nav) | String.IsEqual(ListItem.Property(kind),channel) | !String.IsEmpty(ListItem.Property(show_title))] + ![String.IsEqual(ListItem.Property(kind),more) | ListItem.IsParentFolder]</visible>
 							</control>
 							<control type="label">
@@ -1214,7 +1214,7 @@
 								<top>250</top>
 								<width>152</width>
 								<height>6</height>
-								<texturebg border="3" colordiffuse="66FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/bar.png</texturebg>
+								<texturebg border="3" colordiffuse="66FFFFFF">special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/bar.png</texturebg>
 								<midtexture border="3" colordiffuse="$VAR[DhAccent]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/bar.png</midtexture>
 								<info>ListItem.PercentPlayed</info>
 								<visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>
@@ -1282,7 +1282,7 @@
 								<width>176</width>
 								<height>264</height>
 								<aspectratio>scale</aspectratio>
-								<texture diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/mask_poster.png" background="true">$INFO[ListItem.Art(poster)]</texture>
+								<texture diffuse="special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/mask_poster.png" background="true">$INFO[ListItem.Art(poster)]</texture>
 								<fadetime>160</fadetime>
 								<visible>![String.IsEqual(ListItem.Property(kind),more) | ListItem.IsParentFolder]</visible>
 							</control>
@@ -1292,7 +1292,7 @@
 								<width>176</width>
 								<height>264</height>
 								<aspectratio>scale</aspectratio>
-								<texture diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/mask_poster.png">$INFO[ListItem.Art(gif)]</texture>
+								<texture diffuse="special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/mask_poster.png">$INFO[ListItem.Art(gif)]</texture>
 								<fadetime>200</fadetime>
 								<visible>Control.HasFocus(8500) + String.IsEqual(ListItem.Property(kind),folder) + !String.IsEmpty(ListItem.Art(gif)) + !String.IsEmpty(Window(Home).Property(dhs.opt.gif))</visible>
 							</control>
@@ -1352,7 +1352,7 @@
 								<top>92</top>
 								<width>176</width>
 								<height>172</height>
-								<texture diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/mask_poster.png">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/tile_shade.png</texture>
+								<texture diffuse="special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/mask_poster.png">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/tile_shade.png</texture>
 								<visible>[[String.IsEqual(ListItem.Property(kind),folder) + String.IsEmpty(ListItem.Property(hide_title))] | String.IsEqual(ListItem.Property(kind),library) | String.IsEqual(ListItem.Property(kind),action) | String.IsEqual(ListItem.Property(kind),nav) | String.IsEqual(ListItem.Property(kind),channel) | !String.IsEmpty(ListItem.Property(show_title))] + ![String.IsEqual(ListItem.Property(kind),more) | ListItem.IsParentFolder]</visible>
 							</control>
 							<control type="label">
@@ -1373,7 +1373,7 @@
 								<top>250</top>
 								<width>152</width>
 								<height>6</height>
-								<texturebg border="3" colordiffuse="66FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/bar.png</texturebg>
+								<texturebg border="3" colordiffuse="66FFFFFF">special://home/addons/plugin.video.dexhub/resources/skins/af3pages/media/dexhub/bar.png</texturebg>
 								<midtexture border="3" colordiffuse="$VAR[DhAccent]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/skins/af3pages/media/dexhub/bar.png</midtexture>
 								<info>ListItem.PercentPlayed</info>
 								<visible>Integer.IsGreater(ListItem.PercentPlayed,0)</visible>

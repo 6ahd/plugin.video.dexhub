@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""v5.10.373: the host's own link in a watch party, as an option (Dex Hub Extra).
+"""v5.10.373: the host's own link in a watch party, as an option (DexCloud).
 
 Off unless the host turns it on (the party's menu). With it on, the title the
 host plays goes to the hub with the link it plays from:

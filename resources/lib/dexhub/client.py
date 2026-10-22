@@ -812,7 +812,7 @@ def get_json(url, ttl_seconds=0, timeout_override=None, memory_only=False,
     _foreground(1)
     try:
         try:
-            # v5.10.366: Dex Hub Extra's shared cache first (public catalogue
+            # v5.10.366: DexCloud's shared cache first (public catalogue
             # pages only, never with an add-on's own headers); the add-on as always after
             text = _hub_catalog(url, timeout) if (catalog and not extra_headers) else None
             if text is None:

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""v5.10.366: watch parties (Dex Hub Extra).
+"""v5.10.366: watch parties (DexCloud).
 
 v5.10.373: the host can share its own link as an option (party_share): the
 guests get it as the source «Dex Hub+» and need no source of their own.
@@ -247,8 +247,8 @@ def _ready():
     from . import hub_client
     if not hub_client.linked():
         if xbmcgui.Dialog().yesno(_t('مشاهدة جماعية', 'Watch party'), _t(
-                'المشاهدة الجماعية من Dex Hub Extra: اربط التلفزيون بحسابك أول (باركود).',
-                'Watch parties are part of Dex Hub Extra: link this TV to your account first (QR code).'),
+                'المشاهدة الجماعية من DexCloud: اربط التلفزيون بحسابك أول (باركود).',
+                'Watch parties are part of DexCloud: link this TV to your account first (QR code).'),
                 yeslabel=_t('اربط', 'Link'), nolabel=_t('لاحقًا', 'Later')):
             return hub_client.pair() and hub_client.active(network=True)
         return False
@@ -274,9 +274,9 @@ def start(media=None):
     tg = _t('\n\nوالكود وصلك على تيليجرام مع زر مشاركة.', '\n\nThe code is on your Telegram too, with a Share button.') if answer.get('telegram') else ''
     # v5.10.372: the code, and sharing the invite link as an option
     if xbmcgui.Dialog().yesno(_t('مشاهدة جماعية', 'Watch party'), _t(
-            'الكود: [B]%s[/B]\n\nعطه أهلك أو ربعك: يفتحون Dex Hub ← Dex Hub Extra ← المشاهدة الجماعية ← انضمام. '
+            'الكود: [B]%s[/B]\n\nعطه أهلك أو ربعك: يفتحون Dex Hub ← DexCloud ← المشاهدة الجماعية ← انضمام. '
             'بعدها شغّل اللي تبي، وتشغيلك وإيقافك وتقديمك يمشي على الكل.',
-            'Code: [B]%s[/B]\n\nGive it to family or friends: Dex Hub → Dex Hub Extra → Watch party → Join. '
+            'Code: [B]%s[/B]\n\nGive it to family or friends: Dex Hub → DexCloud → Watch party → Join. '
             'Then play what you like: your play, pause and seek reach everyone.') % view.get('code', '') + tg,
             nolabel=_t('تم', 'Done'), yeslabel=_t('شارك رابط الدعوة', 'Share the invite link')):
         invite()
@@ -380,32 +380,41 @@ def menu():
         rows = [(_t('الكود: %s', 'Code: %s') % code, _t('%s متصلين · %s', '%s watching · %s') % (_home().getProperty(P_COUNT) or '1', title)),
                 (_t('رسالة للكل', 'Message to everyone'), _t('تطلع عند الكل فوق الفيديو', 'Shows on every TV over the video')),
                 (_t('شارك رابط الدعوة', 'Share the invite link'), _t('باركود تمسحه بالجوال وترسله لمن تبي', 'A QR code to scan and send to anyone'))]
+        try:
+            media = json.loads(_home().getProperty(P_MEDIA) or '{}') or {}
+        except ValueError:
+            media = {}
+        share_row = back_row = ''
         if is_host():
             # v5.10.373: the host's own link, as an option
             from . import party_share
-            rows.append((_t('شارك تشغيلي مع الضيوف: %s', 'Share my playback with guests: %s') % party_share.mode_name(),
-                         _t('يطلع لهم مصدر Dex Hub+ من رابطك', 'They get a Dex Hub+ source from your link')))
+            share_row = _t('شارك تشغيلي مع الضيوف: %s', 'Share my playback with guests: %s') % party_share.mode_name()
+            rows.append((share_row, _t('يطلع لهم مصدر Dex Hub+ من رابطك', 'They get a Dex Hub+ source from your link')))
+            if media and not _plays(media):
+                # v5.10.382: the host back to the party's title (its Kodi
+                # restarted, it stopped the video): from where the room is
+                back_row = _t('رجوع للي نشاهده: %s', 'Back to what we watch: %s') % _media_title(media)
+                rows.insert(1, (back_row, _t('من نفس المكان، والضيوف معك', 'From the same place, with your guests')))
         else:
             rows.append((_t('شغّل اللي يشاهدونه', 'Play what they watch'), ''))
         rows.append((_t('إنهاء المشاهدة للكل', 'End the party for everyone') if is_host() else _t('خروج من المشاهدة', 'Leave the party'), ''))
         pick = choose(_t('مشاهدة جماعية', 'Watch party'), rows, subtitle=('[B]%s[/B]' % code))
         label = rows[pick][0] if pick >= 0 else ''
-        if pick == 1:
+        if back_row and label == back_row:
+            _home().setProperty('dhs.party.rejoin', '%.0f' % time.time())
+            _open(media)
+        elif label == _t('رسالة للكل', 'Message to everyone'):
             chat()
-        elif pick == 2:
+        elif label == _t('شارك رابط الدعوة', 'Share the invite link'):
             invite()
-        elif is_host() and pick == 3:
+        elif share_row and label == share_row:
             share_changed()
         elif label == _t('شغّل اللي يشاهدونه', 'Play what they watch'):
-            try:
-                media = json.loads(_home().getProperty(P_MEDIA) or '{}') or {}
-            except ValueError:
-                media = {}
             if media:
                 _open(media)
             else:
                 _note(_t('المضيف ما شغّل شي للحين', 'The host has not played anything yet'))
-        elif pick == len(rows) - 1:
+        elif pick >= 0 and pick == len(rows) - 1:
             leave()
         return
     rows = [(_t('ابدأ مشاهدة', 'Start a party'), _t('تاخذ كود وتعطيه أهلك أو ربعك', 'Get a code and give it to family or friends')),
@@ -576,6 +585,7 @@ class Loop(object):
             position = float(self.player.getTime())
         except Exception:
             position = 0.0
+        position = self._rejoin_place(media, position)
         share, why = None, ''
         try:
             from . import party_share
@@ -585,6 +595,27 @@ class Loop(object):
         if why:
             _note(why)
         self.send('load', media=media, position=position, playing=not xbmc.getCondVisibility('Player.Paused'), share=share)
+
+    def _rejoin_place(self, media, position):
+        """v5.10.382: the host chose «Back to what we watch»: its video goes
+        to where the room is before the guests are told (they stay put)."""
+        home = _home()
+        try:
+            asked = time.time() - float(home.getProperty('dhs.party.rejoin') or 0) < 180
+        except ValueError:
+            asked = False
+        if not asked or not same(self.media, media):
+            return position
+        home.clearProperty('dhs.party.rejoin')
+        target = self.expected()
+        if target > 5 and abs(target - position) > DRIFT['join']:
+            try:
+                self.player.seekTime(target)
+                xbmc.log('[DexHub] watch party: the host back at %.0f s' % target, xbmc.LOGINFO)
+                return target
+            except Exception as exc:
+                xbmc.log('[DexHub] watch party: host rejoin seek: %s' % exc, xbmc.LOGINFO)
+        return position
 
     # -- applying (guests)
     def expected(self):

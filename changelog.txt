@@ -1,3 +1,35 @@
+5.10.383
+زر «تخطي المقدمة» صار مستطيل أبيض بزوايا ناعمة وكتابة سوداء مثل Apple TV ونتفلكس. كان يطلع أسود لأن كودي ما يقرأ مسار الصورة المكتوب بـ $INFO في خلفيات الأزرار، فما كان يرسم خلفيته أبد. ونفس الخلل صلحته في كل نوافذ Dex Hub: خلفيات الأزرار وأقنعة الزوايا الدائرية صارت بمسار الإضافة الحقيقي. وفي نسخة Apple TV النوافذ كانت تقرأ خاصية الإضافة العادية بدل خاصيتها، فبعض صورها ما كانت تطلع.
+The Skip intro button is a white rounded rectangle with black text, as on Apple TV and Netflix. It showed dark because Kodi reads a button's textures literally and never resolved the $INFO path, so no background was drawn. The same fix applies to every Dex Hub window: button backgrounds and rounded-corner masks now use the add-on's real path. On the Apple TV flavour the windows read the main add-on's asset property instead of their own, so some images did not show.
+
+5.10.382
+المستضيف يرجع لمشاهدته: في قائمة المشاهدة الجماعية صار له «رجوع للي نشاهده» لما ما يكون مشغّل عمل المشاهدة (كودي انعاد تشغيله أو وقف الفيديو)، ويرجع لنفس مكان الغرفة والضيوف ما يتحركون. ومع الهب 2.11.2 المشاهدة الفاضية تنتظر 15 دقيقة قبل ما تنقفل، فالمستضيف اللي كان لحاله وطفى كودي أو نام التلفزيون يرجع لها بنفس الكود ويبقى المستضيف.
+The host can go back to the party: the watch party menu offers «Back to what we watch» when the host is not playing the party's title (Kodi restarted, the video stopped), at the room's place without moving the guests. With hub 2.11.2 an empty party waits 15 minutes before it closes, so a host alone whose Kodi restarted or slept comes back to it by the same code and is the host again.
+
+5.10.381
+تثبيت الصف المحدد أسفل شريط الأقسام مهما كبر حجم البطاقة. إلغاء تراكم تصغير الهيرو في وضع الصفين، وتحسين تباين النص في صفحة العمل. فتح الأقسام مباشرة عند الوقوف على التبويب، وIPTV بالضغط. منع جمع حركة السينمائي مع السبوت لايت الكامل. إصلاح قراءة شعارات الاستديو من حزم Textures.xbt المضغوطة. شعار الاستديو بحجم ثابت ومساحة مستقلة في الرئيسية وصفحة العمل، وتفضيل الشعارات البيضاء ورفع دقة صور TMDb. تحسين المسافة بين تقدم المشاهدة وعنوان الصف مع البطاقات الكبيرة.
+Stable row placement below navigation at every card size, one 72% compact hero scale, and stronger title-page text contrast. Immediate section switching on focus (IPTV remains click-only). Exclusive cinema/full-spotlight movement prevents accumulated offsets. Compiled XBT studio resource packs are now detected correctly. Studio logos keep a readable size in a dedicated area on Home and title pages; white studio resources preferred and TMDb logos use w500. Progress clearance improved for large cards.
+
+5.10.380
+فتح الأقسام مباشرة عند الوقوف على التبويب، وIPTV بالضغط. منع جمع حركة السينمائي مع السبوت لايت الكامل. إصلاح قراءة شعارات الاستديو من حزم Textures.xbt المضغوطة. شعار الاستديو بحجم ثابت ومساحة مستقلة في الرئيسية وصفحة العمل، وتفضيل الشعارات البيضاء ورفع دقة صور TMDb. تحسين المسافة بين تقدم المشاهدة وعنوان الصف مع البطاقات الكبيرة.
+Immediate section switching on focus (IPTV remains click-only). Exclusive cinema/full-spotlight movement prevents accumulated offsets. Compiled XBT studio resource packs are now detected correctly. Studio logos keep a readable size in a dedicated area on Home and title pages; white studio resources preferred and TMDb logos use w500. Progress clearance improved for large cards.
+
+2026-10-22 · 5.10.379
+- السبوت لايت مثل Arctic Fuse 3: من مركز التحكم › المظهر: الواجهة والبطاقات › «أعمال السبوت لايت» تختار لكل قسم (الرئيسية، الأفلام، المسلسلات) الصف اللي تجي منه أعماله: تلقائي (أول كتالوج مثل قبل)، أو أي صف في القسم (كتالوج، قائمتي، قائمة المشاهدة، متابعة المشاهدة)، أو بدون سبوت لايت. و«عدد أعمال السبوت لايت» من 5 إلى 20 (كان 8). اسم الصف يطلع جنب نقاط السبوت لايت.
+- «سبوت لايت كامل» (شغال من البداية، مع السكين 3.28.102): لما تطلع للسبوت لايت تنزل الصفوف تحت والعمل يعبي الشاشة.
+- صفحة العمل ما تنقص من فوق لما تنزل للحلقات (السكين 3.28.102)، وصورة العمل في المظهر النظيف تبعد عن الشعار والكلام.
+
+2026-10-22 · 5.10.378
+- إصلاح: في كودي 22 بيتا، التشغيل من ودجت Arctic Fuse 3 (عن طريق TMDb Helper) كان يفتح شاشة التوقف بدل البحث عن المصادر، والرجوع يلغي التشغيل. السبب إن كودي 22 بيتا يشغل ملف شاشة التوقف بدل ملف الإضافة لما يفتح رابط Dex Hub من المشغل. الحين ملف شاشة التوقف يعرف إنه طلب تشغيل ويسلمه للإضافة، والبحث يشتغل عادي.
+- إصلاح: الإعدادات ما كانت تنحفظ في كودي 22 بيتا 1 (CoreELEC). ملف إعدادات Dex Hub كان مكتوب بنسخة كودي أحدث (الإصدار 4)، وهالنسخة ما تقرا إلا لين الإصدار 2، فكانت ترجع للافتراضي وما تحفظ شي. الحين أول ما تشتغل الخدمة: لو الملف من إصدار أعلى وكودي ما قرا قيمه، يرجعه للإصدار 2 بنفس القيم (والقديم ينحفظ باسم settings.xml.v4.bak). والاسترجاع من نسخة احتياطية يكتب الإصدار 2 دايم.
+- Dex Hub Extra صار اسمه DexCloud (في التلفزيون، ومع الهب 2.11.1 في الموقع وتليجرام وصفحة الدعوة).
+- DexCloud ما يرفع شي لحسابك لو كودي ما قرا إعدادات هذا التلفزيون: كان ممكن يرفع القيم الافتراضية ويوزعها على باقي أجهزتك بالمزامنة.
+- المظهر النظيف (مع السكين 3.28.100): تحديد أبيض، سطر المعلومات كلام بنقاط، التاريخ كامل بدل السنة (5 نوفمبر 2025)، «ينتهي الساعة ...»، شعار الاستوديو ثابت فوق الصف الأول، ومعلومات الحلقة المحددة فوق في صفحة العمل. وأسماء الصفوف مختصرة: «Dex Max - Continue Watching Movies - Movie» من Dex Max صار «Continue Watching Movies» (لو صفين بيصيرون بنفس الاسم يبقى نوعهم). تطفيه من مركز التحكم › المظهر › مظهر نظيف.
+- أول تشغيل: تحت باركود الإعداد من الجوال صار فيه خيار DexCloud: باركود صغير ورمز ربط («عندك حساب DexCloud؟»). تمسحه أو تكتب الرمز في الموقع، والتلفزيون ينربط بحسابك ويقفل الشاشة ويعرض إعدادك من الحساب. يطلع بس في أول تشغيل ولو التلفزيون مو مربوط والهب يرد.
+
+2026-10-22 · 5.10.377
+- شاشة التوقف ما تطلع فوق البحث عن المصادر. لما تشغل من ودجت في سكين ثاني (Arctic Fuse 3 عن طريق TMDb Helper)، كودي ما كان يوقف عداد شاشة التوقف وقت البحث، فتطلع شاشة التوقف فوق البحث (شاشة Dex Hub لو مختارها في كودي)، والزر اللي تضغطه عشان تقفلها يلغي البحث. الحين Dex Hub يوقفها طول ما نافذة البحث مفتوحة، وبعد البحث كودي يعد من جديد.
+
 2026-10-21 · 5.10.376
 - جودة الصور (القائمة › المظهر): عادية أو عالية 1080. السبب إن الخلفيات كانت باهتة: كودي يحفظ كل صورة بحد أقصى 720 (إعداد imageres)، وDex Hub كان يطلب خلفيات TMDb بمقاس w1280 وبوسترات w500. «عالية» تخلي كودي يحفظها 1080 بجودة JPEG أعلى (سطور خاصة في advancedsettings.xml، وباقي الملف يبقى مثل ما هو)، وتجيب الخلفيات بمقاسها الأصلي والبوسترات w780، وتمسح الصور المحفوظة بالمقاس الصغير عشان تنزل من جديد واضحة، وتعرض إعادة تشغيل كودي. «عادية» ترجع كل شي.
 - إعدادي مقاس الصور المخفيين ما كانوا موجودين في ملف الإعدادات أصلًا فما كانوا يشتغلون. الحين موجودين.

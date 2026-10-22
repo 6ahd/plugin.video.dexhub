@@ -468,14 +468,16 @@ class Worker(object):
         strings.publish(force=True)
         if self.spotlight is not None:
             self.spotlight._settings = None
-        if 'homeui_hero_shuffle' in changed:
-            # v5.10.364: the banner's titles in their new order
+        if changed & {'homeui_hero_shuffle', 'homeui_spot_source', 'homeui_spot_count'}:
+            # v5.10.364: the banner's titles in their new order; v5.10.379: its source and count
             try:
                 from . import board
                 for tab in C.TABS:
                     board.update_spot(tab)
             except Exception:
                 C.log('hero order:\n%s' % traceback.format_exc(), xbmc.LOGDEBUG)
+        if 'homeui_clean_look' in changed:
+            C.ask_republish('clean look')      # v5.10.378: the rows' names, short or as they were
         if 'ratings_shown' in changed and getattr(self, 'ratings', None) is not None:
             self.ratings.shown = ''         # v5.10.334: the hero's ratings again, as chosen
         filters = changed & {'library_src', 'servers_src', 'show_servers'}

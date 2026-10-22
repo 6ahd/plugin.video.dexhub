@@ -1245,18 +1245,33 @@ class _Window(xbmcgui.WindowDialog):
         self.cancelled = False
         qr_path, url = kwargs.get('qr_path') or '', kwargs.get('url') or ''
         first = kwargs.get('first_run')
-        w, h = 1000, 540
+        cloud = kwargs.get('cloud') or {}
+        # v5.10.378: on the first run the TV can also be linked to DexCloud
+        # from the same screen (its own small QR and code under the text)
+        w, h = (1120, 620) if cloud else (1000, 540)
         from . import pairing_ui
         x, y = pairing_ui.surface(self, w, h)
-        pairing_ui.qr(self, qr_path, x + 60, y + 80, 380)
-        tx = x + 480
-        self.addControl(xbmcgui.ControlLabel(tx, y + 60, w - 520, 44, '[B]%s[/B]' % _tr('جهّز Dex Hub من جوالك'),
+        pairing_ui.qr(self, qr_path, x + 60, y + 80, 380 if not cloud else 340)
+        tx = x + (480 if not cloud else 450)
+        tw = w - (tx - x) - 40
+        self.addControl(xbmcgui.ControlLabel(tx, y + 60, tw, 44, '[B]%s[/B]' % _tr('جهّز Dex Hub من جوالك'),
                                              font='font14', textColor='FFFFFFFF'))
-        self._body = xbmcgui.ControlTextBox(tx, y + 120, w - 520, 330, font='font12', textColor='FFF0F3FA')
+        self._body = xbmcgui.ControlTextBox(tx, y + 120, tw, 330 if not cloud else 250, font='font12', textColor='FFF0F3FA')
         self.addControl(self._body)
         self._lead = (_tr('امسح الباركود بكاميرا الجوال. تفتح لك صفحة تربط فيها حساباتك وترتب الصفحة الرئيسية وتختار الشكل والترجمة، وكل شي يوصل للتلفزيون على طول.')
                       + '\n\n' + _tr('الجوال والتلفزيون لازم يكونون على نفس الشبكة.') + '\n'
                       + '[COLOR FF8FA0C0]%s[/COLOR]' % url)
+        if cloud:
+            white = os.path.join(_addon().getAddonInfo('path'), 'resources', 'media', 'white.png')
+            self.addControl(xbmcgui.ControlImage(tx, y + 392, tw, 2, white, colorDiffuse='33FFFFFF'))
+            pairing_ui.qr(self, cloud.get('qr') or '', tx + 10, y + 418, 160)
+            note = xbmcgui.ControlTextBox(tx + 200, y + 410, tw - 200, 190, font='font12', textColor='FFF0F3FA')
+            self.addControl(note)
+            note.setText('[B]%s[/B]\n%s\n%s [B]%s[/B]\n[COLOR FF8FA0C0]%s[/COLOR]' % (
+                _tr('عندك حساب DexCloud؟'),
+                _tr('امسح هذا الرمز واربط التلفزيون بحسابك، ويجيه إعدادك كله من أي مكان.'),
+                _tr('أو افتح الموقع واكتب الرمز:'), cloud.get('code') or '',
+                cloud.get('host') or ''))
         self._back = _tr('رجوع: أكمل على التلفزيون') if first else _tr('رجوع: إغلاق')
         self.set_status(_tr('بانتظار الجوال…'))
 
@@ -1270,6 +1285,44 @@ class _Window(xbmcgui.WindowDialog):
         if action.getId() in (9, 10, 92, 216, 247, 257, 275, 61467, 61448):
             self.cancelled = True
             self.close()
+
+
+def _cloud_offer(first_run):
+    """v5.10.378: the first run also offers DexCloud: a pairing code from the
+    hub and a thread that looks every 3 s whether the phone approved it.
+    ({} , state) when not the first run, already linked or the hub is out of reach."""
+    state = {'done': False, 'stop': False}
+    if not first_run:
+        return {}, state
+    try:
+        from . import hub_client
+        if hub_client.linked():
+            return {}, state
+        start = hub_client.pair_start(timeout=6)
+    except Exception as exc:
+        _log('DexCloud code not offered: %s' % exc)
+        return {}, state
+    qr = ''
+    try:
+        from .plex_qr import qr_png
+        qr = qr_png(start.get('url') or '', box_size=6, border=3, family='dexcloud_qr') or ''
+    except Exception:
+        qr = ''
+
+    def watch():
+        monitor = xbmc.Monitor()
+        ends = time.time() + hub_client.PAIR_TTL
+        while not state['stop'] and time.time() < ends and not monitor.waitForAbort(3):
+            done = hub_client.pair_check(start)
+            if done is None:
+                return
+            if done:
+                state['done'] = True
+                _log('linked to DexCloud from the first run screen')
+                return
+    threading.Thread(target=watch, name='DexHub-first-run-cloud', daemon=True).start()
+    host = hub_client.base().replace('https://', '').replace('http://', '').rstrip('/')
+    return {'qr': qr, 'code': start.get('code') or '', 'host': host}, state
 
 
 def run(first_run=False, section=''):
@@ -1301,14 +1354,15 @@ def run(first_run=False, section=''):
         pass
     home = xbmcgui.Window(10000)
     home.setProperty('dexhub.phone.url', url)
-    win = _Window(qr_path=qr_path, url=url, first_run=first_run)
+    cloud, linked = _cloud_offer(first_run)
+    win = _Window(qr_path=qr_path, url=url, first_run=first_run, cloud=cloud)
     win.show()
     started = time.time()
     monitor = xbmc.Monitor()
     shown = (False, -1)
     try:
         while not monitor.abortRequested():
-            if win.cancelled or session.done:
+            if win.cancelled or session.done or linked['done']:
                 break
             with session.lock:
                 seen, connected, changes = session.seen, session.connected, session.changes
@@ -1333,6 +1387,15 @@ def run(first_run=False, section=''):
             server.server_close()
         except Exception:
             pass
+    linked['stop'] = True
+    if linked['done']:
+        # v5.10.378: linked to DexCloud from this screen: the account's setup
+        try:
+            from . import hub_client
+            hub_client.after_pair()
+        except Exception:
+            _log('DexCloud after linking: %s' % traceback.format_exc(), xbmc.LOGWARNING)
+        return True
     if session.refresh_after:
         # v5.10.286: Following and library choices from the phone (the control
         # centre does the same once it closes)

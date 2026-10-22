@@ -474,6 +474,11 @@ def _background_sync_loop(monitor):
     _last_health = time.time()
     _last_purge = time.time()
     while not monitor.abortRequested():
+        try:
+            from resources.lib import screensaver_hold as _ss_hold
+            _ss_hold.tidy()          # v5.10.377: a hold left by a search that never ended
+        except Exception:
+            pass
         deferred = _interactive_busy()
         acquired = False
         if not deferred:
@@ -702,7 +707,18 @@ def _retire_apple_tv_addon():
         xbmc.log('[DexHub] Apple TV add-on check: %s' % exc, xbmc.LOGWARNING)
 
 
+def _settings_version_check():
+    """v5.10.378: settings saved by a newer Kodi, unreadable by this one."""
+    try:
+        from resources.lib import settings_version
+        from resources.lib.profile_scope import ADDON_ID as _sv_id
+        settings_version.check(_sv_id)
+    except Exception as exc:
+        xbmc.log('[DexHub] settings version check: %s' % exc, xbmc.LOGWARNING)
+
+
 if __name__ == '__main__':
+    _settings_version_check()          # v5.10.378: first, before anything sets a value
     _retire_apple_tv_addon()
     try:
         import xbmcaddon
@@ -1263,7 +1279,7 @@ if __name__ == '__main__':
     try:
         import threading as _thr
         _thr.Thread(target=_background_sync_loop, args=(monitor,), name='DexHubCoreLoop', daemon=True).start()
-        # v5.10.366: Dex Hub Extra (cloud look, watch party); sleeps when not linked
+        # v5.10.366: DexCloud (cloud look, watch party); sleeps when not linked
         _thr.Thread(target=_hub_worker, args=(monitor,), name='DexHub-hub', daemon=True).start()
         _thr.Thread(target=_cloud_sync_loop, args=(monitor,), name='DexHubCloudLoop', daemon=True).start()
         _thr.Thread(target=_tmdbh_player_maintenance, name='DexHubTMDbHMaintenance', daemon=True).start()

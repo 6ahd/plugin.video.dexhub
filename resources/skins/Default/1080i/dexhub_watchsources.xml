@@ -197,7 +197,7 @@
             <width>300</width>
             <height>169</height>
             <aspectratio>scale</aspectratio>
-            <texture diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/mask_landscape.png">$INFO[ListItem.Art(thumb)]</texture>
+            <texture diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/mask_landscape.png">$INFO[ListItem.Art(thumb)]</texture>
           </control>
           <control type="image">
             <left>4</left>
@@ -246,7 +246,7 @@
             <width>300</width>
             <height>169</height>
             <aspectratio>scale</aspectratio>
-            <texture diffuse="$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/mask_landscape.png">$INFO[ListItem.Art(thumb)]</texture>
+            <texture diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/mask_landscape.png">$INFO[ListItem.Art(thumb)]</texture>
           </control>
           <control type="image">
             <left>4</left>

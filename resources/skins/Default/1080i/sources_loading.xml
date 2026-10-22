@@ -244,8 +244,8 @@
             <left>70</left><top>884</top><width>420</width><height>72</height>
             <font>font13</font><align>center</align><aligny>center</aligny>
             <textcolor>FF0C0F16</textcolor><focusedcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]</focusedcolor>
-            <texturenofocus border="24" colordiffuse="C4B07A1E">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturenofocus>
-            <texturefocus border="24" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturefocus>
+            <texturenofocus border="24" colordiffuse="C4B07A1E">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texturenofocus>
+            <texturefocus border="24" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texturefocus>
             <label>$INFO[Window.Property(sufficient_label)]</label>
             <onleft>9000</onleft><onright>9002</onright><onup>9001</onup><ondown>9001</ondown>
         </control>
@@ -253,8 +253,8 @@
             <left>510</left><top>884</top><width>380</width><height>72</height>
             <font>font12</font><align>center</align><aligny>center</aligny>
             <textcolor>FFE5E7EB</textcolor><focusedcolor>FFFFFFFF</focusedcolor>
-            <texturenofocus border="24" colordiffuse="CC1C2432">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturenofocus>
-            <texturefocus border="24" colordiffuse="FF2E4B5E">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturefocus>
+            <texturenofocus border="24" colordiffuse="CC1C2432">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texturenofocus>
+            <texturefocus border="24" colordiffuse="FF2E4B5E">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texturefocus>
             <label>$INFO[Window.Property(continue_label)]</label>
             <onleft>9001</onleft><onright>9000</onright><onup>9002</onup><ondown>9002</ondown>
         </control>
@@ -262,8 +262,8 @@
             <left>910</left><top>884</top><width>300</width><height>72</height>
             <font>font12</font><align>center</align><aligny>center</aligny>
             <textcolor>FFC7CDD8</textcolor><focusedcolor>FFFFFFFF</focusedcolor>
-            <texturenofocus border="24" colordiffuse="AA272E3A">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturenofocus>
-            <texturefocus border="24" colordiffuse="FF8E4646">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/circle.png</texturefocus>
+            <texturenofocus border="24" colordiffuse="AA272E3A">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texturenofocus>
+            <texturefocus border="24" colordiffuse="FF8E4646">special://home/addons/plugin.video.dexhub/resources/media/circle.png</texturefocus>
             <label>$INFO[Window.Property(cancel_label)]</label>
             <onleft>9002</onleft><onright>9001</onright><onup>9000</onup><ondown>9000</ondown>
         </control>

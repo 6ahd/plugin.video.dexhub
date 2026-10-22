@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""v5.10.366: Dex Hub Extra in the service: a thread that sleeps.
+"""v5.10.366: DexCloud in the service: a thread that sleeps.
 
 Not linked: it only looks at one Home property every few seconds (set when
 the TV is linked). Linked: once at start it asks whether Extra is on and

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""v5.10.366: the look and order in the cloud (Dex Hub Extra).
+"""v5.10.366: the look and order in the cloud (DexCloud).
 
 Only the look travels: the Home's layout, theme and interface choices, the
 player bar's look, the order and shapes of the rows (homeui/layout.json) and
@@ -127,6 +127,15 @@ def push(force=False):
     from . import hub_client
     if not hub_client.linked() or not hub_client.active(network=force):
         return False
+    try:
+        # v5.10.378: settings Kodi cannot read are defaults: never sent to the account
+        from .settings_version import kodi_reads
+        from .profile_scope import ADDON_ID as _own_id
+        if not kodi_reads(_own_id):
+            xbmc.log('[DexHub] DexCloud: saved settings unreadable by Kodi on this TV, nothing sent', xbmc.LOGWARNING)
+            return False
+    except Exception:
+        pass
     look = collect()
     sig = signature(look)
     mine = hub_client.state().get('look') or {}
