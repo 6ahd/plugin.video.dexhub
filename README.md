@@ -22,14 +22,14 @@ Stremio & Nuvio add-ons · Plex, Emby, Jellyfin & Silo · Live TV · Native Trak
 
 **Dex Hub 5.10.383 · Dex Hub skin 3.28.110**
 
-* **Spotlight like Arctic Fuse 3:** pick, for each tab (Home, Movies, Series), the row its spotlight titles come from (any catalog, Your list, a watchlist, Continue watching, or none) and how many titles it shows (5 to 20). The row's name shows next to the spotlight dots. **Full spotlight** fills the screen with the title and moves the rows down when you go up to it.
+* **Spotlight you set up yourself:** pick, for each tab (Home, Movies, Series), the row its spotlight titles come from (any catalog, Your list, a watchlist, Continue watching, or none) and how many titles it shows (5 to 20). The row's name shows next to the spotlight dots. **Full spotlight** fills the screen with the title and moves the rows down when you go up to it.
 * **Clean look:** white focus, a dotted info line, full release dates, "Ends at", shorter row names, and the selected episode's details at the top of the title page. Turn it off in Menu › Look › Clean look.
 * **Title page:** no longer cut at the top when you go down to the episodes, and the backdrop keeps clear of the logo and the text.
 * **Studio logos:** bigger on the Home and the title page, white logos preferred, sharper TMDb logos, and studio packs inside Textures.xbt are read.
 * **Skip intro** is a white rounded button with black text, as on Apple TV and Netflix. The same fix brings back the button backgrounds and rounded corners in every Dex Hub window.
 * **Watch party (in testing):** the host gets "Back to what we watch" after a restart and returns to the room's place, and an empty party now waits 15 minutes before it closes.
 * **Dex Hub Extra is now DexCloud (in testing):** on first run, under the phone setup QR, link the TV to your DexCloud account with a small QR or a code.
-* **Kodi 22 beta fixes:** the screensaver no longer opens over the source search when you play from a TMDb Helper widget (Arctic Fuse 3), and settings save again on Kodi 22 beta 1 (CoreELEC) when the settings file was written by a newer Kodi.
+* **Kodi 22 beta fixes:** the screensaver no longer opens over the source search when you play from a TMDb Helper widget, and settings save again on Kodi 22 beta 1 (CoreELEC) when the settings file was written by a newer Kodi.
 * **Rows:** the selected row stays below the tab bar at every card size, tabs open as soon as you land on them (Live TV on OK), and watch progress keeps clear of the row title on big cards.
 
 Full history in [changelog.txt](changelog.txt).
