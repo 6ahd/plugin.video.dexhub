@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addon id="plugin.video.dexhub" name="Dex Hub" version="5.10.401" provider-name="Dex Hub">
+<addon id="plugin.video.dexhub" name="Dex Hub" version="5.10.402" provider-name="Dex Hub">
   <requires>
     <import addon="xbmc.python" version="3.0.0" />
     <import addon="script.module.urllib3" version="1.26.0" optional="true" />
@@ -36,7 +36,7 @@
     <description lang="ar">Dex Hub نسخة مستقلة لـ Kodi. أضف روابط Stremio، واستخدم مصادر Plex وEmby/Jellyfin وSilo الأصلية، وشغّل الترجمات الخارجية، واربط Trakt، واستخدم Dex Hub كمشغّل لـ TMDb Helper، وحافظ على قائمة متابعة موحّدة محلياً.</description>
     <disclaimer lang="en_GB">The author of this addon does not host any of the content which is found and has no affiliation with any of the content providers. The author is in no way affiliated with Kodi, Team Kodi, or the XBMC Foundation.</disclaimer>
     <disclaimer lang="ar">مؤلّف هذه الإضافة لا يستضيف أيًّا من المحتوى الذي يتم العثور عليه، وليس له أي ارتباط بأي من مزوّدي المحتوى. لا يرتبط المؤلّف بأي شكل مع Kodi أو فريق Kodi أو مؤسّسة XBMC.</disclaimer>
-    <news>Show loading artwork only for an initial playback start; never on source replacement or over an active video. Remove repeated/conflicting resolution badges and separate the player source quality label from technical badges. Includes the Next episode watched-history and persistent shelf-removal fixes from 5.10.400. Seek previews remain removed.</news>
+    <news>Phone setup: typed or pasted text (server address, username, PIN) is no longer wiped by the 3-second poll or when returning to the page. Add-on links paste from chats and notes: invisible direction marks and surrounding text are removed, and a /configure page link becomes its manifest. Silo pairing from the phone accepts LAN addresses such as 192.168.1.10:8090 (https was forced, so the server never answered) and links copied from the browser, adds Start over, and retries the profile list after approval. Reordered rows no longer jump back while the new order is saved.</news>
     <source>https://github.com/6ahd/plugin.video.dexhub</source>
     <website>https://dexworld.cc</website>
     <assets>

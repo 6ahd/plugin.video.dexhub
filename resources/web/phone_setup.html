@@ -562,8 +562,8 @@ input[type=file].inp{padding:10px 12px;font-size:13px}
     <div class="empty" id="accEmpty" hidden>اختر خدمة من فوق وتطلع هنا</div>
     <div class="sub">إضافات المصادر · Stremio وNuvio</div>
     <div class="addons" id="adList"></div>
-    <form class="paste" id="adForm" autocomplete="off">
-      <input class="inp ltr" id="adUrl" type="url" inputmode="url" placeholder="https://…/manifest.json" aria-label="رابط الإضافة">
+    <form class="paste" id="adForm" autocomplete="off" novalidate>
+      <input class="inp ltr" id="adUrl" type="text" inputmode="url" enterkeyhint="go" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://…/manifest.json" aria-label="رابط الإضافة">
       <button class="btn p s" type="submit">أضف</button>
     </form>
     <p class="hint" style="margin-top:8px">الصق رابط manifest من صفحة الإضافة، ويضاف بترتيبه تحت.</p>
@@ -938,6 +938,30 @@ function ico(id){return ICON[id]?`<img src="${ICON[id]}" alt="">`:`<span class="
 /* v5.10.251: the page is plain http on the home network, where phones give
    no clipboard API; copying through a selected text box works there, and
    only the code itself is copied (Safari copied the page's address) */
+/* v5.10.402: text pasted from chats and notes carries direction marks and
+   zero-width spaces (an Arabic keyboard adds them) or a sentence around the
+   link; the TV cleans it too, the page cleans it as it lands */
+const INVIS=/[\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff\u00a0]/g;
+const cleanText=v=>String(v||'').replace(INVIS,'').trim();
+function cleanLink(v){v=cleanText(v);const m=v.match(/(?:stremio|https?):\/\/[^\s<>"']+/i);return (m?m[0]:v).replace(/[.,;)\]]+$/,'')}
+document.addEventListener('paste',e=>{
+  const t=e.target;if(!(t instanceof HTMLInputElement)||!t.classList.contains('ltr')||t.type==='password')return;
+  setTimeout(()=>{const v=t.id==='adUrl'?cleanLink(t.value):cleanText(t.value);if(v!==t.value)t.value=v},0);
+});
+/* v5.10.402: the cards are drawn again on every poll and when the page comes
+   back to the front, which wiped what was typed or pasted (the server address
+   while you went to copy the password); typed text, the caret and open
+   sections survive a redraw */
+function keepInputs(box,draw){
+  const vals={},open=new Set(),a=document.activeElement;let focus=null;
+  box.querySelectorAll('input[id]').forEach(x=>{if(x.type!=='checkbox'&&x.type!=='radio'&&x.value)vals[x.id]=x.value});
+  box.querySelectorAll('details[id][open]').forEach(d=>open.add(d.id));
+  if(a&&a.id&&box.contains(a)){focus={id:a.id};try{focus.s=a.selectionStart;focus.e=a.selectionEnd}catch(_){}}
+  draw();
+  for(const [id,v] of Object.entries(vals)){const x=document.getElementById(id);if(x&&!x.value)x.value=v}
+  open.forEach(id=>{const d=document.getElementById(id);if(d)d.open=true});
+  if(focus){const x=document.getElementById(focus.id);if(x){x.focus({preventScroll:true});try{if(focus.s!=null)x.setSelectionRange(focus.s,focus.e)}catch(_){}}}
+}
 function copyText(text){
   text=String(text||'');
   if(navigator.clipboard&&window.isSecureContext){return navigator.clipboard.writeText(text)}
@@ -1025,33 +1049,38 @@ function siloBody(id,s,m){
     return `<p class="hint">وافقت ✓ اختر البروفايل:</p>
       <div class="profs">${p.profiles.map(x=>`<button type="button" class="prof" data-act="silopick" data-pid="${esc(x.id)}" aria-pressed="${x.id===siloPick}"><span class="av">${esc(String(x.name||'?').slice(0,1).toUpperCase())}</span><b dir="auto">${esc(x.name)}</b><small>${x.pin?'🔒 PIN':'مفتوح'}</small></button>`).join('')}</div>
       ${pr&&pr.pin?`<div class="field"><label for="pin-silo">PIN بروفايل ${esc(pr.name)}</label><input class="inp ltr" id="pin-silo" type="password" inputmode="numeric" autocomplete="off"></div>`:''}
-      ${pr?`<div class="row"><button class="btn p" data-act="siloprof" type="button">ادخل بـ ${esc(pr.name)}</button></div>`:''}`;
+      ${pr?`<div class="row"><button class="btn p" data-act="siloprof" type="button">ادخل بـ ${esc(pr.name)}</button></div>`:''}
+      <button class="btn g s" data-act="silocancel" type="button">ابدأ من جديد</button>`;
   }
   if(p.status==='pending'&&p.url){
     return `${p.code?`<div class="code"><div class="c">${esc(p.code)}</div><button class="btn g s" data-act="copy" data-code="${esc(p.code)}" type="button">انسخ</button></div>`:''}
       <div class="row"><a class="btn p" href="${esc(p.url)}" target="_blank" rel="noopener">افتح موقع Silo</a></div>
-      <p class="hint">سجّل دخولك في موقع Silo ووافق على ربط Dex Hub، وبعدها ترجع هنا تختار البروفايل.</p>`;
+      ${p.server?`<p class="hint">السيرفر: <span class="ltr">${esc(p.server)}</span></p>`:''}
+      <p class="hint">سجّل دخولك في موقع Silo ووافق على ربط Dex Hub، وبعدها ترجع هنا تختار البروفايل.</p>
+      <button class="btn g s" data-act="silocancel" type="button">ابدأ من جديد</button>`;
   }
   const again=p.status&&!['pending','profile'].includes(p.status)?'<p class="hint">انتهى الطلب قبل الموافقة، ابدأ من جديد.</p>':'';
-  return `${again}<div class="field"><label for="a-${id}">عنوان السيرفر</label><input class="inp ltr" id="a-${id}" inputmode="url" autocomplete="off" placeholder="${m.ph||''}"></div>
+  return `${again}<div class="field"><label for="a-${id}">عنوان السيرفر</label><input class="inp ltr" id="a-${id}" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${m.ph||''}" value="${esc(siloServer())}"></div>
+    <p class="hint">مثل <span class="ltr">silo.example.com</span> أو <span class="ltr">192.168.1.10:8090</span>، والرابط المنسوخ من المتصفح يشتغل بعد.</p>
     <div class="row"><button class="btn p" data-act="silosite" data-id="${id}" type="button">افتح Silo وسجّل</button></div>
     <p class="hint">ينفتح موقع Silo في الجوال، تسجّل وتوافق، وبعدها تختار البروفايل هنا.</p>
-    <details class="man"><summary>أو بالاسم وكلمة المرور</summary>
+    <details class="man" id="man-${id}"><summary>أو بالاسم وكلمة المرور</summary>
       <div class="field"><label for="u-${id}">اسم المستخدم</label><input class="inp ltr" id="u-${id}" autocomplete="username"></div>
       <div class="field"><label for="p-${id}">كلمة المرور</label><input class="inp ltr" id="p-${id}" type="password" autocomplete="current-password"></div>
       <div class="row"><button class="btn g" data-act="login" data-id="${id}" type="button">اربط</button></div>
     </details>`;
 }
+function siloServer(v){try{if(v===undefined)return localStorage.getItem('dexhub.phone.silo')||'';localStorage.setItem('dexhub.phone.silo',v)}catch(e){}return ''}
 function siloProfiles(j){
   if(j.linked){toast('Silo انربط ✓');return refresh()}
   svc('silo').pairing={status:'profile',profiles:j.profiles||[]};siloPick='';renderAcc();
 }
 function renderAcc(){
   const list=ORDER.filter(id=>chosen.has(id));
-  $('#acc').innerHTML=list.map(id=>{
+  keepInputs($('#acc'),()=>$('#acc').innerHTML=list.map(id=>{
     const s=svc(id);
     const st=s.linked?'<span class="pill on">مربوط</span>':(s.pairing&&s.pairing.status==='pending'?'<span class="pill wait">ينتظر موافقتك</span>':(s.pairing&&s.pairing.status==='profile'?'<span class="pill wait">اختر البروفايل</span>':'<span class="pill">غير مربوط</span>'));
-    return `<div class="card" id="c-${id}"><div class="ch">${ico(id)}<div class="n"><b>${esc(s.name)}</b><span>${(SVC_META[id]||{}).sub||''}</span></div>${st}</div>${cardBody(id)}</div>`}).join('');
+    return `<div class="card" id="c-${id}"><div class="ch">${ico(id)}<div class="n"><b>${esc(s.name)}</b><span>${(SVC_META[id]||{}).sub||''}</span></div>${st}</div>${cardBody(id)}</div>`}).join(''));
   $('#accEmpty').hidden=list.length>0;
   const n=list.filter(id=>svc(id).linked).length;
   $('#accCount').textContent=list.length?`${n} من ${list.length} مربوط`:'';
@@ -1063,7 +1092,7 @@ function pollAccounts(){
   const waiting=ORDER.some(id=>{const p=svc(id).pairing;return p&&p.status==='pending'});
   if(!waiting)return;
   pollTimer=setTimeout(async()=>{
-    try{const st=await getState();const before=ORDER.filter(id=>svc(id).linked);S.services=st.services;S.addons=st.addons;S.home=st.home;S.meta=st.meta;
+    try{const st=await getState();const before=ORDER.filter(id=>svc(id).linked);S.services=st.services;S.addons=st.addons;if(!rowsBusy())S.home=st.home;S.meta=st.meta;
       ORDER.forEach(id=>{if(svc(id).linked&&!before.includes(id))toast(svc(id).name+' انربط ✓')});
       renderAcc();renderAd();renderHome();renderMeta();}catch(e){}
     pollAccounts();
@@ -1084,12 +1113,13 @@ document.addEventListener('click',async e=>{
   if(a.dataset.act==='code'){a.disabled=true;a.textContent='يجهز الرمز…';const j=await post('code',{service:id},true);
     if(j.ok){svc(id).pairing={code:j.code,url:j.url,status:'pending'};renderAcc();pollAccounts();if(!j.code&&j.url)window.open(j.url,'_blank')}else{renderAcc()}return}
   if(a.dataset.act==='silosite'){
-    const ad=$('#a-silo');if(!ad.value.trim()){ad.focus();toast('اكتب عنوان السيرفر');return}
+    const ad=$('#a-silo');ad.value=cleanText(ad.value);if(!ad.value){ad.focus();toast('اكتب عنوان السيرفر');return}
+    siloServer(ad.value);
     // a tab opened now, inside the tap, is not blocked; the Silo page loads in it once the TV answers
     let w=null;try{w=window.open('about:blank','_blank')}catch(e){}
     a.disabled=true;a.textContent='يفتح Silo…';
-    const j=await post('code',{service:'silo',server:ad.value.trim()},true);
-    if(j.ok&&j.url){svc('silo').pairing={code:j.code,url:j.url,status:'pending'};renderAcc();pollAccounts();
+    const j=await post('code',{service:'silo',server:ad.value},true);
+    if(j.ok&&j.url){svc('silo').pairing={code:j.code,url:j.url,server:j.server||'',status:'pending'};renderAcc();pollAccounts();
       if(w){try{w.location.href=j.url}catch(e){w=null}}if(!w)window.location.href=j.url;}
     else{if(w)try{w.close()}catch(e){}renderAcc()}
     return}
@@ -1099,6 +1129,10 @@ document.addEventListener('click',async e=>{
     const j=await post('profile',{index:Number(a.dataset.index),link:true},true);
     if(j&&j.ok){toast('Nuvio انربط ✓');if(j.partial&&j.partial.length)toast('بعض البيانات تنتظر المزامنة');await refresh();}
     else{renderAcc()}
+    return}
+  if(a.dataset.act==='silocancel'){
+    a.disabled=true;const j=await post('silo',{op:'cancel'},true);
+    if(j.ok){svc('silo').pairing=null;siloPick='';renderAcc()}else a.disabled=false;
     return}
   if(a.dataset.act==='silopick'){siloPick=a.dataset.pid;renderAcc();const pin=$('#pin-silo');if(pin)pin.focus();return}
   if(a.dataset.act==='siloprof'){
@@ -1110,7 +1144,9 @@ document.addEventListener('click',async e=>{
   if(a.dataset.act==='tv'){const j=await post('tv',{service:id},true);if(j.ok)toast('انفتح على التلفزيون، كمّل هناك');setTimeout(refresh,8000);return}
   if(a.dataset.act==='login'){
     const u=$('#u-'+id),pw=$('#p-'+id),ad=$('#a-'+id);
+    if(ad){ad.value=cleanText(ad.value);u.value=cleanText(u.value)}
     if(ad&&!ad.value.trim()){ad.focus();toast('اكتب عنوان السيرفر');return}
+    if(id==='silo')siloServer(ad.value);
     if(id!=='iptv'&&(!u.value.trim()||!pw.value)){(u.value.trim()?pw:u).focus();toast('اكتب البيانات أول');return}
     a.disabled=true;a.textContent='يربط…';
     const j=await post('login',{service:id,server:ad?ad.value.trim():'',user:u.value.trim(),password:pw.value},true);
@@ -1127,8 +1163,8 @@ function renderAd(){
    :'<div class="ad"><div class="n"><span style="direction:inherit;text-align:start">ما فيه إضافات بعد</span></div></div>';
 }
 $('#adList').addEventListener('click',async e=>{const b=e.target.closest('[data-rm]');if(!b)return;b.disabled=true;const j=await post('addon',{op:'remove',id:b.dataset.rm},true);if(j.ok){S.addons=j.addons;renderAd();toast('انشالت الإضافة')}});
-$('#adForm').addEventListener('submit',async e=>{e.preventDefault();const v=$('#adUrl').value.trim();
-  if(!/^(https?|stremio):\/\/.+/i.test(v)){toast('الصق رابط manifest كامل');return}
+$('#adForm').addEventListener('submit',async e=>{e.preventDefault();const v=cleanLink($('#adUrl').value);$('#adUrl').value=v;
+  if(!/^(https?|stremio):\/\/[^\s]+$/i.test(v)){toast('الصق رابط الإضافة كامل، يبدأ بـ https:// أو stremio://','err');$('#adUrl').focus();return}
   const btn=$('#adForm button');btn.disabled=true;btn.textContent='يضيف…';
   const j=await post('addon',{op:'add',url:v},true);btn.disabled=false;btn.textContent='أضف';
   if(j.ok){S.addons=j.addons;$('#adUrl').value='';renderAd();toast('انضافت الإضافة ✓');refresh()}});
@@ -1227,7 +1263,13 @@ function renderTabs(){
   $('#ptabs').innerHTML=P.map(p=>{const h=PG[p.key];const n=h?h.rows.filter(r=>!r.hidden).length:'';
     return `<button class="ptab" role="tab" type="button" data-p="${p.key}" aria-selected="${p.key===page}"><span>${esc(p.label)}</span>${n!==''?`<em>${n}</em>`:''}</button>`}).join('');
 }
+/* v5.10.402: a poll or a return to the page drew the TV's older order over a
+   move still being saved (the row jumped back) and rebuilt the list under a
+   finger mid-drag; while either is going on the rows are left alone */
+let arrangeSeq=0,arranging=false;
+const rowsBusy=()=>arranging||$('#rows').classList.contains('dragging');
 function renderHome(scroll){
+  if(rowsBusy())return;
   if(S.home&&S.home!==lastState){lastState=S.home;PG.all=S.home}
   rows=(home().rows||[]).map(r=>Object.assign({},r,{label:clean(r.label)}));
   if(selRow>=rows.length)selRow=Math.max(0,rows.length-1);
@@ -1261,10 +1303,13 @@ async function openPage(p){
 $('#ptabs').addEventListener('click',e=>{const b=e.target.closest('[data-p]');if(b)openPage(b.dataset.p)});
 async function warmPages(){for(const p of ((PG.all||{}).pages||[])){if(!PG[p.key]){if(await view(p.key))renderTabs()}}}
 let arrangeTimer=null;
-function saveArrange(msg){const p=page,list=rows.slice();clearTimeout(arrangeTimer);arrangeTimer=setTimeout(async()=>{
+function saveArrange(msg){const p=page,list=rows.slice(),seq=++arrangeSeq;arranging=true;clearTimeout(arrangeTimer);arrangeTimer=setTimeout(async()=>{
   const hidden={};list.forEach(r=>hidden[r.key]=!!r.hidden);
   const j=await post('home',{page:p,op:'arrange',order:list.map(r=>r.key),hidden},true);
-  if(j.ok){keep(j.home);if(p===page)renderTabs();toast(msg)}},450)}
+  if(seq!==arrangeSeq)return;             // a newer move is on its way and saves the full order
+  arranging=false;
+  if(j.ok){keep(j.home);if(p===page&&!rowsBusy())renderHome();toast(msg)}
+  else view(p).then(h=>{if(h&&p===page&&!rowsBusy())renderHome()})},450)}
 function commit(){home().rows=rows;renderTabs()}
 function move(from,to,msg){if(to<0||to>=rows.length||from===to)return;const [r]=rows.splice(from,1);rows.splice(to,0,r);selRow=to;commit();draw(true);saveArrange(msg||'انحفظ الترتيب')}
 $('#rows').addEventListener('click',async e=>{
@@ -1843,6 +1888,8 @@ Object.assign(exact,{'الصفحات والصفوف':'Pages & rows','رتّب ك
 'تقدّم المشاهدة':'Watch progress','كتالوج':'Catalog','مجموعة':'Collection','كوليكشن':'Collection','صف مضاف':'Added row','غير متاح الآن':'Not available now',
 'يجيب الصفوف…':'Loading rows…','السيرفرات تطلع هنا بعد ما تنقرا':'Your servers show here once they are read','رجع الترتيب الأصلي':'Back to the original order',
 'صار أول صف':'Moved to the top','صار آخر صف':'Moved to the bottom','انحفظ الترتيب':'Order saved'});
+Object.assign(exact,{'ابدأ من جديد':'Start over','السيرفر:':'Server:','الصق رابط الإضافة كامل، يبدأ بـ https:// أو stremio://':'Paste the full add-on link, starting with https:// or stremio://',
+'مثل':'For example','أو':'or','والرابط المنسوخ من المتصفح يشتغل بعد.':'A link copied from the browser works too.'});
 /* v5.10.286: the labels of the redesigned page (main script, window.DEX_I18N); existing entries win */
 for(const [a,b] of Object.entries(window.DEX_I18N||{}))if(!Object.hasOwn(exact,a))exact[a]=b;
 Object.assign(exact,{'الحسابات والمصادر':'Accounts & sources','اختر اللي عندك فقط واربطه':'Pick the ones you use and link them','إضافات المصادر · Stremio وNuvio':'Source add-ons · Stremio & Nuvio',

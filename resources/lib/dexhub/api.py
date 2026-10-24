@@ -1,11 +1,17 @@
 # -*- coding: utf-8 -*-
 from . import client, store
-from .links import manifest_link
+from .links import manifest_link, manifest_variants
 
 
 def add_provider_from_url(manifest_url, name=None):
-    manifest_url = manifest_link(manifest_url)
-    manifest = client.validate_manifest(manifest_url)
+    tries = manifest_variants(manifest_url) or [manifest_link(manifest_url)]
+    for index, manifest_url in enumerate(tries):
+        try:
+            manifest = client.validate_manifest(manifest_url)
+            break
+        except Exception:
+            if index == len(tries) - 1:
+                raise
     pname = name or manifest.get('name') or manifest.get('id') or 'Provider'
     return store.add_provider(pname, manifest_url, manifest)
 

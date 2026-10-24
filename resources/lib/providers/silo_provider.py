@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 
 import json
+import re
 import threading
 import time
 import uuid
@@ -31,6 +32,78 @@ def _base(url):
     if value and not value.startswith(('http://', 'https://')):
         value = 'http://' + value
     return value
+
+
+# Typed or pasted server addresses (phone page and TV keyboard). Text copied
+# from chats and notes carries direction marks and zero-width spaces, often a
+# page of the web app (/login, /#/home) or the API root rather than the server.
+_INVISIBLE = re.compile('[\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff\u00a0]')
+_UI_TAILS = ('/api/v2', '/api/v1', '/api', '/login', '/signin', '/sign-in', '/device', '/activate',
+             '/link', '/pair', '/web', '/index.html')
+
+
+def _private_host(host):
+    host = host.lower()
+    if host in ('localhost',) or host.endswith(('.local', '.lan', '.home', '.internal')):
+        return True
+    parts = host.split('.')
+    if len(parts) == 4 and all(x.isdigit() for x in parts):
+        a, b = int(parts[0]), int(parts[1])
+        return a in (10, 127) or (a == 192 and b == 168) or (a == 172 and 16 <= b <= 31) or (a == 100 and 64 <= b <= 127)
+    return ':' in host            # bare IPv6
+
+
+def server_candidates(url):
+    """The server roots to try for an address as typed, best guess first.
+
+    With a scheme that one only; without, LAN hosts and explicit ports try
+    http first (Silo's own examples), public names https first."""
+    text = _INVISIBLE.sub('', str(url or '')).strip().strip('\'"<>').strip()
+    found = re.search(r'https?://\S+', text, re.I)
+    if found:
+        text = found.group(0)
+    elif ' ' in text:
+        text = text.split()[-1]
+    text = text.split('#', 1)[0].split('?', 1)[0].rstrip('/.,;')
+    if not text:
+        return []
+    explicit = re.match(r'(https?)://', text, re.I)
+    rest = text[explicit.end():] if explicit else re.sub(r'^[a-z]+://', '', text, flags=re.I)
+    host, _sep, path = rest.partition('/')
+    path = '/' + path if path else ''
+    lowered = path.lower()
+    for tail in _UI_TAILS:
+        if lowered.endswith(tail):
+            path, lowered = path[:-len(tail)], lowered[:-len(tail)]
+            break
+    root = host + path.rstrip('/')
+    if explicit:
+        return [explicit.group(1).lower() + '://' + root]
+    bare = host.rsplit(':', 1)[0] if host.count(':') == 1 else host.strip('[]')
+    order = ('http', 'https') if (_private_host(bare) or host.count(':') == 1) else ('https', 'http')
+    return [scheme + '://' + root for scheme in order]
+
+
+def _first_server(url, call):
+    """``call(root)`` on each candidate root. A server that answered over
+    HTTP (wrong password, PIN, ...) is final; no answer on the first guess
+    (refused, TLS, not Silo) moves on to the other scheme."""
+    roots = server_candidates(url)
+    if not roots:
+        raise SiloError('أدخل عنوان سيرفر Silo')
+    first = None
+    for root in roots:
+        try:
+            return call(root)
+        except HTTPError:
+            raise
+        except SiloError as exc:
+            if exc.status:
+                raise
+            first = first or exc
+        except Exception as exc:
+            first = first or SiloError('%s' % exc)
+    raise first
 
 
 def account():
@@ -273,14 +346,13 @@ def _account_tokens(seed, value):
 
 
 def login_account(url, username, password=''):
-    root = _base(url)
-    if not root:
-        raise SiloError('أدخل عنوان سيرفر Silo')
-    seed = {'url': root, 'backend': 'silo'}
-    value = _api('auth/login', method='POST', data={
-        'username': str(username or '').strip(), 'password': str(password or '')
-    }, auth=seed, profile=False)
-    return _account_tokens(seed, value)
+    def attempt(root):
+        seed = {'url': root, 'backend': 'silo'}
+        value = _api('auth/login', method='POST', data={
+            'username': str(username or '').strip(), 'password': str(password or '')
+        }, auth=seed, profile=False)
+        return _account_tokens(seed, value)
+    return _first_server(url, attempt)
 
 
 def sign_in(url, username, password=''):
@@ -358,13 +430,14 @@ def refresh(auth=None):
 
 
 def start_device_login(url):
-    root = _base(url)
-    seed = {'url': root, 'backend': 'silo'}
-    value = _api('auth/device/start', method='POST', data={
-        'device_name': 'Dex Hub on Kodi', 'device_platform': 'kodi'
-    }, auth=seed, profile=False)
-    value['_server_url'] = root
-    return value
+    def attempt(root):
+        seed = {'url': root, 'backend': 'silo'}
+        value = _api('auth/device/start', method='POST', data={
+            'device_name': 'Dex Hub on Kodi', 'device_platform': 'kodi'
+        }, auth=seed, profile=False)
+        value['_server_url'] = root
+        return value
+    return _first_server(url, attempt)
 
 
 def poll_device_login(pairing):

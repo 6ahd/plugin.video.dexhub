@@ -454,6 +454,7 @@ class Session(object):
         self.done = False
         self.codes = {}             # service: {code, url, link, status, error}
         self.silo_pending = None    # a Silo account waiting for its profile
+        self.silo_gen = 0           # bumped by a new pairing or a cancel; stale polls stop
         self.stremio_job = None
         self.changes = 0
         self.uploads = {}
@@ -849,6 +850,7 @@ class Session(object):
             self._servers_changed(service)
         elif service == 'silo':
             from .providers import silo_provider
+            self._silo_reset()
             silo_provider.sign_out()
             self._servers_changed('silo')
         elif service == 'trakt':
@@ -913,19 +915,32 @@ class Session(object):
             server = str(body.get('server') or '').strip()
             if not server:
                 raise ValueError(_tr('اكتب عنوان السيرفر'))
-            if '://' not in server:
-                server = 'https://' + server
+            # v5.10.402: the address goes as typed; the provider cleans pasted
+            # text and tries http for LAN addresses (https was forced here, so
+            # 192.168.x.x:port servers never answered from the phone)
             pairing = silo_provider.start_device_login(server)
             url = str(pairing.get('verification_uri_complete') or pairing.get('verification_uri') or '')
-            info = {'code': str(pairing.get('user_code') or ''), 'url': url, 'status': 'pending'}
+            info = {'code': str(pairing.get('user_code') or ''), 'url': url, 'status': 'pending',
+                    'server': str(pairing.get('_server_url') or '')}
+            with self.lock:
+                self.silo_gen += 1
+                gen = self.silo_gen
+            approved = {}
 
             def poll():
-                status, value = silo_provider.poll_device_login(pairing)
-                if status == 'approved' and isinstance(value, dict) and value.get('token'):
-                    return 'ok' if self._silo_profiles(value).get('linked') else 'profile'
-                if status in ('denied', 'expired', 'consumed'):
-                    return status
-                return 'pending'
+                with self.lock:
+                    if gen != self.silo_gen:
+                        return 'cancelled'
+                if not approved:
+                    status, value = silo_provider.poll_device_login(pairing)
+                    if status in ('denied', 'expired', 'consumed'):
+                        return status
+                    if not (status == 'approved' and isinstance(value, dict) and value.get('token')):
+                        return 'pending'
+                    approved.update(value)
+                # the device code is spent once approved: a failed profile
+                # read retries with the same tokens instead of polling again
+                return 'ok' if self._silo_profiles(dict(approved)).get('linked') else 'profile'
             every = max(2, min(int(pairing.get('interval') or 5), 10))
             life = max(60, min(int(pairing.get('expires_in') or 300), 900))
         else:
@@ -955,6 +970,8 @@ class Session(object):
                 break
         if status == 'profile':
             return                      # the phone picks the profile now
+        if status == 'cancelled' and service == 'silo':
+            return                      # a newer pairing (or a cancel) owns the card now
         with self.lock:
             if service in self.codes:
                 self.codes[service]['status'] = status if status != 'pending' else 'expired'
@@ -1018,9 +1035,18 @@ class Session(object):
         _log('silo linked from the phone (%s)' % (profile.get('name') or '?'))
         self._servers_changed('silo')
 
+    def _silo_reset(self):
+        with self.lock:
+            self.silo_gen += 1
+            self.silo_pending = None
+            self.codes.pop('silo', None)
+
     def silo(self, body):
         """The profile picked on the phone (with its PIN when it has one)."""
         from .providers import silo_provider
+        if body.get('op') == 'cancel':
+            self._silo_reset()      # v5.10.402: start over from the phone
+            return {'ok': True}
         with self.lock:
             pending = dict(self.silo_pending or {})
         profile = (pending.get('profiles') or {}).get(str(body.get('profile') or ''))
