@@ -11,7 +11,8 @@ a release never depends on a hand-edited output:
   second line); no videowindow inside list layouts (Kodi refuses them:
   "unsupported control type 35", one warning per card); "Ends at" only when
   the item has a duration (Kodi reports the current time for 0); the loading
-  artwork window over the title page (zorder 3, 3.28.126)
+  artwork window over the title page (zorder 3, 3.28.126); add-on and file
+  icons in the Add-ons and File manager lists as rounded squares (3.28.127)
 * media/Textures.xbt: the images packed with ``TexturePacker -dupecheck``, as
   Kodi's own skins ship them (the PNGs stay for full-path lookups), or an
   .xbt built elsewhere with --xbt
@@ -32,6 +33,9 @@ import xml.etree.ElementTree as ET
 PLOT_RE = re.compile(r'(<control type="textbox">(?:(?!</control>).)*?<height>)60'
                      r'(</height>(?:(?!</control>).)*?\$VAR\[DhsHeroPlot\])', re.S)
 VIDEO_RE = re.compile(r'\s*<control type="videowindow">(?:(?!<control).)*?</control>', re.S)
+CIRCLE_RE = re.compile(r'(<control type="image">\s*)(<texture background="true" fallback="DefaultFolder.png") '
+                       r'diffuse="af3/diffuse/circle/provider_circle.png">(\$INFO\[ListItem\.Icon\]</texture>\s*'
+                       r'<aspectratio>keep</aspectratio>\s*)<bordersize>20</bordersize>')
 ZORDER_RE = re.compile(r'(<window\b[^>]*\bid="1161"[^>]*>(?:(?!</window>).)*?<zorder>)0(</zorder>)', re.S)
 END_RE = re.compile(r'<value condition="([^"]*)">((?:(?!</value>).)*ListItem\.EndTime(?:(?!</value>).)*)</value>')
 
@@ -58,6 +62,15 @@ def raise_loading(text):
     the add-on's source windows. At zorder 0 it was drawn under the title
     page, which stays open until the video starts, so it was never seen."""
     return ZORDER_RE.subn(r'\g<1>3\2', text)
+
+
+def square_icons(text):
+    """3.28.127: the Add-ons and File manager lists drew an add-on's icon
+    through a 40 px circle stretched to 80 (blurred edges, corners of the
+    square icons cut off) inside a 20 px bordersize. Now the rounded square
+    of Settings' lists, 48 px in the middle of its 80 px place."""
+    return CIRCLE_RE.subn(r'\1<left>16</left><top>16</top><width>48</width><height>48</height>'
+                          r'\2 diffuse="af3/diffuse/square_w120_h120.png">\3', text)
 
 
 def guard_end_time(text):
@@ -126,11 +139,13 @@ def main(argv=None):
         shutil.rmtree(out)
     shutil.copytree(src, out, ignore=shutil.ignore_patterns('__pycache__', '*.compact'))
 
-    totals = {'plot': 0, 'videowindow': 0, 'end_time': 0, 'loading': 0}
+    totals = {'plot': 0, 'videowindow': 0, 'end_time': 0, 'loading': 0, 'icons': 0}
     for path in glob.glob(os.path.join(out, 'xml', '*.xml')):
         text = open(path, encoding='utf-8').read()
         new, n = guard_end_time(text)
         totals['end_time'] += n
+        new, n = square_icons(new)
+        totals['icons'] += n
         if os.path.basename(path) == 'Custom_1161_PlaybackLoading.xml':
             new, n = raise_loading(new)
             totals['loading'] += n
@@ -143,7 +158,7 @@ def main(argv=None):
             with open(path, 'w', encoding='utf-8') as fh:
                 fh.write(new)
     print('fixed: %(plot)d plot boxes, %(videowindow)d card videowindows, %(end_time)d end times, '
-          '%(loading)d loading window order' % totals)
+          '%(loading)d loading window order, %(icons)d list icons' % totals)
 
     xbt = os.path.join(out, 'media', 'Textures.xbt')
     if args.xbt:
