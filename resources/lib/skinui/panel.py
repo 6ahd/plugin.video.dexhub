@@ -744,20 +744,22 @@ def _friend_items(got):
     for index, row in enumerate(got.get('rows') or []):
         wday, mday, when = _ago_words(row.get('at') or '')
         media = 'series' if row['kind'] == 'ep' else 'movie'
+        # short lines: what was watched, then who (a long episode name or
+        # person's name no longer runs into the rest)
         if row['kind'] == 'ep':
-            line = _t('م%d ح%d', 'S%d E%d') % (row['season'], row['episode'])
-            if row.get('more'):
-                line += '  ·  ' + _t('و%d حلقات قبلها', '+%d more') % row['more']
+            line = '  ·  '.join(x for x in (_t('م%d ح%d', 'S%d E%d') % (row['season'], row['episode']),
+                                            row.get('ep_title') or '') if x)
         else:
             line = '  ·  '.join(x for x in (_t('فيلم', 'Movie'), str(row.get('year') or '')) if x)
-        props = {'kind': 'work', 'wday': wday, 'mday': mday, 'when': when,
-                 'badge': _t('شافه %s', 'Watched by %s') % row.get('user', ''),
-                 'epname': row.get('ep_title') or '',
+        who = row.get('user', '')
+        if row.get('more'):
+            who += '  ·  ' + _t('+%d حلقات', '+%d episodes') % row['more']
+        props = {'kind': 'work', 'wday': wday, 'mday': mday, 'when': when, 'badge': who,
                  'dhs.target': _open_url({'m': media, 'title': row.get('title') or '', 'imdb': row.get('imdb') or '',
                                           'tmdb': row.get('tmdb') or '',
                                           'id': row.get('imdb') or ('tmdb:%s' % row['tmdb'] if row.get('tmdb') else '')})}
         if index == 0:
-            props['kick'] = _t('من تتابعهم في Trakt', 'PEOPLE YOU FOLLOW ON TRAKT')
+            props['kick'] = _t('Trakt', 'TRAKT')
         items.append({'label': row.get('title') or '', 'label2': line, 'path': '', 'folder': False,
                       'art': {'thumb': row.get('fanart') or row.get('poster') or '', 'poster': row.get('poster') or '',
                               'landscape': row.get('fanart') or '', 'fanart': row.get('fanart') or ''},

@@ -10,7 +10,8 @@ a release never depends on a hand-edited output:
 * fixes (skin 3.28.123/124): the hero plot text box 68 high (60 clipped its
   second line); no videowindow inside list layouts (Kodi refuses them:
   "unsupported control type 35", one warning per card); "Ends at" only when
-  the item has a duration (Kodi reports the current time for 0)
+  the item has a duration (Kodi reports the current time for 0); the loading
+  artwork window over the title page (zorder 3, 3.28.126)
 * media/Textures.xbt: the images packed with ``TexturePacker -dupecheck``, as
   Kodi's own skins ship them (the PNGs stay for full-path lookups), or an
   .xbt built elsewhere with --xbt
@@ -31,6 +32,7 @@ import xml.etree.ElementTree as ET
 PLOT_RE = re.compile(r'(<control type="textbox">(?:(?!</control>).)*?<height>)60'
                      r'(</height>(?:(?!</control>).)*?\$VAR\[DhsHeroPlot\])', re.S)
 VIDEO_RE = re.compile(r'\s*<control type="videowindow">(?:(?!<control).)*?</control>', re.S)
+ZORDER_RE = re.compile(r'(<window\b[^>]*\bid="1161"[^>]*>(?:(?!</window>).)*?<zorder>)0(</zorder>)', re.S)
 END_RE = re.compile(r'<value condition="([^"]*)">((?:(?!</value>).)*ListItem\.EndTime(?:(?!</value>).)*)</value>')
 
 
@@ -49,6 +51,13 @@ def drop_layout_videowindows(text):
             last, gone = m.end(), gone + 1
     out.append(text[last:])
     return ''.join(out), gone
+
+
+def raise_loading(text):
+    """3.28.126: the loading artwork (Custom_1161) over the title page and
+    the add-on's source windows. At zorder 0 it was drawn under the title
+    page, which stays open until the video starts, so it was never seen."""
+    return ZORDER_RE.subn(r'\g<1>3\2', text)
 
 
 def guard_end_time(text):
@@ -117,11 +126,14 @@ def main(argv=None):
         shutil.rmtree(out)
     shutil.copytree(src, out, ignore=shutil.ignore_patterns('__pycache__', '*.compact'))
 
-    totals = {'plot': 0, 'videowindow': 0, 'end_time': 0}
+    totals = {'plot': 0, 'videowindow': 0, 'end_time': 0, 'loading': 0}
     for path in glob.glob(os.path.join(out, 'xml', '*.xml')):
         text = open(path, encoding='utf-8').read()
         new, n = guard_end_time(text)
         totals['end_time'] += n
+        if os.path.basename(path) == 'Custom_1161_PlaybackLoading.xml':
+            new, n = raise_loading(new)
+            totals['loading'] += n
         if os.path.basename(path) == 'Home.xml':
             new, n = fix_plot(new)
             totals['plot'] += n
@@ -130,7 +142,8 @@ def main(argv=None):
         if new != text:
             with open(path, 'w', encoding='utf-8') as fh:
                 fh.write(new)
-    print('fixed: %(plot)d plot boxes, %(videowindow)d card videowindows, %(end_time)d end times' % totals)
+    print('fixed: %(plot)d plot boxes, %(videowindow)d card videowindows, %(end_time)d end times, '
+          '%(loading)d loading window order' % totals)
 
     xbt = os.path.join(out, 'media', 'Textures.xbt')
     if args.xbt:

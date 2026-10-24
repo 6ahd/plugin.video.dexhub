@@ -50,6 +50,11 @@ def cancel(owner):
         home.clearProperty(PREFIX + key)
 
 
+def _skip(why):
+    xbmc.log('[DexHub] loading art: not shown (%s)' % why, xbmc.LOGINFO)
+    return ''
+
+
 def prepare(ctx, art, stream_url, switching=False):
     from . import ui_preferences, profile_scope
     import xbmcvfs
@@ -59,7 +64,7 @@ def prepare(ctx, art, stream_url, switching=False):
     # old decoder or the switch marker was consumed by resume handling.
     if switching or ctx.get('source_switch_pending') or xbmc.Player().isPlayingVideo():
         cancel(current.get('owner'))
-        return ''
+        return _skip('source switch or a video playing')
     # v5.10.405: shown when the source is chosen, then asked again at the
     # hand-off: the same source keeps its artwork (no flash, same timeout)
     if (current.get('owner') and current.get('fading') is None and
@@ -68,19 +73,20 @@ def prepare(ctx, art, stream_url, switching=False):
         return current['owner']
     cancel(current.get('owner'))
     if not ui_preferences.enabled('player_loading_art'):
-        return ''
+        return _skip('turned off in the settings')
     if xbmc.getSkinDir() not in ('skin.dexhub', 'skin.dexhub.tvos'):
         return ''
     home = _home()
-    if not home.getProperty(PREFIX + 'service') or not xbmcvfs.exists(
-            'special://skin/xml/Custom_1161_PlaybackLoading.xml'):
-        return ''
+    if not home.getProperty(PREFIX + 'service'):
+        return _skip('the service is not running')
+    if not xbmcvfs.exists('special://skin/xml/Custom_1161_PlaybackLoading.xml'):
+        return _skip('the skin has no loading window')
     art = art if isinstance(art, dict) else {}
     fanart = str(art.get('fanart') or art.get('landscape') or '')
     logo = str(art.get('clearlogo') or art.get('tvshow.clearlogo') or art.get('logo') or '')
     # No new metadata/network request on the playback handoff.
     if not fanart:
-        return ''
+        return _skip('the title has no backdrop')
     owner = uuid.uuid4().hex
     state = {'owner':owner, 'source':_identity(stream_url),
              'previous':_playing_source(xbmc.Player()), 'created':time.monotonic(),
@@ -91,6 +97,7 @@ def prepare(ctx, art, stream_url, switching=False):
     home.setProperty(PREFIX + 'state', json.dumps(state))
     home.setProperty(PREFIX + 'phase', 'loading')
     home.setProperty(PREFIX + 'owner', owner)  # publish last; no empty-image flash
+    xbmc.log('[DexHub] loading art: shown', xbmc.LOGINFO)
     return owner
 
 

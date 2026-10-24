@@ -195,33 +195,37 @@ def _image(left, top, width, height, texture, color=None, visible=None, extra=''
 
 
 def review_card(cid, focused):
-    w, h = 600, 214
+    # 3.28.126: wider and taller (680 x 236), three whole lines of the review,
+    # the name scrolls when focused instead of running into the rating
+    w, h = 680, 236
     body = [CARD.format(w=w, h=h)]
     if focused:
         body.insert(0, GLOW.format(gl=-26, gt=-26, gw=w + 52, gh=h + 52, cid=cid))
-        body.append(_image(0, 22, 4, 52, 'dexhub/white.png', '$VAR[DhAccent]', 'Control.HasFocus(%d)' % cid))
+        body.append(_image(0, 24, 4, 52, 'dexhub/white.png', '$VAR[DhAccent]', 'Control.HasFocus(%d)' % cid))
     write = KIND % 'write'
+    rated = '!String.IsEmpty(ListItem.Property(dhs.rating))'
+    spoiler = '!String.IsEmpty(ListItem.Property(dhs.spoiler))'
+    scroll = '<scroll>true</scroll>' if focused else ''
     body += [
-        _image(24, 20, 56, 56, 'dexhub/circle.png', '$VAR[DhAccent]'),
-        _label(24, 20, 56, 56, 'font14', 'FFFFFFFF', '[B]$INFO[ListItem.Property(dhs.initial)][/B]', 'center'),
-        _label(98, 18, 360, 32, 'font12', 'FFFFFFFF', '[B]$INFO[ListItem.Label][/B]'),
-        _label(98, 48, 360, 28, 'font10', '99FFFFFF',
+        _image(24, 22, 56, 56, 'dexhub/circle.png', '$VAR[DhAccent]'),
+        _label(24, 22, 56, 56, 'font14', 'FFFFFFFF', '[B]$INFO[ListItem.Property(dhs.initial)][/B]', 'center'),
+        _label(98, 20, 420, 32, 'font12', 'FFFFFFFF', '[B]$INFO[ListItem.Label][/B]', extra=scroll),
+        _label(98, 50, 420, 28, 'font10', '99FFFFFF',
                '$INFO[ListItem.Property(dhs.src)]$INFO[ListItem.Property(dhs.date),  ·  ]', visible='!' + write),
-        _label(98, 48, 470, 28, 'font10', '99FFFFFF', '$INFO[ListItem.Label2]', visible=write),
-        _image(474, 26, 22, 22, 'dexhub/star.png', 'FFFFC24A', '!String.IsEmpty(ListItem.Property(dhs.rating))'),
-        _label(500, 20, 80, 34, 'font12', 'FFFFFFFF', '[B]$INFO[ListItem.Property(dhs.rating)][/B]/10',
-               visible='!String.IsEmpty(ListItem.Property(dhs.rating))'),
-        '<control type="textbox"><left>24</left><top>88</top><width>552</width><height>84</height><font>font10</font>'
+        _label(98, 50, 556, 28, 'font10', '99FFFFFF', '$INFO[ListItem.Label2]', visible=write),
+        _image(552, 28, 22, 22, 'dexhub/star.png', 'FFFFC24A', rated),
+        _label(578, 22, 80, 34, 'font12', 'FFFFFFFF', '[B]$INFO[ListItem.Property(dhs.rating)][/B]/10', visible=rated),
+        _image(24, 94, w - 48, 1, 'dexhub/white.png', '14FFFFFF'),
+        '<control type="textbox"><left>24</left><top>104</top><width>%d</width><height>90</height><font>font10</font>'
         '<textcolor>D9FFFFFF</textcolor><label>$INFO[ListItem.Label2]</label>'
-        '<visible>!%s + String.IsEmpty(ListItem.Property(dhs.spoiler))</visible></control>' % write,
-        _image(24, 96, 4, 32, 'dexhub/white.png', '66FFFFFF', '!String.IsEmpty(ListItem.Property(dhs.spoiler))'),
-        _label(40, 92, 536, 40, 'font10', '80FFFFFF', '[I]$INFO[ListItem.Label2][/I]',
-               visible='!String.IsEmpty(ListItem.Property(dhs.spoiler))'),
-        _label(24, 178, 300, 30, 'font10', '80FFFFFF', '$INFO[ListItem.Property(dhs.likes)]'),
+        '<visible>!%s + String.IsEmpty(ListItem.Property(dhs.spoiler))</visible></control>' % (w - 48, write),
+        _image(24, 110, 4, 32, 'dexhub/white.png', '66FFFFFF', spoiler),
+        _label(40, 106, w - 64, 40, 'font10', '80FFFFFF', '[I]$INFO[ListItem.Label2][/I]', visible=spoiler),
+        _label(24, 198, 300, 28, 'font10', '80FFFFFF', '$INFO[ListItem.Property(dhs.likes)]'),
         # writing one: what it does, under the name
-        '<control type="textbox"><left>24</left><top>96</top><width>552</width><height>84</height><font>font10</font>'
+        '<control type="textbox"><left>24</left><top>108</top><width>%d</width><height>90</height><font>font10</font>'
         '<textcolor>%s</textcolor><label>$INFO[ListItem.Property(dhs.hint)]</label><visible>%s</visible></control>' % (
-            'E6FFFFFF' if focused else '99FFFFFF', write),
+            w - 48, 'E6FFFFFF' if focused else '99FFFFFF', write),
     ]
     inner = ''.join(body)
     zoom = ZOOM.format(cid=cid) if focused else ''
@@ -302,9 +306,20 @@ def patch_includes(text):
     return text[:m.end()] + new + text[m.end():], True
 
 
+def _rows():
+    return (section(8808, REVIEWS, 'reviews', 'DhsTpReviewsPath', 704, 266, review_card, 260)
+            + section(8809, ARTWORK, 'artwork', 'DhsTpArtworkPath', 408, 300, artwork_card, 290))
+
+
 def patch_dialog(text, problems):
+    """(text, chains changed); a skin with the rows gets them drawn again
+    as this script draws them now (their cards change between releases)."""
     if 'id="%d"' % REVIEWS in text:
-        return text, 0
+        start = text.find('<control type="group" id="8808"')
+        end = _end_of(text, text.find('<control type="group" id="8809"'))
+        if start < 0 or end <= start:
+            raise ValueError('the rows are there but not as this script writes them')
+        return text[:start] + _rows() + text[end:], 0
     text, changed = patch_chains(text, 'DialogVideoInfo.xml', problems)
     load = '<onload>ClearProperty(dhs.tp.none.cast,home)</onload>'
     if load not in text:
@@ -315,9 +330,7 @@ def patch_dialog(text, problems):
     if start < 0:
         raise ValueError('no Cast section (group 8804)')
     end = _end_of(text, start)
-    rows = (section(8808, REVIEWS, 'reviews', 'DhsTpReviewsPath', 624, 244, review_card, 238)
-            + section(8809, ARTWORK, 'artwork', 'DhsTpArtworkPath', 408, 300, artwork_card, 290))
-    return text[:end] + rows + text[end:], changed
+    return text[:end] + _rows() + text[end:], changed
 
 
 # ------------------------------------------------------------------ the island
@@ -449,7 +462,7 @@ def main(argv=None):
     new['Includes_DexHub.xml'], vars_added = patch_includes(files['Includes_DexHub.xml'])
     new['DialogVideoInfo.xml'], n_dialog = patch_dialog(files['DialogVideoInfo.xml'], problems)
     n_designs = 0
-    if new['DialogVideoInfo.xml'] != files['DialogVideoInfo.xml']:
+    if 'id="%d"' % REVIEWS not in files['DialogVideoInfo.xml']:
         new['Includes_DexDesigns.xml'], n_designs = patch_chains(files['Includes_DexDesigns.xml'],
                                                                  'Includes_DexDesigns.xml', problems)
     base = re.search(r'plugin://([^/]+)/\?action=skin_cast', files['Includes_DexHub.xml']).group(1)

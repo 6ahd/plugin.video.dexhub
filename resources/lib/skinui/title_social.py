@@ -36,6 +36,15 @@ def _target(action, q, **extra):
     return C.BASE + '?' + urlencode([('action', action)] + sorted(extra.items())) + '&' + urlencode(sorted(q.items()))
 
 
+def _card(label, label2, target, props, art=None):
+    """One card. Its path runs the same target (skin_go answers the resolve):
+    Kodi 22 on CoreELEC played the card's empty path instead of the list's
+    onclick ("error opening []"), so a picked picture never applied."""
+    props = dict(props, **{'dhs.click': 'run', 'dhs.target': target})
+    return {'label': label, 'label2': label2, 'path': C.url('skin_go', do='run', u=target), 'folder': False,
+            'art': art or {}, 'props': props}
+
+
 def _work(title):
     media = 'series' if title.series else 'movie'
     tmdb = str(title.tmdb_id or title.hero.get('tmdb_id') or '')
@@ -71,10 +80,9 @@ def review_items(title, q):
     except Exception:
         linked = False
     if linked and (imdb or tmdb):
-        out.append({'label': _tr('اكتب مراجعتك'), 'label2': _tr('تنشر في Trakt باسمك'), 'path': '', 'folder': False,
-                    'art': {}, 'props': {'dhs.kind': 'write', 'dhs.initial': '+', 'dhs.click': 'run',
-                                         'dhs.hint': _tr('قل رأيك في العمل، تطلع مراجعتك هنا وفي Trakt للي يتابعونك'),
-                                         'dhs.target': _target('skin_review_write', q)}})
+        out.append(_card(_tr('اكتب مراجعتك'), _tr('تنشر في Trakt باسمك'), _target('skin_review_write', q),
+                         {'dhs.kind': 'write', 'dhs.initial': '+',
+                          'dhs.hint': _tr('قل رأيك في العمل، تطلع مراجعتك هنا وفي Trakt للي يتابعونك')}))
     try:
         rows = title_reviews.reviews(media, imdb, tmdb)
     except Exception:
@@ -86,10 +94,9 @@ def review_items(title, q):
                  'dhs.date': row.get('date') or '', 'dhs.spoiler': '1' if spoiler else '',
                  'dhs.rating': str(row.get('rating') or ''), 'dhs.stars': _stars(row.get('rating')),
                  'dhs.likes': (_tr('%d إعجاب') % int(row['likes'])) if row.get('likes') else '',
-                 'dhs.review': '1' if row.get('review') else '',
-                 'dhs.click': 'run', 'dhs.target': _target('skin_review_read', q, n=str(index))}
-        out.append({'label': row.get('author') or row.get('src') or '', 'label2': excerpt, 'path': '',
-                    'folder': False, 'art': {}, 'props': props})
+                 'dhs.review': '1' if row.get('review') else ''}
+        out.append(_card(row.get('author') or row.get('src') or '', excerpt,
+                         _target('skin_review_read', q, n=str(index)), props))
     return out
 
 
@@ -111,9 +118,8 @@ def artwork_items(title, q):
         lang = 'ar'
     out = []
     if mine:
-        out.append({'label': _tr('الصور الأصلية'), 'label2': _tr('ترجع صور العمل الأصلية'), 'path': '',
-                    'folder': False, 'art': {}, 'props': {'dhs.kind': 'reset', 'dhs.click': 'run',
-                                                          'dhs.target': _target('skin_art_set', q, field='reset')}})
+        out.append(_card(_tr('الصور الأصلية'), _tr('ترجع صور العمل الأصلية'),
+                         _target('skin_art_set', q, field='reset'), {'dhs.kind': 'reset'}))
 
     def best(rows, count, langs):
         rows = [r for r in rows or [] if r.get('file_path')]
@@ -132,10 +138,10 @@ def artwork_items(title, q):
             line = (art_choice._lang_name(code, _tr) if field == 'clearlogo' else
                     ('%dx%d' % (int(row.get('width') or 0), int(row.get('height') or 0))))
             on = bool(mine.get(field)) and mine.get(field, '').endswith(path)
-            out.append({'label': _tr('شعار') if field == 'clearlogo' else _tr('خلفية'), 'label2': line, 'path': '',
-                        'folder': False, 'art': {'thumb': 'https://image.tmdb.org/t/p/%s%s' % (size, path)},
-                        'props': {'dhs.kind': field, 'dhs.on': '1' if on else '', 'dhs.click': 'run',
-                                  'dhs.target': _target('skin_art_set', q, field=field, url=url)}})
+            out.append(_card(_tr('شعار') if field == 'clearlogo' else _tr('خلفية'), line,
+                             _target('skin_art_set', q, field=field, url=url),
+                             {'dhs.kind': field, 'dhs.on': '1' if on else ''},
+                             {'thumb': 'https://image.tmdb.org/t/p/%s%s' % (size, path)}))
     return out
 
 
