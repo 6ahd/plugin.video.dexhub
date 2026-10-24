@@ -34,6 +34,7 @@ Routes (all under /<token>/):
 from . import profile_scope as _scope
 
 import json
+import re
 import os
 import threading
 import time
@@ -1127,6 +1128,55 @@ class Session(object):
         self._silo_link(pending['auth'], profile, token)
         return {'ok': True}
 
+    # -------------------------------------------------------------- collections
+    def collection(self, body):
+        """v5.10.403: a collection from a link or its pasted JSON (Kaptain,
+        collections.wixct.cc, Nuvio, Fusion): the TV's Collections > Import
+        from JSON without typing a long link on the remote. A link already
+        imported is read again. Its folders then show in Ready collections."""
+        from . import collection_sets as cs
+        from .homeui import community
+        from .dexhub.links import _INVISIBLE_RE
+        raw = _INVISIBLE_RE.sub('', str(body.get('url') or body.get('text') or '')).strip()
+        if not raw:
+            raise ValueError(_tr('الصق رابط الكوليكشن أو نصّه'))
+        name = str(body.get('name') or '').strip()[:80]
+        found = re.search(r'https?://\S+', raw) if not raw.lstrip().startswith(('{', '[')) else None
+        url = found.group(0).rstrip('.,;)]') if found else ''
+
+        def resolver(addon_id, share_url):
+            # no one at the TV to ask: the known manifests only; the rest
+            # stay as they are and are linked when the add-on is installed
+            try:
+                sibling = cs.manifest_url_from_collections_url(share_url)
+                if sibling and (cs.addon_requires_configuration(addon_id) or 'plex' in str(addon_id or '').lower()):
+                    return sibling
+            except Exception:
+                pass
+            try:
+                return cs.known_manifest_for_addon_id(addon_id) or ''
+            except Exception:
+                return ''
+
+        updated = False
+        if url:
+            existing = next((r for r in cs.list_sets() if r.get('source_url') == url), None)
+            if existing:
+                row = cs.refresh_set(existing.get('id'), manifest_resolver=resolver)
+                updated = True
+            else:
+                row = cs.add_set_from_url(url, name=name or None, manifest_resolver=resolver)
+        else:
+            row = cs.add_set_from_text(raw, source_label=name or _tr('مُدخل يدويًا'), manifest_resolver=resolver)
+        try:
+            community.reset()
+        except Exception:
+            pass
+        _republish('collections')
+        _log('collection %s from the phone: %s' % ('refreshed' if updated else 'imported', row.get('name') or '?'))
+        return {'ok': True, 'name': row.get('name') or '', 'entries': len(row.get('entries') or []),
+                'updated': updated, 'home': _home('all')}
+
     # -------------------------------------------------------------- the Home
     def home(self, body):
         from .skinui import rows as SR
@@ -1370,7 +1420,7 @@ class _Handler(BaseHTTPRequestHandler):
         handlers = {'api/profile': 'profile', 'api/set': 'set', 'api/addon': 'addon', 'api/login': 'login', 'api/code': 'code',
                     'api/tv': 'tv', 'api/logout': 'logout', 'api/home': 'home', 'api/done': 'finish',
                     'api/silo': 'silo', 'api/transfer': 'transfer', 'api/files': 'files',
-                    'api/pref': 'pref', 'api/sync':'sync'}  # v5.10.286
+                    'api/pref': 'pref', 'api/sync':'sync', 'api/collection': 'collection'}  # v5.10.286
         name = handlers.get(route)
         if not name:
             return self._send(404, {'ok': False})

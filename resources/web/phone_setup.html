@@ -816,6 +816,11 @@ input[type=file].inp{padding:10px 12px;font-size:13px}
 <div class="sheet2" id="cmSheet" hidden><div class="box">
   <div class="hd"><h3>كوليكشن جاهز<small>Dex Community</small></h3><button class="ib" type="button" data-close aria-label="إغلاق">✕</button></div>
   <div class="bd">
+    <form class="paste" id="colForm" autocomplete="off" novalidate style="margin-top:0">
+      <input class="inp ltr" id="colUrl" type="text" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="https://…/collection.json" aria-label="رابط كوليكشن">
+      <button class="btn p s" type="submit">استورد</button>
+    </form>
+    <p class="hint" style="margin-top:-4px">الصق رابط كوليكشن من <a href="https://kaptain.stream" target="_blank" rel="noopener" class="ltr" style="color:var(--accent)">kaptain.stream</a> أو <a href="https://collections.wixct.cc" target="_blank" rel="noopener" class="ltr" style="color:var(--accent)">collections.wixct.cc</a>، وتطلع مجلداتها هنا.</p>
     <div class="gchips" id="gchips"></div>
     <input class="inp" id="fSearch" type="search" placeholder="ابحث في هذي المجموعة" autocomplete="off">
     <div class="fhd"><span id="fCount"></span><button type="button" id="fAll">اختر الكل</button></div>
@@ -1475,6 +1480,14 @@ function nudgeAddon(name){
   n.hidden=false;
   $('#nudgeGo').onclick=async()=>{if(page!=='all'){page='all'}const h=await view('all');if(h)renderHome();n.hidden=true;openCat(name)};
 }
+/* v5.10.403: a collection from Kaptain or collections.wixct.cc by its link
+   (the TV's Collections > Import from JSON, without the remote's keyboard) */
+$('#colForm').addEventListener('submit',async e=>{e.preventDefault();const v=cleanText($('#colUrl').value);
+  if(!v){$('#colUrl').focus();return}
+  const btn=$('#colForm button');btn.disabled=true;btn.textContent='…';
+  const j=await post('collection',{url:v},true);btn.disabled=false;btn.textContent='استورد';
+  if(j.ok){$('#colUrl').value='';if(j.home)keep(j.home);const G=groups();const at=G.findIndex(g=>g.name===j.name);cg=at>=0?at:Math.max(0,G.length-1);cpick.clear();renderComm();
+    toast((j.updated?'تحدّثت ':'انضافت ')+'«'+j.name+'» ✓')}});
 $('#openComm').addEventListener('click',()=>{cpick.clear();$('#fSearch').value='';renderComm();openSheet('#cmSheet')});
 $('#gchips').addEventListener('click',e=>{const b=e.target.closest('[data-g]');if(!b)return;cg=+b.dataset.g;cpick.clear();$('#fSearch').value='';renderComm()});
 $('#folders').addEventListener('click',e=>{const b=e.target.closest('[data-f]');if(!b)return;const f=b.dataset.f;cpick.has(f)?cpick.delete(f):cpick.add(f);renderComm()});
@@ -1955,6 +1968,7 @@ Object.assign(exact,{'الصفحات والصفوف':'Pages & rows','رتّب ك
 'تقدّم المشاهدة':'Watch progress','كتالوج':'Catalog','مجموعة':'Collection','كوليكشن':'Collection','صف مضاف':'Added row','غير متاح الآن':'Not available now',
 'يجيب الصفوف…':'Loading rows…','السيرفرات تطلع هنا بعد ما تنقرا':'Your servers show here once they are read','رجع الترتيب الأصلي':'Back to the original order',
 'صار أول صف':'Moved to the top','صار آخر صف':'Moved to the bottom','انحفظ الترتيب':'Order saved'});
+Object.assign(exact,{'استورد':'Import','الصق رابط كوليكشن من':'Paste a collection link from','أو':'or','، وتطلع مجلداتها هنا.':', and its folders show here.'});
 Object.assign(exact,{'+ كتالوج من إضافاتك':'+ Catalog from your add-ons','كتالوج من إضافاتك':'Catalog from your add-ons','كل كتالوج يصير صف في الصفحة':'Each catalog becomes a row on the page',
 'كل كتالوج يصير صف في الرئيسية':'Each catalog becomes a row on the Home','كل كتالوج يصير صف في هالصفحة':'Each catalog becomes a row on this page','✓ مضاف':'✓ Added',
 'ما فيه كتالوجات تنفع كصف في هالصفحة':'No catalogs here can be a row on this page','أضف إضافة من قسم الحسابات والمصادر، وكتالوجاتها تطلع هنا':'Add an add-on under Accounts and sources and its catalogs show here',

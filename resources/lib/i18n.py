@@ -3382,6 +3382,7 @@ STRINGS.update({
     'السيرفر رفض الدخول، تأكد من اسم المستخدم وكلمة المرور': 'The server refused the sign-in. Check the username and password',
     'ما وصلنا للسيرفر. تأكد إن Silo شغال وإن العنوان صحيح': 'Could not reach the server. Make sure Silo is running and the address is right',
     'الكتالوج غير موجود': 'That catalog is no longer there',
+    'الصق رابط الكوليكشن أو نصّه': 'Paste the collection link or its text',
     'اكتب PIN البروفايل': 'Type the profile PIN',
 })
 
