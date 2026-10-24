@@ -220,3 +220,6 @@ __marimo__/
 # Dex Hub: the add-on code lives in resources/lib
 !resources/lib/
 !resources/lib/**
+# ...but never the bytecode Kodi writes next to the sources
+resources/lib/**/__pycache__/
+resources/lib/**/*.py[cod]

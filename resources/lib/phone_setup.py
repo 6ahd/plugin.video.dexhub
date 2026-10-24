@@ -440,7 +440,38 @@ def _home(page=None):
         except Exception:
             _log('community groups: %s' % traceback.format_exc(), xbmc.LOGWARNING)
     return {'page': page, 'pages': _pages(), 'rows': out, 'groups': groups,
+            'catalogs': _catalogs(app, page) if page in _EDITABLE else [],
             'editable': page in _EDITABLE}
+
+
+def _catalog_ref(params):
+    params = params or {}
+    return '%s|%s|%s' % (params.get('provider_id') or '', params.get('media_type') or '',
+                         params.get('catalog_id') or '')
+
+
+def _catalogs(app, page):
+    """v5.10.402: the catalogs of the installed add-ons, for the phone's
+    "add a catalog row" sheet (a Home without Nuvio shows no add-on row
+    until one is put there), each saying whether this page has it."""
+    from .homeui import layout_pick as LP
+    added = set(_catalog_ref(c.get('params')) for c in app.layout.page(page)['custom']
+                if (c.get('params') or {}).get('action') == 'catalog_all')
+    want = page if page in ('movie', 'series') else ''
+    out = []
+    try:
+        for provider, catalogs in LP.catalog_choices(app.api()):
+            name = LP._provider_name(provider)
+            for cat in catalogs:
+                if want and cat.get('type') != want:
+                    continue
+                ref = _catalog_ref({'provider_id': provider.get('id'), 'media_type': cat.get('type'),
+                                    'catalog_id': cat.get('id')})
+                out.append({'ref': ref, 'source': name, 'type': str(cat.get('type') or ''),
+                            'name': LP.clean_label(cat.get('name') or cat.get('id')), 'added': ref in added})
+    except Exception:
+        _log('catalog choices: %s' % traceback.format_exc(), xbmc.LOGWARNING)
+    return out
 
 
 # ------------------------------------------------------------------ the server
@@ -715,12 +746,23 @@ class Session(object):
         if body.get('op') == 'remove':
             store.remove_provider(str(body.get('id') or ''))
         else:
-            url = str(body.get('url') or '').strip()
+            from .dexhub.links import manifest_link
+            url = manifest_link(body.get('url'))
             if not url:
                 raise ValueError('no url')
-            if url.startswith('http://'):
-                url = 'https://' + url[7:]       # the TV's own add flow upgrades the same way
-            row = api.add_provider_from_url(url)
+            if url.lower().startswith('http://'):
+                # the TV's own add flow upgrades the same way, and asks before
+                # plain http; v5.10.402: the person on the phone answers that
+                # question there (an add-on on the home network has no https)
+                try:
+                    row = api.add_provider_from_url('https://' + url[7:])
+                except Exception as exc:
+                    if not body.get('allow_http'):
+                        _log('add-on over https failed (%s); asking the phone about http' % exc)
+                        return {'ok': True, 'need_http': True, 'addons': _addons()}
+                    row = api.add_provider_from_url(url)
+            else:
+                row = api.add_provider_from_url(url)
             _log('add-on added: %s' % ((row or {}).get('name') or '?'))
         _republish('sources')
         return {'ok': True, 'addons': _addons()}
@@ -741,7 +783,11 @@ class Session(object):
         elif service == 'silo':
             # v5.10.242: the profile (and its PIN) is chosen on the phone next
             from .providers import silo_provider
-            return self._silo_profiles(silo_provider.login_account(server, user, password))
+            try:
+                pending = silo_provider.login_account(server, user, password)
+            except Exception as exc:
+                raise self._silo_failed(exc)
+            return self._silo_profiles(pending)
         elif service == 'iptv':
             self._iptv(server, user, password)
         else:
@@ -918,7 +964,10 @@ class Session(object):
             # v5.10.402: the address goes as typed; the provider cleans pasted
             # text and tries http for LAN addresses (https was forced here, so
             # 192.168.x.x:port servers never answered from the phone)
-            pairing = silo_provider.start_device_login(server)
+            try:
+                pairing = silo_provider.start_device_login(server)
+            except Exception as exc:
+                raise self._silo_failed(exc)
             url = str(pairing.get('verification_uri_complete') or pairing.get('verification_uri') or '')
             info = {'code': str(pairing.get('user_code') or ''), 'url': url, 'status': 'pending',
                     'server': str(pairing.get('_server_url') or '')}
@@ -1008,6 +1057,23 @@ class Session(object):
                 self.codes.pop(service, None)
 
     # -------------------------------------------------------------- Silo
+    @staticmethod
+    def _silo_failed(exc):
+        """v5.10.402: what the phone says when a Silo address does not work
+        (it showed 'HTTP Error 404: File not found' or a socket error)."""
+        status = getattr(exc, 'code', None) or getattr(exc, 'status', 0) or 0
+        text = str(exc or '')
+        low = text.lower()
+        if status in (404, 405) or 'not found' in low or 'غير صالح' in text:
+            return ValueError(_tr('هذا العنوان ما فيه سيرفر Silo. تأكد من العنوان والمنفذ'))
+        if status in (401, 403):
+            return ValueError(text if text and not text.lower().startswith('http error') else
+                              _tr('السيرفر رفض الدخول، تأكد من اسم المستخدم وكلمة المرور'))
+        if any(k in low for k in ('refused', 'timed out', 'timeout', 'unreachable', 'name or service',
+                                   'getaddrinfo', 'no route', 'reset by peer', 'ssl', 'certificate')):
+            return ValueError(_tr('ما وصلنا للسيرفر. تأكد إن Silo شغال وإن العنوان صحيح'))
+        return exc
+
     def _silo_profiles(self, pending):
         """A signed-in Silo account: one open profile links at once; else the
         phone shows the profiles (a locked one asks for its PIN there)."""
@@ -1097,6 +1163,27 @@ class Session(object):
                 community.add_folders(layout, page, group['name'], chosen)
             else:
                 community.add_group(layout, page, group)
+        elif op == 'add_catalog':
+            # v5.10.402: an add-on catalog as a Home row, the TV's Add row
+            # > Catalog from sources, picked on the phone
+            if page not in _EDITABLE:
+                raise ValueError('rows are added on the Home pages')
+            from .homeui import layout_pick as LP
+            from .homeui import layout as L
+            ref = str(body.get('ref') or '')
+            match = None
+            for provider, catalogs in LP.catalog_choices(SR.app().api()):
+                for cat in catalogs:
+                    if _catalog_ref({'provider_id': provider.get('id'), 'media_type': cat.get('type'),
+                                     'catalog_id': cat.get('id')}) == ref:
+                        match = (provider, cat)
+            if not match:
+                raise ValueError(_tr('الكتالوج غير موجود'))
+            current = layout.page(page)
+            if any(_catalog_ref(c.get('params')) == ref for c in current['custom']):
+                return {'ok': True, 'home': _home(page)}
+            spec = L.new_custom(LP.catalog_spec(SR.app(), match[0], match[1]))
+            layout.save_page(page, custom=current['custom'] + [spec])
         elif op == 'remove':
             key = str(body.get('key') or '')
             current = layout.page(page)

@@ -3378,6 +3378,10 @@ STRINGS.update({
 STRINGS.update({
     'اكتب عنوان السيرفر': 'Type the server address',
     'انتهى طلب الربط، ابدأ من جديد': 'The link request ended, start again',
+    'هذا العنوان ما فيه سيرفر Silo. تأكد من العنوان والمنفذ': 'No Silo server answers at this address. Check the address and port',
+    'السيرفر رفض الدخول، تأكد من اسم المستخدم وكلمة المرور': 'The server refused the sign-in. Check the username and password',
+    'ما وصلنا للسيرفر. تأكد إن Silo شغال وإن العنوان صحيح': 'Could not reach the server. Make sure Silo is running and the address is right',
+    'الكتالوج غير موجود': 'That catalog is no longer there',
     'اكتب PIN البروفايل': 'Type the profile PIN',
 })
 

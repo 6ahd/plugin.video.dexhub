@@ -285,6 +285,29 @@ details.adv .body{padding-bottom:14px;display:flex;flex-direction:column;gap:12p
 .st b{display:block;padding:8px 10px 0;font-size:13.5px;font-weight:500}
 .st span{display:block;padding:2px 10px 10px;font-size:11.5px;color:var(--muted);line-height:1.45}
 .st[aria-pressed="true"]{border-color:var(--accent)}
+/* v5.10.402: add-on catalogs as rows, and the nudge after an add-on is added */
+.csrc{background:var(--surface);border-radius:16px;overflow:hidden;border:1px solid var(--line)}
+.csrc>header{display:flex;align-items:center;gap:10px;padding:12px 14px}
+.csrc>header .av{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-weight:700;font-size:13px;color:var(--on-accent);
+  background:linear-gradient(135deg,var(--accent),var(--accent2));flex:none}
+.csrc>header b{flex:1;min-width:0;font-weight:600;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.csrc>header small{color:var(--muted);font-size:12px}
+.crow{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--line)}
+.crow .n{flex:1;min-width:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crow .ty{font-size:11px;padding:2px 8px;border-radius:99px;background:var(--card);color:var(--muted);flex:none}
+.crow .ty.series{color:color-mix(in srgb,var(--accent2) 70%,var(--text))}
+.crow button{flex:none;min-width:76px;height:34px;border-radius:10px;border:0;cursor:pointer;font:600 13px var(--f-ui);
+  background:var(--accent);color:var(--on-accent);transition:background .2s,color .2s,transform .1s}
+.crow button:active{transform:scale(.96)}
+.crow button[aria-pressed="true"]{background:color-mix(in srgb,var(--ok) 18%,transparent);color:#7EE2A2;cursor:default}
+.nudge{margin-top:12px;padding:14px;border-radius:var(--r);display:flex;align-items:center;gap:12px;
+  background:linear-gradient(120deg,color-mix(in srgb,var(--accent) 22%,var(--card)),color-mix(in srgb,var(--accent2) 14%,var(--card)));
+  border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);animation:nudgeIn .35s ease}
+.nudge .t{flex:1;min-width:0;font-size:13.5px;line-height:1.45}
+.nudge .t b{display:block;font-size:14.5px}
+.nudge .btn{flex:none}
+@keyframes nudgeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.nudge{animation:none}}
 .gchips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
 .gchips::-webkit-scrollbar{display:none}
 .gchips button{flex:none;border:1.5px solid var(--line);background:var(--surface);color:var(--muted);border-radius:99px;padding:7px 14px;font-size:13.5px;cursor:pointer;white-space:nowrap}
@@ -369,6 +392,8 @@ body{font-size:15px;line-height:1.55;
   background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
   border-bottom:1px solid var(--line)}
 .snav::-webkit-scrollbar{display:none}
+/* v5.10.402: the chips fade at the edges, so the bar reads as one you can slide */
+.snav{-webkit-mask-image:linear-gradient(to right,transparent,#000 22px,#000 calc(100% - 22px),transparent);mask-image:linear-gradient(to right,transparent,#000 22px,#000 calc(100% - 22px),transparent)}
 .snav a{flex:none;display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:0 13px;border-radius:99px;
   color:var(--muted);text-decoration:none;font-size:13px;background:var(--card);border:1px solid var(--line);white-space:nowrap}
 .snav a svg{width:15px;height:15px}
@@ -567,6 +592,7 @@ input[type=file].inp{padding:10px 12px;font-size:13px}
       <button class="btn p s" type="submit">أضف</button>
     </form>
     <p class="hint" style="margin-top:8px">الصق رابط manifest من صفحة الإضافة، ويضاف بترتيبه تحت.</p>
+    <div class="nudge" id="adNudge" hidden></div>
   </section>
 
   <!-- 2. the Home's look: layout, size, navigation, cards -->
@@ -610,7 +636,8 @@ input[type=file].inp{padding:10px 12px;font-size:13px}
     <div class="rtools"><div class="rcount" id="rCount"></div><button class="lnk" type="button" id="rReset"><svg viewBox="0 0 16 16"><path d="M3 8a5 5 0 1 0 1.5-3.6M3 2.5v2.8h2.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>الترتيب الأصلي</span></button></div>
     <div class="rl" id="rows"></div>
     <div class="addrow" id="addRow">
-      <button class="btn p" type="button" id="openComm">+ كوليكشن جاهز</button>
+      <button class="btn p" type="button" id="openCat">+ كتالوج من إضافاتك</button>
+      <button class="btn g" type="button" id="openComm">+ كوليكشن جاهز</button>
     </div>
     <p class="hint" style="margin-top:10px">اسحب الصف من المقبض ترتبه، والمفتاح يظهره ويخفيه. اضغط على الصف تختار شكله وأكثر.</p>
     <div class="ogrp" data-opts="rows" style="margin-top:12px"></div>
@@ -797,6 +824,11 @@ input[type=file].inp{padding:10px 12px;font-size:13px}
   <div class="ft"><button class="btn p" type="button" id="cmAdd">أضف</button></div>
 </div></div>
 
+<div class="sheet2" id="catSheet" hidden><div class="box">
+  <div class="hd"><h3>كتالوج من إضافاتك<small id="catSub">كل كتالوج يصير صف في الصفحة</small></h3><button class="ib" type="button" data-close aria-label="إغلاق">✕</button></div>
+  <div class="bd" id="catList"></div>
+</div></div>
+
 <div class="sheet2" id="shSheet" hidden><div class="box">
   <div class="hd"><h3>شارك إعدادي<small>الصفوف والشكل والترجمة</small></h3><button class="ib" type="button" data-close aria-label="إغلاق">✕</button></div>
   <div class="bd">
@@ -943,6 +975,7 @@ function ico(id){return ICON[id]?`<img src="${ICON[id]}" alt="">`:`<span class="
    link; the TV cleans it too, the page cleans it as it lands */
 const INVIS=/[\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff\u00a0]/g;
 const cleanText=v=>String(v||'').replace(INVIS,'').trim();
+const T2=(ar,en)=>(window.DexHubLanguage?.language||'ar')==='en'?en:ar;
 function cleanLink(v){v=cleanText(v);const m=v.match(/(?:stremio|https?):\/\/[^\s<>"']+/i);return (m?m[0]:v).replace(/[.,;)\]]+$/,'')}
 document.addEventListener('paste',e=>{
   const t=e.target;if(!(t instanceof HTMLInputElement)||!t.classList.contains('ltr')||t.type==='password')return;
@@ -1166,8 +1199,15 @@ $('#adList').addEventListener('click',async e=>{const b=e.target.closest('[data-
 $('#adForm').addEventListener('submit',async e=>{e.preventDefault();const v=cleanLink($('#adUrl').value);$('#adUrl').value=v;
   if(!/^(https?|stremio):\/\/[^\s]+$/i.test(v)){toast('الصق رابط الإضافة كامل، يبدأ بـ https:// أو stremio://','err');$('#adUrl').focus();return}
   const btn=$('#adForm button');btn.disabled=true;btn.textContent='يضيف…';
-  const j=await post('addon',{op:'add',url:v},true);btn.disabled=false;btn.textContent='أضف';
-  if(j.ok){S.addons=j.addons;$('#adUrl').value='';renderAd();toast('انضافت الإضافة ✓');refresh()}});
+  let j=await post('addon',{op:'add',url:v},true);
+  if(j.ok&&j.need_http){
+    if(confirm(T2('هالإضافة ما تشتغل على https. غالبًا هي على شبكة البيت (مثل سيرفرك الخاص). تضيفها على http؟ أي أحد على نفس الشبكة يقدر يشوف طلباتها.','This add-on does not answer over https. It is probably on your home network (your own server). Add it over http? Anyone on the same network can see its traffic.')))
+      j=await post('addon',{op:'add',url:v,allow_http:true},true);
+    else j={ok:false};
+  }
+  btn.disabled=false;btn.textContent='أضف';
+  if(j.ok){const before=new Set((S.addons||[]).map(a=>a.id));S.addons=j.addons;$('#adUrl').value='';renderAd();toast('انضافت الإضافة ✓');
+    const fresh=(j.addons||[]).find(a=>!before.has(a.id));if(fresh)nudgeAddon(fresh.name);refresh()}});
 
 /* ---------------- look ---------------- */
 let showAll=false;
@@ -1407,6 +1447,33 @@ function renderComm(){
   const added=rows.some(r=>r.community==='group:'+g.id);
   $('#cmAdd').textContent=cpick.size?`أضف «${g.name}» كصف (${cpick.size})`:`أضف «${g.name}» كاملة كصف`;
   $('#cmAdd').disabled=added&&!cpick.size;if(added&&!cpick.size)$('#cmAdd').textContent='موجودة في صفوفك';
+}
+/* v5.10.402: add-on catalogs as rows (a Home without Nuvio shows no add-on
+   row until one is put there; the TV does it from Arrange > Add row) */
+const TYPE_NAME={movie:'أفلام',series:'مسلسلات',tv:'قنوات',channel:'قنوات',anime:'أنمي'};
+let catOnly='';
+function renderCat(){
+  const C=(home().catalogs||[]).filter(c=>!catOnly||c.source===catOnly);
+  $('#catSub').textContent=home().page==='all'?'كل كتالوج يصير صف في الرئيسية':'كل كتالوج يصير صف في هالصفحة';
+  if(!C.length){$('#catList').innerHTML=`<div class="rempty">${(S.addons||[]).length?'ما فيه كتالوجات تنفع كصف في هالصفحة':'أضف إضافة من قسم الحسابات والمصادر، وكتالوجاتها تطلع هنا'}</div>`;return}
+  const by={};C.forEach(c=>(by[c.source]=by[c.source]||[]).push(c));
+  $('#catList').innerHTML=Object.entries(by).map(([src,list])=>`<section class="csrc"><header><span class="av">${esc(src.slice(0,2).toUpperCase())}</span><b dir="auto">${esc(src)}</b><small>${list.length} كتالوج</small></header>
+    ${list.map(c=>`<div class="crow"><span class="n" dir="auto" data-ui-native>${esc(c.name)}</span><span class="ty ${esc(c.type)}">${esc(TYPE_NAME[c.type]||c.type)}</span>
+      <button type="button" data-cat="${esc(c.ref)}" aria-pressed="${!!c.added}" ${c.added?'disabled':''}>${c.added?'✓ مضاف':'أضف'}</button></div>`).join('')}</section>`).join('');
+}
+function openCat(only){catOnly=only||'';renderCat();openSheet('#catSheet')}
+$('#openCat').addEventListener('click',()=>openCat(''));
+$('#catList').addEventListener('click',async e=>{const b=e.target.closest('[data-cat]');if(!b||b.disabled)return;
+  b.disabled=true;b.textContent='…';
+  const j=await post('home',{page,op:'add_catalog',ref:b.dataset.cat},true);
+  if(j.ok){keep(j.home);selRow=Math.max(0,home().rows.length-1);renderHome(true);renderCat();
+    const c=(home().catalogs||[]).find(x=>x.ref===b.dataset.cat);toast('انضاف صف '+(c?c.name:''))}
+  else{b.disabled=false;b.textContent='أضف'}});
+function nudgeAddon(name){
+  const n=$('#adNudge');if(!name){n.hidden=true;return}
+  n.innerHTML=`<div class="t"><b dir="auto">${esc(name)} جاهزة</b>حط كتالوجاتها صفوف في الرئيسية</div><button class="btn p s" type="button" id="nudgeGo">اختر الصفوف</button>`;
+  n.hidden=false;
+  $('#nudgeGo').onclick=async()=>{if(page!=='all'){page='all'}const h=await view('all');if(h)renderHome();n.hidden=true;openCat(name)};
 }
 $('#openComm').addEventListener('click',()=>{cpick.clear();$('#fSearch').value='';renderComm();openSheet('#cmSheet')});
 $('#gchips').addEventListener('click',e=>{const b=e.target.closest('[data-g]');if(!b)return;cg=+b.dataset.g;cpick.clear();$('#fSearch').value='';renderComm()});
@@ -1888,6 +1955,10 @@ Object.assign(exact,{'الصفحات والصفوف':'Pages & rows','رتّب ك
 'تقدّم المشاهدة':'Watch progress','كتالوج':'Catalog','مجموعة':'Collection','كوليكشن':'Collection','صف مضاف':'Added row','غير متاح الآن':'Not available now',
 'يجيب الصفوف…':'Loading rows…','السيرفرات تطلع هنا بعد ما تنقرا':'Your servers show here once they are read','رجع الترتيب الأصلي':'Back to the original order',
 'صار أول صف':'Moved to the top','صار آخر صف':'Moved to the bottom','انحفظ الترتيب':'Order saved'});
+Object.assign(exact,{'+ كتالوج من إضافاتك':'+ Catalog from your add-ons','كتالوج من إضافاتك':'Catalog from your add-ons','كل كتالوج يصير صف في الصفحة':'Each catalog becomes a row on the page',
+'كل كتالوج يصير صف في الرئيسية':'Each catalog becomes a row on the Home','كل كتالوج يصير صف في هالصفحة':'Each catalog becomes a row on this page','✓ مضاف':'✓ Added',
+'ما فيه كتالوجات تنفع كصف في هالصفحة':'No catalogs here can be a row on this page','أضف إضافة من قسم الحسابات والمصادر، وكتالوجاتها تطلع هنا':'Add an add-on under Accounts and sources and its catalogs show here',
+'حط كتالوجاتها صفوف في الرئيسية':'Put its catalogs on your Home as rows','اختر الصفوف':'Choose rows','قنوات':'Channels','أنمي':'Anime','كتالوج':'catalogs'});
 Object.assign(exact,{'ابدأ من جديد':'Start over','السيرفر:':'Server:','الصق رابط الإضافة كامل، يبدأ بـ https:// أو stremio://':'Paste the full add-on link, starting with https:// or stremio://',
 'مثل':'For example','أو':'or','والرابط المنسوخ من المتصفح يشتغل بعد.':'A link copied from the browser works too.'});
 /* v5.10.286: the labels of the redesigned page (main script, window.DEX_I18N); existing entries win */
@@ -1901,7 +1972,7 @@ Object.assign(exact,{'الحسابات والمصادر':'Accounts & sources','�
 'الأقسام والأدوات':'Sections & tools','الأقسام الظاهرة والبروفايل والنسخ والملفات':'Visible sections, profile, backup and files','البروفايل النشط / Active profile':'Active profile','مدير ملفات Kodi':'Kodi file manager',
 'الحسابات':'Accounts','الصفوف':'Rows','مكتبتي':'Library','التريلر':'Trailers','البيانات':'Metadata','الأدوات':'Tools','الأقسام':'Sections',
 'اربط حساب':'Link an account','شكل الرئيسية ':'Home look','رتّب الصفوف':'Arrange rows','ما انحفظ':'Not saved','حجم البطاقات':'Card size'});
-const fragments=[['انتقل الصف للمكان ','Row moved to place '],['انخفى: ','Hidden: '],['ظهر: ','Shown: '],['انحذف: ','Removed: '],['مصدر البيانات: ','Metadata source: '],['شكل الصف: ','Row layout: '],['الرمز: ','Code: '],['تم: ','Updated: '],['انشالت ','Removed: '],[' انربط ✓',' linked ✓'],[' انربط',' linked'],['تم: ','Updated: '],['مصدر البيانات: ','Metadata source: '],['ترتيب الترجمة: ','Subtitle order: '],['افتح صفحة ','Open '],['ادخل بـ ','Continue as '],['PIN بروفايل ','PIN for '],['انخفى: ','Hidden: '],['ظهر: ','Visible: '],['انحذف: ','Deleted: '],['انضاف صف ','Row added: '],['اخترت ','Selected '],[' من ',' of '],[' كوليكشن',' collections'],['أضف «','Add “'],['» كاملة كصف','” as a full row'],['» كصف (','” as a row ('],['كل الثيمات (','All themes ('],['شيل ','Remove '],['أفلام','Movies'],['مسلسلات','Series'],['صفوف','rows'],['ثيم','theme']];
+const fragments=[[' جاهزة',' is ready'],[' كتالوج',' catalogs'],['انتقل الصف للمكان ','Row moved to place '],['انخفى: ','Hidden: '],['ظهر: ','Shown: '],['انحذف: ','Removed: '],['مصدر البيانات: ','Metadata source: '],['شكل الصف: ','Row layout: '],['الرمز: ','Code: '],['تم: ','Updated: '],['انشالت ','Removed: '],[' انربط ✓',' linked ✓'],[' انربط',' linked'],['تم: ','Updated: '],['مصدر البيانات: ','Metadata source: '],['ترتيب الترجمة: ','Subtitle order: '],['افتح صفحة ','Open '],['ادخل بـ ','Continue as '],['PIN بروفايل ','PIN for '],['انخفى: ','Hidden: '],['ظهر: ','Visible: '],['انحذف: ','Deleted: '],['انضاف صف ','Row added: '],['اخترت ','Selected '],[' من ',' of '],[' كوليكشن',' collections'],['أضف «','Add “'],['» كاملة كصف','” as a full row'],['» كصف (','” as a row ('],['كل الثيمات (','All themes ('],['شيل ','Remove '],['أفلام','Movies'],['مسلسلات','Series'],['صفوف','rows'],['ثيم','theme']];
 const originalTexts=new WeakMap(),originalAttrs=new WeakMap();let lang='ar';try{const saved=localStorage.getItem('dexhub.ui.language');if(saved==='en'||saved==='ar')lang=saved;}catch(e){}
 function translate(value){if(lang!=='en')return value;const t=value.trim();if(Object.hasOwn(exact,t))return value.replace(t,exact[t]);if(/^\d+ من \d+ مربوط$/.test(t))return t.replace(/^(\d+) من (\d+) مربوط$/,'$1 of $2 linked');if(/^\d+ خدمات$/.test(t))return t.replace(' خدمات',' services');let out=value;for(const [a,b]of fragments)out=out.split(a).join(b);return out;}
 let observer;
@@ -1929,7 +2000,7 @@ document.querySelector('.top').insertBefore(controls,document.querySelector('.de
 controls.addEventListener('click',e=>{const b=e.target.closest('[data-ui-lang]');if(b)setLanguage(b.dataset.uiLang);});
 document.querySelector('[data-key="lang"]').addEventListener('click',e=>{const b=e.target.closest('button');if(b)setLanguage(b.dataset.v==='English'?'en':'ar');});
 let queued=false;observer=new MutationObserver(()=>{if(queued)return;queued=true;queueMicrotask(()=>{queued=false;localize();});});
-setLanguage(lang);
+setLanguage(lang,true);   // v5.10.402: the first draw is not a choice; the TV's language applies until one is made
 window.DexHubLanguage={setLanguage,get language(){return lang;},get saved(){return saved;},translate,localize};
 })();
 </script></body></html>
