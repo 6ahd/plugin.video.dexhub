@@ -33,7 +33,9 @@ def apple_names(text):
     """The regular ids as the Apple build writes them (a docstring's
     'plugin.video.dexhub.' and other add-ons' names are left alone)."""
     text = re.sub(r'plugin\.video\.dexhub(?![.\w])', TVOS, text)
-    text = re.sub(r'skin\.dexhub(?![.\w])', 'skin.dexhub.tvos', text)
+    # a line naming both skins (('skin.dexhub', 'skin.dexhub.tvos')) is kept
+    text = ''.join(line if 'skin.dexhub.tvos' in line else re.sub(r'skin\.dexhub(?![.\w])', 'skin.dexhub.tvos', line)
+                   for line in text.splitlines(True))
     # the windows read the Apple add-on's own asset root (skin 3.28.115)
     return text.replace('dexhub.assetroot', 'dexhub.tvos.assetroot')
 
