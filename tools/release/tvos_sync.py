@@ -81,6 +81,10 @@ def merge(cur, base, other, path):
 
 def addon_xml(cur, head_xml, version):
     text = re.sub(r'(<addon\b[^>]*\bversion=")[^"]+(")', r'\g<1>%s\2' % version, cur, count=1)
+    # the entry points' libraries follow the regular add-on (5.10.408: the
+    # screensaver's entry is default.py)
+    for point in re.findall(r'<extension point="xbmc\.ui\.screensaver"[^>]*/>', head_xml):
+        text = re.sub(r'<extension point="xbmc\.ui\.screensaver"[^>]*/>', lambda m: point, text, count=1)
     news = re.search(r'<news>.*?</news>', head_xml, re.S)
     if news:
         text = re.sub(r'<news>.*?</news>', lambda m: news.group(0), text, count=1, flags=re.S)

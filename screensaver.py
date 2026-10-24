@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-"""Kodi's entry for the Dex Hub screensaver (extension point xbmc.ui.screensaver).
+"""The screensaver's entry before 5.10.408 (xbmc.ui.screensaver now names
+default.py). Kept for an addon.xml that still names this file, such as one
+restored by a patcher.
 
 See resources/lib/homeui/screensaver.py.
 """
