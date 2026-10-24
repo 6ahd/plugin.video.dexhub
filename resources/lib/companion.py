@@ -392,12 +392,22 @@ class UrlCompanionReporter(BaseReporter):
         return self._post(ctx, 'companionUrl', position_ms or int(ctx.get('duration_ms') or 0), 'stopped', mark_watched=True)
 
 
+def _plex_client_id():
+    try:
+        from .plex_client import client_identifier
+        return client_identifier()
+    except Exception:
+        return 'dexhub-kodi'
+
+
 class PlexReporter(BaseReporter):
     def _headers(self, ctx):
         return {
             'X-Plex-Product': ctx.get('product', 'Dex Hub'),
             'X-Plex-Version': ctx.get('product_version', '2.6.0'),
-            'X-Plex-Client-Identifier': ctx['client_id'],
+            # v5.10.409: a source without its own id (the reporter failed
+            # with 'client_id', so Plex never heard the position)
+            'X-Plex-Client-Identifier': ctx.get('client_id') or _plex_client_id(),
             'X-Plex-Provides': 'player',
             'X-Plex-Device-Name': ctx.get('device_name', 'Kodi'),
             'X-Plex-Platform': 'Kodi',

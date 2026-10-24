@@ -176,10 +176,24 @@ def _migrate_focus_navigation():
         addon.setSetting('homeui_nav_focus_migrated', 'true')
 
 
+def _migrate_loading_art():
+    """v5.10.409: on once. Before 5.10.405 it was off by default and Kodi
+    kept that "false" in the user's settings, so the new default never came
+    (the log: "loading art: not shown (turned off in the settings)").
+    Turning it off again afterwards is respected."""
+    addon = _addon()
+    if addon.getSetting('player_loading_art_migrated') == 'true':
+        return
+    if addon.setSetting('player_loading_art', 'true') is not False:
+        addon.setSetting('player_loading_art_migrated', 'true')
+
+
 def value(key):
     default, choices, _, _ = OPTIONS[key]
     if key == 'homeui_nav_focus_open':
         _migrate_focus_navigation()
+    if key == 'player_loading_art':
+        _migrate_loading_art()
     result = _addon().getSetting(key) or default
     if key == 'homeui_trailer_mode':
         from .trailer_preferences import display_mode

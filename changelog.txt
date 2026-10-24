@@ -1,3 +1,7 @@
+5.10.409
+خلفية الانتظار قبل التشغيل تنفتح مرة وحدة للي كانت عندهم مقفلة من النسخ القديمة (كانت مقفلة افتراضيًا قبل 5.10.405 وKodi حافظ «مقفلة» في إعداداتك، فما وصلها التغيير)، ولو قفلتها بعدها تبقى مقفلة. وإصلاح إرسال مكان المشاهدة لسيرفر Plex لما المصدر ما فيه معرّف جهاز (كان يطيح بخطأ client_id).
+The loading artwork is turned on once for installs that still had it off from before 5.10.405 (it was off by default then and Kodi kept that "off" in your settings, so the new default never reached you); turning it off again afterwards stays off. The Plex progress report no longer fails with client_id when a source has no device id of its own.
+
 5.10.408
 Kodi 22 beta1 كان يشغّل ملف شاشة التوقف لطلبات الإضافة (كل ودجت وصف في الرئيسية) ويعلق عند «waiting on thread». صارت الإضافة وشاشة التوقف تدخل من ملف واحد (default.py) فما يلقى Kodi ملف ثاني يشغّله، وشاشة التوقف باقية تشتغل. ما يحتاج مفتاح «Plugin Entry Fix» في الـpatcher لهالنسخة وبعدها.
 Kodi 22 beta1 ran the screensaver file for the add-on's calls (every widget and Home row), which then hung on "waiting on thread". The add-on and its screensaver now share one entry (default.py), so Kodi has no other file to run, and the screensaver still works. The patcher's Plugin Entry Fix is not needed from this version on.
