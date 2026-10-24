@@ -4,6 +4,7 @@ import json
 import os
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 import xbmc
@@ -1273,3 +1274,66 @@ def remove_playback(media_type='movie', imdb_ids=(), tmdb_ids=(), tvdb_ids=()):
         invalidate_cache('/sync/playback/')
         _PROGRESS_LOOKUP_CACHE.clear()
     return deleted
+
+
+# ------------------------------------------------------------ v5.10.406
+def _authed(path, payload=None, method='GET', timeout=20):
+    """An authorised call; a refused token is refreshed once, as scrobbling does."""
+    try:
+        return _request(path, payload=payload, method=method, auth=True, timeout=timeout)
+    except urllib.error.HTTPError as exc:
+        if exc.code != 401:
+            raise
+        before = token_data().get('access_token') or ''
+        fresh = _refresh_token_if_needed(force=True) or {}
+        if not fresh.get('access_token') or fresh.get('access_token') == before:
+            raise
+        return _request(path, payload=payload, method=method, auth=True, timeout=timeout)
+
+
+def linked():
+    return bool(token_data().get('access_token'))
+
+
+def post_comment(media, ids, comment, spoiler=False):
+    """A comment or review on a film or show (Trakt asks for five words at
+    least; 200 or more makes it a review). Returns Trakt's comment."""
+    clean = dict((k, (int(v) if k in ('tmdb', 'trakt', 'tvdb') and str(v).isdigit() else v))
+                 for k, v in (ids or {}).items() if v)
+    key = 'show' if media in ('series', 'show', 'tv', 'anime') else 'movie'
+    return _authed('/comments', {key: {'ids': clean}, 'comment': str(comment or ''),
+                                 'spoiler': bool(spoiler)}, method='POST')
+
+
+def following_activity(limit_users=12, per_user=6):
+    """What the people you follow on Trakt finished lately, newest first:
+    [{'user', 'name', 'avatar', 'kind', 'title', 'show', 'season', 'episode',
+    'year', 'ids', 'at'}]. Private profiles are skipped."""
+    following = _authed('/users/me/following?extended=full') or []
+    out = []
+    for row in following[:limit_users] if isinstance(following, list) else []:
+        user = (row or {}).get('user') or {}
+        slug = ((user.get('ids') or {}).get('slug') or user.get('username') or '')
+        if not slug or user.get('private'):
+            continue
+        try:
+            history = _authed('/users/%s/history?limit=%d' % (urllib.parse.quote(slug), per_user), timeout=12) or []
+        except Exception:
+            continue
+        avatar = (((user.get('images') or {}).get('avatar') or {}).get('full') or '')
+        for item in history if isinstance(history, list) else []:
+            kind = item.get('type')
+            entry = {'user': slug, 'name': user.get('name') or user.get('username') or slug, 'avatar': avatar,
+                     'kind': kind, 'at': str(item.get('watched_at') or '')}
+            if kind == 'episode':
+                show, ep = item.get('show') or {}, item.get('episode') or {}
+                entry.update(title=ep.get('title') or '', show=show.get('title') or '', year=show.get('year') or '',
+                             season=ep.get('season'), episode=ep.get('number'), ids=show.get('ids') or {})
+            elif kind == 'movie':
+                movie = item.get('movie') or {}
+                entry.update(title=movie.get('title') or '', year=movie.get('year') or '', ids=movie.get('ids') or {})
+            else:
+                continue
+            out.append(entry)
+    out.sort(key=lambda e: e['at'], reverse=True)
+    return out

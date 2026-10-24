@@ -35,3 +35,18 @@ python3 tools/release/skin_build.py skin.dexhub out/ --version 3.28.125 \
 
 The card designs themselves (about 110 controls a card) come from the script
 that generates `Home.xml`; that is where scrolling gets faster.
+
+## Title page rows and the island's Friends tab: `skin_title_social.py`
+
+Add-on 5.10.406 lists Reviews (`skin_reviews`) and Pictures (`skin_artwork`)
+for the title page and a `friends` tab for the island. This puts them in a
+skin's source, once (a second run changes nothing):
+
+```bash
+python3 tools/release/skin_title_social.py skin.dexhub
+python3 tools/release/skin_title_social.py skin.dexhub.tvos
+```
+
+The page's up/down chains are rebuilt with the two new lists; each chain must
+first rebuild to exactly what the skin has, else nothing is written and the
+chain is named. Then build the release with `skin_build.py` as above.

@@ -1276,7 +1276,18 @@ def trailer_config(params, handle):
     publish_presentation()
 
 
+def _social(name):
+    # v5.10.406: the title page's Reviews and Pictures rows (title_social)
+    def run(params, handle):
+        from . import title_social
+        return getattr(title_social, name)(params, handle)
+    return run
+
+
 ROUTES = {
+    'skin_review_read': _social('review_read'),
+    'skin_review_write': _social('review_write'),
+    'skin_art_set': _social('art_set'),
     'skin_trailer_config': trailer_config,
     'skin_row_shape': row_shape,
     'skin_publish': publish,

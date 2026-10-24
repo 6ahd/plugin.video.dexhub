@@ -722,13 +722,18 @@ def listing(action, params, handle):
                                        + urlencode([('page', urlencode(sorted(q.items())))]))
             item['props'] = props
             out.append(item)
+    elif action in ('skin_reviews', 'skin_artwork'):
+        # v5.10.406: reviews (and writing one) and pictures on the page itself
+        from . import title_social as SO
+        out = SO.review_items(title, q) if action == 'skin_reviews' else SO.artwork_items(title, q)
     elif action in ('skin_collection', 'skin_studios'):
         # v5.10.313: the saga's card and the studios' tiles under More like this
         from . import title_extras as X
         title.ensure_extras()
         out = X.collection_items(title) if action == 'skin_collection' else X.studio_items(title)
     name = {'skin_seasons': 'seasons', 'skin_episodes': 'episodes', 'skin_cast': 'cast',
-            'skin_related': 'related', 'skin_collection': 'collection', 'skin_studios': 'studios'}.get(action)
+            'skin_related': 'related', 'skin_collection': 'collection', 'skin_studios': 'studios',
+            'skin_reviews': 'reviews', 'skin_artwork': 'artwork'}.get(action)
     if name:
         # Keep a section loadable until its request actually finishes empty.
         key = 'dhs.tp.none.%s' % name
