@@ -39,7 +39,8 @@ def apple_names(text):
 
 
 def git(repo, *args, binary=False):
-    out = subprocess.run(['git', '-C', repo] + list(args), check=True, stdout=subprocess.PIPE).stdout
+    out = subprocess.run(['git', '-C', repo] + list(args), check=True, stdout=subprocess.PIPE,
+                         stderr=subprocess.DEVNULL if args[0] == 'show' else None).stdout
     return out if binary else out.decode('utf-8')
 
 
