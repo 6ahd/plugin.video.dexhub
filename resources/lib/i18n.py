@@ -3383,6 +3383,9 @@ STRINGS.update({
     'ما وصلنا للسيرفر. تأكد إن Silo شغال وإن العنوان صحيح': 'Could not reach the server. Make sure Silo is running and the address is right',
     'الكتالوج غير موجود': 'That catalog is no longer there',
     'الصق رابط الكوليكشن أو نصّه': 'Paste the collection link or its text',
+    'حلقة عشوائية': 'Random episode',
+    'حلقة عشوائية: %s': 'Random episode: %s',
+    'ما فيه حلقات متاحة': 'No episodes available',
     'اكتب PIN البروفايل': 'Type the profile PIN',
 })
 

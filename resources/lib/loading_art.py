@@ -53,12 +53,20 @@ def cancel(owner):
 def prepare(ctx, art, stream_url, switching=False):
     from . import ui_preferences, profile_scope
     import xbmcvfs
-    cancel(_state().get('owner'))
+    current = _state()
     # A replacement stream belongs to the open player. Never cover the video
     # with the initial-start artwork, even if Kodi has already stopped the
     # old decoder or the switch marker was consumed by resume handling.
     if switching or ctx.get('source_switch_pending') or xbmc.Player().isPlayingVideo():
+        cancel(current.get('owner'))
         return ''
+    # v5.10.405: shown when the source is chosen, then asked again at the
+    # hand-off: the same source keeps its artwork (no flash, same timeout)
+    if (current.get('owner') and current.get('fading') is None and
+            current.get('source') == _identity(stream_url) and
+            _home().getProperty(PREFIX + 'owner') == current.get('owner')):
+        return current['owner']
+    cancel(current.get('owner'))
     if not ui_preferences.enabled('player_loading_art'):
         return ''
     if xbmc.getSkinDir() not in ('skin.dexhub', 'skin.dexhub.tvos'):

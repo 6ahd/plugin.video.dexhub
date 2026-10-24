@@ -81,7 +81,44 @@ def _same_play_starting(api, ctx, stream_key):
     return False
 
 
+_EARLY_ART = {'owner': ''}
+
+
 def play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta=None, use_resolved_url=None):
+    """v5.10.405: the title's artwork covers the wait from the source choice
+    to the first frame (it used to start at the hand-off, after the subtitle
+    wait, on a plain screen). Anything that ends this call before the
+    hand-off takes the artwork down with it."""
+    _EARLY_ART['owner'] = ''
+    try:
+        return _play_with_context(api, ctx, stream_key, fallback_keys, entries_meta, use_resolved_url)
+    except BaseException:
+        _drop_early_art()
+        raise
+
+
+def _drop_early_art():
+    owner, _EARLY_ART['owner'] = _EARLY_ART['owner'], ''
+    if owner:
+        try:
+            from .loading_art import cancel
+            cancel(owner)
+        except Exception:
+            pass
+
+
+def _switch_marked(api):
+    """A source switch from the player's Sources panel is under way (the
+    same window the resume code below accepts, not only its first 15 s: a
+    slow debrid resolve must not let the start artwork cover the player)."""
+    try:
+        mark = api.xbmcgui.Window(10000).getProperty('dexhub.switch.inplace')
+        return bool(mark) and 0 <= api.time.time() - float(mark) < 600
+    except Exception:
+        return False
+
+
+def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta=None, use_resolved_url=None):
     """Play a stream via xbmc.Player().play() — matches the original behavior
     that reliably starts playback without leaving an empty folder behind.
 
@@ -345,6 +382,13 @@ def play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta=
     if _is_ep and isinstance(art, dict) and art.get('clearlogo') and not art.get('tvshow.clearlogo'):
         art = dict(art)
         art['tvshow.clearlogo'] = art['clearlogo']
+    # decided once, here: the resume code below clears the switch mark
+    _art_switching = bool(_switch_lookup or ctx.get('source_switch_pending') or _switch_marked(api))
+    try:
+        from .loading_art import prepare as _prepare_art
+        _EARLY_ART['owner'] = _prepare_art(ctx, art, stream_url, switching=_art_switching)
+    except Exception:
+        pass
     try:
         item.setArt(art)
     except Exception:
@@ -713,6 +757,7 @@ def play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta=
 
     from .tvos_players import handoff as _tvos_handoff
     if _tvos_handoff(api, stream_url, prepared_first, selected_subtitle_path, resume_seconds, item, ctx):
+        _drop_early_art()
         return
 
     # v5.4: hand off to Kodi directly.  The optional custom XML waiter added
@@ -723,7 +768,7 @@ def play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta=
     try:
         try:
             from .loading_art import prepare
-            _loading_owner = prepare(ctx, art, stream_url, switching=_switch_lookup)
+            _loading_owner = prepare(ctx, art, stream_url, switching=_art_switching)
         except Exception:
             pass
         try:
@@ -814,6 +859,7 @@ def play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta=
             cancel(_loading_owner)
         except Exception:
             pass
+        _drop_early_art()
         api._monitor_playback('play-handoff-failed', level=api.xbmc.LOGERROR, error=exc, stream_key=stream_key, title=ctx.get('title') or '', provider=ctx.get('provider_name') or ctx.get('provider_id') or '')
         api.xbmc.log('[DexHub] playback handoff failed: %s' % exc, api.xbmc.LOGERROR)
         # Tear down the wait window on error so the user isn't stuck

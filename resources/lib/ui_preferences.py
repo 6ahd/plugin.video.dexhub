@@ -58,7 +58,9 @@ OPTIONS = {
     # v5.10.311: the title page asks for the sources while you look at it
     'sources_warm': ('true', None, 'تجهيز المصادر مسبقاً في صفحة العمل', 'Get sources ready on the title page'),
     'player_subtitle_filter': ('off', ('off', 'mine', 'first'), 'تصفية الترجمات في المشغّل', 'Subtitle filter in the player'),
-    'player_loading_art': ('false', None, 'خلفية وشعار أثناء التحميل', 'Artwork while loading'),
+    # v5.10.405: on by default (a plain screen while the source opened);
+    # never over a playing video or a source switched in the player
+    'player_loading_art': ('true', None, 'خلفية وشعار أثناء التحميل', 'Artwork while loading'),
     'player_show_clearlogo': ('true', None, 'شعار العمل في المشغّل', 'Work logo in player'),
     'player_logo_position': ('above_info', ('above_info', 'top_left', 'top_right'), 'مكان شعار العمل', 'Work logo position'),
     'player_logo_size': ('normal', ('small', 'normal', 'large'), 'حجم شعار العمل (Clear logo)', 'Clear logo size'),

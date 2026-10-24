@@ -1402,6 +1402,8 @@ class DetailsWindow(W._BaseWindow):
         if row:
             play_tile.update(path=row.get('path') or '', season=row['season'], episode=row['episode'], media_type='episode', show=self.hero.get('title') or '')
         entries.insert(0, (self.tr('التشغيل باستخدام…'), 'play_with'))
+        if self.series:
+            entries.insert(1, (self.tr('حلقة عشوائية'), 'random'))     # v5.10.405
         # v5.10.365: its reviews (Trakt, TMDb); rating stays in the Track panel
         entries.append((self.tr('المراجعات'), 'reviews'))
         entries.append((self.tr('مشاهدة جماعية'), 'party'))      # v5.10.366
@@ -1428,7 +1430,9 @@ class DetailsWindow(W._BaseWindow):
                                  poster=hero.get('poster') or '')
             title_reviews.show(work.media, work.imdb, work.tmdb, work.title, self.tr)
             return
-        if key == 'play_with':
+        if key == 'random':
+            self._random_episode()
+        elif key == 'play_with':
             self._launch(player_command(from_tile(play_tile)))
         elif key in ('watch', 'unwatch'):
             self._set_watched(row, key == 'watch')
@@ -1444,6 +1448,29 @@ class DetailsWindow(W._BaseWindow):
                 except Exception:
                     pass
             self.open_path(tile, helper=False)
+
+    def _random_episode(self):
+        """v5.10.405 (an idea from AIOStreams 2.37): a random aired episode
+        of the show, for the ones watched again and again; specials and
+        episodes not out yet are left out, an unwatched one is preferred."""
+        import random
+        import time as _time
+        today = _time.strftime('%Y-%m-%d')
+        rows = []
+        for number, _label in self.seasons:
+            if number <= 0:
+                continue
+            for row in self._season_rows(number) or []:
+                aired = str(row.get('aired') or '')[:10]
+                if row.get('path') and (not aired or aired <= today):
+                    rows.append(row)
+        if not rows:
+            self.notify(self.tr('ما فيه حلقات متاحة'))
+            return
+        fresh = [r for r in rows if not self._watched(self.progress.get((r['season'], r['episode'])))]
+        row = random.choice(fresh if len(fresh) >= 3 else rows)
+        self.notify(self.tr('حلقة عشوائية: %s') % ('S%dE%d' % (row['season'], row['episode'])))
+        self._play_episode(row)
 
     def _person(self):
         pos = self.selected_pos(CAST, -1)
