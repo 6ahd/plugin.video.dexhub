@@ -1,3 +1,7 @@
+5.10.410
+«تغيير الصور» و«المراجعات» انشالت من «المزيد» في صفحة العمل لأنها صارت صفوف في الصفحة. وصفحة الإعداد من الجوال صار فيها «شكل رموز الجودة» في قسم المشغل: مؤطرة، Elite، ذهبية، بيضاء، Colorful & Concise، BetterFormatter، Nosvasedis، كلمات، سطر واحد أو بدون.
+Change artwork and Reviews left the title page's More menu (they are rows of the page now). The phone setup page has Badge style under Player: Framed, Elite, Gold, Minimalist white, Colorful & Concise, BetterFormatter, the Nosvasedis packs, Words, One line or None.
+
 5.10.409
 خلفية الانتظار قبل التشغيل تنفتح مرة وحدة للي كانت عندهم مقفلة من النسخ القديمة (كانت مقفلة افتراضيًا قبل 5.10.405 وKodi حافظ «مقفلة» في إعداداتك، فما وصلها التغيير)، ولو قفلتها بعدها تبقى مقفلة. وإصلاح إرسال مكان المشاهدة لسيرفر Plex لما المصدر ما فيه معرّف جهاز (كان يطيح بخطأ client_id).
 The loading artwork is turned on once for installs that still had it off from before 5.10.405 (it was off by default then and Kodi kept that "off" in your settings, so the new default never reached you); turning it off again afterwards stays off. The Plex progress report no longer fails with client_id when a source has no device id of its own.

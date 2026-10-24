@@ -61,6 +61,10 @@ TOGGLES = {
     'autosync': ('autosync_enabled', True),
     'meta_badges': ('metadata_badges', True),
 }
+# v5.10.410: the phone's badge styles (player_badges' styles and ready packs)
+BADGE_CHOICES = ('colorful', 'elite', 'gold', 'white', 'sterzeck', 'betterformatter', 'nosv_transparent',
+                 'nosv_mono', 'nosv_solid', 'nosv_classic', 'minimal', 'compact', 'off')
+
 LABELS = (
     ('homeui_show_row_source', ('true', 'false')),
     ('homeui_title_style', ('logo', 'text')),
@@ -570,6 +574,10 @@ class Session(object):
             from . import ui_preferences as UP
             data['prefs'] = dict((k, UP.value(k)) for k in UP.OPTIONS)
             data['prefs_choices'] = dict((k, list(v[1]) if v[1] else None) for k, v in UP.OPTIONS.items())
+            # v5.10.410: the badges' style, as the TV's Player badges list
+            from . import player_badges as PB
+            data['prefs']['player_badge_choice'] = PB.style_key()
+            data['prefs_choices']['player_badge_choice'] = list(BADGE_CHOICES)
             if xbmc.getSkinDir() != 'skin.dexhub':
                 # v5.10.364: layouts and the tabs' place are skin.dexhub's
                 data['prefs_choices']['homeui_layout_mode'] = []
@@ -703,6 +711,8 @@ class Session(object):
     def pref(self, body):
         """v5.10.286: a Home/display preference or a control centre entry."""
         key, value = str(body.get('key') or ''), body.get('value')
+        if key == 'player_badge_choice':
+            return self._badge_choice(str(value or ''))
         options = _ui_options()
         if key in options:
             self._ui_pref(key, value)
@@ -719,6 +729,16 @@ class Session(object):
                     self.refresh_after = True
             return {'ok': True, 'key': key, 'value': control.phone_values().get(key)}
         raise ValueError('unknown setting')
+
+    def _badge_choice(self, value):
+        """v5.10.410: a style (Framed, Minimal, Compact, None) or one of the
+        ready packs; a pack is read once, on the TV, as from its own list."""
+        from . import player_badges as PB
+        if value not in BADGE_CHOICES:
+            raise ValueError('unknown badge style')
+        done = (PB.select_style(value, quiet=True) if value in PB.STYLES
+                else PB.use_preset(value, quiet=True))
+        return {'ok': bool(done), 'key': 'player_badge_choice', 'value': PB.style_key()}
 
     def _meta_refresh(self):
         try:

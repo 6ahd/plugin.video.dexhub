@@ -772,16 +772,15 @@ def more(params, handle):
     # v5.10.322: as Nuvio Legacy's "..." menu
     if t.hero.get('plot'):
         entries.append((_tr('قراءة النبذة'), 'synopsis'))
-    entries.append((_tr('تغيير الصور'), 'artwork'))
-    # v5.10.365: its reviews (Trakt, TMDb); rating stays in the Track panel
-    entries.append((_tr('المراجعات'), 'reviews'))
+    # v5.10.410: Change artwork and Reviews left the menu; they are the
+    # page's Pictures and Reviews rows now (both still open by what=)
     entries.append((_tr('مشاهدة جماعية'), 'party'))      # v5.10.366
     if t.series:
         entries.append((_tr('الصفحة الكلاسيكية'), 'classic'))
     what = (params.get('what') or '').strip()     # v5.10.309: the title page's own shortcut discs
     if what == 'watch':
         what = next((e[1] for e in entries if e[1] in ('watch', 'unwatch')), '')
-    if what not in [e[1] for e in entries]:
+    if what not in [e[1] for e in entries] + ['artwork', 'reviews']:
         choice = choose(t.hero.get('title') or '', [e[0] for e in entries], subtitle=_tr('المزيد'))
         if choice < 0:
             return None
