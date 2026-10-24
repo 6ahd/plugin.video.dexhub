@@ -71,64 +71,77 @@ def validate(item):
     return True
 
 
-def changes(rows, existing):
-    # Latest event per work, not one conflicting write per episode.
-    newest = {}
-    for row in rows or []:
-        if not isinstance(row, dict):
+def changes(rows, existing, videos_loader=None):
+    """Chronological local events per work, preserving all valid cloud fields.
+
+    Times are milliseconds; dates are RFC3339. Completion uses Stremio's
+    counters and watched bitmap, never a timestamp in `watched`.
+    """
+    from .stremio_watched import mark
+    working, changed = copy.deepcopy(existing), {}
+    def sort_stamp(row):
+        try:return number(row.get('updated_at'))
+        except (ValueError,TypeError,OverflowError):return 0
+    for row in sorted((r for r in rows or [] if isinstance(r, dict)), key=sort_stamp):
+        if row.get('event_type') in ('sync','cloud','import','account_sync','nextup'):
             continue
         identifier = str(row.get('imdb_id') or row.get('canonical_id') or '')
-        previous = existing.get(identifier)
+        previous = working.get(identifier)
         if not previous and not re.fullmatch(r'tt[0-9]+', identifier):
             continue
-        # Cloud-imported rows are mirrors, not new local playback events.
-        if row.get('event_type') in ('sync', 'cloud', 'import', 'account_sync'):
-            continue
         try:
-            stamp = number(row.get('updated_at'))
-            duration = number(row.get('duration'))
-            position = number(row.get('position'))
-            if stamp <= 0 or duration <= 0:
+            stamp, duration, position = (number(row.get(k)) for k in ('updated_at','duration','position'))
+            if stamp <= 0 or duration <= 0 or (previous and epoch(previous.get('_mtime')) >= stamp):
                 continue
-            if previous and (previous.get('removed') or epoch(previous.get('_mtime')) >= stamp):
-                continue
-            if identifier in newest and newest[identifier][0] >= stamp:
-                continue
-            series = row.get('media_type') in ('series', 'tv', 'show', 'anime')
-            video = str(row.get('video_id') or '')
+            # A removed temporary item still belongs to Continue Watching.
+            series = row.get('media_type') in ('series','tv','show','anime','episode')
             if series:
-                season, episode = row.get('season'), row.get('episode')
-                if season is None or episode is None:
+                season, episode = number(row.get('season')), number(row.get('episode'))
+                if row.get('season') is None or row.get('episode') is None or not season.is_integer() or not episode.is_integer():
                     continue
-                season, episode = int(number(season)), int(number(episode))
-                video = video or '%s:%d:%d' % (identifier, season, episode)
-                if video != '%s:%d:%d' % (identifier, season, episode):
+                video = '%s:%d:%d' % (identifier, season, episode)
+                if row.get('video_id') and row['video_id'] != video:
                     continue
             else:
                 video = identifier
             item = copy.deepcopy(previous) if previous else {
-                '_id': identifier, 'name': str(row.get('title') or identifier),
-                'type': 'series' if series else 'movie', 'poster': str(row.get('poster') or ''),
-                'removed': False, 'temp': True, '_ctime': iso(stamp), 'state': {}}
+                '_id':identifier,'type':'series' if series else 'movie',
+                'poster':str(row.get('poster') or ''),'removed':True,'temp':True,
+                '_ctime':iso(stamp),'state':{}}
+            if item.get('removed'):
+                item['temp'] = True  # newer local play revives CW, without adding a library favourite
+            item['name'] = item.get('name') or str(row.get('title') or identifier)
             state = item.get('state')
-            if not isinstance(state, dict):
+            if not isinstance(state, dict) or not valid_watched(state.get('watched')):
                 continue
-            # Do not mutate or perpetuate legacy corrupt watched payloads.
-            watched = state.get('watched')
-            if not valid_watched(watched):
-                continue
-            for field in ('timeWatched', 'overallTimeWatched', 'timesWatched', 'flaggedWatched'):
+            for field in ('timeWatched','overallTimeWatched','timesWatched','flaggedWatched'):
                 state[field] = int(number(state.get(field)))
-            state.update(timeOffset=int(round(min(position, duration) * 1000)),
-                         duration=int(round(duration * 1000)), video_id=video, lastWatched=iso(stamp))
-            # Completion bitfields/counters require full episode history; leave
-            # them intact instead of guessing from a percentage threshold.
+            same_video = state.get('video_id') == video
+            if not same_video:
+                state['flaggedWatched'] = 0
+                state['timeWatched'] = 0
+            finished = row.get('finished') is True or row.get('event_type') in ('watched','finished','ended') or position >= duration * .90
+            if finished:
+                newly_watched = not state['flaggedWatched']
+                if series:
+                    videos = videos_loader(identifier) if videos_loader else []
+                    if not videos:
+                        raise RuntimeError('Stremio episode metadata unavailable; completion will retry')
+                    try:state['watched'], newly_watched = mark(state.get('watched'), videos, video)
+                    except ValueError as exc:raise RuntimeError(str(exc))
+                if newly_watched:
+                    state['timesWatched'] = min(2**32-1, state['timesWatched'] + 1)
+                state['flaggedWatched'] = 1
+                state['timeWatched'] = max(state['timeWatched'], int(round(duration*1000)))
+                state['overallTimeWatched'] = max(state['overallTimeWatched'],state['timeWatched'])
+            state.update(timeOffset=0 if finished else int(round(min(position,duration)*1000)),
+                         duration=int(round(duration*1000)),video_id=video,lastWatched=iso(stamp))
             item['_mtime'] = iso(stamp)
             if not epoch(item.get('_ctime')):
                 item['_ctime'] = iso(stamp)
-            item['state'] = state
             if validate(item):
-                newest[identifier] = (stamp, item)
-        except (ValueError, TypeError, OverflowError, OSError):
+                working[identifier] = item
+                changed[identifier] = item
+        except (ValueError,TypeError,OverflowError,OSError):
             continue
-    return [value[1] for value in newest.values()]
+    return list(changed.values())

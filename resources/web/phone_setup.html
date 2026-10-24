@@ -871,7 +871,7 @@ $('#filesSend').onclick=async()=>{
  }$('#filesStatus').textContent='تم رفع الملفات / Files uploaded';$('#folderUpload').value='';$('#filesUpload').value='';}
  catch(e){$('#filesStatus').textContent=e.message;}finally{$('#filesSend').disabled=false;browseFiles();}
 };
-setTimeout(browseFiles,0);
+// Start the file browser after the profile token has been loaded.
 async function uploadBinary(route,input,status){
  const file=$(input).files[0];if(!file)throw new Error('اختر ملفًا أولاً');
  if(file.size>256*1024*1024)throw new Error('الملف أكبر من 256 MiB');
@@ -903,7 +903,7 @@ function toast(t,kind){toastEl.textContent=t;toastEl.className='toast '+(kind||(
 function saving(on,failed){const el=$('#saved');el.textContent=on?'يحفظ…':(failed?'ما انحفظ':'محفوظ');el.classList.toggle('busy',!!on);el.classList.toggle('err',!on&&!!failed)}
 function online(ok){document.querySelectorAll('.device').forEach(d=>d.classList.toggle('off',!ok))}
 async function getState(){const r=await fetch(BASE+'api/state',{cache:'no-store'});if(!r.ok)throw new Error(r.status);const d=await r.json();renderProfile(d.profile);if(S&&S.profile?.scope!==d.profile?.scope){S=d;applyState();}return d;}
-function renderProfile(p){if(!p)return;$('#profileStatus').textContent=(p.name||'Local')+' · '+(p.stremio_writes?'Stremio: progress uploads enabled':'Stremio: استقبال فقط / read only');$('#profileSelect').innerHTML=(p.choices||[]).map(x=>`<option value="${Number(x.index)}" ${Number(x.index)===Number(p.index)?'selected':''}>${esc(x.name)}</option>`).join('');$('#profileSelect').disabled=!(p.choices||[]).length;}
+function renderProfile(p){if(!p)return;$('#profileStatus').textContent=p.name||'Local';$('#profileSelect').innerHTML=(p.choices||[]).map(x=>`<option value="${Number(x.index)}" ${Number(x.index)===Number(p.index)?'selected':''}>${esc(x.name)}</option>`).join('');$('#profileSelect').disabled=!(p.choices||[]).length;}
 $('#profileSelect').onchange=async e=>{e.target.disabled=true;try{const r=await post('profile',{index:Number(e.target.value)},true);if(r?.ok){await refresh();if(r.partial?.length)toast('تم التبديل؛ بعض البيانات تنتظر المزامنة / Some data is pending sync');}}finally{e.target.disabled=false;}};
 async function post(path,body,quiet){
   saving(true);let failed=false;
@@ -922,7 +922,7 @@ let S=null;
 const SVC_META={
  nuvio:{sub:'هومك ومكتبتك من Nuvio',note:'توافق من موقع Nuvio، وكلمة المرور ما تدخل Dex Hub.'},
  trakt:{sub:'المشاهدة والقوائم',note:'افتح الرابط وحط الرمز، والتلفزيون ينربط لحاله.'},
- stremio:{sub:'إضافاتك ومكتبتك',note:'استقبال فقط افتراضيًا؛ رفع تقدم المشاهدة يحتاج تفعيلًا صريحًا. / Read only by default.'},
+ stremio:{sub:'إضافاتك ومكتبتك',note:'اسحب وارفع إضافاتك والمشاهدة، أو اختر اتجاه المزامنة من الأزرار أدناه.'},
  plex:{sub:'مكتبة السيرفر',note:'تفتح صفحة Plex وتوافق، وتنربط سيرفراتك كلها.'},
  emby:{sub:'مكتبة السيرفر',ph:'http://192.168.1.20:8096'},
  jellyfin:{sub:'مكتبة السيرفر',ph:'http://192.168.1.20:8096'},
@@ -955,10 +955,38 @@ function copyText(text){
 function renderPick(){
   $('#pick').innerHTML=ORDER.map(id=>`<button type="button" class="svc" data-id="${id}" aria-pressed="${chosen.has(id)}">${ico(id)}<span>${esc(svc(id).name)}</span></button>`).join('');
 }
+function stremioSyncCard(){
+  const c=svc('stremio').sync||{},T=(ar,en)=>(window.DexHubLanguage?.language||(S.ui_language==='English'?'en':'ar'))==='en'?en:ar;
+  const job=c.job||{},running=job.status==='running',result=job.result||{};
+  const parts=(result.report||[]).find(r=>r.service==='stremio')?.sections||{};
+  const report=Object.entries(parts).map(([key,r])=>`${key==='addons'?T('الإضافات','Add-ons'):T('المشاهدة','Watch progress')}: ${r.ok?T('سحب','Read')+' '+(r.pulled||0)+' · '+T('رفع','Uploaded')+' '+(r.pushed||0):T('سحب','Read')+' '+(r.pulled||0)+' · '+T('رفع','Uploaded')+' '+(r.pushed||0)+'<br>'+esc((r.error||T('لم تكتمل','Incomplete')).replace('Stremio rejected oversized add-on descriptors: ',T('رفض Stremio حجم إعداد هذه الإضافات: ','Stremio rejected oversized add-on descriptors: ')).replace('. Reduce enabled catalogs in these add-ons and retry; other add-ons were synced.',T('. قلّل الكتالوجات المفعلة من إعدادات هذه الإضافات وأعد المحاولة؛ باقي الإضافات تزامنت.','. Reduce enabled catalogs in these add-ons and retry; other add-ons were synced.')))}`).join('<br>');
+  return `<div class="field"><label><input type="checkbox" id="sm-enabled" data-sm-config ${c.enabled?'checked':''}> ${T('مزامنة Stremio تلقائيًا','Automatic Stremio sync')}</label></div>
+    <div class="field"><label for="sm-direction">${T('اتجاه المزامنة التلقائية','Automatic sync direction')}</label><select class="inp" id="sm-direction" data-sm-config>
+      ${[['both','سحب ورفع','Download and upload'],['pull','سحب فقط','Download only'],['push','رفع فقط','Upload only']].map(([v,ar,en])=>`<option value="${v}" ${(c.direction||'both')===v?'selected':''}>${T(ar,en)}</option>`).join('')}</select></div>
+    <div class="row">${[['addons','الإضافات','Add-ons'],['progress','المشاهدة والتقدم','Watch history and progress']].map(([k,ar,en])=>`<label><input type="checkbox" id="sm-${k}" data-sm-config ${c[k]!==false?'checked':''}> ${T(ar,en)}</label>`).join('')}</div>
+    <div class="row">${[['pull','اسحب الآن','Download now'],['push','ارفع الآن','Upload now'],['both','سحب ورفع الآن','Sync both ways']].map(([d,ar,en])=>`<button class="btn ${d==='both'?'p':'g'} s" type="button" data-act="smsync" data-id="stremio" data-direction="${d}" ${running?'disabled':''}>${T(ar,en)}</button>`).join('')}</div>
+    <p class="hint" role="status">${running?T('المزامنة جارية… تقدر تكمل استخدام الصفحة.','Syncing… you can keep using this page.'):report||esc(job.error||T('الأزرار تشغّل عملية واحدة، حتى لو كانت المزامنة التلقائية مطفأة.','Buttons run once, even when automatic sync is off.'))}</p>`;
+}
+let stremioPoll;
+async function pollStremio(){
+  clearTimeout(stremioPoll);
+  const j=await post('sync',{service:'stremio',op:'status'},true);
+  if(!j.ok)return;
+  svc('stremio').sync=svc('stremio').sync||{};svc('stremio').sync.job=j.job||{};renderAcc();
+  if(j.job?.status==='running')stremioPoll=setTimeout(pollStremio,1500);
+  else await refresh();
+}
+document.addEventListener('change',async e=>{
+  if(!e.target.matches('[data-sm-config]'))return;
+  const c={service:'stremio',op:'configure',enabled:$('#sm-enabled').checked,
+    direction:$('#sm-direction').value,addons:$('#sm-addons').checked,progress:$('#sm-progress').checked};
+  const j=await post('sync',c,true);
+  if(j.ok)svc('stremio').sync={...svc('stremio').sync,...c};
+});
 function cardBody(id){
   const s=svc(id),m=SVC_META[id]||{};
   if(s.linked){
-    return `<div class="done-line">${id==='iptv'?'اشتراكك مضاف، تقدر تضيف ثاني من التلفزيون':'مربوط ويشتغل على التلفزيون'}</div>`+
+    return (id==='stremio'?stremioSyncCard():'')+`<div class="done-line">${id==='iptv'?'اشتراكك مضاف، تقدر تضيف ثاني من التلفزيون':'مربوط ويشتغل على التلفزيون'}</div>`+
       (id==='iptv'?'':`<div class="row"><button class="btn g s" data-act="unlink" data-id="${id}" type="button">فك الربط</button></div>`);
   }
   if(s.kind==='code'){
@@ -1046,6 +1074,12 @@ document.addEventListener('click',async e=>{
   if(p){const id=p.dataset.id;chosen.has(id)?chosen.delete(id):chosen.add(id);saveChosen();renderPick();renderAcc();return}
   const a=e.target.closest('[data-act]');if(!a)return;
   const id=a.dataset.id;
+  if(a.dataset.act==='smsync'){
+    a.disabled=true;
+    const j=await post('sync',{service:'stremio',direction:a.dataset.direction},true);
+    if(j.ok){svc('stremio').sync=svc('stremio').sync||{};svc('stremio').sync.job=j.job;renderAcc();stremioPoll=setTimeout(pollStremio,500)}else renderAcc();
+    return;
+  }
   if(a.dataset.act==='copy'){const c=a.dataset.code;copyText(c).then(()=>toast('انسخ الرمز'),()=>toast('الرمز: '+c));return}
   if(a.dataset.act==='code'){a.disabled=true;a.textContent='يجهز الرمز…';const j=await post('code',{service:id},true);
     if(j.ok){svc(id).pairing={code:j.code,url:j.url,status:'pending'};renderAcc();pollAccounts();if(!j.code&&j.url)window.open(j.url,'_blank')}else{renderAcc()}return}
@@ -1524,6 +1558,7 @@ const OPTS={
   O('player_badges_place','p','seg','مكان الرموز','Badges place',['تغييره يعيد تحميل السكين على التلفزيون','Changing it reloads the skin on the TV'],[['seekbar','فوق شريط التقدم','Above seek bar'],['info','تحت البيانات','Under details']]),
  ],
  player:[
+  O('player_loading_art','p','sw','خلفية وشعار أثناء التحميل','Artwork while loading',['خلفية العمل وشعاره ثم انتقال ناعم عند توفر أول إطار. يحتاج سكين Dex Hub المحدث','Title artwork fades into video when the first frame is available. Requires the updated Dex Hub skin']),
   O('sources_row_style','p','seg','شكل صفوف المصادر','Source rows',['كاملة: سطور الإضافة نفسها مثل نوفيو. مختصرة: شكل Dex Hub','Full: the add-on\'s own lines like Nuvio. Compact: Dex Hub\'s rows'],[['full','كاملة','Full'],['compact','مختصرة','Compact']]),
   O('player_osd_preset','p','seg','شكل جاهز للمشغل','Ready player look',['يغير النمط والظل واللون والمؤشر والأزرار مرة وحدة','Sets the style, shade, colour, cursor and buttons at once'],[['custom','مخصص','Custom'],['nuvio','Nuvio','Nuvio'],['appletv','Apple TV','Apple TV'],['netflix','Netflix','Netflix'],['infuse','Infuse','Infuse'],['plex','Plex','Plex'],['disney','Disney+','Disney+'],['artwork','ألوان العمل','Title colours'],['clean','شفاف','Clean'],['theme','الثيم','Theme']]),
   O('player_osd_style','p','seg','نمط شريط المشغل','Player bar style',['كلاسيكي، زجاجي، سينمائي أو بسيط. يتغير فورًا حتى أثناء التشغيل','Classic, glass, cinematic or minimal. Changes at once, even while playing'],[['classic','كلاسيكي','Classic'],['glass','زجاجي','Glass'],['cinematic','سينمائي','Cinematic'],['minimal','بسيط','Minimal']]),
@@ -1535,10 +1570,16 @@ const OPTS={
   O('player_osd_accent','p','seg','لون المشغل','Player colour',['يتبع العمل: لون من صورة العمل المشغّل','Follow the title: a colour from the playing title\'s picture'],[['white','أبيض','White'],['theme','الثيم','Theme'],['artwork','يتبع العمل','Follow title'],['violet','بنفسجي','Violet'],['blue','أزرق','Blue'],['cyan','سماوي','Cyan'],['green','أخضر','Green'],['gold','ذهبي','Gold'],['orange','برتقالي','Orange'],['red','أحمر','Red'],['pink','وردي','Pink']]),
   O('player_show_clearlogo','p','sw','شعار العمل في المشغل','Work logo in player',null),
   O('player_logo_position','p','seg','مكان شعار العمل','Work logo position',null,[['above_info','فوق البيانات','Above details'],['top_left','أعلى اليسار','Top left'],['top_right','أعلى اليمين','Top right']]),
+  O('player_logo_size','p','seg','حجم شعار العمل (Clear logo)','Clear logo size',null,[['small','صغير · 75%','Small · 75%'],['normal','متوسط · 100%','Medium · 100%'],['large','كبير · 115%','Large · 115%']]),
   O('player_show_plot','p','sw','النبذة في المشغل','Plot in player',null),
+  O('player_plot_size','p','seg','حجم خط الوصف (Plot)','Plot text size',null,[['small','صغير','Small'],['normal','متوسط','Medium'],['large','كبير','Large']]),
+  O('player_plot_width','p','seg','عرض الوصف','Plot width',null,[['short','مختصر','Compact'],['normal','متوسط','Medium'],['wide','عريض','Wide']]),
+  O('player_plot_scroll','p','sw','تمرير الوصف الطويل تلقائيًا','Scroll long plots automatically',null),
   O('player_show_metadata','p','sw','بيانات العمل في المشغل','Metadata in player',null),
   O('player_show_ratings','p','sw','التقييمات في المشغل','Ratings in player',null),
   O('player_show_studio','p','sw','شعار الشبكة في المشغل','Network logo in player',null),
+  O('player_studio_size','p','seg','حجم شعار الاستديو','Studio logo size',null,[['small','صغير','Small'],['normal','متوسط','Medium'],['large','كبير','Large']]),
+  O('player_studio_position','p','seg','مكان شعار الاستديو','Studio logo position',null,[['bottom_right','أسفل اليمين','Bottom right'],['bottom_left','أسفل اليسار','Bottom left'],['top_right','أعلى اليمين','Top right'],['top_left','أعلى اليسار','Top left']]),
   O('video_back_background','p','sw','رجوع يخلي الفيديو شغال','Back keeps the video playing',['الفيديو يكمل خلف الرئيسية بدل ما يوقف','The video keeps playing behind the Home instead of stopping']),
   O('remember_last_source','p','sw','إعادة آخر نسخة شغّلتها','Replay the last version played',['نفس المصدر اللي اخترته آخر مرة لهذا العمل','The same source you picked last time for this title']),
   O('continue_known_source_direct','p','sw','متابعة من المصدر المعروف','Resume the known source directly',['متابعة المشاهدة بدون بحث جديد','Continue Watching without a new search']),
@@ -1714,7 +1755,7 @@ function applyState(){
 }
 async function refresh(){try{S=await getState();applyState()}catch(e){online(false);toast('انقطع الاتصال بالتلفزيون','err')}}
 document.body.classList.add('loading');
-refresh().then(()=>{document.body.classList.remove('loading');openHash()});
+refresh().then(()=>{document.body.classList.remove('loading');openHash();if(S)browseFiles()});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&S)refresh()});
 })();
 

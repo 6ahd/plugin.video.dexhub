@@ -1579,10 +1579,8 @@ msgctxt "#32964"
 msgid "Off"
 msgstr "Off"
 
-msgctxt "#32965"
-msgid "Seek preview images (server or Seekr)"
-msgstr "Seek preview images (server or Seekr)"
 
-msgctxt "#32966"
-msgid "Seekr API key (optional)"
-msgstr "Seekr API key (optional)"
+
+msgctxt "#32968"
+msgid "Artwork while loading"
+msgstr "Artwork while loading"

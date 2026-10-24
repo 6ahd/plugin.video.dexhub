@@ -4,6 +4,8 @@ import os
 import time
 
 import xbmc
+from . import profile_scope as _scope
+from .nextup_state import Snapshot, coordinate, show_keys, watched, history, visible
 
 NEXTUP_CACHE_KEY = 'dexhub.nextup_cache'
 NEXTUP_CACHE_TS_KEY = 'dexhub.nextup_cache_ts'
@@ -125,26 +127,32 @@ def series_videos_cached(canonical_id, *, window, prop_prefix, provider_order_fo
 def _build_nextup_items(limit, trakt_mod, playback_store_mod, series_videos_loader, log_prefix='[DexHub]'):
     items = []
     seen = set()
+    seen_shows = set()
+    trakt_rows = []
 
     try:
         trakt_progress_enabled = (not hasattr(trakt_mod, 'sync_enabled') or
                                   bool(trakt_mod.sync_enabled()))
         trakt_rows = (trakt_mod.fetch_next_up(limit=limit) or []) if trakt_progress_enabled else []
-        for row in trakt_rows:
-            key = (row.get('canonical_id') or '', row.get('season') or 0, row.get('episode') or 0)
-            if key in seen:
-                continue
-            seen.add(key)
-            items.append(row)
     except Exception as exc:
         xbmc.log('%s nextup trakt fetch failed: %s' % (log_prefix, exc), xbmc.LOGDEBUG)
 
     try:
         # Lower than the previous 300. We only need enough recent shows to fill
         # the visible NextUp screen; the large scan was the main delay on open.
-        activity_rows = playback_store_mod.list_recent_items(limit=max(40, min(120, limit * 2)), media_types=['series', 'anime', 'tv', 'show'], include_watched=True) or []
+        activity_rows = playback_store_mod.list_recent_items(limit=max(40, min(120, limit * 2)), media_types=['series', 'anime', 'tv', 'show', 'episode'], include_watched=True) or []
     except Exception:
         activity_rows = []
+
+    state = Snapshot(history(playback_store_mod, activity_rows + trakt_rows))
+    hidden_reader = getattr(playback_store_mod, 'hidden_nextup_keys', None)
+    hidden = hidden_reader() if callable(hidden_reader) else set()
+    for row in trakt_rows:
+        keys = show_keys(row)
+        point = coordinate(row)
+        if not point or point[0] <= 0 or state.watched(row) or keys & (hidden | seen_shows):continue
+        seen.add((row.get('canonical_id') or '',)+point)
+        seen_shows.update(keys);items.append(row)
 
     latest_by_show = {}
     for row in activity_rows:
@@ -164,11 +172,15 @@ def _build_nextup_items(limit, trakt_mod, playback_store_mod, series_videos_load
     wanted = []
     for canonical, row in latest_by_show.items():
         try:
+            keys = show_keys(row)
+            if keys & (hidden | seen_shows):continue
             percent = float(row.get('percent') or 0.0)
             event_type = str(row.get('event_type') or '').lower()
-            if percent < 70.0 and event_type != 'watched':
+            threshold = 80.0 if 'simkl' in str(row.get('provider_name') or '').lower() else 90.0
+            if percent < threshold and event_type not in ('watched', 'finished'):
                 continue
-            if int(row.get('season') or 0) <= 0 or int(row.get('episode') or 0) <= 0:
+            point = coordinate(row)
+            if not point or point[0] <= 0:
                 continue
             wanted.append((canonical, row))
         except Exception:
@@ -178,6 +190,7 @@ def _build_nextup_items(limit, trakt_mod, playback_store_mod, series_videos_load
     def _read(pair):
         canonical, row = pair
         mt = (row.get('media_type') or '').lower() or 'series'
+        if mt in ('episode','tv','show'):mt = 'series'
         try:
             return canonical, series_videos_loader(canonical, media_type=mt, title=row.get('title') or canonical) or []
         except Exception:
@@ -194,8 +207,10 @@ def _build_nextup_items(limit, trakt_mod, playback_store_mod, series_videos_load
         try:
             from concurrent.futures import ThreadPoolExecutor
             with ThreadPoolExecutor(max_workers=min(4, len(missing))) as pool:
-                for key, videos in pool.map(_read, missing):
-                    lists[key] = videos
+                for result in pool.map(_scope.capture(_read), missing):
+                    if result is not None:
+                        key, videos = result
+                        lists[key] = videos
         except RuntimeError:
             for pair in missing:
                 key, videos = _read(pair)
@@ -206,33 +221,18 @@ def _build_nextup_items(limit, trakt_mod, playback_store_mod, series_videos_load
             _lists_for(wanted[index:index + 8])
         try:
             mt = (row.get('media_type') or '').lower() or 'series'
-            cur_season = int(row.get('season') or 0)
-            cur_episode = int(row.get('episode') or 0)
-            videos = lists.get(canonical) or []
-            picked = None
-            next_s, next_e = cur_season, cur_episode + 1
-            for v in videos:
-                try:
-                    if int(v.get('season') or 0) == next_s and int(v.get('episode') or 0) == next_e:
-                        picked = v
-                        break
-                except Exception:
-                    continue
-            if not picked:
-                next_s, next_e = cur_season + 1, 1
-                for v in videos:
-                    try:
-                        if int(v.get('season') or 0) == next_s and int(v.get('episode') or 0) == next_e:
-                            picked = v
-                            break
-                    except Exception:
-                        continue
-            if not picked:
-                continue
+            anchor = max(coordinate(row) or (0,0), state.furthest(row))
+            videos = sorted((v for v in lists.get(canonical) or [] if coordinate(v) and coordinate(v)[0] > 0),
+                            key=coordinate)
+            picked = next((v for v in videos if coordinate(v) > anchor and
+                           not state.watched(dict(row, season=coordinate(v)[0], episode=coordinate(v)[1]))), None)
+            if not picked:continue
+            next_s, next_e = coordinate(picked)
             key = (canonical, next_s, next_e)
-            if key in seen:
+            if key in seen or show_keys(row) & seen_shows:
                 continue
             seen.add(key)
+            seen_shows.update(show_keys(row))
             items.append({
                 'media_type': mt or 'series',
                 'canonical_id': canonical,
@@ -260,7 +260,8 @@ def _build_nextup_items(limit, trakt_mod, playback_store_mod, series_videos_load
     return sorted(items, key=lambda r: int(r.get('last_watched_at') or 0), reverse=True)[:limit]
 
 
-def nextup_items_cached(limit=40, *, window, trakt_mod, playback_store_mod, series_videos_loader, log_prefix='[DexHub]'):
+@_scope.bound
+def nextup_items_cached(limit=40, *, window, trakt_mod, playback_store_mod, series_videos_loader, log_prefix='[DexHub]', cached_only=False):
     try:
         cached_ts = int(window.getProperty(NEXTUP_CACHE_TS_KEY) or '0')
     except Exception:
@@ -290,29 +291,37 @@ def nextup_items_cached(limit=40, *, window, trakt_mod, playback_store_mod, seri
 
     age = time.time() - cached_ts if cached_ts else 999999
     if cached is not None and age <= NEXTUP_CACHE_TTL:
-        return cached[:limit]
+        return visible(cached, playback_store_mod)[:limit]
 
     def _refresh_cache():
         try:
             fresh = _build_nextup_items(limit, trakt_mod, playback_store_mod, series_videos_loader, log_prefix=log_prefix)
+            _scope.require_current()
             now = int(time.time())
             window.setProperty(NEXTUP_CACHE_KEY, json.dumps(fresh))
             window.setProperty(NEXTUP_CACHE_TS_KEY, str(now))
             _write_file_cache(fresh)
+            # Refresh only progress shelves; never reload Home or its hero.
+            from .skinui import common as C, board
+            for tab in C.TABS:
+                for spec in board.load_specs(tab):
+                    if spec.get('progress'):
+                        C.request_refresh(tab, spec['id'])
         except Exception as exc:
             xbmc.log('%s nextup refresh failed: %s' % (log_prefix, exc), xbmc.LOGDEBUG)
 
     # Fast path for UI: use stale cache while a background refresh warms the
     # next open. This keeps NextUp snappy on skins/widgets that reopen it often.
-    if cached is not None and age <= NEXTUP_STALE_TTL:
+    if cached_only or (cached is not None and age <= NEXTUP_STALE_TTL):
         try:
             from .runtime_tasks import submit_optional
-            submit_optional(_refresh_cache, key='nextup-cache-refresh')
+            submit_optional(_scope.capture(_refresh_cache), key='nextup-cache-refresh:' + _scope.key())
         except Exception:
             pass
-        return cached[:limit]
+        return visible(cached or [], playback_store_mod)[:limit]
 
     items = _build_nextup_items(limit, trakt_mod, playback_store_mod, series_videos_loader, log_prefix=log_prefix)
+    _scope.require_current()
     try:
         now = int(time.time())
         window.setProperty(NEXTUP_CACHE_KEY, json.dumps(items))
@@ -320,4 +329,4 @@ def nextup_items_cached(limit=40, *, window, trakt_mod, playback_store_mod, seri
         _write_file_cache(items)
     except Exception:
         pass
-    return items[:limit]
+    return visible(items, playback_store_mod)[:limit]

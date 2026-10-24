@@ -1579,10 +1579,8 @@ msgctxt "#32964"
 msgid "Off"
 msgstr "متوقف"
 
-msgctxt "#32965"
-msgid "Seek preview images (server or Seekr)"
-msgstr "صور معاينة التقديم (السيرفر أو Seekr)"
 
-msgctxt "#32966"
-msgid "Seekr API key (optional)"
-msgstr "مفتاح Seekr (اختياري)"
+
+msgctxt "#32968"
+msgid "Artwork while loading"
+msgstr "خلفية وشعار أثناء التحميل"

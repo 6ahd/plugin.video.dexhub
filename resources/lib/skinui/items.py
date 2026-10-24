@@ -111,6 +111,8 @@ def listitem(item, tab='', row=''):
             except Exception:
                 pass
     props = dict(item.get('props') or {})
+    from .hero_text import cached_meta
+    props['dhs.hero_meta'] = cached_meta(item)
     if props.get('kind') == 'work' and art.get('poster'):
         # Carry the already-rendered Home texture through Kodi's Info dialog.
         props['dhs.card.poster'] = art['poster']

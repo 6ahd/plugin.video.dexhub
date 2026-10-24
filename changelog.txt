@@ -1,3 +1,58 @@
+5.10.401
+Show loading artwork only for an initial playback start; never on source replacement or over an active video. Remove repeated/conflicting resolution badges and separate the player source quality label from technical badges. Includes the Next episode watched-history and persistent shelf-removal fixes from 5.10.400. Seek previews remain removed.
+
+5.10.400
+Fix Next episode suggestions resurrecting watched episodes or completed series. Persist watched marks for unsaved episode suggestions and report failed saves correctly. Add Remove from Next episode with profile-local persistence across provider refreshes; actual playback can show it again. Revalidate cached suggestions and refresh progress shelves after edits. Retain the release without seek previews.
+
+5.10.399
+Remove seek-preview extraction, Seekr/server thumbnail lookups, prefetch workers and related settings. Native Kodi seeking remains available. Preserve built-in intro/recap skipping, loading artwork and all prior sync fixes.
+
+5.10.398
+Show pending button offsets immediately before Kodi commits a delayed seek. Prioritize the newest button seek using isolated cancellable range readers and dedicated foreground workers. Cancel superseded queued images instead of waiting for them. Continue bounded rolling look-ahead during playback. Faster input polling; mouse previews remain disabled.
+
+5.10.397
+Button-only seek previews. Mouse movement, OSD hover and mouse-slider seeks never start a preview. Prepare nearby button targets with strict traffic limits, reuse actual keyframes and display ready images directly from RAM. Faster input polling; preserves all sync and intro fixes.
+
+5.10.396
+Fix seek preview flicker and stale target jumps. Render only for actual seek input or playback seek events; cache late images silently instead of reopening over video when controls appear. Keep the image mounted across updates and observe active seeks every 100ms. Retains sync, skip and translation fixes.
+
+5.10.395
+Fix seek thumbnail rendering by retaining the parent Kodi window while updating its image control. Keep the latest requested seek target through bounded thumbnail loading, then show the completed image briefly. Clear previews on video/profile changes, leaving fullscreen or disabling previews. Retains English player settings, intro lifetime, optional loading artwork and synchronization fixes.
+
+5.10.394
+Fix native seek previews timing out on remote files: coalesce neighbouring frame packet reads, bound the in-memory byte cache to 4 MiB, warm seek tables on the existing background job and allow transient index retries. Complete English translations for new player presentation and artwork-loading settings. Retains the 5.10.393 loading option, Nuvio/Stremio sync and Skip Intro fixes.
+
+5.10.393
+Optional artwork while loading, off by default: skin-owned modeless backdrop and logo, fading out on Kodi Player.OnAVStart (first frame available). Automatic cleanup on cancellation, failure, profile changes and timeout; no modal waiters or playback delays. Retains seek previews, Nuvio sync and Skip Intro fixes.
+
+5.10.392
+Native on-demand seek previews from indexed MKV/MP4 video using Kodi thumbnail decoding, without an external decoder or Seekr key. Bounded byte-range reads, cancellable worker, aspect-preserving frames and 64 MiB cache. Preserve server previews, optional Seekr fallback, Nuvio zero-position sync fix and full Skip Intro lifetime.
+
+5.10.391
+Fix Nuvio progress sync failing for zero-position movie/episode rows: do not read Stremio watched counters from Nuvio RPC entries. Preserve zero resume, complete Nuvio progress, full Skip Intro interval lifetime and the existing Stremio upload contract.
+
+5.10.390
+Keep manual Skip Intro/Recap available for the complete detected segment. Player controls, seeking, pause and leaving fullscreen no longer permanently dismiss the button; only explicit dismissal or successful skipping does. Restore after temporary controls, close at the segment end. Preserve Stremio sync format and all 5.10.389 fixes.
+
+5.10.389
+Stremio two-way add-on and watch progress sync using official descriptors and libraryItem fields, watched episode bitfields and completion counters. Phone setup now offers explicit pull, push and two-way jobs with progress/results and automatic sync preferences. Temporary removed library items remain eligible for continue watching; preserve remote add-ons, flags and newer progress.
+
+5.10.387
+إصلاح بيانات الهيرو القديمة عند قراءة الصفوف المحفوظة، وإلغاء قص حقول المواسم والحالة، وضبط ارتفاع الوصف وإخفاء وقت الانتهاء من المجلدات. تثبيت أزرار الهيرو والتركيز أثناء تحديث الصور والتقييمات، وإيقاف ظهور شعار الاستديو القديم قبل الجديد. مزامنة حذف متابعة المشاهدة من Nuvio مع حماية التقدم الأحدث، وإظهار الحلقة التالية الصادرة بعد اكتمال الحالية. إعدادات أوضح لحجم ومكان شعاري العمل والاستديو والوصف والشارات، وتغيير مكان الشارات دون إعادة تحميل السكين. تدرج خفيف متلاشي خلف النص ونسب موحدة للهيدر المختصر.
+Mac verification: compact cached hero facts, no truncated season/status fields, complete plot lines, and no false finish time on folders. Stable hero actions during artwork reloads and ratings updates; focused studio logos commit once without legacy fallback. Reconcile Nuvio progress deletions without resurrecting acknowledged rows or deleting newer local playback. Released next episodes join Continue Watching after completion, with background metadata loading. Element-based live player logo/studio sizes and positions, plot typography/width/scrolling and quality badge controls; badge placement no longer reloads the skin. Feathered hero text shade and shared compact proportions.
+
+5.10.386
+تثبيت أزرار الهيرو والتركيز أثناء تحديث الصور والتقييمات، وإيقاف ظهور شعار الاستديو القديم قبل الجديد. مزامنة حذف متابعة المشاهدة من Nuvio مع حماية التقدم الأحدث، وإظهار الحلقة التالية الصادرة بعد اكتمال الحالية. إعدادات أوضح لحجم ومكان شعاري العمل والاستديو والوصف والشارات، وتغيير مكان الشارات دون إعادة تحميل السكين. تدرج خفيف متلاشي خلف النص ونسب موحدة للهيدر المختصر.
+Stable hero actions during artwork reloads and ratings updates; focused studio logos commit once without legacy fallback. Reconcile Nuvio progress deletions without resurrecting acknowledged rows or deleting newer local playback. Released next episodes join Continue Watching after completion, with background metadata loading. Element-based live player logo/studio sizes and positions, plot typography/width/scrolling and quality badge controls; badge placement no longer reloads the skin. Feathered hero text shade and shared compact proportions.
+
+5.10.385
+توحيد شعارات الاستديو الشفافة في الرئيسية وصفحة العمل، وتفضيل العلامات البيضاء وقص الهوامش الزائدة من الصور المحلية. تختفي خانة الاستديو والفاصل عند غياب الشعار، ويستفيد التقييم من العرض كاملًا.
+Unified transparent studio marks on Home and title pages. Prefer white wordmarks, trim readable local logo margins, remove neutral app plates, and collapse missing studio slots together with their divider. Ratings reclaim the full row when no studio logo exists.
+
+5.10.384
+تنسيق بيانات الهيرو بعرض محدد وتصنيفين فقط، والتصنيف العمري في خانة مستقلة، وسطر موحّد للاستديو والتقييم، وتوحيد عرض الوصف. اسم الحلقة الطويل يبقى في صفحة العمل.
+Bounded Home facts with two genres, a dedicated certification label, a separate aligned studio/ratings line, and consistent plot width. Long episode names stay on the title page.
+
 5.10.383
 زر «تخطي المقدمة» صار مستطيل أبيض بزوايا ناعمة وكتابة سوداء مثل Apple TV ونتفلكس. كان يطلع أسود لأن كودي ما يقرأ مسار الصورة المكتوب بـ $INFO في خلفيات الأزرار، فما كان يرسم خلفيته أبد. ونفس الخلل صلحته في كل نوافذ Dex Hub: خلفيات الأزرار وأقنعة الزوايا الدائرية صارت بمسار الإضافة الحقيقي. وفي نسخة Apple TV النوافذ كانت تقرأ خاصية الإضافة العادية بدل خاصيتها، فبعض صورها ما كانت تطلع.
 The Skip intro button is a white rounded rectangle with black text, as on Apple TV and Netflix. It showed dark because Kodi reads a button's textures literally and never resolved the $INFO path, so no background was drawn. The same fix applies to every Dex Hub window: button backgrounds and rounded-corner masks now use the add-on's real path. On the Apple TV flavour the windows read the main add-on's asset property instead of their own, so some images did not show.

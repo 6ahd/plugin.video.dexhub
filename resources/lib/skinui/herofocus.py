@@ -265,18 +265,24 @@ class HeroFocus(threading.Thread):
         from ..ui_preferences import enabled
         key = found[0]
         home = C.home()
-        home.setProperty(PREFIX + 'id', '')
+        # Identity is a commit marker only when changing titles. Clearing it
+        # on every ratings update briefly selected the legacy tile artwork.
+        if home.getProperty(PREFIX + 'id') != key:
+            home.setProperty(PREFIX + 'id', '')
         if not enabled('metadata_badges'):
             ratings = {}
         # v5.10.297: every platform the sources window shows (not six)
         for name, value in RB.props(ratings, prefix=PREFIX, limit=len(RB.ORDER)).items():
-            home.setProperty(name, value)
+            if home.getProperty(name) != value:
+                home.setProperty(name, value)
         self.publish_badges(key)
         logo, chip = self.studios.get(key) or ('', False)
-        home.setProperty(PREFIX + 'studio_logo', logo)
-        home.setProperty(PREFIX + 'studio_chip', '1' if chip else '')
+        for name, value in (('studio_logo', logo), ('studio_chip', '1' if chip else '')):
+            if home.getProperty(PREFIX + name) != value:
+                home.setProperty(PREFIX + name, value)
         # last: the skin shows them once the id names its title
-        home.setProperty(PREFIX + 'id', key)
+        if home.getProperty(PREFIX + 'id') != key:
+            home.setProperty(PREFIX + 'id', key)
         self.shown = key
         self._shown_studio_seed = (key, self._studio_seeds.get(key, ''))
 

@@ -188,6 +188,8 @@ def sync_now(addon, tr, only=None, direction=None):
     from resources.lib.dexhub import nuvio_stremio_sync as sync
     dlg = xbmcgui.Dialog()
     targets = sync.enabled_targets()
+    if only == 'stremio' and sync.Stremio.is_linked() and 'stremio' not in targets:
+        targets.append('stremio')  # explicit one-shot sync works with automatic sync off
     if only:
         targets = [t for t in targets if t == only]
         if not targets:
@@ -454,3 +456,31 @@ def connect_nuvio(addon, tr):
         xbmcgui.Dialog().notification('Dex Hub', tr('تم ربط Nuvio ✓'),
                                       xbmcgui.NOTIFICATION_INFO, 3500)
     return True
+
+
+def configure_stremio(addon, tr):
+    """One place for the actual per-service direction and data switches."""
+    import xbmcgui
+    from resources.lib.dexhub import nuvio_stremio_sync as cloud
+    while True:
+        enabled = str(addon.getSetting('stremio_sync_enabled')).lower() == 'true'
+        direction = cloud._direction_for('stremio')
+        labels = {'both':tr('سحب ورفع'),'pull':tr('سحب فقط'),'push':tr('رفع فقط')}
+        fields = ['stremio_sync_addons','stremio_sync_progress']
+        on = lambda key: str(addon.getSetting(key) or 'true').lower() == 'true'
+        choice = xbmcgui.Dialog().select('Stremio',[
+            tr('المزامنة التلقائية')+': '+(tr('مفعّلة') if enabled else tr('مطفأة')),
+            tr('الاتجاه')+': '+labels[direction],
+            tr('الإضافات')+': '+(tr('مفعّلة') if on(fields[0]) else tr('مطفأة')),
+            tr('المشاهدة والتقدم')+': '+(tr('مفعّلة') if on(fields[1]) else tr('مطفأة')),
+            tr('مزامنة الآن')])
+        if choice < 0:return
+        if choice == 0:addon.setSetting('stremio_sync_enabled','false' if enabled else 'true')
+        elif choice == 1:
+            pick = xbmcgui.Dialog().select(tr('اتجاه مزامنة Stremio'),[tr('سحب ورفع'),tr('سحب فقط'),tr('رفع فقط')])
+            if pick >= 0:addon.setSetting('stremio_sync_direction',('Two-way','Download only','Upload only')[pick])
+        elif choice in (2,3):
+            key=fields[choice-2];addon.setSetting(key,'false' if on(key) else 'true')
+        elif choice == 4:return sync_now(addon,tr,only='stremio')
+        from resources.lib.settings_cache import invalidate
+        invalidate()

@@ -23,6 +23,8 @@ def changed():
         import xbmcgui
         import time
         window = xbmcgui.Window(10000)
+        from .nextup_logic import invalidate_nextup_cache
+        invalidate_nextup_cache(window)
         window.setProperty(ACTION_REVISION, uuid.uuid4().hex)
         window.setProperty('dhs.progress.changed', '%.6f' % time.time())
     except Exception:

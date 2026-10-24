@@ -1049,6 +1049,7 @@ def _carry_enrichment(items, old, language, ctx=None):
                 props[key] = before['props'][key]
         if ctx is not None:
             props['dhs.meta'] = ctx.meta(dict(info, kind='work'))
+            props['dhs.hero_meta'] = ctx.hero_meta(dict(info, kind='work'))
             props['dhs.lgmeta'] = ctx.lg_meta(dict(info, kind='work'))
         src = item.setdefault('src', {})
         old_src = before.get('src') or {}
@@ -1328,6 +1329,16 @@ class Context(object):
             out.append(tile.get('brand') or '')
         return '   •   '.join([m for m in out if m])
 
+    def hero_meta(self, tile):
+        """Two genres and the episode code; certification has its own label."""
+        from .hero_text import compact_meta
+        compact = dict(tile)
+        genres = tile.get('genres') or []
+        if isinstance(genres, str):
+            genres = [g.strip() for g in re.split(r'\s*[/,|]\s*', genres) if g.strip()]
+        compact['genres'] = list(genres)[:2]
+        return compact_meta(self.meta(compact), tile.get('mpaa') or '', episode_code(tile))
+
     _MONTHS = (('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'),
                ('يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'))
 
@@ -1490,13 +1501,16 @@ class Context(object):
             if gif:
                 art['gif'] = gif
         click, target = self.click(tile, spec)
-        if kind == 'work' and not tile.get('studio_logo') and (tile.get('studios') or tile.get('studio')):
+        if kind == 'work':
             try:
                 from .. import studio_art
-                logo = studio_art.resolve(tile.get('studios') or tile.get('studio'))
-                if logo:
-                    tile['studio_logo'] = logo
-                    tile['studio_logo_chip'] = False
+                from ..studio_mark import prepare
+                logo = prepare(tile.get('studio_logo'))
+                if not logo and (tile.get('studios') or tile.get('studio')):
+                    picked = studio_art.pick(names=tile.get('studios') or tile.get('studio'), limit=1)
+                    logo = picked[0][0] if picked else ''
+                tile['studio_logo'] = logo
+                tile['studio_logo_chip'] = False
             except Exception:
                 pass
         hero_title = show if (media == 'episode' and show) else title
@@ -1510,6 +1524,7 @@ class Context(object):
             'dhs.target': target,
             'dhs.badge': self.badge(tile),
             'dhs.meta': self.meta(tile),
+            'dhs.hero_meta': self.hero_meta(tile),
             'dhs.rating': self.rating(tile),
             'dhs.ratings': json.dumps(tile.get('ratings') or {}, ensure_ascii=False),
             'dhs.hero_video': (tile.get('hero_video') or '') if kind == 'folder' else '',
@@ -1787,6 +1802,7 @@ def enrich(tab, row_id, limit=ENRICH_ITEMS, stop=None, batch=6):
                     props[name] = value
                     changed = True
         props['dhs.meta'] = ctx.meta(merged)
+        props['dhs.hero_meta'] = ctx.hero_meta(merged)
         props['dhs.lgmeta'] = ctx.lg_meta(merged)
         props['dhs.rating'] = ctx.rating(merged)
         if tile.get('ratings'):

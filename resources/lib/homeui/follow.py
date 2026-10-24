@@ -891,7 +891,7 @@ class FollowWindow(xbmcgui.WindowXMLDialog):
         elif key == 'track':
             self.track(entry)
         elif key.startswith('cmd:') and any('action=' + action in key for action in
-                ('cw_remove', 'cw_mark_watched', 'iptv_cw_remove', 'iptv_cw_watched')):
+                ('cw_remove', 'cw_mark_watched', 'nextup_remove', 'iptv_cw_remove', 'iptv_cw_watched')):
             # v5.10.286: Remove from Continue Watching in this process, the
             # section read again once the title is hidden (not on a timer)
             self._cw_remove(key[4:])
@@ -915,14 +915,16 @@ class FollowWindow(xbmcgui.WindowXMLDialog):
                     api.iptv_cw_change(video_id=params.get('video_id', ''),
                                        watched=action == 'iptv_cw_watched', refresh=False,
                                        on_local=self._reload_up)
-                elif action in ('cw_remove', 'cw_mark_watched'):
+                elif action in ('cw_remove', 'cw_mark_watched', 'nextup_remove'):
+                    extra = {key:params.get(key) for key in ('season','episode','title','imdb_id','show_tmdb_id')} if action in ('cw_mark_watched','nextup_remove') else {}
                     getattr(api, action)(media_type=params.get('media_type', ''),
                                           canonical_id=params.get('canonical_id', ''),
                                           video_id=params.get('video_id', ''), refresh=False,
-                                          on_local=self._reload_up)
+                                          on_local=self._reload_up, **extra)
             except Exception as exc:
                 xbmc.log('[DexHub] follow cw remove: %s' % exc, xbmc.LOGWARNING)
-        thread = threading.Thread(target=job, name='DexHub-follow-cw-remove')
+        from .. import profile_scope
+        thread = threading.Thread(target=profile_scope.capture(job), name='DexHub-follow-cw-remove')
         thread.daemon = True
         thread.start()
 

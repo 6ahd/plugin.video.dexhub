@@ -719,7 +719,13 @@ def play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta=
     # another modal lifecycle exactly where CoreELEC/Kodi 22 is most fragile.
     # Keep this local sentinel so the guarded cleanup below remains harmless.
     _waiter = None
+    _loading_owner = ''
     try:
+        try:
+            from .loading_art import prepare
+            _loading_owner = prepare(ctx, art, stream_url, switching=_switch_lookup)
+        except Exception:
+            pass
         try:
             current_action = dict(api.parse_qsl(api.sys.argv[2].lstrip('?'))).get('action', '')
         except Exception:
@@ -803,6 +809,11 @@ def play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta=
         if _waiter is not None:
             _waiter.close_on_av_start()
     except Exception as exc:
+        try:
+            from .loading_art import cancel
+            cancel(_loading_owner)
+        except Exception:
+            pass
         api._monitor_playback('play-handoff-failed', level=api.xbmc.LOGERROR, error=exc, stream_key=stream_key, title=ctx.get('title') or '', provider=ctx.get('provider_name') or ctx.get('provider_id') or '')
         api.xbmc.log('[DexHub] playback handoff failed: %s' % exc, api.xbmc.LOGERROR)
         # Tear down the wait window on error so the user isn't stuck

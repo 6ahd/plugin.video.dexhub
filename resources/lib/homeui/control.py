@@ -108,6 +108,11 @@ SECTION_LIST = (
         ('hero_shuffle', 'toggle', 'clapperboard', 'خلط أعمال البانر', 'ترتيب جديد كل يوم من نفس الكتالوج', ''),
     )),
     ('player', 'circle-play', 'المشغل', 'التشغيل والرموز والترجمة', (
+        ('player_element_loading', 'run', 'image', 'خلفية وشعار أثناء التحميل', 'انتقال ناعم للفيديو عند توفر أول إطار؛ يحتاج سكين Dex Hub المحدث', 'skin'),
+        ('player_element_logo', 'run', 'image', 'شعار العمل · Clear logo', 'إظهار الشعار وحجمه ومكانه', 'player'),
+        ('player_element_studio', 'run', 'image', 'شعار الاستديو', 'إظهار الشعار وحجمه وزاوية عرضه', 'player'),
+        ('player_element_plot', 'run', 'list-ul', 'الوصف · Plot', 'حجم الخط وعرض الوصف والتمرير', 'player'),
+        ('player_element_badges', 'run', 'tags', 'شارات الجودة · Badges', 'الحجم والمكان والشفافية والوضوح', 'player'),
         ('player', 'open', 'circle-play', 'خيارات المشغل', 'الشعار والتقييمات وسطر المعلومات', 'player'),
         ('sources_style', 'pick', 'list-ul', 'صفحة المصادر', 'مثل Nuvio TV أو صفوف مختصرة', ''),
         ('osd_buttons', 'open', 'circle-play', 'أزرار المشغل وشكله', 'الأزرار وترتيبها مع معاينة النمط واللون', 'player'),
@@ -514,6 +519,11 @@ class ControlCentre(xbmcgui.WindowXMLDialog):
     def _value(self, key):
         """(value, switch) of an entry: switch 'on', 'off' or ''."""
         tr, snap = self.tr, self.snap
+        if key.startswith('player_element_'):
+            from .. import player_controls, ui_preferences
+            group = key[len('player_element_'):]
+            keys = player_controls.GROUPS[group][2]
+            return ' · '.join(player_controls.label(ui_preferences.value(k)) for k in keys[:3]), ''
         if key in PICKS:
             setting, options = PICKS[key]
             current = snap.get(setting) or options[0][0]
@@ -882,6 +892,10 @@ class ControlCentre(xbmcgui.WindowXMLDialog):
 
     def _run(self, key):
         tr = self.tr
+        if key.startswith('player_element_'):
+            from .. import player_controls
+            player_controls.show(key[len('player_element_'):])
+            return True
         if key == 'ratings_pick':
             # v5.10.334: which ratings show (the Home, the title pages, the player)
             from . import ratings as RB

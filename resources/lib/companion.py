@@ -858,6 +858,8 @@ def _invalidate_nextup_cache():
                 win.clearProperty(key)
             except Exception:
                 pass
+        from .nextup_logic import _delete_file_cache
+        _delete_file_cache()
     except Exception:
         pass
 

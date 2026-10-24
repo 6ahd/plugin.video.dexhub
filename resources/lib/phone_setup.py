@@ -20,6 +20,7 @@ Routes (all under /<token>/):
   POST api/login       {service, server, user, password}
   POST api/code        {service}               Nuvio, Trakt, Plex: a code
   POST api/tv          {service}               open that sign-in on the TV
+  POST api/sync        {service: stremio, op: configure|run|status, direction}
   POST api/logout      {service}
   POST api/home        {page, op, ...}         rows, styles, collections (every page)
   POST api/pref        {key, value}            v5.10.286: a Home/display preference
@@ -453,6 +454,7 @@ class Session(object):
         self.done = False
         self.codes = {}             # service: {code, url, link, status, error}
         self.silo_pending = None    # a Silo account waiting for its profile
+        self.stremio_job = None
         self.changes = 0
         self.uploads = {}
         self.refresh_after = False  # v5.10.286: rows read again once the TV window closes
@@ -497,6 +499,10 @@ class Session(object):
                     pending = {'status': 'profile', 'profiles': choices}
             if pending and not row['linked']:
                 row['pairing'] = pending
+            if key == 'stremio':
+                from .dexhub import nuvio_stremio_sync as sync
+                row['sync'] = dict(enabled=_flag('stremio_sync_enabled',False),direction=sync._direction_for('stremio'), **sync._sections_for('stremio'))
+                with self.lock:row['sync']['job'] = dict(self.stremio_job or {})
             services[key] = row
         from .dexhub.nuvio_stremio_sync import Nuvio
         identity = Nuvio.token()
@@ -779,6 +785,45 @@ class Session(object):
         except Exception:
             pass
         _republish('accounts')
+
+    def sync(self, body):
+        """Explicit Stremio settings and one-shot background runs from phone."""
+        from .dexhub import nuvio_stremio_sync as cloud
+        if body.get('service') != 'stremio':
+            raise ValueError('Unknown sync service')
+        operation = body.get('op','run')
+        if operation == 'status':
+            with self.lock:return {'ok':True,'job':dict(self.stremio_job or {})}
+        direction = body.get('direction','both')
+        if direction not in ('pull','push','both'):
+            raise ValueError('Unknown sync direction')
+        if operation == 'configure':
+            if any(type(body.get(k)) is not bool for k in ('enabled','addons','progress')):
+                raise ValueError('Invalid sync switches')
+            for field in ('enabled','addons','progress'):
+                _set('stremio_sync_'+field,'true' if body[field] else 'false')
+            _set('stremio_sync_direction',{'both':'Two-way','push':'Upload only','pull':'Download only'}[direction])
+            return {'ok':True}
+        if operation != 'run' or not cloud.Stremio.is_linked():
+            raise ValueError('Link Stremio first')
+        if not any(_flag('stremio_sync_'+k,True) for k in ('addons','progress')):
+            raise ValueError('Select add-ons or watch progress first')
+        with self.lock:
+            if self.stremio_job and self.stremio_job.get('status') == 'running':
+                return {'ok':True,'job':dict(self.stremio_job)}
+            self.stremio_job = {'status':'running','direction':direction}
+        def run():
+            try:
+                result = cloud.run_sync(direction=direction,targets=['stremio'],force_full=True,
+                    sections={'addons':_flag('stremio_sync_addons',True),'progress':_flag('stremio_sync_progress',True),'collections':False,'library':False})
+                job = {'status':'done','result':result}
+                self.refresh_after = True
+            except Exception as exc:
+                job = {'status':'failed','error':cloud._short_url(str(exc))}
+            with self.lock:self.stremio_job = job
+        thread = threading.Thread(target=_scope.capture(run),name='StremioPhoneSync',daemon=True)
+        thread.start()
+        return {'ok':True,'job':{'status':'running','direction':direction}}
 
     def _after_link(self, service):
         """Pull the account's add-ons and Home the way the TV sign-in does."""
@@ -1212,7 +1257,7 @@ class _Handler(BaseHTTPRequestHandler):
         handlers = {'api/profile': 'profile', 'api/set': 'set', 'api/addon': 'addon', 'api/login': 'login', 'api/code': 'code',
                     'api/tv': 'tv', 'api/logout': 'logout', 'api/home': 'home', 'api/done': 'finish',
                     'api/silo': 'silo', 'api/transfer': 'transfer', 'api/files': 'files',
-                    'api/pref': 'pref'}  # v5.10.286
+                    'api/pref': 'pref', 'api/sync':'sync'}  # v5.10.286
         name = handlers.get(route)
         if not name:
             return self._send(404, {'ok': False})

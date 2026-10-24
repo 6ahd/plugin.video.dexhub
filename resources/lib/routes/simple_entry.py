@@ -1745,7 +1745,7 @@ def source_behavior_dialog():
 
 
 def episode_controls_dialog():
-    """Next episode, native intro skipping and optional preview services."""
+    """Next episode and native intro skipping."""
     _close_native_settings_dialog()
     while True:
         try:
@@ -1785,11 +1785,6 @@ def episode_controls_dialog():
                  'Automatic': _txt('تلقائي', 'Automatic'), 'Off': _txt('متوقف', 'Off')}
         rows.append(_txt('تخطي المقدمة والملخص المدمج: ', 'Built-in intro & recap: ') + names.get(mode, names['Manual']))
         actions.append('native_mode')
-        add_toggle(_txt('صور معاينة التقديم', 'Seek preview images'), 'seek_previews', 'true')
-        rows.append(_txt('مفتاح Seekr الاختياري: ', 'Optional Seekr API key: ') +
-                    (_txt('محفوظ', 'Saved') if _ADDON.getSetting('seekr_api_key') else _txt('غير محدد', 'Not set')))
-        actions.append('seekr_key')
-
         if tidb_installed and mode == 'Off':
             add_toggle(_txt('فرض أزرار Intro وRecap وCredits اليدوية',
                             'Force manual Intro, Recap and Credits buttons'),
@@ -1818,18 +1813,6 @@ def episode_controls_dialog():
                                     [names[v] for v in modes], modes.index(mode) if mode in modes else 0)
             if picked >= 0:
                 _ADDON.setSetting('native_skip_mode', modes[picked])
-        elif action == 'seekr_key':
-            value = xbmcgui.Dialog().input(_txt('مفتاح Seekr — اتركه فارغًا للحذف',
-                                                'Seekr API key — leave empty to remove'),
-                                          defaultt=_ADDON.getSetting('seekr_api_key'),
-                                          type=xbmcgui.INPUT_ALPHANUM, option=xbmcgui.ALPHANUM_HIDE_INPUT)
-            # Kodi returns an empty string on Cancel as well: require an explicit
-            # choice before removing an existing key.
-            if value:
-                _ADDON.setSetting('seekr_api_key', value.strip())
-            elif _ADDON.getSetting('seekr_api_key') and xbmcgui.Dialog().yesno(
-                    'Seekr', _txt('حذف المفتاح المحفوظ؟', 'Remove the saved key?')):
-                _ADDON.setSetting('seekr_api_key', '')
         elif action == 'tidb_settings':
             try:
                 xbmcaddon.Addon('plugin.video.tidb').openSettings()
@@ -1838,7 +1821,7 @@ def episode_controls_dialog():
         else:
             default = 'true' if action in (
                 'auto_next_episode', 'next_episode_same_source',
-                'introdb_manual_buttons', 'seek_previews') else 'false'
+                'introdb_manual_buttons') else 'false'
             _toggle_setting(action, default)
         _invalidate_settings()
 

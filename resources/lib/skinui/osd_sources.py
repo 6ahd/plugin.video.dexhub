@@ -143,11 +143,16 @@ def _island_props(name, line, quality):
     out['nv_desc'] = '[CR]'.join(lines)
     out['nv_fh'] = str(len(lines))
     out['qtone'] = _QTONE.get(quality, 'FF9AA3B2' if quality else '')
-    out['nv_qw'] = str(14 * max(2, len(quality)) + 16 if quality else 0)
+    # List-item XML does not reliably resolve a property-valued left origin.
+    # Encode the reserved quality width in the existing fixed slide bits.
+    quality_width = ((14 * max(2, len(quality)) + 19) // 4) * 4 if quality else 0
+    out['nv_qw'] = '0'
     try:
         from .. import source_browser as sb
-        layout = sb._source_badge_layout(sb._elite_badge_images({'name': name, 'label2': line}, max_items=7))
-        moves = sb._source_badge_moves(layout)
+        layout = sb._source_badge_layout(sb._elite_badge_images(
+            {'name': name, 'label2': line, 'quality': quality}, max_items=7,
+            skip_resolution=bool(quality)))
+        moves = sb._source_badge_moves(layout, start=quality_width)
         for idx, (image, shape) in enumerate(layout, 1):
             out['elite_badge%d' % idx] = image
             out['elite_w%d' % idx] = str(int(int(shape[1:]) * sb.SOURCE_BADGE_HEIGHT / 4.0))
@@ -178,11 +183,8 @@ def cycle_sort(params=None):
 
 
 def _quality(text):
-    low = text.lower()
-    for needle, label in _QUALITY:
-        if needle in low:
-            return label
-    return ''
+    from ..source_browser import _badge_quality
+    return _badge_quality({}, text)
 
 
 def sources(params, handle):

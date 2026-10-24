@@ -2195,7 +2195,7 @@ class _BaseWindow(xbmcgui.WindowXML):
         elif command.startswith('__row_'):
             self.row_command(command)
         elif any('action=' + action in command for action in
-                 ('cw_remove', 'cw_mark_watched', 'iptv_cw_remove', 'iptv_cw_watched')):
+                 ('cw_remove', 'cw_mark_watched', 'nextup_remove', 'iptv_cw_remove', 'iptv_cw_watched')):
             self.cw_remove(tile, command)
         else:
             self.run_builtin(command)
@@ -2227,7 +2227,7 @@ class _BaseWindow(xbmcgui.WindowXML):
         match = re.search(r'plugin://[^)"\s]+', str(command or ''))
         params = dict(parse_qsl(urlsplit(match.group(0)).query)) if match else {}
         action = params.get('action')
-        if action not in ('cw_remove', 'cw_mark_watched', 'iptv_cw_remove', 'iptv_cw_watched'):
+        if action not in ('cw_remove', 'cw_mark_watched', 'nextup_remove', 'iptv_cw_remove', 'iptv_cw_watched'):
             return
         self._discard_progress_tile(tile)
 
@@ -2239,14 +2239,16 @@ class _BaseWindow(xbmcgui.WindowXML):
                     ok = api.iptv_cw_change(video_id=params.get('video_id', ''),
                                             watched=action == 'iptv_cw_watched', refresh=False)
                 else:
+                    extra = {key:params.get(key) for key in ('season','episode','title','imdb_id','show_tmdb_id')} if action in ('cw_mark_watched','nextup_remove') else {}
                     ok = getattr(api, action)(media_type=params.get('media_type', ''),
                                                canonical_id=params.get('canonical_id', ''),
-                                               video_id=params.get('video_id', ''), refresh=False)
+                                               video_id=params.get('video_id', ''), refresh=False, **extra)
             except Exception:
                 self.app.log('progress edit failed:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
             if not ok and not self._closing:
                 self.on_progress_changed()  # Restore the saved state if the write failed.
-        thread = threading.Thread(target=job, name='DexHub-homeui-progress-edit')
+        from .. import profile_scope
+        thread = threading.Thread(target=profile_scope.capture(job), name='DexHub-homeui-progress-edit')
         thread.daemon = True
         thread.start()
 

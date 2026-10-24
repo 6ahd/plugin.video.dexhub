@@ -61,6 +61,13 @@ def is_english():
 
 
 STRINGS = {
+    'تحديد الحلقة كمشاهدة': 'Mark episode as watched',
+    'إزالة من الحلقة التالية': 'Remove from Next episode',
+    'أزيل المسلسل من الحلقة التالية': 'Removed from Next episode',
+    'تعذر حفظ حالة المشاهدة': 'Could not save watched status',
+    'تعذر تحديد المسلسل': 'Could not identify this series',
+    'تعذر الإزالة من الحلقة التالية: %s': 'Could not remove from Next episode: %s',
+
     'تعذر تجديد جلسة المصدر؛ أعد فتحه': 'Could not renew this source session; open it again',
 
     'التشغيل باستخدام…': 'Play with…',
@@ -3583,3 +3590,6 @@ STRINGS.update({
     'إظهار البوستر في صفحة العمل': 'Show poster on the title page',
     'مع بوستر بجانب المعلومات، أو بدون بوستر مثل التخطيط السابق': 'Show a poster beside the details, or hide it for the previous layout',
 })
+
+# Player presentation controls added in 5.10.380–393.
+STRINGS.update({'خلفية وشعار أثناء التحميل': 'Artwork while loading', 'انتقال ناعم للفيديو عند توفر أول إطار؛ يحتاج سكين Dex Hub المحدث': 'Fade into video when the first frame is ready; requires the updated Dex Hub skin', 'شعار العمل · الحجم والمكان': 'Clear logo · size and position', 'شعار الاستديو · الحجم والمكان': 'Studio logo · size and position', 'الوصف · الخط والعرض والتمرير': 'Plot · text size, width and scrolling', 'شارات الجودة · الحجم والمكان والوضوح': 'Quality badges · size, position and appearance', 'بيانات العمل والتقييمات': 'Metadata and ratings', 'إظهار الشعار وحجمه ومكانه': 'Logo visibility, size and position', 'إظهار الشعار وحجمه وزاوية عرضه': 'Studio logo visibility, size and corner', 'حجم الخط وعرض الوصف والتمرير': 'Plot text size, width and scrolling', 'الحجم والمكان والشفافية والوضوح': 'Size, position, opacity and appearance', 'بدء التشغيل': 'Playback start', 'شعار الاستديو': 'Studio logo', 'الوصف · Plot': 'Plot', 'البيانات والتقييمات': 'Metadata and ratings', 'رموز المشغّل': 'Player badges', 'أسفل اليسار': 'Bottom left', 'أسفل اليمين': 'Bottom right', 'أعلى اليسار': 'Top left', 'أعلى اليمين': 'Top right', 'أصلي': 'Original', 'تحت البيانات': 'Under details', 'صغير': 'Small', 'عريض': 'Wide', 'فوق البيانات': 'Above details', 'فوق شريط التقدم': 'Above seek bar', 'متوسط': 'Medium', 'مختصر': 'Compact', 'واضح': 'Solid'})

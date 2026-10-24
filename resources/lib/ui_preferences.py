@@ -58,12 +58,19 @@ OPTIONS = {
     # v5.10.311: the title page asks for the sources while you look at it
     'sources_warm': ('true', None, 'تجهيز المصادر مسبقاً في صفحة العمل', 'Get sources ready on the title page'),
     'player_subtitle_filter': ('off', ('off', 'mine', 'first'), 'تصفية الترجمات في المشغّل', 'Subtitle filter in the player'),
+    'player_loading_art': ('false', None, 'خلفية وشعار أثناء التحميل', 'Artwork while loading'),
     'player_show_clearlogo': ('true', None, 'شعار العمل في المشغّل', 'Work logo in player'),
     'player_logo_position': ('above_info', ('above_info', 'top_left', 'top_right'), 'مكان شعار العمل', 'Work logo position'),
+    'player_logo_size': ('normal', ('small', 'normal', 'large'), 'حجم شعار العمل (Clear logo)', 'Clear logo size'),
     'player_show_plot': ('true', None, 'النبذة في المشغّل', 'Plot in player'),
+    'player_plot_size': ('normal', ('small', 'normal', 'large'), 'حجم خط الوصف (Plot)', 'Plot text size'),
+    'player_plot_width': ('normal', ('short', 'normal', 'wide'), 'عرض الوصف', 'Plot width'),
+    'player_plot_scroll': ('false', None, 'تمرير الوصف الطويل تلقائيًا', 'Scroll long plots automatically'),
     'player_show_metadata': ('true', None, 'بيانات العمل في المشغّل', 'Metadata in player'),
     'player_show_ratings': ('true', None, 'التقييمات في المشغّل', 'Ratings in player'),
     'player_show_studio': ('true', None, 'شعار الشبكة في المشغّل', 'Network logo in player'),
+    'player_studio_size': ('normal', ('small', 'normal', 'large'), 'حجم شعار الاستديو', 'Studio logo size'),
+    'player_studio_position': ('bottom_right', ('bottom_right', 'bottom_left', 'top_right', 'top_left'), 'مكان شعار الاستديو', 'Studio logo position'),
     'metadata_badges': ('true', None, 'تعزيز التقييمات وشعار الشبكة', 'Supplement ratings & network logo'),
     # v5.10.322 (GitHub #21): IMDb's Parents Guide on the title page and when a video starts
     'parents_guide': ('true', None, 'دليل الوالدين من IMDb', 'IMDb Parents Guide'),
@@ -275,11 +282,10 @@ def _remember_applied(values):
 
 
 def sync_skin_place(reason='settings'):
-    """v5.10.149: the badge place saved before skin.dexhub 3.20.4 read it
-    from a skin string: copied once (and the skin reloaded) when they differ.
+    """Synchronize the player design and title page button includes.
 
-    v5.10.312: also the player design and the title page buttons (read when
-    the skin loads). What was applied is kept in skin_strings.json and that
+    Badge placement is live in skin 3.28.113 and needs no reload.
+    What was applied is kept in skin_strings.json and that
     is what a change is measured against: 5.10.310 compared with the skin
     string read back from a service thread, which could stay "stale" and
     reload the skin on every settings write (a source window was closed by
@@ -288,10 +294,9 @@ def sync_skin_place(reason='settings'):
     try:
         if xbmc.getSkinDir() != 'skin.dexhub':
             return False
-        want = {'DexHub.BadgesPlace': value('player_badges_place'),
-                'DexHub.OsdDesign': value('player_osd_design'),
+        want = {'DexHub.OsdDesign': value('player_osd_design'),
                 'DexHub.TitleActions': value('player_title_actions')}
-        empty = {'DexHub.BadgesPlace': 'seekbar', 'DexHub.OsdDesign': 'legacy', 'DexHub.TitleActions': 'icons'}
+        empty = {'DexHub.OsdDesign': 'legacy', 'DexHub.TitleActions': 'icons'}
         applied = _applied()
         if not applied:
             # first run: what the skin holds now
@@ -345,6 +350,9 @@ def set_value(key, selected):
     from .settings_cache import invalidate
     invalidate()
     publish()
+    if key in ('player_show_studio', 'player_show_ratings', 'metadata_badges'):
+        from . import player_presentation
+        player_presentation.refresh_current()
     if key == 'video_back_background':
         try:
             from .homeui import keymap
@@ -370,12 +378,8 @@ def set_value(key, selected):
     if key in ('player_osd_design', 'player_title_actions'):
         # v5.10.310: these two are read when the skin loads
         sync_skin_place('you changed %s' % key)
-    if key == 'player_badges_place' and xbmc.getSkinDir() == 'skin.dexhub':
-        # v5.10.149: skin.dexhub 3.20.4 loads only this place's badge row
-        # (read when the skin loads): kept as a skin string, then reloaded
-        xbmc.executebuiltin('Skin.SetString(DexHub.BadgesPlace,%s)' % selected)
-        _remember_applied(dict(_applied(), **{'DexHub.BadgesPlace': selected}))
-        xbmc.executebuiltin('ReloadSkin()')
+    # Badge placement is runtime visibility in skin 3.28.113. Moving it
+    # under a playing video must never reload the skin or pause playback.
     try:
         from . import cloud_look      # v5.10.366
         cloud_look.mark()
@@ -408,12 +412,18 @@ def edit(key, txt):
         'side': txt('قائمة جانبية', 'Sidebar'),
         'auto': txt('تلقائي · متناسق', 'Auto · balanced'),
         'small': txt('صغير', 'Small'),
+        'normal': txt('متوسط', 'Medium'),
+        'large': txt('كبير', 'Large'),
+        'short': txt('مختصر', 'Compact'),
+        'wide': txt('عريض', 'Wide'),
         'original': txt('الحجم الأصلي', 'Original size'),
         'above_info': txt('فوق بيانات العمل', 'Above work details'),
         'seekbar': txt('فوق شريط التقدم', 'Above the seek bar'),
         'info': txt('تحت بيانات العمل', 'Under the work details'),
         'top_left': txt('أعلى اليسار', 'Top left'),
         'top_right': txt('أعلى اليمين', 'Top right'),
+        'bottom_left': txt('أسفل اليسار', 'Bottom left'),
+        'bottom_right': txt('أسفل اليمين', 'Bottom right'),
         'separate': txt('قوائم مستقلة حسب المصدر', 'Separate lists by source'),
         'merged': txt('قائمة موحدة', 'Combined list'),
         'light': txt('خفيف', 'Light'),
@@ -441,9 +451,13 @@ def edit(key, txt):
 
 def player_dialog(txt):
     """Equivalent controls remain available when another skin is active."""
-    keys = [k for k in OPTIONS if k.startswith('player_')]
+    from . import player_controls
+    groups = list(player_controls.GROUPS)
+    grouped = {k for row in player_controls.GROUPS.values() for k in row[2]}
+    keys = [k for k in OPTIONS if k.startswith('player_') and k not in grouped]
     while True:
         labels = [txt('شكل رموز الجودة · صور ومعاينة', 'Quality badge style · preview')]
+        labels += [txt(*player_controls.GROUPS[g][:2]) for g in groups]
         display = {'true': txt('مفعّل', 'On'), 'false': txt('مطفأ', 'Off'), 'above_info': txt('فوق البيانات', 'Above details'), 'top_left': txt('أعلى اليسار', 'Top left'), 'top_right': txt('أعلى اليمين', 'Top right'), 'seekbar': txt('فوق شريط التقدم', 'Above the seek bar'), 'info': txt('تحت البيانات', 'Under the details'), 'legacy': txt('مثل Nuvio legacy', 'Like Nuvio legacy'), 'classic': txt('الكلاسيكي السابق', 'Previous classic'), 'icons': txt('أيقونات', 'Icons'), 'pills': txt('كبسولات نصية', 'Text pills'), 'off': txt('الكل', 'All languages'), 'mine': txt('لغاتي فقط', 'My languages only'), 'first': txt('لغتي الأولى فقط', 'My first language only')}
         from . import osd_look
         labels += [txt(OPTIONS[k][2], OPTIONS[k][3]) + ' · ' + (osd_look.label(k, value(k), txt) if k in osd_look.KEYS else display.get(value(k), value(k))) + ('%' if k == 'player_badges_opacity' else '') for k in keys]
@@ -453,8 +467,10 @@ def player_dialog(txt):
         if pick == 0:
             from . import player_badges
             player_badges.show(txt)
+        elif pick <= len(groups):
+            player_controls.show(groups[pick - 1])
         else:
-            edit(keys[pick - 1], txt)
+            edit(keys[pick - len(groups) - 1], txt)
 
 
 def iptv_available(media=''):
