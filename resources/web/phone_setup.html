@@ -285,6 +285,36 @@ details.adv .body{padding-bottom:14px;display:flex;flex-direction:column;gap:12p
 .st b{display:block;padding:8px 10px 0;font-size:13.5px;font-weight:500}
 .st span{display:block;padding:2px 10px 10px;font-size:11.5px;color:var(--muted);line-height:1.45}
 .st[aria-pressed="true"]{border-color:var(--accent)}
+/* v5.10.404: collections and DexCloud, as on the DexCloud site */
+.csites{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.csite{position:relative;overflow:hidden;isolation:isolate;display:flex;flex-direction:column;gap:3px;padding:14px;border-radius:var(--r);text-decoration:none;color:#fff;min-height:150px;border:1px solid var(--line);transition:transform .15s}
+.csite:active{transform:scale(.98)}
+.csite::before{content:"";position:absolute;inset:0;z-index:-1}
+.csite.kaptain::before{background:radial-gradient(120% 120% at 100% 0%,rgba(99,102,241,.5),transparent 55%),radial-gradient(100% 100% at 0% 100%,rgba(14,165,233,.3),transparent 60%),#101018}
+.csite.wixct::before{background:radial-gradient(120% 120% at 0% 0%,rgba(236,72,153,.42),transparent 55%),radial-gradient(100% 100% at 100% 100%,rgba(212,175,110,.32),transparent 60%),#141012}
+.csite .lg{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-weight:800;font-size:16px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);margin-bottom:6px}
+.csite b{font-size:15px;font-weight:600}
+.csite .h{font:500 11px var(--f-code);color:rgba(255,255,255,.6)}
+.csite .p{font-size:12px;color:rgba(255,255,255,.75);line-height:1.5;margin-top:4px}
+.csite .go{margin-top:auto;padding-top:8px;display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:600}
+[dir=rtl] .csite .go svg{transform:scaleX(-1)}
+.clist{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.crow2{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:var(--card)}
+.crow2 .av{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:none;background:var(--accent-dim);color:var(--accent);font-weight:700;font-size:13px}
+.crow2 .n{flex:1;min-width:0}.crow2 .n b{display:block;font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.crow2 .n span{font-size:12px;color:var(--muted)}
+.how{margin-top:12px;background:var(--card);border-radius:var(--r);padding:12px 14px}
+.hsteps{list-style:none;counter-reset:h;display:grid;gap:8px;margin:10px 0 8px;padding:0}
+.hsteps li{counter-increment:h;display:grid;grid-template-columns:26px 1fr;column-gap:10px;font-size:13px}
+.hsteps li::before{content:counter(h);grid-row:span 2;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:12px;background:var(--accent);color:var(--on-accent)}
+.hsteps li span{color:var(--muted);font-size:12.5px}
+.cloud{display:flex;align-items:center;gap:12px;padding:14px;border-radius:var(--r);margin-bottom:12px;border:1px solid rgba(212,175,110,.35);
+  background:radial-gradient(120% 140% at 100% 0%,rgba(212,175,110,.22),transparent 60%),var(--card)}
+.cloud .mk{width:42px;height:42px;border-radius:12px;flex:none;display:grid;place-items:center;background:linear-gradient(90deg,#b8923f,#d4af6e 50%,#f1d79a)}
+.cloud .mk svg{width:26px;height:26px}
+.cloud .n{flex:1;min-width:0}.cloud .n b{display:block;font-size:15px;font-weight:600}.cloud .n>span{display:block;font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis}
+.cloud .btn.gold{background:linear-gradient(90deg,#b8923f,#d4af6e 50%,#f1d79a);color:#15110a}
+.cloud .ccode{font:600 14px var(--f-code);letter-spacing:.12em;direction:ltr;unicode-bidi:isolate;color:var(--text)}
+@media(max-width:360px){.csites{grid-template-columns:1fr}}
 /* v5.10.402: add-on catalogs as rows, and the nudge after an add-on is added */
 .csrc{background:var(--surface);border-radius:16px;overflow:hidden;border:1px solid var(--line)}
 .csrc>header{display:flex;align-items:center;gap:10px;padding:12px 14px}
@@ -553,6 +583,7 @@ input[type=file].inp{padding:10px 12px;font-size:13px}
     <a href="#accounts" data-nav="accounts"><svg viewBox="0 0 20 20"><circle cx="10" cy="7" r="3.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 17c.8-3.3 3.4-5 6.5-5s5.7 1.7 6.5 5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span>الحسابات</span></a>
     <a href="#look" data-nav="look"><svg viewBox="0 0 20 20"><rect x="2.5" y="3.5" width="15" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M7 17h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span>الرئيسية</span></a>
     <a href="#home" data-nav="home"><svg viewBox="0 0 20 20"><path d="M3 5h14M3 10h14M3 15h9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span>الصفوف</span></a>
+    <a href="#collections" data-nav="collections"><svg viewBox="0 0 20 20"><rect x="2.5" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="11.3" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="2.5" y="11.3" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M14.4 12v5M11.9 14.5h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>الكوليكشن</span></a>
     <a href="#library" data-nav="library"><svg viewBox="0 0 20 20"><path d="M4 3.5h3v13H4zM8.5 3.5h3v13h-3zM13 4.2l2.8-.7 2.4 12.4-2.8.6z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg><span>مكتبتي</span></a>
     <a href="#trailers" data-nav="trailers"><svg viewBox="0 0 20 20"><rect x="2.5" y="5" width="15" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 8.3v4.4l3.8-2.2z" fill="currentColor"/></svg><span>التريلر</span></a>
     <a href="#player" data-nav="player"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8.3 7v6l5-3z" fill="currentColor"/></svg><span>المشغل</span></a>
@@ -648,6 +679,30 @@ input[type=file].inp{padding:10px 12px;font-size:13px}
   </section>
 
   <!-- 4. following and library -->
+  <!-- v5.10.404: collections, the same place as on DexCloud -->
+  <section id="collections">
+    <div class="sh"><span class="si"><svg viewBox="0 0 20 20"><rect x="2.5" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="11.3" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="2.5" y="11.3" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M14.4 12v5M11.9 14.5h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+      <div class="st2"><h2>الكوليكشن</h2><small>من Kaptain وwixct، وتصير صفوف في صفحاتك</small></div></div>
+    <div class="csites">
+      <a class="csite kaptain" href="https://kaptain.stream" target="_blank" rel="noopener"><span class="lg">K</span><b>Kaptain</b><span class="h ltr">kaptain.stream</span><span class="p">ابنِ كوليكشن من الكتالوجات واللستات وشاركها برابط</span><span class="go">افتح <svg viewBox="0 0 16 16" width="13" height="13"><path d="M5 11L11 5M6 5h5v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+      <a class="csite wixct" href="https://collections.wixct.cc" target="_blank" rel="noopener"><span class="lg">W</span><b>Collections</b><span class="h ltr">collections.wixct.cc</span><span class="p">كوليكشن جاهزة: اختر وانسخ رابطها</span><span class="go">افتح <svg viewBox="0 0 16 16" width="13" height="13"><path d="M5 11L11 5M6 5h5v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+    </div>
+    <form class="paste" id="colForm" autocomplete="off" novalidate>
+      <input class="inp ltr" id="colUrl" type="text" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="https://…/collection.json" aria-label="رابط كوليكشن">
+      <button class="btn p s" type="submit">استورد</button>
+    </form>
+    <p class="hint" style="margin-top:8px">الصق رابط الكوليكشن (JSON) أو نصّه كامل، وينضاف للتلفزيون على طول.</p>
+    <div class="clist" id="colList"></div>
+    <details class="man how"><summary>كيف أضيفها لـ Dex Hub؟</summary>
+      <ol class="hsteps">
+        <li><b>افتح Kaptain أو wixct</b><span>اصنع كوليكشن أو اختر وحدة جاهزة.</span></li>
+        <li><b>انسخ رابطها</b><span>من Share أو Export تاخذ رابط JSON، أو انسخ نص JSON كامل.</span></li>
+        <li><b>الصقه فوق</b><span>تطلع مجلداتها هنا وفي «كوليكشن جاهز»، وتحطها صفوف في الرئيسية.</span></li>
+      </ol>
+      <p class="hint">ومن التلفزيون: Dex Hub ‹ Collections ‹ «+ استيراد مجموعة من JSON». وأي كوليكشن في Nuvio توصل لحالها مع المزامنة.</p>
+    </details>
+  </section>
+
   <section id="library">
     <div class="sh"><span class="si"><svg viewBox="0 0 20 20"><path d="M4 3.5h3v13H4zM8.5 3.5h3v13h-3zM13 4.2l2.8-.7 2.4 12.4-2.8.6z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></span>
       <div class="st2"><h2>مكتبتي والمتابعة</h2><small>متابعة المشاهدة والمحفوظات وقوائم المشاهدة</small></div></div>
@@ -729,6 +784,7 @@ input[type=file].inp{padding:10px 12px;font-size:13px}
   <section id="tools">
     <div class="sh"><span class="si"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="2.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 2.5v2.2M10 15.3v2.2M17.5 10h-2.2M4.7 10H2.5M15.3 4.7l-1.6 1.6M6.3 13.7l-1.6 1.6M15.3 15.3l-1.6-1.6M6.3 6.3L4.7 4.7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
       <div class="st2"><h2>الأقسام والأدوات</h2><small>الأقسام الظاهرة والبروفايل والنسخ والملفات</small></div></div>
+    <div class="cloud" id="cloudCard" hidden></div>
     <div class="ogrp" data-opts="sections"></div>
     <div class="list" style="margin-top:10px">
       <div class="tg" role="switch" tabindex="0" aria-checked="false" data-k="autostart"><div class="n"><b>افتح Dex Hub مع تشغيل كودي</b><span>بدل واجهة كودي العادية</span></div><div class="sw2"></div></div>
@@ -816,11 +872,7 @@ input[type=file].inp{padding:10px 12px;font-size:13px}
 <div class="sheet2" id="cmSheet" hidden><div class="box">
   <div class="hd"><h3>كوليكشن جاهز<small>Dex Community</small></h3><button class="ib" type="button" data-close aria-label="إغلاق">✕</button></div>
   <div class="bd">
-    <form class="paste" id="colForm" autocomplete="off" novalidate style="margin-top:0">
-      <input class="inp ltr" id="colUrl" type="text" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="https://…/collection.json" aria-label="رابط كوليكشن">
-      <button class="btn p s" type="submit">استورد</button>
-    </form>
-    <p class="hint" style="margin-top:-4px">الصق رابط كوليكشن من <a href="https://kaptain.stream" target="_blank" rel="noopener" class="ltr" style="color:var(--accent)">kaptain.stream</a> أو <a href="https://collections.wixct.cc" target="_blank" rel="noopener" class="ltr" style="color:var(--accent)">collections.wixct.cc</a>، وتطلع مجلداتها هنا.</p>
+    <p class="hint" style="margin-top:-4px">عندك رابط من Kaptain أو wixct؟ الصقه في <a href="#collections" data-close style="color:var(--accent)">قسم الكوليكشن</a>.</p>
     <div class="gchips" id="gchips"></div>
     <input class="inp" id="fSearch" type="search" placeholder="ابحث في هذي المجموعة" autocomplete="off">
     <div class="fhd"><span id="fCount"></span><button type="button" id="fAll">اختر الكل</button></div>
@@ -1486,8 +1538,41 @@ $('#colForm').addEventListener('submit',async e=>{e.preventDefault();const v=cle
   if(!v){$('#colUrl').focus();return}
   const btn=$('#colForm button');btn.disabled=true;btn.textContent='…';
   const j=await post('collection',{url:v},true);btn.disabled=false;btn.textContent='استورد';
-  if(j.ok){$('#colUrl').value='';if(j.home)keep(j.home);const G=groups();const at=G.findIndex(g=>g.name===j.name);cg=at>=0?at:Math.max(0,G.length-1);cpick.clear();renderComm();
+  if(j.ok){$('#colUrl').value='';if(j.home)keep(j.home);const G=groups();const at=G.findIndex(g=>g.name===j.name);cg=at>=0?at:Math.max(0,G.length-1);cpick.clear();renderComm();renderColList();
     toast((j.updated?'تحدّثت ':'انضافت ')+'«'+j.name+'» ✓')}});
+/* v5.10.404: the collections on this TV (the bundled one and those imported) */
+function renderColList(){
+  const G=groups();const host=$('#colList');if(!host)return;
+  const by={};G.forEach((g,i)=>{const k=g.name;(by[k]=by[k]||{i,n:0}).n+=g.folders.length});
+  host.innerHTML=G.length?G.slice(0,12).map((g,i)=>`<div class="crow2"><span class="av">${esc(String(g.name||'?').slice(0,2).toUpperCase())}</span><div class="n"><b dir="auto" data-ui-native>${esc(g.name)}</b><span>${g.folders.length} مجلد</span></div><button class="btn g s" type="button" data-colgo="${i}">حطها صف</button></div>`).join('')
+    :'<p class="hint">ما فيه كوليكشن بعد. الصق رابط من فوق.</p>';
+}
+$('#colList').addEventListener('click',e=>{const b=e.target.closest('[data-colgo]');if(!b)return;cg=+b.dataset.colgo;cpick.clear();$('#fSearch').value='';renderComm();openSheet('#cmSheet')});
+const CLOUD_MARK='<svg viewBox="0 0 100 46" fill="none"><path d="M23 8C13 8 6 15 6 23s7 15 17 15c9 0 15-8 27-15 12 7 18 15 27 15 10 0 17-7 17-15s-7-15-17-15c-9 0-15 8-27 15C38 16 32 8 23 8Z" stroke="#15110a" stroke-width="7" stroke-linecap="round"/></svg>';
+let cloudPoll=null;
+function renderCloud(){
+  const c=S.cloud,host=$('#cloudCard');if(!host)return;
+  if(!c||!c.url){host.hidden=true;return}
+  host.hidden=false;
+  const site=c.url.replace(/^https?:\/\//,'');
+  if(c.linked){
+    host.innerHTML=`<span class="mk">${CLOUD_MARK}</span><div class="n"><b>DexCloud</b><span dir="auto">${c.account?'مربوط بحساب <bdi dir="ltr">'+esc(c.account)+'</bdi>':'مربوط بحسابك'}</span></div><a class="btn gold s" href="${esc(c.url)}/#devices" target="_blank" rel="noopener">افتح</a>`;
+  }else if(c.pairing&&c.pairing.status==='pending'){
+    host.innerHTML=`<span class="mk">${CLOUD_MARK}</span><div class="n"><b>DexCloud</b><span>الكود <span class="ccode">${esc(c.pairing.code)}</span> · سجّل ووافق في الموقع</span></div><a class="btn gold s" href="${esc(c.pairing.url)}" target="_blank" rel="noopener">افتح الموقع</a>`;
+    clearTimeout(cloudPoll);cloudPoll=setTimeout(async()=>{try{const st=await getState();S.cloud=st.cloud;renderCloud();if(st.cloud&&st.cloud.linked)toast('انربط بـ DexCloud ✓')}catch(_){}},4000);
+  }else{
+    host.innerHTML=`<span class="mk">${CLOUD_MARK}</span><div class="n"><b>DexCloud</b><span>كل أجهزتك وكوليكشنك من أي مكان على <bdi dir="ltr">${esc(site)}</bdi></span></div><button class="btn gold s" type="button" id="cloudLink">اربط</button>`;
+  }
+}
+document.addEventListener('click',async e=>{
+  if(!e.target.closest('#cloudLink'))return;
+  // a tab opened inside the tap is not blocked; the hub's page loads in it once the TV answers
+  let w=null;try{w=window.open('about:blank','_blank')}catch(_){}
+  const b=e.target.closest('#cloudLink');b.disabled=true;b.textContent='…';
+  const j=await post('cloud',{op:'start'},true);
+  if(j.ok){S.cloud=j;renderCloud();const u=j.pairing&&j.pairing.url;if(u){if(w){try{w.location.href=u}catch(_){w=null}}if(!w)window.location.href=u}else if(w)w.close()}
+  else{if(w)try{w.close()}catch(_){};renderCloud()}
+});
 $('#openComm').addEventListener('click',()=>{cpick.clear();$('#fSearch').value='';renderComm();openSheet('#cmSheet')});
 $('#gchips').addEventListener('click',e=>{const b=e.target.closest('[data-g]');if(!b)return;cg=+b.dataset.g;cpick.clear();$('#fSearch').value='';renderComm()});
 $('#folders').addEventListener('click',e=>{const b=e.target.closest('[data-f]');if(!b)return;const f=b.dataset.f;cpick.has(f)?cpick.delete(f):cpick.add(f);renderComm()});
@@ -1873,7 +1958,7 @@ function applyState(){
   $('#trailerStatus').textContent=S.trailer_status||'';
   $('#trailerVolume').value=S.homeui_trailer_volume??'30';$('#trailerVolumeValue').textContent=$('#trailerVolume').value+'%';
   document.querySelectorAll('.tg[data-k]').forEach(t=>setToggle(t,t.dataset.k==='subs_before'?S.subs_before:(S.toggles||{})[t.dataset.k]));
-  renderPick();renderAcc();renderAd();renderTh();renderLg();renderHome();renderMeta();pollAccounts();
+  renderPick();renderAcc();renderAd();renderTh();renderLg();renderHome();renderMeta();pollAccounts();renderColList();renderCloud();
   renderPrefs();renderLayouts();renderScale(S.homeui_poster_scale||'100');online(true);  // v5.10.286
   if(!warmed){warmed=true;setTimeout(warmPages,600)}
   if(window.DexHubLanguage&&!window.DexHubLanguage.saved)window.DexHubLanguage.setLanguage(S.ui_language==='English'?'en':'ar',true);
@@ -1968,6 +2053,16 @@ Object.assign(exact,{'الصفحات والصفوف':'Pages & rows','رتّب ك
 'تقدّم المشاهدة':'Watch progress','كتالوج':'Catalog','مجموعة':'Collection','كوليكشن':'Collection','صف مضاف':'Added row','غير متاح الآن':'Not available now',
 'يجيب الصفوف…':'Loading rows…','السيرفرات تطلع هنا بعد ما تنقرا':'Your servers show here once they are read','رجع الترتيب الأصلي':'Back to the original order',
 'صار أول صف':'Moved to the top','صار آخر صف':'Moved to the bottom','انحفظ الترتيب':'Order saved'});
+Object.assign(exact,{'الكوليكشن':'Collections','من Kaptain وwixct، وتصير صفوف في صفحاتك':'From Kaptain and wixct, as rows on your pages','افتح':'Open',
+'ابنِ كوليكشن من الكتالوجات واللستات وشاركها برابط':'Build collections from catalogs and lists, share them by link','كوليكشن جاهزة: اختر وانسخ رابطها':'Ready collections: pick one, copy its link',
+'الصق رابط الكوليكشن (JSON) أو نصّه كامل، وينضاف للتلفزيون على طول.':'Paste the collection link (JSON) or its whole text; it reaches the TV right away.','كيف أضيفها لـ Dex Hub؟':'How do I add it to Dex Hub?',
+'افتح Kaptain أو wixct':'Open Kaptain or wixct','اصنع كوليكشن أو اختر وحدة جاهزة.':'Build a collection or pick a ready one.','انسخ رابطها':'Copy its link',
+'من Share أو Export تاخذ رابط JSON، أو انسخ نص JSON كامل.':'Share or Export gives a JSON link, or copy the whole JSON text.','الصقه فوق':'Paste it above',
+'تطلع مجلداتها هنا وفي «كوليكشن جاهز»، وتحطها صفوف في الرئيسية.':'Its folders show here and in Ready collections, to put on the Home.',
+'ومن التلفزيون: Dex Hub ‹ Collections ‹ «+ استيراد مجموعة من JSON». وأي كوليكشن في Nuvio توصل لحالها مع المزامنة.':'On the TV: Dex Hub › Collections › + Import from JSON. Collections in Nuvio arrive by themselves with the sync.',
+'حطها صف':'Add as row','ما فيه كوليكشن بعد. الصق رابط من فوق.':'No collections yet. Paste a link above.','مربوط بحسابك':'Linked to your account','مربوط بحساب':'Linked to',
+'افتح الموقع':'Open the site','اربط':'Link','· سجّل ووافق في الموقع':'· sign in and approve on the site','الكود':'Code','كل أجهزتك وكوليكشنك من أي مكان على':'All your TVs and collections from anywhere at',
+'عندك رابط من Kaptain أو wixct؟ الصقه في':'Have a link from Kaptain or wixct? Paste it in','قسم الكوليكشن':'the Collections section','انربط بـ DexCloud ✓':'Linked to DexCloud ✓'});
 Object.assign(exact,{'استورد':'Import','الصق رابط كوليكشن من':'Paste a collection link from','أو':'or','، وتطلع مجلداتها هنا.':', and its folders show here.'});
 Object.assign(exact,{'+ كتالوج من إضافاتك':'+ Catalog from your add-ons','كتالوج من إضافاتك':'Catalog from your add-ons','كل كتالوج يصير صف في الصفحة':'Each catalog becomes a row on the page',
 'كل كتالوج يصير صف في الرئيسية':'Each catalog becomes a row on the Home','كل كتالوج يصير صف في هالصفحة':'Each catalog becomes a row on this page','✓ مضاف':'✓ Added',
@@ -1986,7 +2081,7 @@ Object.assign(exact,{'الحسابات والمصادر':'Accounts & sources','�
 'الأقسام والأدوات':'Sections & tools','الأقسام الظاهرة والبروفايل والنسخ والملفات':'Visible sections, profile, backup and files','البروفايل النشط / Active profile':'Active profile','مدير ملفات Kodi':'Kodi file manager',
 'الحسابات':'Accounts','الصفوف':'Rows','مكتبتي':'Library','التريلر':'Trailers','البيانات':'Metadata','الأدوات':'Tools','الأقسام':'Sections',
 'اربط حساب':'Link an account','شكل الرئيسية ':'Home look','رتّب الصفوف':'Arrange rows','ما انحفظ':'Not saved','حجم البطاقات':'Card size'});
-const fragments=[[' جاهزة',' is ready'],[' كتالوج',' catalogs'],['انتقل الصف للمكان ','Row moved to place '],['انخفى: ','Hidden: '],['ظهر: ','Shown: '],['انحذف: ','Removed: '],['مصدر البيانات: ','Metadata source: '],['شكل الصف: ','Row layout: '],['الرمز: ','Code: '],['تم: ','Updated: '],['انشالت ','Removed: '],[' انربط ✓',' linked ✓'],[' انربط',' linked'],['تم: ','Updated: '],['مصدر البيانات: ','Metadata source: '],['ترتيب الترجمة: ','Subtitle order: '],['افتح صفحة ','Open '],['ادخل بـ ','Continue as '],['PIN بروفايل ','PIN for '],['انخفى: ','Hidden: '],['ظهر: ','Visible: '],['انحذف: ','Deleted: '],['انضاف صف ','Row added: '],['اخترت ','Selected '],[' من ',' of '],[' كوليكشن',' collections'],['أضف «','Add “'],['» كاملة كصف','” as a full row'],['» كصف (','” as a row ('],['كل الثيمات (','All themes ('],['شيل ','Remove '],['أفلام','Movies'],['مسلسلات','Series'],['صفوف','rows'],['ثيم','theme']];
+const fragments=[[' جاهزة',' is ready'],[' مجلد',' folders'],[' كتالوج',' catalogs'],['انتقل الصف للمكان ','Row moved to place '],['انخفى: ','Hidden: '],['ظهر: ','Shown: '],['انحذف: ','Removed: '],['مصدر البيانات: ','Metadata source: '],['شكل الصف: ','Row layout: '],['الرمز: ','Code: '],['تم: ','Updated: '],['انشالت ','Removed: '],[' انربط ✓',' linked ✓'],[' انربط',' linked'],['تم: ','Updated: '],['مصدر البيانات: ','Metadata source: '],['ترتيب الترجمة: ','Subtitle order: '],['افتح صفحة ','Open '],['ادخل بـ ','Continue as '],['PIN بروفايل ','PIN for '],['انخفى: ','Hidden: '],['ظهر: ','Visible: '],['انحذف: ','Deleted: '],['انضاف صف ','Row added: '],['اخترت ','Selected '],[' من ',' of '],[' كوليكشن',' collections'],['أضف «','Add “'],['» كاملة كصف','” as a full row'],['» كصف (','” as a row ('],['كل الثيمات (','All themes ('],['شيل ','Remove '],['أفلام','Movies'],['مسلسلات','Series'],['صفوف','rows'],['ثيم','theme']];
 const originalTexts=new WeakMap(),originalAttrs=new WeakMap();let lang='ar';try{const saved=localStorage.getItem('dexhub.ui.language');if(saved==='en'||saved==='ar')lang=saved;}catch(e){}
 function translate(value){if(lang!=='en')return value;const t=value.trim();if(Object.hasOwn(exact,t))return value.replace(t,exact[t]);if(/^\d+ من \d+ مربوط$/.test(t))return t.replace(/^(\d+) من (\d+) مربوط$/,'$1 of $2 linked');if(/^\d+ خدمات$/.test(t))return t.replace(' خدمات',' services');let out=value;for(const [a,b]of fragments)out=out.split(a).join(b);return out;}
 let observer;

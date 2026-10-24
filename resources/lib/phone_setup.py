@@ -487,6 +487,7 @@ class Session(object):
         self.codes = {}             # service: {code, url, link, status, error}
         self.silo_pending = None    # a Silo account waiting for its profile
         self.silo_gen = 0           # bumped by a new pairing or a cancel; stale polls stop
+        self.cloud_pair = None      # v5.10.404: a DexCloud link started from the page
         self.stremio_job = None
         self.changes = 0
         self.uploads = {}
@@ -558,6 +559,7 @@ class Session(object):
             'homeui_poster_scale': _scale(),
             'trailer_status': xbmcgui.Window(10000).getProperty('dhs.trailer.notice'),
             'addon_version': _addon().getAddonInfo('version'),
+            'cloud': self._cloud_info(),
             'skin_id': xbmc.getSkinDir(),
         }
         for key, values in LABELS:
@@ -1128,6 +1130,59 @@ class Session(object):
         self._silo_link(pending['auth'], profile, token)
         return {'ok': True}
 
+    # -------------------------------------------------------------- DexCloud
+    def _cloud_info(self):
+        """v5.10.404: this TV and the DexCloud account (the site at the hub's
+        address), from what the TV already knows: no call to the hub."""
+        try:
+            from . import hub_client
+            data = hub_client.state()
+            info = {'linked': hub_client.linked(), 'url': hub_client.base(),
+                    'label': data.get('label') or '', 'account': ((data.get('extra') or {}).get('account') or '')}
+        except Exception:
+            return {'linked': False, 'url': '', 'label': '', 'account': ''}
+        with self.lock:
+            pair = dict(self.cloud_pair or {})
+        if pair and not info['linked']:
+            info['pairing'] = {'url': pair.get('url') or '', 'code': pair.get('code') or '',
+                               'status': pair.get('status') or 'pending'}
+        return info
+
+    def cloud(self, body):
+        """Link this TV to DexCloud from the page: the hub's own pairing (the
+        phone opens the hub with the code, signs in and approves)."""
+        from . import hub_client
+        if body.get('op') == 'start' and not hub_client.linked():
+            start = hub_client.pair_start(timeout=8)
+            start['status'] = 'pending'
+            with self.lock:
+                self.cloud_pair = start
+
+            def watch():
+                monitor = xbmc.Monitor()
+                ends = time.time() + hub_client.PAIR_TTL
+                while time.time() < ends and not monitor.waitForAbort(3):
+                    with self.lock:
+                        if self.cloud_pair is not start:
+                            return
+                    done = hub_client.pair_check(start)
+                    if done is None:
+                        break
+                    if done:
+                        with self.lock:
+                            self.cloud_pair = None
+                        _log('linked to DexCloud from the phone')
+                        try:
+                            hub_client.after_pair()
+                        except Exception:
+                            pass
+                        return
+                with self.lock:
+                    if self.cloud_pair is start:
+                        start['status'] = 'expired'
+            threading.Thread(target=watch, name='DexHubPhone-cloud', daemon=True).start()
+        return dict(self._cloud_info(), ok=True)
+
     # -------------------------------------------------------------- collections
     def collection(self, body):
         """v5.10.403: a collection from a link or its pasted JSON (Kaptain,
@@ -1420,7 +1475,7 @@ class _Handler(BaseHTTPRequestHandler):
         handlers = {'api/profile': 'profile', 'api/set': 'set', 'api/addon': 'addon', 'api/login': 'login', 'api/code': 'code',
                     'api/tv': 'tv', 'api/logout': 'logout', 'api/home': 'home', 'api/done': 'finish',
                     'api/silo': 'silo', 'api/transfer': 'transfer', 'api/files': 'files',
-                    'api/pref': 'pref', 'api/sync':'sync', 'api/collection': 'collection'}  # v5.10.286
+                    'api/pref': 'pref', 'api/sync':'sync', 'api/collection': 'collection', 'api/cloud': 'cloud'}  # v5.10.286
         name = handlers.get(route)
         if not name:
             return self._send(404, {'ok': False})

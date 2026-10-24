@@ -1,3 +1,7 @@
+5.10.404
+صفحة الإعداد من باركود الجوال صارت بنفس شكل موقع DexCloud: قسم «الكوليكشن» فيه اختصارات Kaptain وcollections.wixct.cc وخانة لصق الرابط وكوليكشنك وزر «حطها صف»، وبطاقة DexCloud تبين حسابك وتفتح الموقع أو تربط التلفزيون بضغطة.
+The phone setup page (the QR on the TV) now matches the DexCloud site: a Collections section with Kaptain and collections.wixct.cc, a paste box, your collections and Add as row, and a DexCloud card that shows the account, opens the site or links the TV in one tap.
+
 5.10.403
 صفحة الإعداد وموقع DexCloud يقدرون يرسلون رابط كوليكشن (Kaptain أو collections.wixct.cc) للتلفزيون مباشرة، بدل ما تكتبه بالريموت، وتطلع مجلداتها في «كوليكشن جاهز».
 The phone setup page and the DexCloud site can send a collection link (Kaptain, collections.wixct.cc) straight to the TV instead of typing it on the remote; its folders then show in Ready collections. Needs DexCloud hub 2.12 for the site.
