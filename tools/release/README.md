@@ -73,3 +73,18 @@ python3 tools/release/skin_capsule.py skin.dexhub.tvos
 
 The line heights at its top must match `card.h` in
 `resources/lib/player_capsule.py`.
+
+## The Home comes whole at Kodi's start: `skin_startup.py`
+
+As Arctic Fuse 3 waits for its widgets on a splash, Dex Hub's screen covers
+the Home while its spotlight and first rows load, then goes, so the Home
+shows all at once instead of row after row. The add-on's service watches the
+rows and lifts it (`resources/lib/skinui/startup_splash.py`, setting
+`homeui_startup_splash`). This writes `xml/Custom_1198_DexStartup.xml` and
+raises the cover from `xml/Startup.xml`; a second run only brings it up to
+date:
+
+```bash
+python3 tools/release/skin_startup.py skin.dexhub
+python3 tools/release/skin_startup.py skin.dexhub.tvos
+```

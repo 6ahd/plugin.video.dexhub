@@ -724,6 +724,17 @@ def _settings_version_check():
 
 if __name__ == '__main__':
     _settings_version_check()          # v5.10.378: first, before anything sets a value
+
+    # v5.10.424: the Home comes whole at Kodi's start (as Arctic Fuse 3 does):
+    # watched from the first moment, the rest of the start-up runs beside it
+    def _startup_splash_worker():
+        try:
+            from resources.lib.skinui.startup_splash import watch
+            watch(xbmc.Monitor())
+        except Exception as exc:
+            xbmc.log('[DexHub] startup splash: %s' % exc, xbmc.LOGWARNING)
+
+    threading.Thread(target=_startup_splash_worker, name='DexHub-startup-splash', daemon=True).start()
     _retire_apple_tv_addon()
     try:
         import xbmcaddon

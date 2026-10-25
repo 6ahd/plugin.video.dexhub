@@ -113,6 +113,8 @@ OPTIONS = {
     'homeui_nav_autohide': ('false', None, 'إخفاء القائمة عند التمرير', 'Hide the menu while scrolling'),
     # v5.10.380: immediate tab focus, with IPTV kept click-only
     'homeui_nav_focus_open': ('true', None, 'فتح الأقسام بالتمرير', 'Open sections on focus'),
+    # v5.10.424: the Home comes whole at Kodi's start (skinui/startup_splash.py, skin.dexhub 3.28.139)
+    'homeui_startup_splash': ('true', None, 'انتظار تجهيز الرئيسية عند التشغيل', 'Wait for the Home to load at start'),
     # v5.10.363 (GitHub #27): Back on the Home's menu asks to exit Kodi (skin.dexhub 3.28.92)
     'homeui_back_exit': ('true', None, 'الرجوع من القائمة يسأل عن الخروج', 'Back on the menu asks to exit Kodi'),
     # v5.10.334: the Home's backdrop changes once the cursor rests (lighter scrolling)
@@ -136,7 +138,7 @@ OPTIONS = {
     'homeui_show_nextup': ('false', None, 'صف الحلقة التالية', 'Next Up row'),
     'favorites_layout': ('separate', ('separate', 'merged'), 'ترتيب المفضلة', 'Favorites layout'),
 }
-DISPLAY_ONLY = frozenset(('homeui_title_poster',)) | frozenset(k for k in OPTIONS if k.startswith('player_') or k in ('homeui_trailers', 'homeui_trailer_mode', 'homeui_trailer_delay', 'homeui_trailer_sound', 'homeui_trailer_quality', 'homeui_immersive', 'homeui_carousel', 'homeui_carousel_interval', 'homeui_kenburns', 'homeui_focus_gif', 'homeui_plot_scroll', 'homeui_hide_plot', 'homeui_rating_inline', 'homeui_compact_hero', 'homeui_nav_icons_only', 'homeui_nav_autohide', 'homeui_nav_focus_open', 'homeui_back_exit', 'homeui_bg_settle', 'homeui_immersive_delay', 'homeui_ss_preload', 'homeui_clean_look', 'homeui_spot_section', 'homeui_spot_count', 'homeui_trailer_clean', 'homeui_focus_motion', 'homeui_live_preview', 'homeui_nav_names')) | frozenset(('show_servers', 'metadata_badges', 'badges_home', 'iptv_epg_enabled', 'iptv_show_live', 'iptv_show_vod', 'iptv_show_movies', 'iptv_show_series', 'favorites_layout', 'player_badge_style', 'player_badges_json_url', 'player_badges_folder', 'homeui_row_dim'))
+DISPLAY_ONLY = frozenset(('homeui_title_poster', 'homeui_startup_splash')) | frozenset(k for k in OPTIONS if k.startswith('player_') or k in ('homeui_trailers', 'homeui_trailer_mode', 'homeui_trailer_delay', 'homeui_trailer_sound', 'homeui_trailer_quality', 'homeui_immersive', 'homeui_carousel', 'homeui_carousel_interval', 'homeui_kenburns', 'homeui_focus_gif', 'homeui_plot_scroll', 'homeui_hide_plot', 'homeui_rating_inline', 'homeui_compact_hero', 'homeui_nav_icons_only', 'homeui_nav_autohide', 'homeui_nav_focus_open', 'homeui_back_exit', 'homeui_bg_settle', 'homeui_immersive_delay', 'homeui_ss_preload', 'homeui_clean_look', 'homeui_spot_section', 'homeui_spot_count', 'homeui_trailer_clean', 'homeui_focus_motion', 'homeui_live_preview', 'homeui_nav_names')) | frozenset(('show_servers', 'metadata_badges', 'badges_home', 'iptv_epg_enabled', 'iptv_show_live', 'iptv_show_vod', 'iptv_show_movies', 'iptv_show_series', 'favorites_layout', 'player_badge_style', 'player_badges_json_url', 'player_badges_folder', 'homeui_row_dim'))
 # Source/player choices affect the next handoff, not catalog contents. The
 # service already invalidates settings and publishes player properties first.
 DISPLAY_ONLY |= frozenset(('homeui_show_row_source', 'homeui_title_style', 'homeui_background_style', 'homeui_poster_scale', 'homeui_layout_mode', 'homeui_nav_position', 'remember_last_source', 'source_resolution_mode',
@@ -375,6 +377,12 @@ def set_value(key, selected):
     if key in ('player_show_studio', 'player_show_ratings', 'metadata_badges'):
         from . import player_presentation
         player_presentation.refresh_current()
+    if key == 'homeui_startup_splash':
+        try:
+            from .skinui import startup_splash
+            startup_splash.follow_setting(selected != 'false')
+        except Exception:
+            pass
     if key == 'video_back_background':
         try:
             from .homeui import keymap
