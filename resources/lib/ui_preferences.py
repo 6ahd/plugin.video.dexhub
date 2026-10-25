@@ -64,6 +64,8 @@ OPTIONS = {
     'player_show_clearlogo': ('true', None, 'شعار العمل في المشغّل', 'Work logo in player'),
     'player_logo_position': ('above_info', ('above_info', 'top_left', 'top_right'), 'مكان شعار العمل', 'Work logo position'),
     # v5.10.417: the playback capsule (player_capsule.py, skin.dexhub 3.28.134)
+    # v5.10.418: Dex Hub's capsule and design of TinyPPI's windows, or TinyPPI's own (tinyppi_look.py)
+    'player_info_source': ('dexhub', ('dexhub', 'tinyppi'), 'معلومات التشغيل', 'Playback info'),
     'player_capsule': ('true', None, 'كبسولة الجودة عند التشغيل', 'Playback capsule'),
     # v5.10.418: when it shows, badges or words, the services' logos
     'player_capsule_when': ('both', ('both', 'start', 'ok'), 'متى تظهر الكبسولة', 'When the capsule shows'),
@@ -378,6 +380,12 @@ def set_value(key, selected):
     if key in ('player_show_studio', 'player_show_ratings', 'metadata_badges'):
         from . import player_presentation
         player_presentation.refresh_current()
+    if key in ('player_info_source', 'player_capsule_when'):
+        try:
+            from . import tinyppi_look
+            tinyppi_look.apply()
+        except Exception:
+            pass
     if key == 'video_back_background':
         try:
             from .homeui import keymap

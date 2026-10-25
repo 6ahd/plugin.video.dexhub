@@ -385,6 +385,9 @@ def _wanted():
         return False
     if xbmc.getSkinDir() not in ('skin.dexhub', 'skin.dexhub.tvos'):
         return False
+    from . import tinyppi_look
+    if tinyppi_look.tinyppi_shows():          # v5.10.418: TinyPPI's logos instead
+        return False
     from .trailer_mark import playing_is_trailer
     return not playing_is_trailer()
 

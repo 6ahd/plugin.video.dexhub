@@ -26,6 +26,9 @@ or images are used). What they keep is the contract with TinyPPI's code:
   one set per kind of source.
 * script-tinyppi-dv-metadata.xml is not written: the Dolby Vision metadata
   view stays TinyPPI's own.
+* extras/tinyppi/: a copy of the four. The add-on's Playback info choice
+  (resources/lib/tinyppi_look.py) takes them out of xml/ for TinyPPI's own
+  design and puts them back from here for Dex Hub's.
 
 The labels are TinyPPI's own strings ($ADDON[script.tinyppi 322xx]), so they
 follow Kodi's language as TinyPPI translates them. A file the skin has that
@@ -436,7 +439,18 @@ def run(skin, check=False):
     plan = {'script-tinyppi-main.xml': main_xml(), 'script-tinyppi-dialog.xml': dialog_xml('dialog'),
             'script-tinyppi-dialog-bar.xml': dialog_xml('bar'), 'script-tinyppi-dialog-single.xml': dialog_xml('single')}
     changed, kept = [], []
+    # the copy the add-on puts back when Dex Hub's design is chosen again
+    # (tinyppi_look.py takes the files out of xml/ for TinyPPI's own)
+    store = os.path.join(skin, 'extras', 'tinyppi')
+    if not check:
+        os.makedirs(store, exist_ok=True)
     for name, text in plan.items():
+        spare = os.path.join(store, name)
+        if not (os.path.exists(spare) and open(spare, encoding='utf-8').read() == text):
+            changed.append('extras/tinyppi/' + name)
+            if not check:
+                with open(spare, 'w', encoding='utf-8') as fh:
+                    fh.write(text)
         path = os.path.join(skin, 'xml', name)
         if os.path.exists(path):
             with open(path, encoding='utf-8') as fh:

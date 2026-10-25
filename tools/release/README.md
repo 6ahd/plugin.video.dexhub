@@ -83,7 +83,10 @@ Kodi takes a script's window file from the running skin first, so the skin
 can draw TinyPPI's overlay and its VS10 dialogs while TinyPPI keeps reading
 the video. The files are the skin's own; they keep TinyPPI's control ids
 (5000, 5100, 9100, 9101; 2, 1001-1013, 1101, 1201, 1301, 1500), its panel
-sizes and its properties. Its Dolby Vision metadata view stays its own.
+sizes and its properties. Its Dolby Vision metadata view stays its own. A
+copy goes to `extras/tinyppi/`: the add-on's Playback info choice
+(`resources/lib/tinyppi_look.py`) takes the files out of `xml/` for TinyPPI's
+own design and puts them back for Dex Hub's.
 
 ```bash
 python3 tools/release/skin_tinyppi.py skin.dexhub

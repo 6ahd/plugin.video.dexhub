@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addon id="plugin.video.dexhub" name="Dex Hub" version="5.10.418" provider-name="Dex Hub">
+<addon id="plugin.video.dexhub" name="Dex Hub" version="5.10.419" provider-name="Dex Hub">
   <requires>
     <import addon="xbmc.python" version="3.0.0" />
     <import addon="script.module.urllib3" version="1.26.0" optional="true" />
@@ -36,7 +36,7 @@
     <description lang="ar">Dex Hub نسخة مستقلة لـ Kodi. أضف روابط Stremio، واستخدم مصادر Plex وEmby/Jellyfin وSilo الأصلية، وشغّل الترجمات الخارجية، واربط Trakt، واستخدم Dex Hub كمشغّل لـ TMDb Helper، وحافظ على قائمة متابعة موحّدة محلياً.</description>
     <disclaimer lang="en_GB">The author of this addon does not host any of the content which is found and has no affiliation with any of the content providers. The author is in no way affiliated with Kodi, Team Kodi, or the XBMC Foundation.</disclaimer>
     <disclaimer lang="ar">مؤلّف هذه الإضافة لا يستضيف أيًّا من المحتوى الذي يتم العثور عليه، وليس له أي ارتباط بأي من مزوّدي المحتوى. لا يرتبط المؤلّف بأي شكل مع Kodi أو فريق Kodi أو مؤسّسة XBMC.</disclaimer>
-    <news>The playback capsule is glass and badges now: the video's badges (4K, Dolby Vision, IMAX, and FEL or MEL), the audio's (Atmos, 7.1.4), under them the codec, bitrate and language, and the age rating with the rating services' logos and scores (the first three chosen for the title page) instead of a star. It shows when a video or another source starts, and with OK for as long as the player's menu is open. Options: when (both, at start, with OK), look (badges or words), rating logos. The formats that had no badge have one: DTS-ES, DTS 96/24, DTS Express, HE-AAC, AAC-LC, ALAC, MP2, 5.1.2, 7.1.2. Skin 3.28.135 also draws TinyPPI's overlay and VS10 dialogs in Dex Hub's design (TinyPPI still reads everything). Needs skin 3.28.135.</news>
+    <news>Player options (and the phone setup page) have Playback info: Dex Hub or TinyPPI. Dex Hub: our capsule at the top, TinyPPI's logos at the top off, and TinyPPI's windows in our design. TinyPPI: no capsule, its logos at the top back on (with the player's menu too when our capsule came with OK), and its windows in its own design. It switches straight away, no restart. Needs skin 3.28.136.</news>
     <source>https://github.com/6ahd/plugin.video.dexhub</source>
     <website>https://dexworld.cc</website>
     <assets>

@@ -268,6 +268,11 @@ def _publish_badge_props():
         ui_preferences.sync_skin_place()
     except Exception as exc:
         xbmc.log('[DexHub] badge props publish failed: %s' % exc, xbmc.LOGWARNING)
+    try:
+        from resources.lib import tinyppi_look      # v5.10.418: Dex Hub or TinyPPI
+        tinyppi_look.apply()
+    except Exception as exc:
+        xbmc.log('[DexHub] TinyPPI look: %s' % exc, xbmc.LOGWARNING)
 
 
 def _publish_core_props(last_sync=''):
