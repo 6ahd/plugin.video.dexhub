@@ -69,6 +69,25 @@ def _initial(name):
     return (name[:1] or '?').upper()
 
 
+# ------------------------------------------------------------------ ahead
+def warm(title):
+    """v5.10.413: the reviews and pictures read into their caches while the
+    cursor rests on the card (the Home's read ahead), so the page's rows,
+    which load after Cast, come from the cache when it opens."""
+    from .. import title_reviews, art_choice
+    media, imdb, tmdb = _work(title)
+    if imdb or tmdb:
+        try:
+            title_reviews.reviews(media, imdb, tmdb)
+        except Exception:
+            pass
+    if tmdb.isdigit():
+        try:
+            art_choice._images(tmdb, media)
+        except Exception:
+            pass
+
+
 # ------------------------------------------------------------------ rows
 def review_items(title, q):
     from .. import title_reviews, trakt

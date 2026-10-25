@@ -481,10 +481,15 @@ class Spotlight(threading.Thread):
                 from urllib.parse import parse_qsl
                 from .title import HeadlessTitle
                 started = time.monotonic()
-                HeadlessTitle(dict(parse_qsl(q))).load()
+                title = HeadlessTitle(dict(parse_qsl(q)))
+                title.load()
                 spent = (time.monotonic() - started) * 1000
                 if spent > 50:
                     C.log('title page of "%s" read ahead in %.0f ms' % (target.get('title') or '', spent))
+                # v5.10.413: its Reviews and Pictures rows too (after the page's
+                # own data, in this same thread)
+                from . import title_social
+                title_social.warm(title)
             except Exception as exc:
                 C.log('title read ahead failed: %s' % exc, xbmc.LOGDEBUG)
         self._prefetch_thread = threading.Thread(target=job, name='dexhub-skin-title-ahead', daemon=True)

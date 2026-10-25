@@ -291,19 +291,35 @@ def _end_of(text, start):
 
 
 # ------------------------------------------------------------------ files
+def _staged_path(base, var, cid, action, rev, before_cid, before_name):
+    """v5.10.413: a row that loads once the row above it has: Reviews after
+    Cast, Pictures after Reviews (each as soon as the one above has cards
+    or has nothing), so they never compete with the top of the page; kept
+    while its cards are this title's."""
+    above = ('[Integer.IsGreater(Container(%d).NumItems,0) | '
+             'String.IsEqual(Window(Home).Property(dhs.tp.none.%s),ListItem.Property(dhs.id))]' % (before_cid, before_name))
+    mine = ('[Integer.IsGreater(Container(%d).NumItems,0) + '
+            'String.IsEqual(Container(%d).ListItem.Property(dhs.tp.owner),ListItem.Property(dhs.id))]' % (cid, cid))
+    ready = '[String.IsEqual(Window(Home).Property(dhs.tp.id),ListItem.Property(dhs.id)) + %s]' % above
+    return ('<variable name="%s"><value condition="%s | %s">plugin://%s/?action=%s&amp;rev='
+            '$INFO[Window(Home).Property(dhs.tp.rev.%s)]&amp;$INFO[ListItem.Property(dhs.q)]</value>'
+            '<value>plugin://%s/?action=skin_empty</value></variable>' % (var, ready, mine, base, action, rev, base))
+
+
 def patch_includes(text):
-    if 'name="DhsTpReviewsPath"' in text:
-        return text, False
+    """(text, changed): the two rows' paths, written as this script writes
+    them now (a skin that has older ones gets them replaced)."""
     m = re.search(r'<variable name="DhsTpCastPath">.*?</variable>', text, re.S)
     if not m:
         raise ValueError('no DhsTpCastPath')
-    cast = m.group(0)
-    new = ''
-    for var, cid, action, rev in (('DhsTpReviewsPath', REVIEWS, 'skin_reviews', 'reviews'),
-                                  ('DhsTpArtworkPath', ARTWORK, 'skin_artwork', 'artwork')):
-        new += (cast.replace('DhsTpCastPath', var).replace('Container(8400)', 'Container(%d)' % cid)
-                .replace('action=skin_cast', 'action=' + action).replace('dhs.tp.rev.cast', 'dhs.tp.rev.' + rev))
-    return text[:m.end()] + new + text[m.end():], True
+    base = re.search(r'plugin://([^/]+)/\?action=skin_cast', m.group(0)).group(1)
+    rows = (_staged_path(base, 'DhsTpReviewsPath', REVIEWS, 'skin_reviews', 'reviews', 8400, 'cast')
+            + _staged_path(base, 'DhsTpArtworkPath', ARTWORK, 'skin_artwork', 'artwork', REVIEWS, 'reviews'))
+    old = re.compile(r'<variable name="DhsTp(?:Reviews|Artwork)Path">.*?</variable>', re.S)
+    stripped = old.sub('', text)
+    m = re.search(r'<variable name="DhsTpCastPath">.*?</variable>', stripped, re.S)
+    new = stripped[:m.end()] + rows + stripped[m.end():]
+    return new, new != text
 
 
 def _rows():
@@ -471,8 +487,8 @@ def main(argv=None):
         files['Custom_1195_DexPanel.xml'], new['Includes_DexHub.xml'], base)
     for name, text in new.items():
         ET.fromstring(text)              # still parses
-    print('%s: variables %s, %d page chain(s) and %d button chain(s) learned the rows, Friends tab %s'
-          % (args.skin, 'added' if vars_added else 'already there', n_dialog, n_designs,
+    print('%s: paths %s, %d page chain(s) and %d button chain(s) learned the rows, Friends tab %s'
+          % (args.skin, 'written' if vars_added else 'as they are', n_dialog, n_designs,
              'added' if island else 'already there'))
     for p in problems:
         print('  ' + p)

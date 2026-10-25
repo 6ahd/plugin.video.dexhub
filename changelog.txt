@@ -1,3 +1,7 @@
+5.10.413
+صفّين المراجعات والصور ما عادوا يبطّئون فتح صفحة العمل: يتحمّلون بالتدريج تحت الصفوف اللي فوقهم (المراجعات بعد طاقم التمثيل، والصور بعد المراجعات)، وبياناتهم تنقرأ مسبقًا وأنت واقف على البطاقة في الرئيسية، فلما تفتح العمل وتنزل تلقاهم جاهزين. ولو فشل تحميلهم مرة يتعاد لحاله. يحتاج سكن 3.28.130.
+The Reviews and Pictures rows no longer slow the title page down: they load one after another under the rows above them (Reviews after Cast, Pictures after Reviews), and their data is read ahead while the cursor rests on the card on the Home, so they are ready when you open the title and go down. A load that fails is tried again by itself. Needs skin 3.28.130.
+
 5.10.412
 في الواجهة الإنجليزية كانت كلمة «حلقة» تطلع Ring بدل Episode (على البطاقات وسطر النوع وشاشة التوقف). Trakt المقفل من الإعدادات صار يخفي تبويب الأصحاب وبطاقة كتابة المراجعة بدل ما يرجّع Trakt شغّال، ورمز Trakt المنتهي يتجدد قبل جلب المراجعات والأصحاب. السكن 3.28.129: رموز المصدر لملفات 4K وWEB-DL وHD-DVD وSDTV صارت تطلع.
 In English the word for episode showed as Ring (cards, the type line, the screensaver). With Trakt turned off in the settings the Friends tab and the review card stay hidden instead of turning Trakt back on, and an expired Trakt token is renewed before reviews and friends are read. Skin 3.28.129 shows the source flag of 4K, WEB-DL, HD-DVD and SDTV files.

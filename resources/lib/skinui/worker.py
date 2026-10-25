@@ -815,6 +815,8 @@ class Worker(object):
         tp = tp or C.layout().tp
         lists = [(tp['seasons'], 'seasons'), (tp['episodes'], 'episodes')] if series else []
         lists += [(tp['cast'], 'cast'), (tp['related'], 'related')]
+        # v5.10.413: Reviews (after Cast) and Pictures (after Reviews)
+        lists += [(8450, 'reviews'), (8460, 'artwork')]
         for index, (cid, name) in enumerate(lists):
             if cond('Integer.IsGreater(Container(%d).NumItems,0)' % cid):
                 continue
