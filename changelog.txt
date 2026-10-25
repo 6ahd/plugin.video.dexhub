@@ -1,3 +1,7 @@
+5.10.414
+في صفحة المسلسل: OK على الموسم يوديك لحلقاته على طول (كان يفتح قائمة كل المواسم حتى لو أنت واقف على الموسم الصح، والاختيار منها كان يكرر الانتقال). قائمة كل المواسم صارت بالضغط المطوّل، ولو اخترت منها نفس الموسم تروح لحلقاته. يحتاج سكن 3.28.132.
+On a show's page OK on a season goes straight to its episodes (it opened the list of all seasons even with the cursor on the right one, and picking from it moved the focus a second time). The list of all seasons is on a long press, and picking the season you are on goes to its episodes. Needs skin 3.28.132.
+
 5.10.413
 صفّين المراجعات والصور ما عادوا يبطّئون فتح صفحة العمل: يتحمّلون بالتدريج تحت الصفوف اللي فوقهم (المراجعات بعد طاقم التمثيل، والصور بعد المراجعات)، وبياناتهم تنقرأ مسبقًا وأنت واقف على البطاقة في الرئيسية، فلما تفتح العمل وتنزل تلقاهم جاهزين. ولو فشل تحميلهم مرة يتعاد لحاله. يحتاج سكن 3.28.130.
 The Reviews and Pictures rows no longer slow the title page down: they load one after another under the rows above them (Reviews after Cast, Pictures after Reviews), and their data is read ahead while the cursor rests on the card on the Home, so they are ready when you open the title and go down. A load that fails is tried again by itself. Needs skin 3.28.130.

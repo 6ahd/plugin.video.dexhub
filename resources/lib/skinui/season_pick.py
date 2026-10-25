@@ -40,5 +40,10 @@ def run(params=None):
     pick = xbmcgui.Dialog().select(_tr('كل المواسم'), items, preselect=current, useDetails=art)
     if pick is None or pick < 0:
         return None
+    if pick == current:
+        # v5.10.414: the season the cursor is on: its episodes (it moved the
+        # focus onto the same season again)
+        xbmc.executebuiltin('Control.SetFocus(8300)')
+        return None
     xbmc.executebuiltin('Control.SetFocus(%d,%d,absolute)' % (LIST, pick))
     return None

@@ -127,6 +127,30 @@ def studio_marks(name, text):
     return text, count
 
 
+# 3.28.132: OK on a season goes to its episodes. With more than 3 seasons it
+# opened the list of all seasons, even when the cursor was already on the
+# one wanted, and picking from it moved the focus a second time. The list
+# stays on a long press.
+SEASON_OK = ('<onclick condition="Integer.IsGreater(Container(8200).NumItems,3)">'
+             'RunPlugin(plugin://{base}/?action=title_seasons_pick)</onclick>'
+             '<onclick condition="!Integer.IsGreater(Container(8200).NumItems,3)">Control.SetFocus(8300)</onclick>')
+SEASON_OK_NEW = ('<onclick>Control.SetFocus(8300)</onclick>'
+                 '<onlongclick condition="Integer.IsGreater(Container(8200).NumItems,3)">'
+                 'RunPlugin(plugin://{base}/?action=title_seasons_pick)</onlongclick>')
+
+
+def season_ok(name, text):
+    if name != 'DialogVideoInfo.xml':
+        return text, 0
+    count = 0
+    for base in ('plugin.video.dexhub', 'plugin.video.dexhub.tvos'):
+        old = SEASON_OK.format(base=base)
+        if old in text:
+            count += text.count(old)
+            text = text.replace(old, SEASON_OK_NEW.format(base=base))
+    return text, count
+
+
 def guard_end_time(text):
     count = [0]
 
@@ -193,7 +217,7 @@ def main(argv=None):
         shutil.rmtree(out)
     shutil.copytree(src, out, ignore=shutil.ignore_patterns('__pycache__', '*.compact'))
 
-    totals = {'plot': 0, 'end_time': 0, 'loading': 0, 'icons': 0, 'flags': 0, 'studio': 0}
+    totals = {'plot': 0, 'end_time': 0, 'loading': 0, 'icons': 0, 'flags': 0, 'studio': 0, 'season': 0}
     for path in glob.glob(os.path.join(out, 'xml', '*.xml')):
         text = open(path, encoding='utf-8').read()
         new, n = guard_end_time(text)
@@ -204,6 +228,8 @@ def main(argv=None):
         totals['flags'] += n
         new, n = studio_marks(os.path.basename(path), new)
         totals['studio'] += n
+        new, n = season_ok(os.path.basename(path), new)
+        totals['season'] += n
         if os.path.basename(path) == 'Custom_1161_PlaybackLoading.xml':
             new, n = raise_loading(new)
             totals['loading'] += n
@@ -217,7 +243,7 @@ def main(argv=None):
     # focused card (3.28.124 took them out and the card showed black)
     print('fixed: %(plot)d plot boxes, %(end_time)d end times, '
           '%(loading)d loading window order, %(icons)d list icons, %(flags)d source flags, '
-          '%(studio)d studio mark parts' % totals)
+          '%(studio)d studio mark parts, %(season)d season OK' % totals)
 
     xbt = os.path.join(out, 'media', 'Textures.xbt')
     if args.xbt:
