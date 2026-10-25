@@ -124,3 +124,17 @@ changes nothing:
 python3 tools/release/skin_rows_together.py skin.dexhub
 python3 tools/release/skin_rows_together.py skin.dexhub.tvos
 ```
+
+## Clear Glass and the Apple-style focus: `skin_glass.py`
+
+Two skin switches, off by default (`Skin.ToggleSetting`): `dh.glass` puts
+a glass bar behind the Home's top row and the hero buttons without the
+cursor in glass (each glass image beside the original with the opposite
+condition); `dh.apple` turns the focus ring into a light edge with a soft
+shadow. The images are in `tools/release/assets/`. A second run changes
+nothing:
+
+```bash
+python3 tools/release/skin_glass.py skin.dexhub
+python3 tools/release/skin_glass.py skin.dexhub.tvos
+```

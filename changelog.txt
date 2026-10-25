@@ -1,3 +1,7 @@
+5.10.425
+تسميات خيارَي الزجاج الشفاف وتحديد Apple في إعدادات السكن صارت بلغة Dex Hub مثل باقي الخيارات. يحتاج سكن 3.28.141.
+The labels of the skin's Clear Glass and Apple-style focus options follow Dex Hub's language, as the other settings do. Needs skin 3.28.141.
+
 5.10.424
 الرئيسية تطلع كاملة مرة وحدة مثل Arctic Fuse 3: أول ما يشتغل كودي تبقى شاشة Dex Hub (الشعار وشريط يتحرك) لين تجهز الواجهة وأول الصفوف، وبعدها تختفي بهدوء (أقصى انتظار 15 ثانية، ومفتاحها في صفحة الجوال: «انتظار تجهيز الرئيسية»). وأول 4 صفوف صاروا يتحملون مع بعض بدل ما كل صف ينتظر اللي فوقه، فالرئيسية وتبديل الأقسام أسرع. يحتاج سكن 3.28.139.
 The Home comes whole, as Arctic Fuse 3's does: at Kodi's start Dex Hub's screen (its wordmark and a moving bar) stays until the spotlight and the first rows are in, then fades (15 seconds at most; the switch is on the phone setup page, Wait for the Home to load). And the first four rows load together instead of each waiting for the one above, so the Home and switching sections are quicker. Needs skin 3.28.139.
