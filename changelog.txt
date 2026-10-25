@@ -1,3 +1,7 @@
+5.10.415
+مزامنة الأجهزة صارت واضحة: كل إعداد وكل ملف (الصفوف، الإضافات، الكوليكشن…) يتزامن لحاله، وتختار من صفحة حسابك: «آخر تعديل يفوز» (آخر شي غيّرته في أي تلفزيون يمشي على الكل بدون ما يمسح اللي غيّرته في تلفزيون ثاني) أو «تلفزيون واحد مصدر» (الباقي يتبعونه وما يرسلون). اللي يغيّره تحديث الإضافة أو السكن ما ينرسل أبد، ولا علامات الإضافة الداخلية ولا إعدادات الشاشة نفسها. يحتاج DexCloud ‏2.13.
+Syncing the TVs is clear now: each setting and file (rows, add-ons, collections...) syncs on its own, and your account page picks how: Latest change wins (the last thing changed on any TV goes to all, without undoing what another TV changed) or One TV is the source (the others follow it and send nothing). What an add-on or skin update changes never goes up, nor the add-on's own bookkeeping or this screen's own settings. Needs DexCloud 2.13.
+
 5.10.414
 في صفحة المسلسل: OK على الموسم يوديك لحلقاته على طول (كان يفتح قائمة كل المواسم حتى لو أنت واقف على الموسم الصح، والاختيار منها كان يكرر الانتقال). قائمة كل المواسم صارت بالضغط المطوّل، ولو اخترت منها نفس الموسم تروح لحلقاته. يحتاج سكن 3.28.132.
 On a show's page OK on a season goes straight to its episodes (it opened the list of all seasons even with the cursor on the right one, and picking from it moved the focus a second time). The list of all seasons is on a long press, and picking the season you are on goes to its episodes. Needs skin 3.28.132.

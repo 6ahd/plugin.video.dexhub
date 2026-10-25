@@ -21,6 +21,11 @@ When it moves:
     something changed (not under a video), or on request
   * down: when the TV is linked (asked once), or on request
 
+v5.10.415: syncing the TVs is item by item (cloud_sync.py): each setting
+and file on its own, the last one changed wins, or one TV is the source;
+what an update changes never goes up. Before (v5.10.375, below) the newest
+whole setup replaced the others'.
+
 v5.10.375, syncing the TVs (switched on from the account's page, with the
 parts to take): a change here goes up once it settled (45 s after the last
 one, and a look every five minutes for anything else), the hub tells the
@@ -49,12 +54,11 @@ KODI_SETTINGS = ('locale.audiolanguage', 'locale.subtitlelanguage', 'subtitles.l
                  'lookandfeel.soundskin', 'audiooutput.guisoundmode', 'videoplayer.preferdefaultflag')
 PROGRESS_ROWS = 2000
 PUSH_EVERY = 6 * 3600
-_STATE = {'at': 0.0, 'dirty': 0.0, 'checked': 0.0, 'pulled': 0.0, 'pending': False}
+_STATE = {'at': 0.0, 'dirty': 0.0, 'pulled': 0.0, 'pending': False}
 # v5.10.375: device sync, the account page's parts and the backup parts they take
 USER_PARTS = {'addons': ('sources',), 'home': ('home',), 'collections': ('collections',), 'library': ('library',),
               'progress': ('progress',), 'accounts': ('accounts',), 'settings': ('settings',)}
 SETTLE = 45.0
-CHECK_EVERY = 5 * 60
 PULL_EVERY = 30 * 60
 import threading as _threading
 _LOCK = _threading.Lock()
@@ -277,46 +281,6 @@ def mark():
     _STATE['dirty'] = time.time()
 
 
-def pull():
-    """The newest setup of the profile's TVs, its chosen parts taken without
-    asking. True when something was applied."""
-    from . import hub_client
-    if not _LOCK.acquire(False):
-        return False
-    try:
-        if not hub_client.linked():
-            return False
-        mine = hub_client.state().get('profile') or {}
-        answer = remote(mine.get('rev') or None)
-        sync = devsync()
-        if not sync.get('on') or not answer or not answer.get('z') or answer.get('unchanged'):
-            return False
-        if answer.get('mine'):
-            hub_client.save(profile=dict(mine, rev=answer.get('rev') or 0))
-            return False
-        if xbmc.Player().isPlayingVideo():
-            _STATE['pending'] = True          # right after the video
-            return False
-        only = set()
-        for part in sync.get('parts') or []:
-            only.update(USER_PARTS.get(part, ()))
-        if not only:
-            return False
-        done = apply(answer, only=only)
-        _STATE['dirty'] = 0.0
-        try:
-            from .phone_setup import _republish
-            _republish('sync')
-        except Exception:
-            pass
-        xbmcgui.Dialog().notification('Dex Hub', _t('تحدّث إعدادك من «%s» ✓', 'Updated from “%s” ✓') % (answer.get('from') or 'Kodi'),
-                                      xbmcgui.NOTIFICATION_INFO, 3500, sound=False)
-        xbmc.log('[DexHub] device sync: took %s from %s (rev %s)' % (sorted(only), answer.get('from'), answer.get('rev')), xbmc.LOGINFO)
-        return bool(done)
-    finally:
-        _LOCK.release()
-
-
 def on_notice(notice):
     """The hub's word through the relay: another TV changed the setup, the
     account page turned syncing on or asked to sync now."""
@@ -327,7 +291,21 @@ def on_notice(notice):
         if xbmc.Player().isPlayingVideo():
             _STATE['pending'] = True
         else:
-            pull()
+            _round()
+
+
+def _round(edited_at=0.0):
+    """v5.10.415: one item-by-item round (cloud_sync), one at a time."""
+    if not _LOCK.acquire(False):
+        return False
+    try:
+        from . import cloud_sync
+        return cloud_sync.sync(edited_at=edited_at)
+    except Exception as exc:
+        xbmc.log('[DexHub] device sync failed: %s' % exc, xbmc.LOGWARNING)
+        return False
+    finally:
+        _LOCK.release()
 
 
 def tick():
@@ -342,13 +320,13 @@ def tick():
         return
     playing = xbmc.Player().isPlayingVideo()
     if devsync().get('on'):
-        if not playing and (_STATE['pending'] or now - _STATE['pulled'] > PULL_EVERY):
-            _STATE['pulled'], _STATE['pending'] = now, False
-            pull()
+        # v5.10.415: item by item (cloud_sync): soon after a change here, when
+        # the hub says another TV changed something, and every half hour
         dirty = _STATE['dirty']
-        if not playing and ((dirty and now - dirty > SETTLE) or now - _STATE['checked'] > CHECK_EVERY):
-            _STATE['dirty'], _STATE['checked'], _STATE['at'] = 0.0, now, now
-            push()
+        if not playing and (_STATE['pending'] or (dirty and now - dirty > SETTLE)
+                            or now - _STATE['pulled'] > PULL_EVERY):
+            _STATE['pulled'], _STATE['pending'], _STATE['dirty'], _STATE['at'] = now, False, 0.0, now
+            _round(edited_at=dirty)
         return
     if now - _STATE['at'] < PUSH_EVERY or playing:
         return

@@ -118,7 +118,17 @@ def signature(look):
 
 def _usable():
     from . import hub_client
-    return hub_client.linked() and hub_client.option('look')
+    if not (hub_client.linked() and hub_client.option('look')):
+        return False
+    try:
+        # v5.10.415: with the TVs syncing, the look travels with them (item by
+        # item, cloud_sync): this older whole-look copy stands down
+        from . import cloud_profile
+        if cloud_profile.devsync().get('on'):
+            return False
+    except Exception:
+        pass
+    return True
 
 
 def push(force=False):
