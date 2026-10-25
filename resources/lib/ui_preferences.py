@@ -65,7 +65,11 @@ OPTIONS = {
     'player_logo_position': ('above_info', ('above_info', 'top_left', 'top_right'), 'مكان شعار العمل', 'Work logo position'),
     # v5.10.417: the playback capsule (player_capsule.py, skin.dexhub 3.28.134)
     'player_capsule': ('true', None, 'كبسولة الجودة عند التشغيل', 'Playback capsule'),
+    # v5.10.418: when it shows, badges or words, the services' logos
+    'player_capsule_when': ('both', ('both', 'start', 'ok'), 'متى تظهر الكبسولة', 'When the capsule shows'),
+    'player_capsule_look': ('badges', ('badges', 'text'), 'شكل الكبسولة', 'Capsule look'),
     'player_capsule_rating': ('true', None, 'التصنيف العمري في الكبسولة', 'Age rating in the capsule'),
+    'player_capsule_services': ('true', None, 'شعارات التقييمات في الكبسولة', 'Rating logos in the capsule'),
     'player_capsule_place': ('top_left', ('top_left', 'top_center', 'top_right'), 'مكان الكبسولة', 'Capsule place'),
     'player_capsule_time': ('6', ('4', '6', '10'), 'مدة الكبسولة', 'Capsule time'),
     'player_logo_size': ('normal', ('small', 'normal', 'large'), 'حجم شعار العمل (Clear logo)', 'Clear logo size'),

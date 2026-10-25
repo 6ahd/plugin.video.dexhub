@@ -59,16 +59,33 @@ chain is named. Then build the release with `skin_build.py` as above.
 
 ## The playback capsule: `skin_capsule.py`
 
-Add-on 5.10.417 shows a pill at the top of the picture when a video starts
-(Dex Hub's mark, the video, the audio and the age rating, two lines each) and
-publishes its text and column widths as `dhs.cap.*`. This puts the pill in a
-skin's `VideoFullScreen.xml` and `Includes_DexHub.xml`, between two comments,
-so a second run only brings it up to date:
+Add-on 5.10.417 (5.10.418: badges, the rating services' logos, with OK) shows
+a glass pill at the top of the picture: Dex Hub's mark, the video and the
+audio (badges or words) and the age rating with the services' scores. The
+add-on measures everything and publishes it as `dhs.cap.*`: each column's
+width class and the x of each line as bits (spacers of 1 to 1024 px), since a
+skin can neither size a background to its text nor place a control from a
+property. This writes the skin's side between two comments, so a second run
+only brings it up to date:
 
 ```bash
 python3 tools/release/skin_capsule.py skin.dexhub
 python3 tools/release/skin_capsule.py skin.dexhub.tvos
 ```
 
-The width classes (100 to 420 in steps of 20) must match
-`resources/lib/player_capsule.py`.
+It also draws the glass, the FEL / MEL tags and the format badges the skin
+lacks (DTS-ES, DTS 96/24, HE-AAC, 5.1.2, IMAX, ...). The sizes at its top must
+match `resources/lib/player_capsule.py`.
+
+## TinyPPI in the skin's design: `skin_tinyppi.py`
+
+Kodi takes a script's window file from the running skin first, so the skin
+can draw TinyPPI's overlay and its VS10 dialogs while TinyPPI keeps reading
+the video. The files are the skin's own; they keep TinyPPI's control ids
+(5000, 5100, 9100, 9101; 2, 1001-1013, 1101, 1201, 1301, 1500), its panel
+sizes and its properties. Its Dolby Vision metadata view stays its own.
+
+```bash
+python3 tools/release/skin_tinyppi.py skin.dexhub
+python3 tools/release/skin_tinyppi.py skin.dexhub.tvos
+```
