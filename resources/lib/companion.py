@@ -1090,6 +1090,15 @@ class CompanionPlayer(xbmc.Player):
             except Exception:
                 pass
             _parents_guide_corner()
+        else:
+            try:
+                # v5.10.420: a video Dex Hub did not start (a file, another
+                # add-on) has the capsule too, from Kodi's own details only,
+                # and a few seconds later (the display mode switch)
+                from . import player_capsule
+                player_capsule.start(foreign=True)
+            except Exception:
+                pass
 
     def onAVChange(self):
         self.onAVStarted()

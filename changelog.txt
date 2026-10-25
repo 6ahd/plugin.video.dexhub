@@ -1,3 +1,7 @@
+5.10.420
+الكبسولة صارت تطلع كمان للفيديو اللي ما شغّلته Dex Hub (ملف من الجهاز أو إضافة ثانية) من معلومات كودي نفسه، بعد التشغيل بثواني. وسجل كودي صار يقول بوضوح ليش طلعت أو ما طلعت (السكن مو Dex Hub، مقفلة، «معلومات التشغيل» على TinyPPI، تريلر، أو كودي ما أعطى معلومات الفيديو).
+The capsule also comes for a video Dex Hub did not start (a file on the device, another add-on), from Kodi's own details, a few seconds in. And kodi.log says plainly why it came or did not (another skin, turned off, Playback info on TinyPPI, a trailer, or Kodi gave no video details).
+
 5.10.419
 في خيارات المشغل (وصفحة الجوال) صار فيه «معلومات التشغيل»: Dex Hub أو TinyPPI. Dex Hub: كبسولتنا فوق، وشعارات TinyPPI اللي فوق تنقفل، ونوافذ TinyPPI بتصميمنا. TinyPPI: كبسولتنا تختفي، وشعاراته فوق ترجع (ومع قائمة المشغل لو كانت كبسولتنا تطلع مع OK)، ونوافذه بتصميمه الأصلي. يتبدّل على طول بدون إعادة تشغيل. يحتاج سكن 3.28.136.
 Player options (and the phone setup page) have Playback info: Dex Hub or TinyPPI. Dex Hub: our capsule at the top, TinyPPI's logos at the top off, and TinyPPI's windows in our design. TinyPPI: no capsule, its logos at the top back on (with the player's menu too when our capsule came with OK), and its windows in its own design. It switches straight away, no restart. Needs skin 3.28.136.

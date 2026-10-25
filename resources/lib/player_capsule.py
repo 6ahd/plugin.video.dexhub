@@ -379,26 +379,44 @@ def starting():
     return _SHOWN.get('running', 0) == _SHOWN['token'] and _SHOWN['token'] > 0
 
 
-def _wanted():
+def _why_not():
+    """Why the capsule stays away for this video ('' when it comes)."""
     from .ui_preferences import value
     if value('player_capsule') == 'false':
-        return False
-    if xbmc.getSkinDir() not in ('skin.dexhub', 'skin.dexhub.tvos'):
-        return False
+        return 'turned off in the player options'
+    skin = xbmc.getSkinDir()
+    if skin not in ('skin.dexhub', 'skin.dexhub.tvos'):
+        return 'the skin is %s, it needs skin.dexhub' % skin
     from . import tinyppi_look
     if tinyppi_look.tinyppi_shows():          # v5.10.418: TinyPPI's logos instead
-        return False
+        return 'Playback info is TinyPPI'
     from .trailer_mark import playing_is_trailer
-    return not playing_is_trailer()
+    if playing_is_trailer():
+        return 'a trailer'
+    return ''
 
 
-def start():
+def _wanted():
+    return not _why_not()
+
+
+def _note(key, text):
+    """v5.10.420: said once per video, in the normal log (it was debug only)."""
+    if _SHOWN.get('noted') != (key, text):
+        _SHOWN['noted'] = (key, text)
+        xbmc.log('[DexHub] capsule: %s' % text, xbmc.LOGINFO)
+
+
+def start(foreign=False):
     """Player.OnAVStarted / OnAVChange: show it once for this file; the same
-    file again (another audio track) only brings what it says up to date."""
+    file again (another audio track) only brings what it says up to date.
+    foreign: a video Dex Hub did not start (its play context is another's)."""
     try:
-        if not _wanted():
-            return
         key = _key()
+        why = _why_not()
+        if why:
+            _note(key, 'not shown (%s)' % why)
+            return
         with _LOCK:
             if not key:
                 return
@@ -409,9 +427,11 @@ def start():
                 _SHOWN['key'] = key
                 _SHOWN['token'] += 1
                 _SHOWN['services'] = None
+                _SHOWN['foreign'] = foreign
                 token = _SHOWN['token']
                 target = _run
-    except Exception:
+    except Exception as exc:
+        xbmc.log('[DexHub] capsule: %s' % exc, xbmc.LOGWARNING)
         return
     threading.Thread(target=target, args=(token,), name='DexHubCapsule', daemon=True).start()
 
@@ -449,10 +469,14 @@ def _publish(token, ctx):
     return True
 
 
+def _ctx():
+    return {} if _SHOWN.get('foreign') else _context()
+
+
 def _refresh(token):
     try:
         if xbmcgui.Window(10000).getProperty(PREFIX + 'ready'):
-            _publish(token, _context())
+            _publish(token, _ctx())
     except Exception as exc:
         xbmc.log('[DexHub] capsule: %s' % exc, xbmc.LOGDEBUG)
 
@@ -471,9 +495,11 @@ def _show(token):
     monitor = xbmc.Monitor()
     shown = False
     try:
-        ctx = _context()
+        ctx = _ctx()
+        if _SHOWN.get('foreign') and monitor.waitForAbort(3):
+            return
         lookup = None
-        if value('player_capsule_services') != 'false':
+        if ctx and value('player_capsule_services') != 'false':
             # beside the wait for the picture (it may ask MDbList)
             def fetch():
                 found = _services(ctx)
@@ -496,10 +522,24 @@ def _show(token):
                 break
             if monitor.waitForAbort(0.4):
                 return
+        else:
+            _note(_SHOWN['key'], 'not shown (the playing time did not move for 25 s)')
+            return
         if lookup is not None:
             lookup.join(2.0)
         if not _publish(token, ctx):
+            if token == _SHOWN['token']:
+                _note(_SHOWN['key'], 'not shown (Kodi reports no video or audio details: %r, %r)' % (
+                    xbmc.getInfoLabel('VideoPlayer.VideoResolution'), xbmc.getInfoLabel('VideoPlayer.AudioCodec')))
             return
+        win_props = xbmcgui.Window(10000)
+        _note(_SHOWN['key'], 'shown (%s: %s %s | %s %s | %d rating logos, %s, %s)' % (
+            win_props.getProperty(PREFIX + 'look'), win_props.getProperty(PREFIX + 'vb1') or win_props.getProperty(PREFIX + 'v1'),
+            win_props.getProperty(PREFIX + 'vb2') or win_props.getProperty(PREFIX + 'v1b'),
+            win_props.getProperty(PREFIX + 'ab1') or win_props.getProperty(PREFIX + 'a1'),
+            win_props.getProperty(PREFIX + 'ab2') or win_props.getProperty(PREFIX + 'a1b'),
+            len(_SHOWN.get('services') or []), win_props.getProperty(PREFIX + 'place'),
+            value('player_capsule_when') or 'both'))
         if lookup is not None and lookup.is_alive():
             threading.Thread(target=_late, args=(token, lookup, ctx), daemon=True).start()
         if value('player_capsule_when') == 'ok':
@@ -515,7 +555,7 @@ def _show(token):
             if token != _SHOWN['token'] or not player.isPlayingVideo() or monitor.waitForAbort(0.3):
                 break
     except Exception as exc:
-        xbmc.log('[DexHub] capsule: %s' % exc, xbmc.LOGDEBUG)
+        xbmc.log('[DexHub] capsule: %s' % exc, xbmc.LOGWARNING)
     finally:
         if shown and token == _SHOWN['token']:
             win.clearProperty(PREFIX + 'on')        # the skin fades it out; the rest stays for OK
