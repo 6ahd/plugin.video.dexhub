@@ -35,8 +35,29 @@ python3 tools/release/skin_build.py skin.dexhub out/ --version 3.28.125 \
   square for the services' app icons, a light chip behind dark logos). The cards'
   `videowindow`s stay: they are the trailer inside the focused card
 * `media/Textures.xbt` from `TexturePacker -dupecheck` (or `--xbt file`),
-  checked against the loose images first (`xbt_check.py`): a pack with a
+  packed from plain 8-bit RGBA copies of the PNGs and checked against the
+  loose images first (`xbt_check.py`, every entry and format): a pack with a
   damaged image is left out, since Kodi draws the pack's copy
+
+TexturePacker is Kodi's own (XBT 3, Kodi 22). It builds from Kodi's source
+with liblzo2, libpng, giflib and libjpeg (Ubuntu: `liblzo2-dev libpng-dev
+libgif-dev libjpeg-dev cmake g++`):
+
+```bash
+git clone --depth 1 --filter=blob:none --sparse https://github.com/xbmc/xbmc kodi
+git -C kodi sparse-checkout set --no-cone /tools/depends/native/TexturePacker/ \
+    /xbmc/guilib/XBTF.cpp /xbmc/guilib/XBTF.h /xbmc/guilib/XBTFReader.h \
+    /xbmc/guilib/XBTFReader.cpp /xbmc/guilib/TextureFormats.h /xbmc/utils/EndianSwap.h \
+    /xbmc/utils/EndianSwap.cpp /cmake/
+cmake -S kodi/tools/depends/native/TexturePacker/src -B tp -DKODI_SOURCE_DIR=$PWD/kodi \
+    -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-DTARGET_POSIX -DTARGET_LINUX"
+cmake --build tp       # tp/TexturePacker
+```
+
+Two of its habits are why the pack is made from plain copies: it sets BGR
+order only for RGB and RGBA PNGs (a palette PNG went in as RGBA marked BGRA,
+red and blue swapped on screen: 100 images of 3.28.124), and it does not
+reduce 16-bit channels (the 65 striped icons).
 * `--compact` only in the output, each file checked to keep the same content
 
 The card designs themselves (about 110 controls a card) come from the script

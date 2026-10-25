@@ -14,7 +14,10 @@ a release never depends on a hand-edited output:
   icons in the Add-ons and File manager lists as rounded squares (3.28.127)
 * media/Textures.xbt: the images packed with ``TexturePacker -dupecheck``, as
   Kodi's own skins ship them (the PNGs stay for full-path lookups), or an
-  .xbt built elsewhere with --xbt
+  .xbt built elsewhere with --xbt; packed from plain 8-bit RGBA copies of the
+  PNGs (TexturePacker swaps red and blue in palette PNGs and stripes 16-bit
+  ones), and every entry is checked against its file (xbt_check.py) before
+  it ships
 * --compact: whitespace between tags removed in OUT only; each file is checked
   to hold the same elements, attributes and text as before, else kept as is
 
@@ -193,6 +196,32 @@ def compact(path):
     return same
 
 
+def plain_pngs(media):
+    """Every PNG under media that is not plain 8-bit RGBA, saved as that
+    (3.28.140). Kodi's TexturePacker sets BGR order only for RGB and RGBA
+    PNGs, so a palette PNG went into the pack as RGBA marked BGRA (red and
+    blue swapped on screen), and it reads 16-bit channels as they are (the
+    65 striped icons of 3.28.124). Only the copy that is packed is changed;
+    the skin's own files stay as they are."""
+    from PIL import Image
+    count = 0
+    for root, _dirs, files in os.walk(media):
+        for name in files:
+            if not name.lower().endswith('.png'):
+                continue
+            path = os.path.join(root, name)
+            with open(path, 'rb') as fh:
+                head = fh.read(4096)
+            plain = (head[:8] == b'\x89PNG\r\n\x1a\n' and head[24] == 8 and head[25] == 6
+                     and b'tRNS' not in head)
+            if not plain:
+                image = Image.open(path).convert('RGBA')
+                image.info.pop('icc_profile', None)     # a grey profile does not fit RGBA
+                image.save(path)
+                count += 1
+    return count
+
+
 def set_version(skin_dir, version):
     path = os.path.join(skin_dir, 'addon.xml')
     text = open(path, encoding='utf-8').read()
@@ -252,8 +281,15 @@ def main(argv=None):
         if os.path.exists(xbt):
             os.remove(xbt)
         tmp = os.path.join(os.path.abspath(args.out), 'Textures.xbt')
-        subprocess.run([args.texturepacker, '-dupecheck', '-input', os.path.join(out, 'media'), '-output', tmp],
+        # 3.28.140: packed from plain copies (TexturePacker drew palette PNGs
+        # with red and blue swapped and 16-bit ones as stripes)
+        plain = os.path.join(os.path.abspath(args.out), 'media-plain')
+        shutil.rmtree(plain, ignore_errors=True)
+        shutil.copytree(os.path.join(out, 'media'), plain)
+        print('media for the pack: %d image(s) made plain 8-bit RGBA' % plain_pngs(plain))
+        subprocess.run([args.texturepacker, '-dupecheck', '-input', plain, '-output', tmp],
                        check=True, stdout=subprocess.DEVNULL)
+        shutil.rmtree(plain, ignore_errors=True)
         shutil.move(tmp, xbt)
     if os.path.exists(xbt):
         # 3.28.133: a pack whose images differ from the files is left out (Kodi
