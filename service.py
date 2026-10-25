@@ -269,10 +269,10 @@ def _publish_badge_props():
     except Exception as exc:
         xbmc.log('[DexHub] badge props publish failed: %s' % exc, xbmc.LOGWARNING)
     try:
-        from resources.lib import tinyppi_look      # v5.10.418: Dex Hub or TinyPPI
-        tinyppi_look.apply()
+        from resources.lib import player_capsule      # v5.10.423: TinyPPI is its own again
+        player_capsule.leftovers()
     except Exception as exc:
-        xbmc.log('[DexHub] TinyPPI look: %s' % exc, xbmc.LOGWARNING)
+        xbmc.log('[DexHub] TinyPPI leftovers: %s' % exc, xbmc.LOGWARNING)
 
 
 def _publish_core_props(last_sync=''):

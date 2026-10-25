@@ -4,9 +4,8 @@ import xbmcgui
 GROUPS = {
     'loading': ('بدء التشغيل', 'Playback start', ('player_loading_art',)),
     # v5.10.417: the capsule at the top when a video or another source starts
-    'capsule': ('كبسولة الجودة', 'Playback capsule',
-                ('player_info_source', 'player_capsule', 'player_capsule_when', 'player_capsule_look', 'player_capsule_rating',
-                 'player_capsule_services', 'player_capsule_place', 'player_capsule_time')),
+    'capsule': ('بطاقة التصنيف', 'Rating card',
+                ('player_capsule', 'player_capsule_when', 'player_capsule_place', 'player_capsule_time')),
     'logo': ('شعار العمل · Clear logo', 'Clear logo',
              ('player_show_clearlogo', 'player_logo_size', 'player_logo_position')),
     'studio': ('شعار الاستديو', 'Studio logo',
@@ -37,9 +36,7 @@ def label(value):
               'top_center': ('أعلى بالنص', 'Top centre'), '4': ('4 ثواني', '4 s'), '6': ('6 ثواني', '6 s'),
               '10': ('10 ثواني', '10 s'),
               'both': ('أول التشغيل ومع OK', 'At start and with OK'), 'start': ('أول التشغيل', 'At start'),
-              'dexhub': ('Dex Hub (الكبسولة)', 'Dex Hub (the capsule)'),
-              'tinyppi': ('TinyPPI', 'TinyPPI'),
-              'ok': ('مع OK', 'With OK'), 'card': ('بطاقة التصنيف', 'Rating card'), 'badges': ('رموز', 'Badges'), 'text': ('كتابة', 'Words'),
+              'ok': ('مع OK', 'With OK'), 
               'bottom_left': ('أسفل اليسار', 'Bottom left'), 'bottom_right': ('أسفل اليمين', 'Bottom right'),
               'seekbar': ('فوق شريط التقدم', 'Above seek bar'), 'info': ('تحت البيانات', 'Under details')}
     return text(*labels[value]) if value in labels else value

@@ -1,3 +1,7 @@
+5.10.423
+بقت بطاقة التصنيف بس: انشالت الكبسولة القديمة (رموز أو كتابة) وخياراتها، وانشال تصميمنا لنوافذ TinyPPI وخيار «معلومات التشغيل»، وTinyPPI صار يشتغل بتصميمه الأصلي (الإضافة تشيل ملفات تصميمنا القديمة من السكن لو بقت). البطاقة لسا تروح للجهة الثانية لو شعارات TinyPPI بنفس جهتها. يحتاج سكن 3.28.138.
+The rating card alone: the old pill (badges or words) and its options are gone, and so are Dex Hub's design of TinyPPI's windows and the Playback info choice; TinyPPI is its own design again (the add-on takes the old design's files out of the skin if they stayed). The card still goes to the other side when TinyPPI's logos sit on its side. Needs skin 3.28.138.
+
 5.10.422
 بطاقة التصنيف ما كانت تطلع على الأجهزة اللي كان فيها الكبسولة قبل (مثل الماك): كودي حافظ الإعدادات القديمة (رموز، ومع OK) فما وصل الافتراضي الجديد. الحين تتحوّل مرة وحدة للبطاقة وأول التشغيل، ولو رجعت اخترت الكبسولة بعدها تبقى.
 The rating card did not come on a device that had the pill before (the Mac): Kodi had kept the old defaults (badges, with OK) in its settings, so the new ones never arrived. They switch once to the card at the start; choosing the pill afterwards stays.

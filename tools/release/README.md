@@ -57,40 +57,19 @@ The page's up/down chains are rebuilt with the two new lists; each chain must
 first rebuild to exactly what the skin has, else nothing is written and the
 chain is named. Then build the release with `skin_build.py` as above.
 
-## The playback capsule: `skin_capsule.py`
+## The rating card: `skin_capsule.py`
 
-Add-on 5.10.417 (5.10.418: badges, the rating services' logos, with OK) shows
-a glass pill at the top of the picture: Dex Hub's mark, the video and the
-audio (badges or words) and the age rating with the services' scores. The
-add-on measures everything and publishes it as `dhs.cap.*`: each column's
-width class and the x of each line as bits (spacers of 1 to 1024 px), since a
-skin can neither size a background to its text nor place a control from a
-property. This writes the skin's side between two comments, so a second run
-only brings it up to date:
+Add-on 5.10.423 shows the rating card when a film starts: the age rating
+large, what earned it (IMDb's Parents Guide), a quiet line with the video,
+the audio and a rating, published as `dhs.cap.card.*`. This writes the skin's
+side between two comments, so a second run only brings it up to date, and
+takes out what skins 3.28.134-3.28.137 had for the old playback pill and for
+Dex Hub's design of TinyPPI's windows (TinyPPI is its own again):
 
 ```bash
 python3 tools/release/skin_capsule.py skin.dexhub
 python3 tools/release/skin_capsule.py skin.dexhub.tvos
 ```
 
-Add-on 5.10.421 shows the rating card instead by default (`DhsCard`: the
-age rating, what earned it, a quality line; `dhs.cap.card.*`). It also draws
-the glass, the FEL / MEL tags and the format badges the skin
-lacks (DTS-ES, DTS 96/24, HE-AAC, 5.1.2, IMAX, ...). The sizes at its top must
-match `resources/lib/player_capsule.py`.
-
-## TinyPPI in the skin's design: `skin_tinyppi.py`
-
-Kodi takes a script's window file from the running skin first, so the skin
-can draw TinyPPI's overlay and its VS10 dialogs while TinyPPI keeps reading
-the video. The files are the skin's own; they keep TinyPPI's control ids
-(5000, 5100, 9100, 9101; 2, 1001-1013, 1101, 1201, 1301, 1500), its panel
-sizes and its properties. Its Dolby Vision metadata view stays its own. A
-copy goes to `extras/tinyppi/`: the add-on's Playback info choice
-(`resources/lib/tinyppi_look.py`) takes the files out of `xml/` for TinyPPI's
-own design and puts them back for Dex Hub's.
-
-```bash
-python3 tools/release/skin_tinyppi.py skin.dexhub
-python3 tools/release/skin_tinyppi.py skin.dexhub.tvos
-```
+The line heights at its top must match `card.h` in
+`resources/lib/player_capsule.py`.

@@ -1,122 +1,54 @@
 # -*- coding: utf-8 -*-
-"""v5.10.417: the playback capsule (skin.dexhub 3.28.134); v5.10.418 (skin
-3.28.135): badges, the rating services' logos, and with OK.
+"""The rating card when a film starts (v5.10.421; v5.10.423 the card alone).
 
-A glass pill at the top of the picture with Dex Hub's mark and what is
-playing: the video (the 4K and Dolby Vision badges, FEL or MEL, and under it
-HEVC 10bit · 24.5 Mbps), the audio (Atmos and 7.1, and under it TrueHD · ENG)
-and the title's age rating with the logos and scores of the rating services
-chosen for the title page (the first three). Or the same in words.
+As a streaming service shows it: the age rating large (R), what earned it
+(IMDb's Parents Guide: the categories rated severe or moderate), and a quiet
+line with the video, the audio and the first of the ratings chosen for the
+title page (4K HDR10 · DTS 5.1 · IMDb 6.5). It comes once the picture runs,
+for a new playback or another source, stays a few seconds and leaves; with
+the player's menu too when asked. It takes the Parents Guide corner's place.
+When TinyPPI's own logos sit on the same side it goes to the other.
 
-When: once the picture runs (a new playback or another source), for a few
-seconds; and while the player's menu is open (OK), for as long as it is.
+v5.10.423: the pill (badges or words) and Dex Hub's design of TinyPPI's
+windows are gone; TinyPPI is its own. The skin (skin.dexhub 3.28.138,
+tools/release/skin_capsule.py) draws the card from Home properties
+dhs.cap.card.* and shows it while dhs.cap.on is set.
 
-The skin draws it from Home properties (dhs.cap.*). Kodi can neither size a
-background to its text nor place a control from a property, so this module
-measures everything (the skin's fonts, the badges' own sizes) and publishes:
-each column's width class (dhs.cap.<column>.w, 20 px steps, the skin has a
-background for each) and the x of each line as bits (dhs.cap.<line>.<bit>,
-spacers of 1, 2, 4 ... 1024 px that the skin shows or hides in front of it).
-tools/release/skin_capsule.py writes the skin's side; the sizes below must
-match it.
-
-Settings (ui_preferences): player_capsule, player_capsule_when (both, start,
-ok), player_capsule_look (badges, text), player_capsule_rating,
-player_capsule_services, player_capsule_place (top_left, top_center,
-top_right), player_capsule_time.
+Settings (ui_preferences): player_capsule, player_capsule_when (start, both,
+ok), player_capsule_place (top_left, top_center, top_right),
+player_capsule_time; parents_guide for the words.
 """
+import os
 import re
 import threading
 import time
-import struct
 from urllib.parse import unquote, urlsplit
 
 import xbmc
 import xbmcgui
-import xbmcvfs
 
 PREFIX = 'dhs.cap.'
+TINYPPI = 'script.tinyppi'
 _SHOWN = {'key': '', 'token': 0}
 _LOCK = threading.Lock()
-STEP, MIN_W, MAX_W = 20, 40, 600
-# the pill (must match tools/release/skin_capsule.py)
-SCREEN, SIDE, LOGO, END, PAD, DIV = 1920, 48, 92, 46, 20, 2
-BADGE_H, ICON_H, GAP, SERVICE_GAP, VALUE_GAP = 40, 34, 8, 18, 8
-BITS = (1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024)
-LINES = ('bg', 'v1', 'v2', 'a1', 'a2', 's')
-
-# advance widths (px) of the skin's InterArabic Bold at 30 px (font30_title)
-# and Regular at 22 px (dh_small), the capsule's two lines, measured from the
-# fonts; a character not listed counts as an 'M'
-_CHARS = ' !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~·★'
-_BOLD30 = dict(zip(_CHARS, (7, 10, 17, 19, 20, 30, 20, 10, 11, 11, 17, 20, 10, 14, 10, 12, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 10, 10, 20, 20, 20, 17, 30, 22, 20, 22, 22, 18, 18, 23, 22, 8, 18, 22, 17, 28, 23, 23, 19, 23, 20, 20, 20, 22, 22, 31, 22, 22, 20, 11, 12, 11, 15, 14, 11, 17, 19, 18, 19, 18, 12, 19, 19, 8, 8, 17, 8, 27, 19, 18, 19, 19, 12, 17, 11, 19, 18, 26, 17, 18, 17, 14, 11, 14, 20, 10, 31)))
-_REG22 = dict(zip(_CHARS, (6, 6, 10, 14, 14, 22, 14, 7, 8, 8, 11, 15, 6, 10, 6, 8, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 6, 7, 15, 15, 15, 11, 21, 15, 14, 16, 16, 13, 13, 16, 16, 6, 13, 15, 12, 20, 17, 17, 14, 17, 14, 14, 14, 16, 15, 22, 15, 15, 14, 8, 8, 8, 10, 10, 7, 12, 13, 13, 13, 13, 8, 14, 13, 5, 5, 12, 5, 19, 13, 13, 13, 13, 8, 12, 7, 13, 12, 18, 12, 12, 12, 9, 7, 9, 15, 6, 23)))
-
-
-def _measure(text, table):
-    return sum(table.get(ch, table['M']) for ch in str(text or ''))
-
-
-def width_class(*lines):
-    """The column's width class: the widest of its lines (bold, small), with room."""
-    widest = max([_measure(lines[0], _BOLD30)] + [_measure(t, _REG22) for t in lines[1:]] + [0])
-    return str(_class(widest))
-
-
-def _class(width):
-    w = int((width * 1.04 + STEP - 1) // STEP * STEP)
-    return max(MIN_W, min(MAX_W, w))
-
-
-_SIZES = {}
-
-
-def _png_width(rel, height):
-    """The width a skin image is drawn at, at this height (its own aspect)."""
-    if rel not in _SIZES:
-        size = None
-        try:
-            with open(xbmcvfs.translatePath('special://skin/media/' + rel), 'rb') as fh:
-                head = fh.read(24)
-            if head[:8] == b'\x89PNG\r\n\x1a\n':
-                size = struct.unpack('>II', head[16:24])
-        except Exception:
-            size = None
-        _SIZES[rel] = size
-    size = _SIZES[rel]
-    if not size or not size[1]:
-        return 0
-    return int(round(size[0] * float(height) / size[1]))
-
 
 # ------------------------------------------------------------------ what plays
-_CODECS = {'hevc': 'HEVC', 'h265': 'HEVC', 'h264': 'H.264', 'avc': 'H.264', 'avc1': 'H.264', 'av1': 'AV1',
-           'vp9': 'VP9', 'vc1': 'VC-1', 'mpeg2video': 'MPEG-2', 'mpeg4': 'MPEG-4'}
 _HDR = {'dolbyvision': 'DV', 'hdr10plus': 'HDR10+', 'hdr10': 'HDR10', 'hlg': 'HLG'}
-_HDR_BADGE = {'dolbyvision': 'hdr_dv', 'hdr10plus': 'hdr_10plus', 'hdr10': 'hdr_10', 'hlg': 'hdr_hlg'}
-_RES_BADGE = {'4K': 'res_4k', '8K': 'res_8k', '1080P': 'res_1080', '720P': 'res_720', '576P': 'res_576',
-              '540P': 'res_540', '480P': 'res_480'}
-# Kodi's audio codec (its first letters) -> the name, the badge
-_AUDIO = (('truehd_atmos', 'TrueHD', 'audio_atmos'), ('eac3_ddp_atmos', 'DD+', 'audio_atmos'),
-          ('truehd', 'TrueHD', 'audio_truehd'), ('eac3', 'DD+', 'audio_ddplus'), ('ac3', 'DD', 'audio_dd'),
-          ('dtshd_ma_x_imax', 'DTS:X', 'audio_dtsx_imax'), ('dtshd_ma_x', 'DTS:X', 'audio_dtsx'),
-          ('dtshd_ma', 'DTS-HD MA', 'audio_dtshd_ma'), ('dtshd_hra', 'DTS-HD HRA', 'audio_dtshd_hra'),
-          ('dts_express', 'DTS Express', 'audio_dts_express'), ('dts_es', 'DTS-ES', 'audio_dts_es'),
-          ('dts_96', 'DTS 96/24', 'audio_dts_9624'), ('dca', 'DTS', 'audio_dts'), ('dts', 'DTS', 'audio_dts'),
-          ('aac_latm', 'AAC LATM', 'audio_aac'), ('aac', 'AAC', 'audio_aac'), ('flac', 'FLAC', 'audio_flac'),
-          ('alac', 'ALAC', 'audio_alac'), ('opus', 'Opus', 'audio_opus'), ('vorbis', 'Vorbis', 'audio_vorbis'),
-          ('pcm', 'PCM', 'audio_pcm'), ('lpcm', 'PCM', 'audio_pcm'), ('mp3', 'MP3', 'audio_mp3'),
-          ('mp2', 'MP2', 'audio_mp2'), ('mp1', 'MP1', 'audio_mp1'))
+# Kodi's audio codec (its first letters) -> its name
+_AUDIO = (('truehd_atmos', 'TrueHD'), ('eac3_ddp_atmos', 'DD+'), ('truehd', 'TrueHD'), ('eac3', 'DD+'),
+          ('ac3', 'DD'), ('dtshd_ma_x_imax', 'DTS:X IMAX'), ('dtshd_ma_x', 'DTS:X'), ('dtshd_ma', 'DTS-HD MA'),
+          ('dtshd_hra', 'DTS-HD HRA'), ('dts_express', 'DTS Express'), ('dts_es', 'DTS-ES'),
+          ('dts_96', 'DTS 96/24'), ('dca', 'DTS'), ('dts', 'DTS'), ('aac', 'AAC'), ('flac', 'FLAC'),
+          ('alac', 'ALAC'), ('opus', 'Opus'), ('vorbis', 'Vorbis'), ('pcm', 'PCM'), ('lpcm', 'PCM'),
+          ('mp3', 'MP3'), ('mp2', 'MP2'), ('mp1', 'MP1'))
 # what Kodi names only by its core, told apart by the stream's own words
-_AUDIO_WORDS = (('dts', r'dts[ ._-]?es\b', 'DTS-ES', 'audio_dts_es'),
-                ('dts', r'dts[ ._-]?96[ /._-]?24', 'DTS 96/24', 'audio_dts_9624'),
-                ('dts', r'dts[ ._-]?express', 'DTS Express', 'audio_dts_express'),
-                ('aac', r'he[ ._-]?aac[ ._-]?v2', 'HE-AAC v2', 'audio_aac_hev2'),
-                ('aac', r'he[ ._-]?aac', 'HE-AAC', 'audio_aac_he'),
-                ('aac', r'aac[ ._-]?lc', 'AAC-LC', 'audio_aac_lc'))
+_AUDIO_WORDS = (('DTS', r'dts[ ._-]?es\b', 'DTS-ES'), ('DTS', r'dts[ ._-]?96[ /._-]?24', 'DTS 96/24'),
+                ('DTS', r'dts[ ._-]?express', 'DTS Express'), ('AAC', r'he[ ._-]?aac[ ._-]?v2', 'HE-AAC v2'),
+                ('AAC', r'he[ ._-]?aac', 'HE-AAC'))
 _CHANNELS = {'1': '1.0', '2': '2.0', '3': '2.1', '4': '4.0', '5': '5.0', '6': '5.1', '7': '6.1', '8': '7.1',
              '10': '7.1.2', '12': '7.1.4'}
-_HEIGHTS = {'5.1.2': 'ch_512', '5.1.4': 'ch_514', '7.1.2': 'ch_712', '7.1.4': 'ch_714'}
+_SERVICE_NAMES = {'imdb': 'IMDb', 'tmdb': 'TMDb', 'rt': 'RT', 'metacritic': 'Metacritic', 'trakt': 'Trakt',
+                  'letterboxd': 'Letterboxd', 'mdblist': 'MDBList', 'mal': 'MAL'}
 
 
 def _context():
@@ -139,95 +71,30 @@ def _text_of(ctx):
                                            ctx.get('stream_description'), name))
 
 
-def _size_bytes(ctx, text):
-    hints = ctx.get('behaviorHints') if isinstance(ctx.get('behaviorHints'), dict) else {}
-    for raw in (ctx.get('size_bytes'), hints.get('videoSize')):
-        try:
-            size = int(float(raw or 0))
-        except (TypeError, ValueError):
-            size = 0
-        if size:
-            return size
-    m = re.search(r'(\d+(?:[.,]\d+)?)\s*(TB|GB|MB)\b', text, re.I)
-    if not m:
-        return 0
-    return int(float(m.group(1).replace(',', '.')) * {'tb': 1e12, 'gb': 1e9, 'mb': 1e6}[m.group(2).lower()])
-
-
-def _dv_layer(text):
-    """Dolby Vision's enhancement layer and profile, when the stream says them."""
-    layer = 'fel' if re.search(r'(?:^|[^a-z])fel(?:[^a-z]|$)', text, re.I) else (
-        'mel' if re.search(r'(?:^|[^a-z])mel(?:[^a-z]|$)', text, re.I) else '')
-    m = re.search(r'(?:(?:^|[ ._\[(-])p|profile[ ._-]?)([4-9])(?:\.\d)?(?=[ ._\])-]|$)', text, re.I)
-    return layer, ('P' + m.group(1)) if m else ''
-
-
-def video_column(ctx, text):
-    """(bold, light, small): 4K, DV, HEVC 10bit · 24.5 Mbps."""
-    return _video(ctx, text)[:3]
-
-
-def _video(ctx, text):
+def _video(text):
+    """'4K HDR10' (SDR is not said)."""
     res = (xbmc.getInfoLabel('VideoPlayer.VideoResolution') or '').lower()
-    bold = {'4k': '4K', '2160': '4K', '8k': '8K', '4320': '8K'}.get(res, (res.upper() + 'P') if res.isdigit() else res.upper())
+    size = {'4k': '4K', '2160': '4K', '8k': '8K', '4320': '8K'}.get(res, (res.upper() + 'P') if res.isdigit() else res.upper())
     hdr = (xbmc.getInfoLabel('VideoPlayer.HdrType') or '').lower()
     if not hdr and re.search(r'(?:^|[ ._-])(?:dv|dovi|dolby[ ._-]?vision)(?:[ ._-]|$)', text, re.I):
         hdr = 'dolbyvision'
-    light = _HDR.get(hdr, 'SDR' if bold else '')
-    layer, profile = _dv_layer(text) if hdr == 'dolbyvision' else ('', '')
-    small = [profile] if profile else []
-    codec = _CODECS.get((xbmc.getInfoLabel('VideoPlayer.VideoCodec') or '').lower(), '')
-    if codec:
-        small.append(codec)
-    pixfmt = (xbmc.getInfoLabel('Player.Process(pixformat)') or '').lower()
-    if pixfmt:
-        bits = '10bit' if ('10' in pixfmt or 'p010' in pixfmt) else ('12bit' if '12' in pixfmt else '8bit')
-        if codec:
-            small[-1] = '%s %s' % (codec, bits)
-        else:
-            small.append(bits)
-    try:
-        total = xbmc.Player().getTotalTime()
-    except Exception:
-        total = 0
-    size = _size_bytes(ctx, text)
-    if size and total > 60:
-        small.append('%.1f Mbps' % (size * 8.0 / total / 1e6))
-    badges = [b for b in (_RES_BADGE.get(bold), _HDR_BADGE.get(hdr)) if b]
-    if re.search(r'(?:^|[^a-z])imax(?:[^a-z]|$)', text, re.I):
-        badges.append('other_imax')
-    return bold, light, ' · '.join(s.strip() for s in small if s.strip()), badges, layer
+    return ' '.join(x for x in (size, _HDR.get(hdr, '')) if x)
 
 
-def audio_column(text):
-    """(bold, light, small): Atmos, '', TrueHD 7.1."""
-    return _audio(text, 'text')[:3]
-
-
-def _audio(text, look):
+def _audio(text):
+    """'DTS 5.1', 'TrueHD Atmos 7.1.4'."""
     codec = (xbmc.getInfoLabel('VideoPlayer.AudioCodec') or '').lower()
-    family, badge = next(((name, b) for key, name, b in _AUDIO if codec.startswith(key)),
-                         (codec.upper()[:10], ''))
-    for core, words, name, b in _AUDIO_WORDS:
-        if badge == 'audio_' + core and re.search(words, text, re.I):
-            family, badge = name, b
+    family = next((name for key, name in _AUDIO if codec.startswith(key)), codec.upper()[:10])
+    for core, words, name in _AUDIO_WORDS:
+        if family == core and re.search(words, text, re.I):
+            family = name
             break
-    atmos = 'atmos' in codec or (badge in ('audio_truehd', 'audio_ddplus') and bool(re.search(r'atmos', text, re.I)))
-    if atmos:
-        badge = 'audio_atmos'
+    atmos = 'atmos' in codec or (family in ('TrueHD', 'DD+') and bool(re.search(r'atmos', text, re.I)))
     channels = _CHANNELS.get(xbmc.getInfoLabel('VideoPlayer.AudioChannels') or '', '')
-    heights = re.search(r'(?<!\d)([57])[ ._]1[ ._]([24])(?!\d)', text) if (atmos or 'dtsx' in badge) else None
+    heights = re.search(r'(?<!\d)([57])[ ._]1[ ._]([24])(?!\d)', text) if (atmos or 'DTS:X' in family) else None
     if heights:
         channels = '%s.1.%s' % heights.groups()
-    channel_badge = _HEIGHTS.get(channels) or ('ch_%s' % xbmc.getInfoLabel('VideoPlayer.AudioChannels')
-                                               if channels and '.' in channels and channels.count('.') == 1 else '')
-    language = (xbmc.getInfoLabel('VideoPlayer.AudioLanguage') or '').upper()[:3]
-    if look == 'badges':
-        named = family if badge in ('audio_atmos', 'audio_dtsx_imax') or not badge else ''
-        return '', '', ' · '.join(x for x in (named, language) if x), [b for b in (badge, channel_badge) if b]
-    if atmos:
-        return 'Atmos', '', ' '.join(x for x in (family, channels) if x), []
-    return family, channels, language, []
+    return ' '.join(x for x in (family, 'Atmos' if atmos else '', channels) if x)
 
 
 def _cert(ctx):
@@ -236,14 +103,8 @@ def _cert(ctx):
     return re.sub(r'^(?:Rated|US:)\s*', '', cert)[:10]
 
 
-def rating_column(ctx):
-    """(age rating, '', ''): the old third column, now the services' one."""
-    return _cert(ctx), '', ''
-
-
-def _services(ctx):
-    """[(icon, value)]: the first three of the ratings chosen for the title
-    page, with the same logos (Rotten Tomatoes fresh or rotten)."""
+def _first_rating(ctx):
+    """'IMDb 6.5': the first of the ratings chosen for the title page."""
     try:
         from .homeui import ratings
         ids = ctx.get('external_ids') or {}
@@ -253,27 +114,14 @@ def _services(ctx):
         tmdb = str(ctx.get('show_tmdb_id') or ctx.get('tmdb_id') or ids.get('tmdb_id') or ids.get('tmdb') or '')
         values = ratings.collect(imdb_id=imdb, tmdb_id=tmdb, media_type='series' if series else 'movie',
                                  network=True)
-        shown = ratings.props(values, prefix='x.', limit=3)
+        shown = ratings.props(values, prefix='x.', limit=1)
+        for key in ratings.ORDER:
+            value = shown.get('x.' + key) or ''
+            if value:
+                return '%s %s' % (_SERVICE_NAMES.get(key.split('_')[0], key.upper()), value)
     except Exception as exc:
-        xbmc.log('[DexHub] capsule ratings: %s' % exc, xbmc.LOGDEBUG)
-        return []
-    out = []
-    for key in ratings.ORDER:
-        value = shown.get('x.' + key) or ''
-        if not value:
-            continue
-        icon = shown.get('x.%s.icon' % key) or {'metacritic': 'metacritic.png'}.get(key, key + '.png')
-        out.append((icon, value))
-    return out[:3]
-
-
-# ------------------------------------------------------------------ the card
-# v5.10.421: the rating card, as a streaming service shows it when a film
-# starts: the age rating large, what earned it (IMDb's Parents Guide: the
-# categories rated moderate or severe), and a quiet line with the video, the
-# audio and the first rating. Left aligned, no box: a soft shade behind it.
-_SERVICE_NAMES = {'imdb': 'IMDb', 'tmdb': 'TMDb', 'rt': 'RT', 'metacritic': 'Metacritic', 'trakt': 'Trakt',
-                  'letterboxd': 'Letterboxd', 'mdblist': 'MDBList', 'mal': 'MAL'}
+        xbmc.log('[DexHub] rating card ratings: %s' % exc, xbmc.LOGDEBUG)
+    return ''
 
 
 def _imdb(ctx):
@@ -292,7 +140,7 @@ def _guide(ctx):
         from . import parents_guide
         return parents_guide.guide(imdb, timeout=5) or []
     except Exception as exc:
-        xbmc.log('[DexHub] capsule parents guide: %s' % exc, xbmc.LOGINFO)
+        xbmc.log('[DexHub] rating card parents guide: %s' % exc, xbmc.LOGINFO)
         return []
 
 
@@ -308,37 +156,34 @@ def _words(rows):
     return ' · '.join(PG.SHORT[cid][en] for _r, _i, cid in picked)
 
 
-def card(ctx, text, cert=True, services=None, guide=None, place='top_left'):
-    bold, light, _small, _badges, _layer = _video(ctx, text)
-    a1, a1b, _a2, _ab = _audio(text, 'text')
-    info = [' '.join(x for x in (bold, light if light != 'SDR' else '') if x),
-            ' '.join(x for x in (a1, a1b) if x)]
-    for icon, value in (services or [])[:1]:
-        key = icon.split('_')[0].split('.')[0]
-        info.append('%s %s' % (_SERVICE_NAMES.get(key, key.upper()), value))
-    props = {'look': 'card', 'place': place,
-             'card.cert': _cert(ctx) if cert else '', 'card.words': _words(guide),
-             'card.info': '  ·  '.join(x for x in info if x)}
-    lines = sum(1 for k in ('card.cert', 'card.words', 'card.info') if props[k])
-    if not lines:
+def card(ctx, text, rating='', guide=None, place='top_left'):
+    """The Home properties the skin draws the card from ({} for nothing to say)."""
+    info = '  ·  '.join(x for x in (_video(text), _audio(text), rating) if x)
+    props = {'place': place, 'card.cert': _cert(ctx), 'card.words': _words(guide), 'card.info': info}
+    if not any(props[k] for k in ('card.cert', 'card.words', 'card.info')):
         return {}
-    props['card.lines'] = str(lines)
     # the bar beside it is as tall as the lines (tools/release/skin_capsule.py CARD_LINES)
     props['card.h'] = str(72 * bool(props['card.cert']) + 40 * bool(props['card.words'])
                           + 34 * bool(props['card.info']))
     return props
 
 
-def _place(place, when):
-    """v5.10.421: away from TinyPPI's own logos when they sit on that side
-    (its settings: on at the start or in the player's menu, and how far
-    across, 0 % at the left)."""
+def _tinyppi():
     try:
-        from . import tinyppi_look
-        if not tinyppi_look.installed():
+        return bool(xbmc.getCondVisibility('System.HasAddon(%s)' % TINYPPI))
+    except Exception:
+        return False
+
+
+def _place(place, when):
+    """Away from TinyPPI's own logos when they sit on that side (its settings:
+    on at the start or in the player's menu, and how far across, 0 % at the
+    left)."""
+    try:
+        if not _tinyppi():
             return place
         import xbmcaddon
-        addon = xbmcaddon.Addon(tinyppi_look.TINYPPI)
+        addon = xbmcaddon.Addon(TINYPPI)
         sides = set()
         for mode, on in (('start', 'splash_enabled'), ('osd', 'splash_show_on_osd')):
             if mode == 'osd' and when not in ('both', 'ok'):
@@ -358,94 +203,8 @@ def _place(place, when):
                 if other.split('_')[1] not in sides:
                     return other
     except Exception as exc:
-        xbmc.log('[DexHub] capsule place: %s' % exc, xbmc.LOGDEBUG)
+        xbmc.log('[DexHub] rating card place: %s' % exc, xbmc.LOGDEBUG)
     return place
-
-
-# ------------------------------------------------------------------ layout
-def _bits(name, x, out):
-    x = max(0, min(sum(BITS), int(x)))
-    for bit in BITS:
-        out['%s.%d' % (name, bit)] = '1' if x & bit else ''
-
-
-def layout(ctx, text, look='badges', cert=True, services=None, place='top_left'):
-    """The Home properties the skin draws the pill from (empty values clear)."""
-    props = {'look': look, 'place': place}
-    b30 = lambda s: _measure(s, _BOLD30)
-    r22 = lambda s: _measure(s, _REG22)
-    bold, light, small, vbadges, layer = _video(ctx, text)
-    a1, a1b, a2, abadges = _audio(text, look)
-    columns = []                                   # (name, content width)
-    tag = ('cap_%s.png' % layer) if layer else ''
-    tag_w = _png_width('dexhub/' + tag, BADGE_H) if tag else 0
-    layer = layer if tag_w else ''
-    props['v2'], props['a2'] = small, a2
-    props['vtag'], props['vtag.w'] = layer, str(tag_w) if tag else ''
-    if look == 'badges':
-        widths = [_png_width('dexhub/badges/%s.png' % b, BADGE_H) for b in vbadges]
-        vbadges = [b for b, w in zip(vbadges, widths) if w]
-        widths = [w for w in widths if w]
-        line = sum(widths) + GAP * max(0, len(widths) - 1) + ((GAP + tag_w) if tag_w else 0)
-        for i in range(3):
-            props['vb%d' % (i + 1)] = vbadges[i] if i < len(vbadges) else ''
-            props['vb%d.w' % (i + 1)] = str(widths[i]) if i < len(vbadges) else ''
-        props['v1'] = props['v1b'] = ''
-        if vbadges or small:
-            columns.append(('v', max(line, r22(small))))
-        widths = [_png_width('dexhub/badges/%s.png' % b, BADGE_H) for b in abadges]
-        abadges = [b for b, w in zip(abadges, widths) if w]
-        widths = [w for w in widths if w]
-        for i in range(2):
-            props['ab%d' % (i + 1)] = abadges[i] if i < len(abadges) else ''
-            props['ab%d.w' % (i + 1)] = str(widths[i]) if i < len(abadges) else ''
-        props['a1'] = props['a1b'] = ''
-        if abadges or a2:
-            columns.append(('a', max(sum(widths) + GAP * max(0, len(widths) - 1), r22(a2))))
-    else:
-        props.update({'v1': bold, 'v1b': light, 'a1': a1, 'a1b': a1b})
-        for name in ('vb1', 'vb2', 'vb3', 'ab1', 'ab2'):
-            props[name] = props[name + '.w'] = ''
-        if bold:
-            columns.append(('v', max(b30(bold + (' ' + light if light else '')) + ((GAP + tag_w) if tag_w else 0),
-                                     r22(small))))
-        if a1:
-            columns.append(('a', max(b30(a1 + (' ' + a1b if a1b else '')), r22(a2))))
-    cert = _cert(ctx) if cert else ''
-    services = list(services or [])
-    props['s.cert'] = cert
-    width = b30(cert)
-    for i in range(3):
-        icon, value = services[i] if i < len(services) else ('', '')
-        icon_w = _png_width('dexhub/ratings/' + icon, ICON_H) if icon else 0
-        if not icon_w:
-            icon = value = ''
-        props['s%d.icon' % (i + 1)], props['s%d.v' % (i + 1)] = icon, value
-        props['s%d.w' % (i + 1)] = str(icon_w) if icon else ''
-        if icon:
-            width += (SERVICE_GAP if width else 0) + icon_w + VALUE_GAP + b30(value)
-    if width:
-        columns.append(('s', width))
-    for name in ('v', 'a', 's'):
-        props[name + '.w'] = ''
-    if not any(name in ('v', 'a') for name, _w in columns):
-        return {}
-    classes = [(name, _class(w)) for name, w in columns]
-    total = LOGO + sum(c + 2 * PAD for _n, c in classes) + DIV * (len(classes) - 1) + END
-    x0 = {'top_center': (SCREEN - total) // 2, 'top_right': SCREEN - SIDE - total}.get(place, SIDE)
-    _bits('bg', x0, props)
-    x = x0 + LOGO
-    for name, c in classes:
-        props[name + '.w'] = str(c)
-        for line in ((name + '1', name + '2') if name != 's' else ('s',)):
-            _bits(line, x + PAD, props)
-        x += c + 2 * PAD + DIV
-    for name in ('v', 'a', 's'):
-        if not props[name + '.w']:
-            for line in ((name + '1', name + '2') if name != 's' else ('s',)):
-                _bits(line, 0, props)
-    props['total'] = str(total)
-    return props
 
 
 # ------------------------------------------------------------------ showing
@@ -470,21 +229,18 @@ def busy():
 
 
 def starting():
-    """A showing is waiting for the picture (the Parents Guide waits for it)."""
+    """A showing is waiting for the picture."""
     return _SHOWN.get('running', 0) == _SHOWN['token'] and _SHOWN['token'] > 0
 
 
 def _why_not():
-    """Why the capsule stays away for this video ('' when it comes)."""
+    """Why the card stays away for this video ('' when it comes)."""
     from .ui_preferences import value
     if value('player_capsule') == 'false':
         return 'turned off in the player options'
     skin = xbmc.getSkinDir()
     if skin not in ('skin.dexhub', 'skin.dexhub.tvos'):
         return 'the skin is %s, it needs skin.dexhub' % skin
-    from . import tinyppi_look
-    if tinyppi_look.tinyppi_shows():          # v5.10.418: TinyPPI's logos instead
-        return 'Playback info is TinyPPI'
     from .trailer_mark import playing_is_trailer
     if playing_is_trailer():
         return 'a trailer'
@@ -495,16 +251,24 @@ def _wanted():
     return not _why_not()
 
 
+def takes_guide():
+    """The card shows IMDb's Parents Guide; its own corner stays away."""
+    try:
+        return _wanted()
+    except Exception:
+        return False
+
+
 def _note(key, text):
-    """v5.10.420: said once per video, in the normal log (it was debug only)."""
+    """Said once per video, in the normal log."""
     if _SHOWN.get('noted') != (key, text):
         _SHOWN['noted'] = (key, text)
-        xbmc.log('[DexHub] capsule: %s' % text, xbmc.LOGINFO)
+        xbmc.log('[DexHub] rating card: %s' % text, xbmc.LOGINFO)
 
 
 def start(foreign=False):
-    """Player.OnAVStarted / OnAVChange: show it once for this file; the same
-    file again (another audio track) only brings what it says up to date.
+    """Player.OnAVStarted / OnAVChange: once for this file; the same file
+    again (another audio track) only brings what it says up to date.
     foreign: a video Dex Hub did not start (its play context is another's)."""
     try:
         key = _key()
@@ -519,17 +283,13 @@ def start(foreign=False):
                 token = _SHOWN['token']
                 target = _refresh
             else:
-                _SHOWN['key'] = key
-                _SHOWN['token'] += 1
-                _SHOWN['services'] = None
-                _SHOWN['guide'] = None
-                _SHOWN['foreign'] = foreign
+                _SHOWN.update(key=key, token=_SHOWN['token'] + 1, rating='', guide=None, foreign=foreign)
                 token = _SHOWN['token']
                 target = _run
     except Exception as exc:
-        xbmc.log('[DexHub] capsule: %s' % exc, xbmc.LOGWARNING)
+        xbmc.log('[DexHub] rating card: %s' % exc, xbmc.LOGWARNING)
         return
-    threading.Thread(target=target, args=(token,), name='DexHubCapsule', daemon=True).start()
+    threading.Thread(target=target, args=(token,), name='DexHubRatingCard', daemon=True).start()
 
 
 def _run(token):
@@ -541,31 +301,11 @@ def _run(token):
             _SHOWN['running'] = 0
 
 
-def _look():
-    from .ui_preferences import value
-    look = value('player_capsule_look')
-    return look if look in ('card', 'badges', 'text') else 'card'
-
-
-def takes_guide():
-    """v5.10.421: the card shows IMDb's Parents Guide; its own corner stays away."""
-    try:
-        return _wanted() and _look() == 'card'
-    except Exception:
-        return False
-
-
 def _publish(token, ctx):
     from .ui_preferences import value
     win = xbmcgui.Window(10000)
-    services = _SHOWN.get('services') or []
-    place = _place(value('player_capsule_place') or 'top_left', value('player_capsule_when'))
-    if _look() == 'card':
-        props = card(ctx, _text_of(ctx), cert=value('player_capsule_rating') != 'false', services=services,
-                     guide=_SHOWN.get('guide') or [], place=place)
-    else:
-        props = layout(ctx, _text_of(ctx), look=_look(), cert=value('player_capsule_rating') != 'false',
-                       services=services, place=place)
+    props = card(ctx, _text_of(ctx), rating=_SHOWN.get('rating') or '', guide=_SHOWN.get('guide') or [],
+                 place=_place(value('player_capsule_place') or 'top_left', value('player_capsule_when')))
     if token != _SHOWN['token'] or not props:
         return False
     for name, val in props.items():
@@ -575,7 +315,7 @@ def _publish(token, ctx):
             else:
                 win.clearProperty(PREFIX + name)
     _SHOWN['names'] = set(_SHOWN.get('names') or ()) | set(props)
-    if value('player_capsule_when') in ('both', 'ok', ''):
+    if value('player_capsule_when') in ('both', 'ok'):
         win.setProperty(PREFIX + 'osd', '1')
     else:
         win.clearProperty(PREFIX + 'osd')
@@ -592,13 +332,13 @@ def _refresh(token):
         if xbmcgui.Window(10000).getProperty(PREFIX + 'ready'):
             _publish(token, _ctx())
     except Exception as exc:
-        xbmc.log('[DexHub] capsule: %s' % exc, xbmc.LOGDEBUG)
+        xbmc.log('[DexHub] rating card: %s' % exc, xbmc.LOGDEBUG)
 
 
 def _late(token, lookup, ctx):
-    """The ratings came after the pill: they join it."""
+    """The words or the rating came after the card: they join it."""
     lookup.join(10.0)
-    if token == _SHOWN['token'] and _SHOWN.get('services'):
+    if token == _SHOWN['token']:
         _publish(token, ctx)
 
 
@@ -613,23 +353,22 @@ def _show(token):
         if _SHOWN.get('foreign') and monitor.waitForAbort(3):
             return
         lookup = None
-        want_services = value('player_capsule_services') != 'false'
-        want_guide = _look() == 'card' and str(value('parents_guide') or 'true').lower() != 'false'
-        if ctx and (want_services or want_guide):
-            # beside the wait for the picture (it may ask MDbList and IMDb)
+        if ctx:
+            # beside the wait for the picture (it may ask IMDb and MDbList)
+            want_guide = str(value('parents_guide') or 'true').lower() != 'false'
+
             def fetch():
                 if want_guide:
                     found = _guide(ctx)
                     if token == _SHOWN['token']:
                         _SHOWN['guide'] = found
-                if want_services:
-                    found = _services(ctx)
-                    if token == _SHOWN['token']:
-                        _SHOWN['services'] = found
-            lookup = threading.Thread(target=fetch, name='DexHubCapsuleRatings', daemon=True)
+                found = _first_rating(ctx)
+                if token == _SHOWN['token']:
+                    _SHOWN['rating'] = found
+            lookup = threading.Thread(target=fetch, name='DexHubRatingCardData', daemon=True)
             lookup.start()
         # once the picture runs: with refresh rate matching the screen is
-        # black for the first seconds (the Parents Guide waits the same way)
+        # black for the first seconds
         first, waited = None, time.time()
         while time.time() - waited < 25:
             if token != _SHOWN['token'] or not player.isPlayingVideo() or monitor.abortRequested():
@@ -647,26 +386,15 @@ def _show(token):
             _note(_SHOWN['key'], 'not shown (the playing time did not move for 25 s)')
             return
         if lookup is not None:
-            lookup.join(2.0)
+            lookup.join(2.5)
         if not _publish(token, ctx):
             if token == _SHOWN['token']:
-                _note(_SHOWN['key'], 'not shown (Kodi reports no video or audio details: %r, %r)' % (
-                    xbmc.getInfoLabel('VideoPlayer.VideoResolution'), xbmc.getInfoLabel('VideoPlayer.AudioCodec')))
+                _note(_SHOWN['key'], 'not shown (nothing to say: no age rating, guide or video details)')
             return
-        win_props = xbmcgui.Window(10000)
-        if win_props.getProperty(PREFIX + 'look') == 'card':
-            _note(_SHOWN['key'], 'shown (card: %r, %r, %r, %s, %s)' % (
-                win_props.getProperty(PREFIX + 'card.cert'), win_props.getProperty(PREFIX + 'card.words'),
-                win_props.getProperty(PREFIX + 'card.info'), win_props.getProperty(PREFIX + 'place'),
-                value('player_capsule_when') or 'start'))
-        else:
-            _note(_SHOWN['key'], 'shown (%s: %s %s | %s %s | %d rating logos, %s, %s)' % (
-                win_props.getProperty(PREFIX + 'look'), win_props.getProperty(PREFIX + 'vb1') or win_props.getProperty(PREFIX + 'v1'),
-                win_props.getProperty(PREFIX + 'vb2') or win_props.getProperty(PREFIX + 'v1b'),
-                win_props.getProperty(PREFIX + 'ab1') or win_props.getProperty(PREFIX + 'a1'),
-                win_props.getProperty(PREFIX + 'ab2') or win_props.getProperty(PREFIX + 'a1b'),
-                len(_SHOWN.get('services') or []), win_props.getProperty(PREFIX + 'place'),
-                value('player_capsule_when') or 'both'))
+        _note(_SHOWN['key'], 'shown (%r, %r, %r, %s, %s)' % (
+            win.getProperty(PREFIX + 'card.cert'), win.getProperty(PREFIX + 'card.words'),
+            win.getProperty(PREFIX + 'card.info'), win.getProperty(PREFIX + 'place'),
+            value('player_capsule_when') or 'start'))
         if lookup is not None and lookup.is_alive():
             threading.Thread(target=_late, args=(token, lookup, ctx), daemon=True).start()
         if value('player_capsule_when') == 'ok':
@@ -682,7 +410,7 @@ def _show(token):
             if token != _SHOWN['token'] or not player.isPlayingVideo() or monitor.waitForAbort(0.3):
                 break
     except Exception as exc:
-        xbmc.log('[DexHub] capsule: %s' % exc, xbmc.LOGWARNING)
+        xbmc.log('[DexHub] rating card: %s' % exc, xbmc.LOGWARNING)
     finally:
         if shown and token == _SHOWN['token']:
             win.clearProperty(PREFIX + 'on')        # the skin fades it out; the rest stays for OK
@@ -694,3 +422,37 @@ def stopped():
         _SHOWN['key'] = ''
         _SHOWN['token'] += 1
     clear()
+
+
+# ------------------------------------------------------------------ leftovers
+_OLD_MARK = '<!-- dhs.tinyppi (skin_tinyppi.py) -->'
+_OLD_TINYPPI = ('script-tinyppi-main.xml', 'script-tinyppi-dialog.xml', 'script-tinyppi-dialog-bar.xml',
+                'script-tinyppi-dialog-single.xml')
+
+
+def leftovers():
+    """v5.10.423: TinyPPI is its own again. Skins 3.28.135-3.28.137 put Dex
+    Hub's design of its windows in xml/ (and a copy in extras/tinyppi/); a
+    skin update that keeps old files would keep them, so the ones that carry
+    the old tool's mark are taken out. Nothing else is touched."""
+    if xbmc.getSkinDir() not in ('skin.dexhub', 'skin.dexhub.tvos'):
+        return
+    try:
+        import xbmcvfs
+        skin = xbmcvfs.translatePath('special://skin/')
+    except Exception:
+        return
+    for folder in ('xml', os.path.join('extras', 'tinyppi')):
+        for name in _OLD_TINYPPI:
+            path = os.path.join(skin, folder, name)
+            try:
+                if not os.path.exists(path):
+                    continue
+                with open(path, encoding='utf-8') as fh:
+                    ours = _OLD_MARK in fh.read(512)
+                if ours:
+                    os.remove(path)
+                    xbmc.log('[DexHub] TinyPPI is its own again: %s taken out' % os.path.join(folder, name),
+                             xbmc.LOGINFO)
+            except Exception as exc:
+                xbmc.log('[DexHub] TinyPPI leftovers: %s: %s' % (name, exc), xbmc.LOGWARNING)

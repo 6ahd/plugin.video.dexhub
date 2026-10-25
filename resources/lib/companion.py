@@ -1086,8 +1086,6 @@ class CompanionPlayer(xbmc.Player):
 
         if not self._foreign_active:
             try:
-                from . import tinyppi_look       # v5.10.418: a skin update brings the files back
-                tinyppi_look.apply()
                 from . import player_capsule     # v5.10.417: once per file (a new source too)
                 player_capsule.start()
             except Exception:

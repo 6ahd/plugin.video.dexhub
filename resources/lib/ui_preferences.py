@@ -64,17 +64,11 @@ OPTIONS = {
     'player_show_clearlogo': ('true', None, 'شعار العمل في المشغّل', 'Work logo in player'),
     'player_logo_position': ('above_info', ('above_info', 'top_left', 'top_right'), 'مكان شعار العمل', 'Work logo position'),
     # v5.10.417: the playback capsule (player_capsule.py, skin.dexhub 3.28.134)
-    # v5.10.418: Dex Hub's capsule and design of TinyPPI's windows, or TinyPPI's own (tinyppi_look.py)
-    'player_info_source': ('dexhub', ('dexhub', 'tinyppi'), 'معلومات التشغيل', 'Playback info'),
-    'player_capsule': ('true', None, 'كبسولة الجودة عند التشغيل', 'Playback capsule'),
-    # v5.10.418: when it shows, badges or words, the services' logos
-    # v5.10.421: the rating card is the look (the pill stays a choice), at the start only
-    'player_capsule_when': ('start', ('both', 'start', 'ok'), 'متى تظهر الكبسولة', 'When the capsule shows'),
-    'player_capsule_look': ('card', ('card', 'badges', 'text'), 'شكل الكبسولة', 'Capsule look'),
-    'player_capsule_rating': ('true', None, 'التصنيف العمري في الكبسولة', 'Age rating in the capsule'),
-    'player_capsule_services': ('true', None, 'شعارات التقييمات في الكبسولة', 'Rating logos in the capsule'),
-    'player_capsule_place': ('top_left', ('top_left', 'top_center', 'top_right'), 'مكان الكبسولة', 'Capsule place'),
-    'player_capsule_time': ('6', ('4', '6', '10'), 'مدة الكبسولة', 'Capsule time'),
+    # v5.10.417: the playback capsule; v5.10.423 the rating card alone (player_capsule.py)
+    'player_capsule': ('true', None, 'بطاقة التصنيف عند التشغيل', 'Rating card at the start'),
+    'player_capsule_when': ('start', ('start', 'both', 'ok'), 'متى تظهر البطاقة', 'When the card shows'),
+    'player_capsule_place': ('top_left', ('top_left', 'top_center', 'top_right'), 'مكان البطاقة', 'Card place'),
+    'player_capsule_time': ('6', ('4', '6', '10'), 'مدة البطاقة', 'Card time'),
     'player_logo_size': ('normal', ('small', 'normal', 'large'), 'حجم شعار العمل (Clear logo)', 'Clear logo size'),
     'player_show_plot': ('true', None, 'النبذة في المشغّل', 'Plot in player'),
     'player_plot_size': ('normal', ('small', 'normal', 'large'), 'حجم خط الوصف (Plot)', 'Plot text size'),
@@ -200,26 +194,8 @@ def _migrate_loading_art():
         addon.setSetting('player_loading_art_migrated', 'true')
 
 
-def _migrate_capsule_card():
-    """v5.10.422: the rating card once, where the pill was saved. Kodi kept
-    5.10.418's defaults (badges, at the start and with OK) in the settings of
-    every device that had them, so 5.10.421's new defaults (the card, at the
-    start) never came: the Mac still showed the pill. A choice made after
-    this stays."""
-    addon = _addon()
-    if addon.getSetting('player_capsule_card_migrated') == 'true':
-        return
-    if addon.getSetting('player_capsule_look') in ('', 'badges'):
-        addon.setSetting('player_capsule_look', 'card')
-    if addon.getSetting('player_capsule_when') in ('', 'both'):
-        addon.setSetting('player_capsule_when', 'start')
-    addon.setSetting('player_capsule_card_migrated', 'true')
-
-
 def value(key):
     default, choices, _, _ = OPTIONS[key]
-    if key in ('player_capsule_look', 'player_capsule_when'):
-        _migrate_capsule_card()
     if key == 'homeui_nav_focus_open':
         _migrate_focus_navigation()
     if key == 'player_loading_art':
@@ -399,12 +375,6 @@ def set_value(key, selected):
     if key in ('player_show_studio', 'player_show_ratings', 'metadata_badges'):
         from . import player_presentation
         player_presentation.refresh_current()
-    if key in ('player_info_source', 'player_capsule_when'):
-        try:
-            from . import tinyppi_look
-            tinyppi_look.apply()
-        except Exception:
-            pass
     if key == 'video_back_background':
         try:
             from .homeui import keymap
