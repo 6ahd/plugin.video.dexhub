@@ -34,7 +34,9 @@ python3 tools/release/skin_build.py skin.dexhub out/ --version 3.28.125 \
   service logos as 3.28.100 drew them (the title page's own logo, a rounded
   square for the services' app icons, a light chip behind dark logos). The cards'
   `videowindow`s stay: they are the trailer inside the focused card
-* `media/Textures.xbt` from `TexturePacker -dupecheck` (or `--xbt file`)
+* `media/Textures.xbt` from `TexturePacker -dupecheck` (or `--xbt file`),
+  checked against the loose images first (`xbt_check.py`): a pack with a
+  damaged image is left out, since Kodi draws the pack's copy
 * `--compact` only in the output, each file checked to keep the same content
 
 The card designs themselves (about 110 controls a card) come from the script

@@ -256,7 +256,17 @@ def main(argv=None):
                        check=True, stdout=subprocess.DEVNULL)
         shutil.move(tmp, xbt)
     if os.path.exists(xbt):
-        print('media/Textures.xbt: %.1f MB' % (os.path.getsize(xbt) / 1048576.0))
+        # 3.28.133: a pack whose images differ from the files is left out (Kodi
+        # reads the pack first: the 3.28.124 one drew 65 icons as stripes)
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import xbt_check
+        bad = xbt_check.damaged(out)
+        if bad:
+            os.remove(xbt)
+            print('media/Textures.xbt left out: %d damaged image(s), e.g. %s' % (
+                len(bad), ', '.join(name for name, _why in bad[:3])))
+        else:
+            print('media/Textures.xbt: %.1f MB, checked' % (os.path.getsize(xbt) / 1048576.0))
 
     if args.compact:
         kept = [os.path.basename(p) for p in glob.glob(os.path.join(out, 'xml', '*.xml')) if not compact(p)]
