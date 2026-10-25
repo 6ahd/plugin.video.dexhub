@@ -260,7 +260,7 @@ def _menu_once(params, from_menu=False):
     elif key == 'sources':
         launch('ActivateWindow(Videos,%s,return)' % _arg(C.url('setup_connections')))
     elif key == 'refresh':
-        refresh_home(params, handle)
+        refresh_home(params, None)       # v5.10.411: this menu has no handle (NameError)
     elif key == 'size':
         if C.served() == 'dexhub':
             # v5.10.120: skin.dexhub's cards take the size too (3.6.0)

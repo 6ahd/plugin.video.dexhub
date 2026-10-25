@@ -8,8 +8,7 @@ Every step is idempotent, so the source keeps the fixes once they are in it and
 a release never depends on a hand-edited output:
 
 * fixes (skin 3.28.123/124): the hero plot text box 68 high (60 clipped its
-  second line); no videowindow inside list layouts (Kodi refuses them:
-  "unsupported control type 35", one warning per card); "Ends at" only when
+  second line); "Ends at" only when
   the item has a duration (Kodi reports the current time for 0); the loading
   artwork window over the title page (zorder 3, 3.28.126); add-on and file
   icons in the Add-ons and File manager lists as rounded squares (3.28.127)
@@ -32,7 +31,6 @@ import xml.etree.ElementTree as ET
 
 PLOT_RE = re.compile(r'(<control type="textbox">(?:(?!</control>).)*?<height>)60'
                      r'(</height>(?:(?!</control>).)*?\$VAR\[DhsHeroPlot\])', re.S)
-VIDEO_RE = re.compile(r'\s*<control type="videowindow">(?:(?!<control).)*?</control>', re.S)
 CIRCLE_RE = re.compile(r'(<control type="image">\s*)(<texture background="true" fallback="DefaultFolder.png") '
                        r'diffuse="af3/diffuse/circle/provider_circle.png">(\$INFO\[ListItem\.Icon\]</texture>\s*'
                        r'<aspectratio>keep</aspectratio>\s*)<bordersize>20</bordersize>')
@@ -42,19 +40,6 @@ END_RE = re.compile(r'<value condition="([^"]*)">((?:(?!</value>).)*ListItem\.En
 
 def fix_plot(text):
     return PLOT_RE.subn(r'\g<1>68\2', text)
-
-
-def drop_layout_videowindows(text):
-    out, last, gone = [], 0, 0
-    for m in VIDEO_RE.finditer(text):
-        before = text[:m.start()]
-        opened = max(before.rfind('<focusedlayout'), before.rfind('<itemlayout'))
-        closed = max(before.rfind('</focusedlayout>'), before.rfind('</itemlayout>'))
-        if opened > closed:              # a card: Kodi never draws it there
-            out.append(text[last:m.start()])
-            last, gone = m.end(), gone + 1
-    out.append(text[last:])
-    return ''.join(out), gone
 
 
 def raise_loading(text):
@@ -139,7 +124,7 @@ def main(argv=None):
         shutil.rmtree(out)
     shutil.copytree(src, out, ignore=shutil.ignore_patterns('__pycache__', '*.compact'))
 
-    totals = {'plot': 0, 'videowindow': 0, 'end_time': 0, 'loading': 0, 'icons': 0}
+    totals = {'plot': 0, 'end_time': 0, 'loading': 0, 'icons': 0}
     for path in glob.glob(os.path.join(out, 'xml', '*.xml')):
         text = open(path, encoding='utf-8').read()
         new, n = guard_end_time(text)
@@ -152,12 +137,12 @@ def main(argv=None):
         if os.path.basename(path) == 'Home.xml':
             new, n = fix_plot(new)
             totals['plot'] += n
-            new, n = drop_layout_videowindows(new)
-            totals['videowindow'] += n
         if new != text:
             with open(path, 'w', encoding='utf-8') as fh:
                 fh.write(new)
-    print('fixed: %(plot)d plot boxes, %(videowindow)d card videowindows, %(end_time)d end times, '
+    # 3.28.128: the cards' videowindows stay; they are the trailer inside the
+    # focused card (3.28.124 took them out and the card showed black)
+    print('fixed: %(plot)d plot boxes, %(end_time)d end times, '
           '%(loading)d loading window order, %(icons)d list icons' % totals)
 
     xbt = os.path.join(out, 'media', 'Textures.xbt')

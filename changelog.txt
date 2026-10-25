@@ -1,3 +1,7 @@
+5.10.411
+رجع التريلر داخل البطاقة في السكن 3.28.128 (كان يطلع أسود من 3.28.124). جلب التريلر يجرّب الفيديو الثاني والثالث قبل ما يعتبر العمل بدون تريلر، ويعيد المحاولة مرة لو صار خطأ في الشبكة. إصلاح «تحديث الرئيسية» من القائمة (كان يطيح بخطأ). وإصلاح ملف addon.xml في 5.10.410 (علامة & في وصف التحديث كانت تخرّب الملف وممكن تمنع التثبيت).
+The trailer inside the focused card is back with skin 3.28.128 (it was black since 3.28.124). The trailer lookup tries the second and third video before a title counts as having no trailer, and tries once more after a network error. Refresh Home from the menu works again (it failed with an error). The addon.xml of 5.10.410 did not parse (an unescaped ampersand in its news), which could stop the install.
+
 5.10.410
 «تغيير الصور» و«المراجعات» انشالت من «المزيد» في صفحة العمل لأنها صارت صفوف في الصفحة. وصفحة الإعداد من الجوال صار فيها «شكل رموز الجودة» في قسم المشغل: مؤطرة، Elite، ذهبية، بيضاء، Colorful & Concise، BetterFormatter، Nosvasedis، كلمات، سطر واحد أو بدون.
 Change artwork and Reviews left the title page's More menu (they are rows of the page now). The phone setup page has Badge style under Player: Framed, Elite, Gold, Minimalist white, Colorful & Concise, BetterFormatter, the Nosvasedis packs, Words, One line or None.

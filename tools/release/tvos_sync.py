@@ -24,6 +24,7 @@ import subprocess
 import sys
 import tempfile
 import zipfile
+import xml.etree.ElementTree as ET
 
 TVOS = 'plugin.video.dexhub.tvos'
 NOT_SHIPPED = re.compile(r'^(tools/|\.github/|README\.md$|\.gitignore$|\.gitattributes$|LICENSE$|[^/]+\.jpg$)')
@@ -112,6 +113,10 @@ def main(argv=None):
         sys.exit('%s holds no %s folder' % (args.previous_zip, TVOS))
 
     head_xml = show(repo, args.head, 'addon.xml').decode('utf-8')
+    try:
+        ET.fromstring(head_xml.encode('utf-8'))
+    except ET.ParseError as exc:   # 5.10.410 shipped one with a bare & in <news>
+        sys.exit('addon.xml of %s does not parse: %s' % (args.head, exc))
     version = args.version or re.search(r'<addon\b[^>]*\bversion="([^"]+)"', head_xml).group(1)
     changed = [p for p in git(repo, 'diff', '--name-only', args.base_ref, args.head).splitlines()
                if p and not NOT_SHIPPED.match(p)]
@@ -137,6 +142,11 @@ def main(argv=None):
                 done += 1
                 continue
             other_text = apple_names(other_text)
+            if path.endswith('.xml'):
+                try:
+                    ET.fromstring(other_text.encode('utf-8'))
+                except ET.ParseError as exc:
+                    sys.exit('%s does not parse: %s' % (path, exc))
             if not os.path.exists(target) or base is None:
                 new = other_text                # a new file
             else:

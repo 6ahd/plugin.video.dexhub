@@ -28,8 +28,10 @@ python3 tools/release/skin_build.py skin.dexhub out/ --version 3.28.125 \
     --texturepacker /path/to/TexturePacker --compact
 ```
 
-* fixes, applied once and then no-ops: hero plot box 68 high, no
-  `videowindow` inside card layouts, "Ends at" only with a duration
+* fixes, applied once and then no-ops: hero plot box 68 high, "Ends at"
+  only with a duration, the loading artwork over the title page, rounded
+  square icons in the Add-ons and File manager lists. The cards'
+  `videowindow`s stay: they are the trailer inside the focused card
 * `media/Textures.xbt` from `TexturePacker -dupecheck` (or `--xbt file`)
 * `--compact` only in the output, each file checked to keep the same content
 
