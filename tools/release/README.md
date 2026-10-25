@@ -73,7 +73,9 @@ python3 tools/release/skin_capsule.py skin.dexhub
 python3 tools/release/skin_capsule.py skin.dexhub.tvos
 ```
 
-It also draws the glass, the FEL / MEL tags and the format badges the skin
+Add-on 5.10.421 shows the rating card instead by default (`DhsCard`: the
+age rating, what earned it, a quality line; `dhs.cap.card.*`). It also draws
+the glass, the FEL / MEL tags and the format badges the skin
 lacks (DTS-ES, DTS 96/24, HE-AAC, 5.1.2, IMAX, ...). The sizes at its top must
 match `resources/lib/player_capsule.py`.
 

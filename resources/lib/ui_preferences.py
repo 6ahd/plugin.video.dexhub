@@ -68,8 +68,9 @@ OPTIONS = {
     'player_info_source': ('dexhub', ('dexhub', 'tinyppi'), 'معلومات التشغيل', 'Playback info'),
     'player_capsule': ('true', None, 'كبسولة الجودة عند التشغيل', 'Playback capsule'),
     # v5.10.418: when it shows, badges or words, the services' logos
-    'player_capsule_when': ('both', ('both', 'start', 'ok'), 'متى تظهر الكبسولة', 'When the capsule shows'),
-    'player_capsule_look': ('badges', ('badges', 'text'), 'شكل الكبسولة', 'Capsule look'),
+    # v5.10.421: the rating card is the look (the pill stays a choice), at the start only
+    'player_capsule_when': ('start', ('both', 'start', 'ok'), 'متى تظهر الكبسولة', 'When the capsule shows'),
+    'player_capsule_look': ('card', ('card', 'badges', 'text'), 'شكل الكبسولة', 'Capsule look'),
     'player_capsule_rating': ('true', None, 'التصنيف العمري في الكبسولة', 'Age rating in the capsule'),
     'player_capsule_services': ('true', None, 'شعارات التقييمات في الكبسولة', 'Rating logos in the capsule'),
     'player_capsule_place': ('top_left', ('top_left', 'top_center', 'top_right'), 'مكان الكبسولة', 'Capsule place'),

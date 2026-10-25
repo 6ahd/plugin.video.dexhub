@@ -267,6 +267,101 @@ def _services(ctx):
     return out[:3]
 
 
+# ------------------------------------------------------------------ the card
+# v5.10.421: the rating card, as a streaming service shows it when a film
+# starts: the age rating large, what earned it (IMDb's Parents Guide: the
+# categories rated moderate or severe), and a quiet line with the video, the
+# audio and the first rating. Left aligned, no box: a soft shade behind it.
+_SERVICE_NAMES = {'imdb': 'IMDb', 'tmdb': 'TMDb', 'rt': 'RT', 'metacritic': 'Metacritic', 'trakt': 'Trakt',
+                  'letterboxd': 'Letterboxd', 'mdblist': 'MDBList', 'mal': 'MAL'}
+
+
+def _imdb(ctx):
+    for raw in (ctx.get('show_imdb_id'), ctx.get('imdb_id'), ctx.get('canonical_id')):
+        raw = str(raw or '')
+        if raw.startswith('tt'):
+            return raw.split(':')[0]
+    return ''
+
+
+def _guide(ctx):
+    imdb = _imdb(ctx)
+    if not imdb:
+        return []
+    try:
+        from . import parents_guide
+        return parents_guide.guide(imdb, timeout=5) or []
+    except Exception as exc:
+        xbmc.log('[DexHub] capsule parents guide: %s' % exc, xbmc.LOGINFO)
+        return []
+
+
+def _words(rows):
+    """What earned the rating: the categories rated severe, then moderate."""
+    try:
+        from . import parents_guide as PG
+        en = 1 if PG._english() else 0
+    except Exception:
+        return ''
+    rank = {'SEVERE': 0, 'MODERATE': 1}
+    picked = sorted((rank[sid], i, cid) for i, (cid, sid) in enumerate(rows or []) if sid in rank and cid in PG.SHORT)
+    return ' · '.join(PG.SHORT[cid][en] for _r, _i, cid in picked)
+
+
+def card(ctx, text, cert=True, services=None, guide=None, place='top_left'):
+    bold, light, _small, _badges, _layer = _video(ctx, text)
+    a1, a1b, _a2, _ab = _audio(text, 'text')
+    info = [' '.join(x for x in (bold, light if light != 'SDR' else '') if x),
+            ' '.join(x for x in (a1, a1b) if x)]
+    for icon, value in (services or [])[:1]:
+        key = icon.split('_')[0].split('.')[0]
+        info.append('%s %s' % (_SERVICE_NAMES.get(key, key.upper()), value))
+    props = {'look': 'card', 'place': place,
+             'card.cert': _cert(ctx) if cert else '', 'card.words': _words(guide),
+             'card.info': '  ·  '.join(x for x in info if x)}
+    lines = sum(1 for k in ('card.cert', 'card.words', 'card.info') if props[k])
+    if not lines:
+        return {}
+    props['card.lines'] = str(lines)
+    # the bar beside it is as tall as the lines (tools/release/skin_capsule.py CARD_LINES)
+    props['card.h'] = str(72 * bool(props['card.cert']) + 40 * bool(props['card.words'])
+                          + 34 * bool(props['card.info']))
+    return props
+
+
+def _place(place, when):
+    """v5.10.421: away from TinyPPI's own logos when they sit on that side
+    (its settings: on at the start or in the player's menu, and how far
+    across, 0 % at the left)."""
+    try:
+        from . import tinyppi_look
+        if not tinyppi_look.installed():
+            return place
+        import xbmcaddon
+        addon = xbmcaddon.Addon(tinyppi_look.TINYPPI)
+        sides = set()
+        for mode, on in (('start', 'splash_enabled'), ('osd', 'splash_show_on_osd')):
+            if mode == 'osd' and when not in ('both', 'ok'):
+                continue
+            if mode == 'start' and when == 'ok':
+                continue
+            if str(addon.getSetting(on)).lower() != 'true':
+                continue
+            try:
+                across = float(addon.getSetting('splash_%s_offset_x' % mode) or 0)
+            except ValueError:
+                across = 0.0
+            sides.add('left' if across < 34 else ('right' if across > 66 else 'center'))
+        side = {'top_left': 'left', 'top_right': 'right', 'top_center': 'center'}.get(place, 'left')
+        if side in sides:
+            for other in ('top_right', 'top_left', 'top_center'):
+                if other.split('_')[1] not in sides:
+                    return other
+    except Exception as exc:
+        xbmc.log('[DexHub] capsule place: %s' % exc, xbmc.LOGDEBUG)
+    return place
+
+
 # ------------------------------------------------------------------ layout
 def _bits(name, x, out):
     x = max(0, min(sum(BITS), int(x)))
@@ -427,6 +522,7 @@ def start(foreign=False):
                 _SHOWN['key'] = key
                 _SHOWN['token'] += 1
                 _SHOWN['services'] = None
+                _SHOWN['guide'] = None
                 _SHOWN['foreign'] = foreign
                 token = _SHOWN['token']
                 target = _run
@@ -445,13 +541,31 @@ def _run(token):
             _SHOWN['running'] = 0
 
 
+def _look():
+    from .ui_preferences import value
+    look = value('player_capsule_look')
+    return look if look in ('card', 'badges', 'text') else 'card'
+
+
+def takes_guide():
+    """v5.10.421: the card shows IMDb's Parents Guide; its own corner stays away."""
+    try:
+        return _wanted() and _look() == 'card'
+    except Exception:
+        return False
+
+
 def _publish(token, ctx):
     from .ui_preferences import value
     win = xbmcgui.Window(10000)
     services = _SHOWN.get('services') or []
-    props = layout(ctx, _text_of(ctx), look='text' if value('player_capsule_look') == 'text' else 'badges',
-                   cert=value('player_capsule_rating') != 'false', services=services,
-                   place=value('player_capsule_place') or 'top_left')
+    place = _place(value('player_capsule_place') or 'top_left', value('player_capsule_when'))
+    if _look() == 'card':
+        props = card(ctx, _text_of(ctx), cert=value('player_capsule_rating') != 'false', services=services,
+                     guide=_SHOWN.get('guide') or [], place=place)
+    else:
+        props = layout(ctx, _text_of(ctx), look=_look(), cert=value('player_capsule_rating') != 'false',
+                       services=services, place=place)
     if token != _SHOWN['token'] or not props:
         return False
     for name, val in props.items():
@@ -499,12 +613,19 @@ def _show(token):
         if _SHOWN.get('foreign') and monitor.waitForAbort(3):
             return
         lookup = None
-        if ctx and value('player_capsule_services') != 'false':
-            # beside the wait for the picture (it may ask MDbList)
+        want_services = value('player_capsule_services') != 'false'
+        want_guide = _look() == 'card' and str(value('parents_guide') or 'true').lower() != 'false'
+        if ctx and (want_services or want_guide):
+            # beside the wait for the picture (it may ask MDbList and IMDb)
             def fetch():
-                found = _services(ctx)
-                if token == _SHOWN['token']:
-                    _SHOWN['services'] = found
+                if want_guide:
+                    found = _guide(ctx)
+                    if token == _SHOWN['token']:
+                        _SHOWN['guide'] = found
+                if want_services:
+                    found = _services(ctx)
+                    if token == _SHOWN['token']:
+                        _SHOWN['services'] = found
             lookup = threading.Thread(target=fetch, name='DexHubCapsuleRatings', daemon=True)
             lookup.start()
         # once the picture runs: with refresh rate matching the screen is
@@ -533,13 +654,19 @@ def _show(token):
                     xbmc.getInfoLabel('VideoPlayer.VideoResolution'), xbmc.getInfoLabel('VideoPlayer.AudioCodec')))
             return
         win_props = xbmcgui.Window(10000)
-        _note(_SHOWN['key'], 'shown (%s: %s %s | %s %s | %d rating logos, %s, %s)' % (
-            win_props.getProperty(PREFIX + 'look'), win_props.getProperty(PREFIX + 'vb1') or win_props.getProperty(PREFIX + 'v1'),
-            win_props.getProperty(PREFIX + 'vb2') or win_props.getProperty(PREFIX + 'v1b'),
-            win_props.getProperty(PREFIX + 'ab1') or win_props.getProperty(PREFIX + 'a1'),
-            win_props.getProperty(PREFIX + 'ab2') or win_props.getProperty(PREFIX + 'a1b'),
-            len(_SHOWN.get('services') or []), win_props.getProperty(PREFIX + 'place'),
-            value('player_capsule_when') or 'both'))
+        if win_props.getProperty(PREFIX + 'look') == 'card':
+            _note(_SHOWN['key'], 'shown (card: %r, %r, %r, %s, %s)' % (
+                win_props.getProperty(PREFIX + 'card.cert'), win_props.getProperty(PREFIX + 'card.words'),
+                win_props.getProperty(PREFIX + 'card.info'), win_props.getProperty(PREFIX + 'place'),
+                value('player_capsule_when') or 'start'))
+        else:
+            _note(_SHOWN['key'], 'shown (%s: %s %s | %s %s | %d rating logos, %s, %s)' % (
+                win_props.getProperty(PREFIX + 'look'), win_props.getProperty(PREFIX + 'vb1') or win_props.getProperty(PREFIX + 'v1'),
+                win_props.getProperty(PREFIX + 'vb2') or win_props.getProperty(PREFIX + 'v1b'),
+                win_props.getProperty(PREFIX + 'ab1') or win_props.getProperty(PREFIX + 'a1'),
+                win_props.getProperty(PREFIX + 'ab2') or win_props.getProperty(PREFIX + 'a1b'),
+                len(_SHOWN.get('services') or []), win_props.getProperty(PREFIX + 'place'),
+                value('player_capsule_when') or 'both'))
         if lookup is not None and lookup.is_alive():
             threading.Thread(target=_late, args=(token, lookup, ctx), daemon=True).start()
         if value('player_capsule_when') == 'ok':

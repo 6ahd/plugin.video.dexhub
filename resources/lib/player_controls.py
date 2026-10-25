@@ -39,7 +39,7 @@ def label(value):
               'both': ('أول التشغيل ومع OK', 'At start and with OK'), 'start': ('أول التشغيل', 'At start'),
               'dexhub': ('Dex Hub (الكبسولة)', 'Dex Hub (the capsule)'),
               'tinyppi': ('TinyPPI', 'TinyPPI'),
-              'ok': ('مع OK', 'With OK'), 'badges': ('رموز', 'Badges'), 'text': ('كتابة', 'Words'),
+              'ok': ('مع OK', 'With OK'), 'card': ('بطاقة التصنيف', 'Rating card'), 'badges': ('رموز', 'Badges'), 'text': ('كتابة', 'Words'),
               'bottom_left': ('أسفل اليسار', 'Bottom left'), 'bottom_right': ('أسفل اليمين', 'Bottom right'),
               'seekbar': ('فوق شريط التقدم', 'Above seek bar'), 'info': ('تحت البيانات', 'Under details')}
     return text(*labels[value]) if value in labels else value

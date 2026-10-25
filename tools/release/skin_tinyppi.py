@@ -300,7 +300,7 @@ def main_xml():
         body += label(x0 + PADX + 600, y0 + 22, width - 2 * PADX - 600, 46, '$INFO[Player.Filename]',
                       font='dh_small', colour=LABEL, align='right',
                       visible='String.IsEqual(Window(Home).Property(TinyPPI.Filename),true)')
-        body += image(x0 + PADX, y0 + HEAD - 6, width - 2 * PADX, 1, 'dexhub/cap_px.png', colour='26FFFFFF')
+        body += image(x0 + PADX, y0 + HEAD - 6, width - 2 * PADX, 1, 'dexhub/cap_white.png', colour='26FFFFFF')
         for i, col in enumerate(extra):
             body += column(x0 + PADX + (4 + i) * (COLW + GAP), y0 + HEAD, col)
         out.append('<control type="group"><visible>%s</visible>%s</control>' % (esc(cond), body))
@@ -349,7 +349,7 @@ def button(cid, x, y, w, h, text, nav, font='dh_body_b'):
 def _header(w):
     return (image(30, 26, 36, 36, 'dexhub/cap_mark.png')
             + label(78, 20, w - 110, 48, '[B]VS10[/B]', font='font30_title')
-            + image(30, 82, w - 60, 1, 'dexhub/cap_px.png', colour='26FFFFFF'))
+            + image(30, 82, w - 60, 1, 'dexhub/cap_white.png', colour='26FFFFFF'))
 
 
 def dialog_xml(mode):
@@ -432,7 +432,8 @@ def images(media):
     out = Image.new('RGBA', (24, 6), (255, 255, 255, 0))
     out.putalpha(b.resize((24, 6), Image.LANCZOS))
     out.save(os.path.join(media, 'ppi_bar.png'))
-    return ['ppi_glass.png', 'ppi_shadow.png', 'ppi_btn.png', 'ppi_bar.png']
+    Image.new('RGBA', (8, 8), (255, 255, 255, 255)).save(os.path.join(media, 'cap_white.png'))
+    return ['ppi_glass.png', 'ppi_shadow.png', 'ppi_btn.png', 'ppi_bar.png', 'cap_white.png']
 
 
 def run(skin, check=False):

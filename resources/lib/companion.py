@@ -26,6 +26,9 @@ def _parents_guide_corner():
         from .ui_preferences import value
         if str(value('parents_guide') or 'true').lower() == 'false':
             return
+        from . import player_capsule
+        if player_capsule.takes_guide():      # v5.10.421: the rating card shows it
+            return
         ctx = load_session() or {}
         imdb = ''
         for raw in (ctx.get('show_imdb_id'), ctx.get('imdb_id'), ctx.get('canonical_id')):
