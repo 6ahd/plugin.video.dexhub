@@ -254,7 +254,7 @@ PICKS = {
     # v5.10.299: the player bar's look (osd_look.py)
     'osd_style': ('player_osd_style', (('classic', 'كلاسيكي'), ('glass', 'زجاجي'), ('cinematic', 'سينمائي'),
                                        ('minimal', 'بسيط'))),
-    'osd_shape': ('player_osd_shape', (('circle', 'دائرة'), ('square', 'مربع مثل Apple TV'), ('ring', 'حلقة'),
+    'osd_shape': ('player_osd_shape', (('circle', 'دائرة'), ('square', 'مربع مثل Apple TV'), ('ring', 'حلقة دائرية'),
                                        ('line', 'خط تحت الأيقونة'), ('dot', 'نقطة تحت الأيقونة'),
                                        ('soft', 'دائرة شفافة'))),
     'osd_dim': ('player_osd_dim', (('0', 'شفاف بدون ظل'), ('15', '15%'), ('30', '30%'), ('50', '50%'), ('60', '60%'),

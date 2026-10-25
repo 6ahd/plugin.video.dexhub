@@ -1279,6 +1279,7 @@ def remove_playback(media_type='movie', imdb_ids=(), tmdb_ids=(), tvdb_ids=()):
 # ------------------------------------------------------------ v5.10.406
 def _authed(path, payload=None, method='GET', timeout=20):
     """An authorised call; a refused token is refreshed once, as scrobbling does."""
+    _refresh_token_if_needed(force=False)      # an expired token is renewed first (v5.10.412)
     try:
         return _request(path, payload=payload, method=method, auth=True, timeout=timeout)
     except urllib.error.HTTPError as exc:
@@ -1292,6 +1293,13 @@ def _authed(path, payload=None, method='GET', timeout=20):
 
 
 def linked():
+    """Linked and on (Trakt turned off in the settings hides the Friends tab
+    and the review card, v5.10.412)."""
+    try:
+        if not enabled():
+            return False
+    except Exception:
+        pass
     return bool(token_data().get('access_token'))
 
 

@@ -3543,7 +3543,8 @@ STRINGS.update({
     'دائرة أو مربع مثل Apple TV أو حلقة أو خط': 'Circle, rounded square like Apple TV, ring or line',
     'دائرة': 'Circle',
     'مربع مثل Apple TV': 'Rounded square, like Apple TV',
-    'حلقة': 'Ring',
+    # v5.10.412: its own key; 'حلقة' alone is an episode (this made it "Ring")
+    'حلقة دائرية': 'Ring',
     'خط تحت الأيقونة': 'Line under the icon',
 })
 

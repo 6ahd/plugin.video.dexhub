@@ -1,3 +1,7 @@
+5.10.412
+في الواجهة الإنجليزية كانت كلمة «حلقة» تطلع Ring بدل Episode (على البطاقات وسطر النوع وشاشة التوقف). Trakt المقفل من الإعدادات صار يخفي تبويب الأصحاب وبطاقة كتابة المراجعة بدل ما يرجّع Trakt شغّال، ورمز Trakt المنتهي يتجدد قبل جلب المراجعات والأصحاب. السكن 3.28.129: رموز المصدر لملفات 4K وWEB-DL وHD-DVD وSDTV صارت تطلع.
+In English the word for episode showed as Ring (cards, the type line, the screensaver). With Trakt turned off in the settings the Friends tab and the review card stay hidden instead of turning Trakt back on, and an expired Trakt token is renewed before reviews and friends are read. Skin 3.28.129 shows the source flag of 4K, WEB-DL, HD-DVD and SDTV files.
+
 5.10.411
 رجع التريلر داخل البطاقة في السكن 3.28.128 (كان يطلع أسود من 3.28.124). جلب التريلر يجرّب الفيديو الثاني والثالث قبل ما يعتبر العمل بدون تريلر، ويعيد المحاولة مرة لو صار خطأ في الشبكة. إصلاح «تحديث الرئيسية» من القائمة (كان يطيح بخطأ). وإصلاح ملف addon.xml في 5.10.410 (علامة & في وصف التحديث كانت تخرّب الملف وممكن تمنع التثبيت).
 The trailer inside the focused card is back with skin 3.28.128 (it was black since 3.28.124). The trailer lookup tries the second and third video before a title counts as having no trailer, and tries once more after a network error. Refresh Home from the menu works again (it failed with an error). The addon.xml of 5.10.410 did not parse (an unescaped ampersand in its news), which could stop the install.

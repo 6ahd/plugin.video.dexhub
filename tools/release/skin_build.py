@@ -34,6 +34,14 @@ PLOT_RE = re.compile(r'(<control type="textbox">(?:(?!</control>).)*?<height>)60
 CIRCLE_RE = re.compile(r'(<control type="image">\s*)(<texture background="true" fallback="DefaultFolder.png") '
                        r'diffuse="af3/diffuse/circle/provider_circle.png">(\$INFO\[ListItem\.Icon\]</texture>\s*'
                        r'<aspectratio>keep</aspectratio>\s*)<bordersize>20</bordersize>')
+# 3.28.129: source flags that named images the skin does not have (no
+# af3/ in the path, or a name that is not there): those files got no flag
+MISSING_FLAGS = (
+    ('>flags/colorful/other/4K_web-dl.png<', '>af3/flags/colorful/other/web-dl.png<'),
+    ('>flags/colorful/other/4K.png<', '>af3/flags/colorful/source/4k.png<'),
+    ('>flags/colorful/other/hddvd.png<', '>af3/flags/colorful/source/hddvd.png<'),
+    ('>flags/colorful/other/sdtv.png<', '>af3/flags/colorful/source/hdtv_old.png<'),
+)
 ZORDER_RE = re.compile(r'(<window\b[^>]*\bid="1161"[^>]*>(?:(?!</window>).)*?<zorder>)0(</zorder>)', re.S)
 END_RE = re.compile(r'<value condition="([^"]*)">((?:(?!</value>).)*ListItem\.EndTime(?:(?!</value>).)*)</value>')
 
@@ -56,6 +64,14 @@ def square_icons(text):
     of Settings' lists, 48 px in the middle of its 80 px place."""
     return CIRCLE_RE.subn(r'\1<left>16</left><top>16</top><width>48</width><height>48</height>'
                           r'\2 diffuse="af3/diffuse/square_w120_h120.png">\3', text)
+
+
+def fix_flags(text):
+    count = 0
+    for old, new in MISSING_FLAGS:
+        count += text.count(old)
+        text = text.replace(old, new)
+    return text, count
 
 
 def guard_end_time(text):
@@ -124,13 +140,15 @@ def main(argv=None):
         shutil.rmtree(out)
     shutil.copytree(src, out, ignore=shutil.ignore_patterns('__pycache__', '*.compact'))
 
-    totals = {'plot': 0, 'end_time': 0, 'loading': 0, 'icons': 0}
+    totals = {'plot': 0, 'end_time': 0, 'loading': 0, 'icons': 0, 'flags': 0}
     for path in glob.glob(os.path.join(out, 'xml', '*.xml')):
         text = open(path, encoding='utf-8').read()
         new, n = guard_end_time(text)
         totals['end_time'] += n
         new, n = square_icons(new)
         totals['icons'] += n
+        new, n = fix_flags(new)
+        totals['flags'] += n
         if os.path.basename(path) == 'Custom_1161_PlaybackLoading.xml':
             new, n = raise_loading(new)
             totals['loading'] += n
@@ -143,7 +161,7 @@ def main(argv=None):
     # 3.28.128: the cards' videowindows stay; they are the trailer inside the
     # focused card (3.28.124 took them out and the card showed black)
     print('fixed: %(plot)d plot boxes, %(end_time)d end times, '
-          '%(loading)d loading window order, %(icons)d list icons' % totals)
+          '%(loading)d loading window order, %(icons)d list icons, %(flags)d source flags' % totals)
 
     xbt = os.path.join(out, 'media', 'Textures.xbt')
     if args.xbt:
