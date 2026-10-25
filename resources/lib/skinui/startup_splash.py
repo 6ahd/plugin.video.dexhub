@@ -9,8 +9,9 @@ Once they have their items and have stood still a moment (their artwork too),
 or after 15 seconds whatever happens, it takes the cover away and the Home
 is there, all of it at once.
 
-The rows come one after another (each waits for the one above, see
-board.row_path), so between two rows there is a moment where nothing loads;
+The rows below the first four come one after another (each waits for the
+one above; skin 3.28.139 loads rows 1-4 together), and an older skin stages
+them all, so between two rows there can be a moment where nothing loads;
 a skin condition alone would see it and lift the cover too soon. Here a row
 whose path is published counts as loaded only once it has items, or after it
 has stayed empty and idle for EMPTY_FOR seconds (a row that is empty).

@@ -354,7 +354,8 @@ def is_published(tab, row_id):
 
 def mark_empty(tab, row_id, empty, slot=None):
     """v5.10.120: a row served with no titles. skin.dexhub loads a row once
-    the row above has its first title (one plugin call at a time); a row
+    the row above has its first title (one plugin call at a time; rows 1-4
+    together since 3.28.139, tools/release/skin_rows_together.py); a row
     that came back empty stopped the rows under it until the next publish
     took it away. Its slot is marked (dhs.<tab>.<n>.empty = its key) and
     the rows under it load at once; the mark goes with the next publish

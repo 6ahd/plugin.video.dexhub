@@ -88,3 +88,18 @@ date:
 python3 tools/release/skin_startup.py skin.dexhub
 python3 tools/release/skin_startup.py skin.dexhub.tvos
 ```
+
+## The Home's first rows load together: `skin_rows_together.py`
+
+skin.dexhub gave a Home row its path only once the row above had its first
+title (and row 1 once the spotlight had its own), so the first screen filled
+row after row. This takes that wait out of rows 1 to 4 (`DhsRowPath1-4` in
+`Includes_DexHub.xml`, every tab), keeping the reach (rows load as the cursor
+nears them), the hold and the staging below row 4. A wait that is not
+exactly the expected one leaves the file as it was and is named; a second run
+changes nothing:
+
+```bash
+python3 tools/release/skin_rows_together.py skin.dexhub
+python3 tools/release/skin_rows_together.py skin.dexhub.tvos
+```
