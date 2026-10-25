@@ -54,11 +54,27 @@ def _parents_guide_corner():
             if not rows:
                 return
             player = xbmc.Player()
+            monitor = xbmc.Monitor()
+            # v5.10.416 (GitHub #21): its seconds start once the picture runs.
+            # With refresh rate matching the screen is black for a few
+            # seconds after the start, and the guide was gone before it came.
+            first, waited = None, time.time()
+            while time.time() - waited < 25 and not monitor.abortRequested():
+                if not player.isPlayingVideo():
+                    return
+                try:
+                    at = player.getTime()
+                except Exception:
+                    at = 0.0
+                first = at if first is None else first
+                if at - first >= 2.0 and not xbmc.getCondVisibility('Player.Paused'):
+                    break
+                if monitor.waitForAbort(0.5):
+                    return
             if not player.isPlayingVideo():
                 return
             home.setProperty('dhs.pg.overlay', PG.lines(rows))
             home.setProperty('dhs.pg.title', 'IMDb ' + ('Parents Guide' if PG._english() else 'دليل الوالدين'))
-            monitor = xbmc.Monitor()
             end = time.time() + 12
             while time.time() < end and not monitor.abortRequested():
                 if monitor.waitForAbort(0.5) or not player.isPlayingVideo():

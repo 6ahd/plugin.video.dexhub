@@ -1,3 +1,7 @@
+5.10.416
+دليل الوالدين من IMDb في المشغل صار يطلع بعد ما تبدأ الصورة فعلًا (مع مطابقة معدل التحديث كانت الشاشة سوداء أول ثواني وكان يختفي قبلها)، ومفتاحه صار في خيارات المشغل (البيانات والتقييمات) وفي صفحة الإعداد من الجوال (GitHub #21).
+IMDb's Parents Guide in the player now waits until the picture is running (with refresh rate matching the screen was black for its first seconds and the guide was gone by then), and its switch is in the player options (Metadata and ratings) and on the phone setup page (GitHub #21).
+
 5.10.415
 مزامنة الأجهزة صارت واضحة: كل إعداد وكل ملف (الصفوف، الإضافات، الكوليكشن…) يتزامن لحاله، وتختار من صفحة حسابك: «آخر تعديل يفوز» (آخر شي غيّرته في أي تلفزيون يمشي على الكل بدون ما يمسح اللي غيّرته في تلفزيون ثاني) أو «تلفزيون واحد مصدر» (الباقي يتبعونه وما يرسلون). اللي يغيّره تحديث الإضافة أو السكن ما ينرسل أبد، ولا علامات الإضافة الداخلية ولا إعدادات الشاشة نفسها. يحتاج DexCloud ‏2.13.
 Syncing the TVs is clear now: each setting and file (rows, add-ons, collections...) syncs on its own, and your account page picks how: Latest change wins (the last thing changed on any TV goes to all, without undoing what another TV changed) or One TV is the source (the others follow it and send nothing). What an add-on or skin update changes never goes up, nor the add-on's own bookkeeping or this screen's own settings. Needs DexCloud 2.13.

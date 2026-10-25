@@ -13,7 +13,7 @@ GROUPS = {
                ('player_badges_visible', 'player_badges_size', 'player_badges_place',
                 'player_badges_opacity', 'player_badges_brightness')),
     'info': ('البيانات والتقييمات', 'Metadata and ratings',
-             ('player_show_metadata', 'player_show_ratings')),
+             ('player_show_metadata', 'player_show_ratings', 'parents_guide')),   # v5.10.416 (GitHub #21)
 }
 
 
