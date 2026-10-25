@@ -63,6 +63,11 @@ OPTIONS = {
     'player_loading_art': ('true', None, 'خلفية وشعار أثناء التحميل', 'Artwork while loading'),
     'player_show_clearlogo': ('true', None, 'شعار العمل في المشغّل', 'Work logo in player'),
     'player_logo_position': ('above_info', ('above_info', 'top_left', 'top_right'), 'مكان شعار العمل', 'Work logo position'),
+    # v5.10.417: the playback capsule (player_capsule.py, skin.dexhub 3.28.134)
+    'player_capsule': ('true', None, 'كبسولة الجودة عند التشغيل', 'Playback capsule'),
+    'player_capsule_rating': ('true', None, 'التصنيف العمري في الكبسولة', 'Age rating in the capsule'),
+    'player_capsule_place': ('top_left', ('top_left', 'top_center', 'top_right'), 'مكان الكبسولة', 'Capsule place'),
+    'player_capsule_time': ('6', ('4', '6', '10'), 'مدة الكبسولة', 'Capsule time'),
     'player_logo_size': ('normal', ('small', 'normal', 'large'), 'حجم شعار العمل (Clear logo)', 'Clear logo size'),
     'player_show_plot': ('true', None, 'النبذة في المشغّل', 'Plot in player'),
     'player_plot_size': ('normal', ('small', 'normal', 'large'), 'حجم خط الوصف (Plot)', 'Plot text size'),

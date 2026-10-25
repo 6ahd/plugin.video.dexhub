@@ -71,6 +71,14 @@ def _parents_guide_corner():
                     break
                 if monitor.waitForAbort(0.5):
                     return
+            # v5.10.417: after the playback capsule, not over it (both top left)
+            try:
+                from . import player_capsule
+                for _ in range(40):
+                    if not (player_capsule.busy() or player_capsule.starting()) or monitor.waitForAbort(0.5):
+                        break
+            except Exception:
+                pass
             if not player.isPlayingVideo():
                 return
             home.setProperty('dhs.pg.overlay', PG.lines(rows))
@@ -1074,6 +1082,11 @@ class CompanionPlayer(xbmc.Player):
             pass
 
         if not self._foreign_active:
+            try:
+                from . import player_capsule     # v5.10.417: once per file (a new source too)
+                player_capsule.start()
+            except Exception:
+                pass
             _parents_guide_corner()
 
     def onAVChange(self):
@@ -2207,6 +2220,11 @@ class CompanionPlayer(xbmc.Player):
 
 
     def onPlayBackStopped(self):
+        try:
+            from . import player_capsule
+            player_capsule.stopped()
+        except Exception:
+            pass
         # v5.10.239: a Home trailer's end (foreign) changes no watch progress:
         # the widgets are not marked stale for it (30 trailers an hour each
         # rebuilt Continue Watching)
@@ -2351,6 +2369,11 @@ class CompanionPlayer(xbmc.Player):
             self._maybe_play_next(next_ep)
 
     def onPlayBackEnded(self):
+        try:
+            from . import player_capsule
+            player_capsule.stopped()
+        except Exception:
+            pass
         if not self._foreign_active and self.ctx.get('server_type') == 'silo':
             from .providers.silo_playback import early_end
             position, duration = self._position_ms(), self._duration_ms()

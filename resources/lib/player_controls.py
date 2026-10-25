@@ -3,6 +3,9 @@ import xbmcgui
 
 GROUPS = {
     'loading': ('بدء التشغيل', 'Playback start', ('player_loading_art',)),
+    # v5.10.417: the capsule at the top when a video or another source starts
+    'capsule': ('كبسولة الجودة', 'Playback capsule',
+                ('player_capsule', 'player_capsule_rating', 'player_capsule_place', 'player_capsule_time')),
     'logo': ('شعار العمل · Clear logo', 'Clear logo',
              ('player_show_clearlogo', 'player_logo_size', 'player_logo_position')),
     'studio': ('شعار الاستديو', 'Studio logo',
@@ -30,6 +33,8 @@ def label(value):
               'original': ('أصلي', 'Original'), 'solid': ('واضح', 'Solid'),
               'soft': ('هادئ', 'Soft'), 'above_info': ('فوق البيانات', 'Above details'),
               'top_left': ('أعلى اليسار', 'Top left'), 'top_right': ('أعلى اليمين', 'Top right'),
+              'top_center': ('أعلى بالنص', 'Top centre'), '4': ('4 ثواني', '4 s'), '6': ('6 ثواني', '6 s'),
+              '10': ('10 ثواني', '10 s'),
               'bottom_left': ('أسفل اليسار', 'Bottom left'), 'bottom_right': ('أسفل اليمين', 'Bottom right'),
               'seekbar': ('فوق شريط التقدم', 'Above seek bar'), 'info': ('تحت البيانات', 'Under details')}
     return text(*labels[value]) if value in labels else value

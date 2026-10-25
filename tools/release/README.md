@@ -56,3 +56,19 @@ python3 tools/release/skin_title_social.py skin.dexhub.tvos
 The page's up/down chains are rebuilt with the two new lists; each chain must
 first rebuild to exactly what the skin has, else nothing is written and the
 chain is named. Then build the release with `skin_build.py` as above.
+
+## The playback capsule: `skin_capsule.py`
+
+Add-on 5.10.417 shows a pill at the top of the picture when a video starts
+(Dex Hub's mark, the video, the audio and the age rating, two lines each) and
+publishes its text and column widths as `dhs.cap.*`. This puts the pill in a
+skin's `VideoFullScreen.xml` and `Includes_DexHub.xml`, between two comments,
+so a second run only brings it up to date:
+
+```bash
+python3 tools/release/skin_capsule.py skin.dexhub
+python3 tools/release/skin_capsule.py skin.dexhub.tvos
+```
+
+The width classes (100 to 420 in steps of 20) must match
+`resources/lib/player_capsule.py`.

@@ -1,3 +1,7 @@
+5.10.417
+كبسولة التشغيل: أول ما تبدأ الصورة تطلع فوق كبسولة فيها شعار Dex Hub والجودة (مثل 4K DV وتحتها HEVC 10bit · 24.5 Mbps) والصوت (Atmos وتحتها TrueHD 7.1) والتصنيف العمري مع التقييم، تبقى ثواني وتختفي، وما ترجع إلا لو شغّلت من جديد أو غيّرت المصدر. خياراتها في خيارات المشغل وفي صفحة الإعداد من الجوال: تشغيل وإيقاف، التصنيف، المكان (فوق يسار، الوسط، يمين) والمدة (4 أو 6 أو 10 ثواني). دليل الوالدين ينتظرها لين تختفي. يحتاج سكن 3.28.134.
+The playback capsule: once the picture runs a pill at the top shows Dex Hub's mark, the video (4K DV, and under it HEVC 10bit · 24.5 Mbps), the audio (Atmos, and under it TrueHD 7.1) and the age rating with the star rating; it stays a few seconds and fades, and comes again only for a new playback or another source. Its options are in the player options and on the phone setup page: on or off, the rating, the place (top left, centre or right) and how long (4, 6 or 10 seconds). The Parents Guide waits until it is gone. Needs skin 3.28.134.
+
 5.10.416
 دليل الوالدين من IMDb في المشغل صار يطلع بعد ما تبدأ الصورة فعلًا (مع مطابقة معدل التحديث كانت الشاشة سوداء أول ثواني وكان يختفي قبلها)، ومفتاحه صار في خيارات المشغل (البيانات والتقييمات) وفي صفحة الإعداد من الجوال (GitHub #21).
 IMDb's Parents Guide in the player now waits until the picture is running (with refresh rate matching the screen was black for its first seconds and the guide was gone by then), and its switch is in the player options (Metadata and ratings) and on the phone setup page (GitHub #21).
