@@ -39,7 +39,7 @@ import xbmcgui
 
 STATE_FILE = 'cloud_sync.json'
 INTERNAL = frozenset(('welcome_seen', 'setup_done', 'homeui_nav_focus_migrated', 'player_badges_colorful_adopted',
-                      'player_loading_art_migrated', 'dexhub_defaults_rev', 'jellyfin_device_id', 'emby_device_id',
+                      'player_loading_art_migrated', 'player_capsule_card_migrated', 'dexhub_defaults_rev', 'jellyfin_device_id', 'emby_device_id',
                       'silo_device_id', 'last_account_sync_at', 'plex_servers_cache_json', 'ui_lang_autodetected',
                       'nuvio_token_keep', 'stremio_token_keep', 'trakt_token_keep', 'plex_client_identifier'))
 DEVICE = frozenset(('homeui_debug', 'homeui_autostart', 'homeui_size', 'homeui_light_mode', 'homeui_ss_preload',

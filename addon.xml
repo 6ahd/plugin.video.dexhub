@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addon id="plugin.video.dexhub" name="Dex Hub" version="5.10.421" provider-name="Dex Hub">
+<addon id="plugin.video.dexhub" name="Dex Hub" version="5.10.422" provider-name="Dex Hub">
   <requires>
     <import addon="xbmc.python" version="3.0.0" />
     <import addon="script.module.urllib3" version="1.26.0" optional="true" />
@@ -36,7 +36,7 @@
     <description lang="ar">Dex Hub نسخة مستقلة لـ Kodi. أضف روابط Stremio، واستخدم مصادر Plex وEmby/Jellyfin وSilo الأصلية، وشغّل الترجمات الخارجية، واربط Trakt، واستخدم Dex Hub كمشغّل لـ TMDb Helper، وحافظ على قائمة متابعة موحّدة محلياً.</description>
     <disclaimer lang="en_GB">The author of this addon does not host any of the content which is found and has no affiliation with any of the content providers. The author is in no way affiliated with Kodi, Team Kodi, or the XBMC Foundation.</disclaimer>
     <disclaimer lang="ar">مؤلّف هذه الإضافة لا يستضيف أيًّا من المحتوى الذي يتم العثور عليه، وليس له أي ارتباط بأي من مزوّدي المحتوى. لا يرتبط المؤلّف بأي شكل مع Kodi أو فريق Kodi أو مؤسّسة XBMC.</disclaimer>
-    <news>A new look when a film starts, as streaming services show it: the rating card. The age rating large (R), under it what earned it from IMDb's Parents Guide (Violence · Profanity · Drugs), a quiet line with the video, the audio and the rating, and a lavender bar beside it. It slides in, stays a few seconds and leaves; it is the default now and takes the Parents Guide corner's place (one thing at the top, not two). When TinyPPI's logos sit on the same side the card goes to the other. The pill (badges or words) stays under Look. Needs skin 3.28.137.</news>
+    <news>The rating card did not come on a device that had the pill before (the Mac): Kodi had kept the old defaults (badges, with OK) in its settings, so the new ones never arrived. They switch once to the card at the start; choosing the pill afterwards stays.</news>
     <source>https://github.com/6ahd/plugin.video.dexhub</source>
     <website>https://dexworld.cc</website>
     <assets>

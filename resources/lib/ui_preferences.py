@@ -200,8 +200,26 @@ def _migrate_loading_art():
         addon.setSetting('player_loading_art_migrated', 'true')
 
 
+def _migrate_capsule_card():
+    """v5.10.422: the rating card once, where the pill was saved. Kodi kept
+    5.10.418's defaults (badges, at the start and with OK) in the settings of
+    every device that had them, so 5.10.421's new defaults (the card, at the
+    start) never came: the Mac still showed the pill. A choice made after
+    this stays."""
+    addon = _addon()
+    if addon.getSetting('player_capsule_card_migrated') == 'true':
+        return
+    if addon.getSetting('player_capsule_look') in ('', 'badges'):
+        addon.setSetting('player_capsule_look', 'card')
+    if addon.getSetting('player_capsule_when') in ('', 'both'):
+        addon.setSetting('player_capsule_when', 'start')
+    addon.setSetting('player_capsule_card_migrated', 'true')
+
+
 def value(key):
     default, choices, _, _ = OPTIONS[key]
+    if key in ('player_capsule_look', 'player_capsule_when'):
+        _migrate_capsule_card()
     if key == 'homeui_nav_focus_open':
         _migrate_focus_navigation()
     if key == 'player_loading_art':
