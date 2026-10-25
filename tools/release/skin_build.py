@@ -74,6 +74,59 @@ def fix_flags(text):
     return text, count
 
 
+# 3.28.131: the network / service logo as 3.28.100 drew it. The unified mark
+# (3.28.122) lost the title page's own logo (only the Home hero's was read,
+# so a page opened from search or a related title showed none), the rounded
+# square of the services' app icons (/platforms/) and the light chip behind
+# dark logos.
+TP_STUDIO = ('<variable name="DhsTpStudio"><value condition="$EXP[dhs_hr_item] + '
+             '!String.IsEmpty(Window(Home).Property(dhs.hr.studio_logo))">$INFO[Window(Home).Property(dhs.hr.studio_logo)]</value>'
+             '<value condition="String.IsEqual(Window(Home).Property(dhs.tp.id),ListItem.Property(dhs.id)) + '
+             '!String.IsEmpty(Window(Home).Property(dhs.tp.studio_logo))">$INFO[Window(Home).Property(dhs.tp.studio_logo)]</value>'
+             '<value>$INFO[ListItem.Property(dhs.studio_logo)]</value></variable>')
+TP_HAS_STUDIO = ('<expression name="dhs_tp_has_studio">[[$EXP[dhs_hr_item] + !String.IsEmpty(Window(Home).Property(dhs.hr.studio_logo))] | '
+                 '[String.IsEqual(Window(Home).Property(dhs.tp.id),ListItem.Property(dhs.id)) + '
+                 '!String.IsEmpty(Window(Home).Property(dhs.tp.studio_logo))] | '
+                 '[!String.IsEqual(Window(Home).Property(dhs.tp.id),ListItem.Property(dhs.id)) + '
+                 '!String.IsEmpty(ListItem.Property(dhs.studio_logo))]] + '
+                 '!String.IsEqual(Window(Home).Property(dhs.pref.metadata_badges),false)</expression>')
+MARK = ('<include name="DhStudioMark"><param name="texture">$VAR[DhsHeroStudio]</param>'
+        '<param name="square">dhs_hero_studio_square</param><param name="chip">dhs_hero_studio_chip</param><definition>'
+        # a service's app icon: a rounded square
+        '<control type="image"><left>0</left><top>2</top><width>36</width><height>36</height><aspectratio>scale</aspectratio>'
+        '<texture background="true" diffuse="dexhub/mask_square.png">$PARAM[texture]</texture>'
+        '<visible>$EXP[$PARAM[square]]</visible></control>'
+        # a dark logo: on a light chip
+        '<control type="group"><visible>![$EXP[$PARAM[square]]] + $EXP[$PARAM[chip]]</visible>'
+        '<control type="image"><left>0</left><top>2</top><width>104</width><height>36</height>'
+        '<texture colordiffuse="E6FFFFFF" border="12">dexhub/tile_bg.png</texture></control>'
+        '<control type="image"><left>10</left><top>7</top><width>84</width><height>26</height><aspectratio>keep</aspectratio>'
+        '<texture background="true">$PARAM[texture]</texture></control></control>'
+        # any other logo: as it is, with its soft shadow
+        '<control type="group"><visible>![$EXP[$PARAM[square]]] + ![$EXP[$PARAM[chip]]]</visible>'
+        '<control type="image"><left>1</left><top>1</top><width>144</width><height>40</height>'
+        '<aspectratio align="left" aligny="center">keep</aspectratio><texture background="true" colordiffuse="70000000">$PARAM[texture]</texture>'
+        '<fadetime>0</fadetime></control><control type="image"><left>0</left><top>0</top><width>144</width><height>40</height>'
+        '<aspectratio align="left" aligny="center">keep</aspectratio><texture background="true">$PARAM[texture]</texture>'
+        '<fadetime>0</fadetime></control></control></definition></include>')
+TP_CALL = '<include>DhStudioMark<param name="texture" value="$VAR[DhsTpStudio]" /></include>'
+TP_CALL_NEW = ('<include>DhStudioMark<param name="texture" value="$VAR[DhsTpStudio]" />'
+               '<param name="square" value="dhs_tp_studio_square" /><param name="chip" value="dhs_tp_studio_chip" /></include>')
+
+
+def studio_marks(name, text):
+    count = 0
+    if name == 'Includes_DexHub.xml':
+        for pattern, new in ((r'<variable name="DhsTpStudio">.*?</variable>', TP_STUDIO),
+                             (r'<expression name="dhs_tp_has_studio">[^<]*</expression>', TP_HAS_STUDIO),
+                             (r'<include name="DhStudioMark">.*?</include>', MARK)):
+            text, n = re.subn(pattern, lambda m: new, text, count=1, flags=re.S)
+            count += n
+    elif name == 'DialogVideoInfo.xml' and TP_CALL in text:
+        text, count = text.replace(TP_CALL, TP_CALL_NEW), text.count(TP_CALL)
+    return text, count
+
+
 def guard_end_time(text):
     count = [0]
 
@@ -140,7 +193,7 @@ def main(argv=None):
         shutil.rmtree(out)
     shutil.copytree(src, out, ignore=shutil.ignore_patterns('__pycache__', '*.compact'))
 
-    totals = {'plot': 0, 'end_time': 0, 'loading': 0, 'icons': 0, 'flags': 0}
+    totals = {'plot': 0, 'end_time': 0, 'loading': 0, 'icons': 0, 'flags': 0, 'studio': 0}
     for path in glob.glob(os.path.join(out, 'xml', '*.xml')):
         text = open(path, encoding='utf-8').read()
         new, n = guard_end_time(text)
@@ -149,6 +202,8 @@ def main(argv=None):
         totals['icons'] += n
         new, n = fix_flags(new)
         totals['flags'] += n
+        new, n = studio_marks(os.path.basename(path), new)
+        totals['studio'] += n
         if os.path.basename(path) == 'Custom_1161_PlaybackLoading.xml':
             new, n = raise_loading(new)
             totals['loading'] += n
@@ -161,7 +216,8 @@ def main(argv=None):
     # 3.28.128: the cards' videowindows stay; they are the trailer inside the
     # focused card (3.28.124 took them out and the card showed black)
     print('fixed: %(plot)d plot boxes, %(end_time)d end times, '
-          '%(loading)d loading window order, %(icons)d list icons, %(flags)d source flags' % totals)
+          '%(loading)d loading window order, %(icons)d list icons, %(flags)d source flags, '
+          '%(studio)d studio mark parts' % totals)
 
     xbt = os.path.join(out, 'media', 'Textures.xbt')
     if args.xbt:
