@@ -26,7 +26,9 @@ import xbmc
 GET = ('', 'api/state')
 POST = {'api/profile': 'profile', 'api/set': 'set', 'api/addon': 'addon', 'api/login': 'login', 'api/code': 'code',
         'api/tv': 'tv', 'api/logout': 'logout', 'api/home': 'home', 'api/done': 'finish', 'api/silo': 'silo',
-        'api/pref': 'pref'}
+        'api/pref': 'pref', 'api/collection': 'collection', 'api/covers': 'covers'}
+# v5.10.432: collections and covers from the DexCloud site (the hub lets them
+# through since 2.12; without them here the site said "Update Dex Hub").
 IDLE = 30 * 60          # a page not used for this long starts a new session
 SETTLE = 4.0            # seconds after the last change: the Home reads it
 _STATE = {'thread': None}
@@ -121,13 +123,45 @@ class Remote(object):
             self._settle()
 
 
+def _play(item):
+    """v5.10.433: Play on Kodi from a Telegram message (the hub's /play page):
+    the title's source search, as the context menu's Search sources starts it."""
+    from urllib.parse import urlencode
+    if not isinstance(item, dict):
+        return
+    tmdb = str(item.get('tmdb') or '')
+    kind = 'episode' if item.get('type') == 'episode' else 'movie'
+    title = str(item.get('title') or '')[:120]
+    if not tmdb.isdigit() or len(tmdb) > 9:
+        return
+    params = {'action': 'tmdb_player', 'play_mode': 'search', 'video_type': kind, 'tmdb_id': tmdb}
+    if kind == 'episode':
+        season, episode = item.get('season'), item.get('episode')
+        if not (isinstance(season, int) and isinstance(episode, int) and season >= 0 and episode > 0):
+            return
+        params.update({'showname': title, 'season': str(season), 'episode': str(episode)})
+    else:
+        params['title'] = title
+        year = str(item.get('year') or '')
+        if year.isdigit() and len(year) == 4:
+            params['year'] = year
+    if xbmc.getCondVisibility('System.ScreenSaverActive'):
+        xbmc.executebuiltin('Action(noop)')      # wake the screen first
+    _log('play from the hub: %s %s' % (kind, tmdb))
+    xbmc.executebuiltin('RunPlugin(plugin://plugin.video.dexhub/?%s)' % urlencode(params))
+
+
 def _serve(remote, req):
     from . import hub_client
     if req.get('method') == 'NOTICE':
         # v5.10.375: a word from the hub (device sync), nothing to answer
+        notice = req.get('notice') or {}
+        if isinstance(notice, dict) and notice.get('kind') == 'play':
+            _play(notice.get('item'))
+            return
         try:
             from . import cloud_profile
-            cloud_profile.on_notice(req.get('notice') or {})
+            cloud_profile.on_notice(notice)
         except Exception as exc:
             _log('notice: %s' % exc)
         return

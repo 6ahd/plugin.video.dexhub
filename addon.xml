@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addon id="plugin.video.dexhub" name="Dex Hub" version="5.10.431" provider-name="Dex Hub">
+<addon id="plugin.video.dexhub" name="Dex Hub" version="5.10.433" provider-name="Dex Hub">
   <requires>
     <import addon="xbmc.python" version="3.0.0" />
     <import addon="script.module.urllib3" version="1.26.0" optional="true" />
@@ -36,7 +36,7 @@
     <description lang="ar">Dex Hub نسخة مستقلة لـ Kodi. أضف روابط Stremio، واستخدم مصادر Plex وEmby/Jellyfin وSilo الأصلية، وشغّل الترجمات الخارجية، واربط Trakt، واستخدم Dex Hub كمشغّل لـ TMDb Helper، وحافظ على قائمة متابعة موحّدة محلياً.</description>
     <disclaimer lang="en_GB">The author of this addon does not host any of the content which is found and has no affiliation with any of the content providers. The author is in no way affiliated with Kodi, Team Kodi, or the XBMC Foundation.</disclaimer>
     <disclaimer lang="ar">مؤلّف هذه الإضافة لا يستضيف أيًّا من المحتوى الذي يتم العثور عليه، وليس له أي ارتباط بأي من مزوّدي المحتوى. لا يرتبط المؤلّف بأي شكل مع Kodi أو فريق Kodi أو مؤسّسة XBMC.</disclaimer>
-    <news>5.10.431: Font names in Arabic in Kodi's font setting (skin 3.28.162), logo circles row style, subtitle and audio languages picked from a list, subtitles and audio in one player page.</news>
+    <news>5.10.433: Play on Kodi from a Telegram message: pick the TV on the hub's page and Dex Hub opens the title's sources (needs hub 2.16). 5.10.432: collections and covers from the DexCloud site.</news>
     <source>https://github.com/6ahd/plugin.video.dexhub</source>
     <website>https://dexworld.cc</website>
     <assets>

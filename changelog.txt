@@ -1,3 +1,11 @@
+5.10.433
+زر «شغّله على Kodi» في رسائل تيليجرام: تختار التلفزيون من صفحة الهب، ويفتح Dex Hub مصادر الفيلم أو الحلقة في التلفزيون على طول (ولو الشاشة نايمة تصحى). يحتاج الهب 2.16.
+Play on Kodi from Telegram messages: pick the TV on the hub's page and Dex Hub opens the film's or episode's sources on it at once (waking the screen saver). Needs hub 2.16.
+
+5.10.432
+الكوليكشنات والأغلفة صارت تتعدّل من موقع DexCloud: كان يقول «حدّث Dex Hub» لأن التلفزيون ما كان يستقبل طلباتها عن بعد (كانت تشتغل بس من صفحة الجوال في نفس الشبكة).
+Collections and covers can be edited from the DexCloud site: it said "Update Dex Hub" because the TV did not take those requests through the hub's relay (they worked only from the phone page on the home network).
+
 5.10.431 (skin build 21, skin.dexhub 3.28.162): The version is plain numbers again (5.10.431), as Kodi repositories and the publishing script need; the skin build number lives here in the changelog. Same code as 5.10.430+skin.21.
 
 5.10.430+skin.21: A font of your own (TTF) is added to Kodi's font list without the Default set's name (skin 3.28.161 names every font set, in Arabic in Arabic).

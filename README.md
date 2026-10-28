@@ -6,13 +6,13 @@
 
 Any Stremio & Nuvio add-on · Plex, Emby, Jellyfin & Silo · Live TV · Native Trakt, Simkl & MDBList · With or without its own skin · Arabic-first UI
 
-[![Version](https://img.shields.io/badge/version-5.10.431-7c3aed)](../../releases/latest)
-[![Skin](https://img.shields.io/badge/skin-3.28.162-ffd23f)](../../releases/latest)
+[![Version](https://img.shields.io/badge/version-5.10.433-7c3aed)](../../releases/latest)
+[![Skin](https://img.shields.io/badge/skin-3.28.164-ffd23f)](../../releases/latest)
 [![Kodi](https://img.shields.io/badge/Kodi-21%20Omega%20%7C%2022%20Piers-33d8f7)]()
 [![License](https://img.shields.io/badge/license-all%20rights%20reserved-ef4444)](LICENSE.txt)
 [![Ko-fi](https://img.shields.io/badge/support-Ko--fi-ff5e5b)](https://ko-fi.com/dexworld)
 
-[Why Dex Hub](#why-dex-hub) · [Works with](#works-with) · [What's new](#whats-new) · [Screenshots](#screenshots) · [Install](#installation) · [Support](#support-the-project)
+[Why Dex Hub](#why-dex-hub) · [Works with](#works-with) · [What's new](#whats-new) · [DexCloud](#dexcloud-your-phone-and-telegram) · [Screenshots](#screenshots) · [Install](#installation) · [Support](#support-the-project)
 
 <img src=".github/screenshots/home.jpg" alt="Dex Hub Home in the Dex Hub skin" />
 
@@ -59,8 +59,13 @@ Any Stremio & Nuvio add-on · Plex, Emby, Jellyfin & Silo · Live TV · Native T
 
 ## What's new
 
-**Dex Hub 5.10.431 · Dex Hub skin 3.28.162**
+**Dex Hub 5.10.433 · Dex Hub skin 3.28.164 · DexCloud 2.16**
 
+* **Telegram alerts, redone:** new episodes, new seasons and films come with a designed picture (the best textless backdrop, the title's logo and the Dex Hub mark) and buttons: **Play on Kodi**, the trailer, TMDb, IMDb and TVDB.
+* **Play on Kodi:** tap it in Telegram, pick a TV, and Dex Hub opens that film's or episode's sources on it (and wakes the screen saver).
+* **Ready library on DexCloud:** 436 ready folders (services, studios, genres, decades, actors, directors, sagas, awards, lists). Choose each one's cover, name, type and source, review your list, then send it to the TV.
+* **Collections and covers from the DexCloud site** work again (it used to ask you to update Dex Hub).
+* **Skin 3.28.164:** the skin's texts and font names show on Kodi 22, and 42 icons are sharper on 4K TVs.
 * **Logo circles:** a new row style for platforms, networks and people, in the Home row style gallery and on the phone page.
 * **Languages by name:** pick your subtitle languages (up to three) and audio language from a list, as in Nuvio, instead of typing codes.
 * **Subtitles and audio on one page** in the player, with their look and Kodi's own settings beside them.
@@ -75,6 +80,22 @@ Any Stremio & Nuvio add-on · Plex, Emby, Jellyfin & Silo · Live TV · Native T
 * **Kodi 22 fixes:** no more "waiting on thread" hangs from the screensaver, and picking artwork works on CoreELEC.
 
 Version numbers are plain numbers again (5.10.431), as Kodi repositories need. Full history in [changelog.txt](changelog.txt).
+
+## DexCloud: your phone and Telegram
+
+DexCloud ([hub.dexworld.cc](https://hub.dexworld.cc)) is Dex Hub's free companion site: link your TVs once, then set them up from your phone or computer.
+
+<table>
+  <tr>
+    <td align="center" width="50%"><img src=".github/screenshots/telegram-alert.jpg" alt="A Telegram alert with a designed poster and Play on Kodi" /><br><sub>Telegram alerts with Play on Kodi, the trailer and the title's pages</sub></td>
+    <td align="center" width="50%"><img src=".github/screenshots/play-on-kodi.jpg" alt="Play on Kodi: pick a TV" /><br><sub>Play on Kodi: pick a TV and its sources open</sub></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2"><img src=".github/screenshots/ready-library.jpg" alt="The ready library on DexCloud" /><br><sub>The ready library: hundreds of folders, each with your cover, name, type and source</sub></td>
+  </tr>
+</table>
+
+> The Telegram picture above uses a placeholder logo; real alerts use the title's own logo from TMDb.
 
 ## The Dex Hub skin
 
