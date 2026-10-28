@@ -30,7 +30,7 @@ TTL_TITLE = 6 * 3600.0
 
 # the layout of a cached row; a copy written by another version of the
 # add-on is still shown, and read again at once
-FORMAT = 7
+FORMAT = 16
 
 PROP_READY = 'dhs.ready'
 PROP_REPUBLISH = 'dhs.republish'    # set by the add-on when the rows changed
@@ -564,7 +564,7 @@ def show_info(li):
 
 # v5.10.228: the TMDb pass also gives a show's seasons and status; a row
 # passed before that (no 'ev') is passed again once
-ENRICH_V = 4  # Auto now completes facts even when every artwork slot was filled.
+ENRICH_V = 6  # Auto now completes facts even when every artwork slot was filled.
 
 
 def is_enriched(data):
@@ -576,7 +576,10 @@ def is_enriched(data):
     stamp = prop(PROP_POSTER_GEN)
     if stamp and data.get('pg') != stamp:
         return False
-    return (bool(data.get('enriched')) and data.get('ev') == ENRICH_V
+    from ..ui_preferences import enabled
+    metadata_due = (enabled('metadata_refresh') and data.get('kind') != 'collection' and
+                    time.time() - float(data.get('metadata_at') or data.get('t') or 0) >= 1800)
+    return (not metadata_due and bool(data.get('enriched')) and data.get('ev') == ENRICH_V
             and not (data.get('auto_retry_at') and time.time() >= data['auto_retry_at']))
 
 

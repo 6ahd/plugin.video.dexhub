@@ -21,7 +21,7 @@ def _rank(command, params):
     if command == '__trailer__' or 'trailer' in action: return 40
     if action.startswith('fav_'): return 50
     if action in ('cw_mark_watched', 'iptv_cw_watched'): return 60
-    if action in ('cw_remove', 'iptv_cw_remove'): return 80
+    if action in ('cw_remove', 'nextup_remove', 'iptv_cw_remove'): return 80
     if command.startswith('__row_'): return 100
     return 70
 

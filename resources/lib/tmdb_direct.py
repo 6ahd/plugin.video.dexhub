@@ -2,6 +2,7 @@
 import json
 import os
 import sqlite3
+import threading
 import time
 import urllib.parse
 # v5.4.7: urllib.request is imported inside _request(). This module is
@@ -59,21 +60,34 @@ DEFAULT_API_KEY = 'd0667e1fd4d2611331f3d9feca0df2b5'
 # simple FIFO eviction.
 _MEM_CACHE = {}
 _MEM_CACHE_ORDER = []
+_MEM_EXPIRES = {}
+_MEM_LOCK = threading.RLock()
+_META_LOCKS = {}
+_META_LOCK = threading.Lock()
 _MEM_CACHE_MAX = 512
 
 
 def _mem_get(key):
-    return _MEM_CACHE.get(key)
+    with _MEM_LOCK:
+        if key in _MEM_CACHE and _MEM_EXPIRES.get(key, 0) <= time.time():
+            _MEM_CACHE.pop(key, None)
+            _MEM_EXPIRES.pop(key, None)
+            if key in _MEM_CACHE_ORDER:
+                _MEM_CACHE_ORDER.remove(key)
+        return _MEM_CACHE.get(key)
 
 
-def _mem_put(key, value):
-    if key in _MEM_CACHE:
-        return
-    _MEM_CACHE[key] = value
-    _MEM_CACHE_ORDER.append(key)
-    if len(_MEM_CACHE_ORDER) > _MEM_CACHE_MAX:
-        old = _MEM_CACHE_ORDER.pop(0)
-        _MEM_CACHE.pop(old, None)
+def _mem_put(key, value, expires_at=None):
+    with _MEM_LOCK:
+        if key in _MEM_CACHE_ORDER:
+            _MEM_CACHE_ORDER.remove(key)
+        _MEM_CACHE[key] = value
+        _MEM_EXPIRES[key] = expires_at if expires_at is not None else time.time() + 60
+        _MEM_CACHE_ORDER.append(key)
+        while len(_MEM_CACHE_ORDER) > _MEM_CACHE_MAX:
+            old = _MEM_CACHE_ORDER.pop(0)
+            _MEM_CACHE.pop(old, None)
+            _MEM_EXPIRES.pop(old, None)
 
 
 def _setting(key, default=''):
@@ -255,14 +269,14 @@ def _cache_get(cache_key):
             # v5.10.376: kept before Image quality went High: the backdrops at their original size
             payload = payload.replace('image.tmdb.org/t/p/w1280/', 'image.tmdb.org/t/p/original/')
         result = json.loads(payload or '{}')
-        _mem_put(cache_key, result)
+        _mem_put(cache_key, result, expires_at)
         return result
     except Exception:
         return None
 
 
 def _cache_set(cache_key, payload, ttl):
-    _mem_put(cache_key, payload or {})
+    _mem_put(cache_key, payload or {}, time.time() + max(60, int(ttl or NEGATIVE_TTL)))
     try:
         conn = _db_conn()
         conn.execute(
@@ -742,6 +756,7 @@ _NUVIO_FILTER_MAP = {
     'withWatchProviders': 'with_watch_providers', 'with_watch_providers': 'with_watch_providers',
     'watchRegion': 'watch_region', 'watch_region': 'watch_region',
     'withNetworks': 'with_networks', 'with_networks': 'with_networks',
+    'withCompanies': 'with_companies', 'with_companies': 'with_companies',     # v5.10.426: studio packs
     'withKeywords': 'with_keywords', 'with_keywords': 'with_keywords',
     'withoutKeywords': 'without_keywords', 'without_keywords': 'without_keywords',
     'includeAdult': 'include_adult', 'include_adult': 'include_adult',
@@ -1314,12 +1329,15 @@ def _meta_for_cache_key(tmdb_id='', imdb_id='', media_type='movie', title='',
                         year='', language_override='', nuvio_exact=False):
     """Build the exact key shared by network and cache-only metadata reads."""
     mt = _normalize_media_type(media_type)
-    # v5.10.227: a show's entry carries its seasons and status from now on
-    if mt == 'tv':
-        mt = 'tv2'
-    return 'meta-v2:%s:%s:%s:%s:%s:%s:%s' % (
-        mt, tmdb_id or '', imdb_id or '', title or '', year or '',
-        str(language_override or '').lower(),
+    # Exact identity is independent of a catalog's spelling/year/extra ID.
+    # Keep language and movie/TV separate; never merge title-search candidates.
+    tid = str(tmdb_id or '').strip()
+    iid = str(imdb_id or '').strip()
+    identity = ('tmdb:' + tid) if tid.isdigit() else ('imdb:' + iid) if iid.startswith('tt') else ''
+    if identity:
+        title, year = '', ''
+    return 'meta-v3:%s:%s:%s:%s:%s:%s' % (
+        mt, identity, title or '', year or '', str(language_override or '').lower(),
         'nuvio1to1' if nuvio_exact else 'dex')
 
 
@@ -1376,7 +1394,7 @@ def metas_for_cached_only(requests):
                     value = json.loads(payload or '{}')
                 except Exception:
                     value = {}
-                _mem_put(cache_key, value)
+                _mem_put(cache_key, value, expires_at)
                 for idx in missing.get(cache_key, ()):
                     out[idx] = dict(value) if isinstance(value, dict) else {}
             if expired:
@@ -1421,7 +1439,7 @@ def certification(detail, media_type='movie'):
     return rows[0][1] if rows else ''
 
 
-def meta_for(tmdb_id='', imdb_id='', media_type='movie', title='', year='', language_override='', nuvio_exact=False,
+def _meta_for_impl(tmdb_id='', imdb_id='', media_type='movie', title='', year='', language_override='', nuvio_exact=False,
              timeout=None, max_attempts=3):
     """Full TMDb metadata in ONE network round-trip.
 
@@ -1618,14 +1636,34 @@ def meta_for(tmdb_id='', imdb_id='', media_type='movie', title='', year='', lang
         'fanart': _image_url(backdrop_path, kind='backdrop'),
         'landscape': _image_url(backdrop_path, kind='backdrop'),
         'clearlogo': _image_url((logo or {}).get('file_path') or '', kind='logo'),
+        '_metadata_fetched_at': time.time(),
         '_nuvio_exact_art': '1' if nuvio_exact else '',
         '_nuvio_tmdb_language': detail_lang if nuvio_exact else '',
     }
     has_payload = bool(out.get('description') or out.get('poster') or out.get('genres') or out.get('cast'))
     # A poster-only result must not suppress richer data for thirty days.
     from .auto_metadata import complete
-    _cache_set(cache_key, out, POSITIVE_TTL if complete(out) else (3600 if has_payload else 180))
+    _cache_set(cache_key, out, (1800 if mt == 'tv' else 6 * 3600) if complete(out) else (900 if has_payload else 180))
     return out
+
+
+def meta_for(tmdb_id='', imdb_id='', media_type='movie', title='', year='', language_override='', nuvio_exact=False,
+             timeout=None, max_attempts=3):
+    """Share one exact-identity request between simultaneous row/title callers."""
+    query = dict(tmdb_id=tmdb_id, imdb_id=imdb_id, media_type=media_type,
+                 title=title, year=year, language_override=language_override, nuvio_exact=nuvio_exact)
+    key = _meta_for_cache_key(**query)
+    with _META_LOCK:
+        entry = _META_LOCKS.setdefault(key, [threading.RLock(), 0])
+        entry[1] += 1
+    try:
+        with entry[0]:
+            return _meta_for_impl(**query, timeout=timeout, max_attempts=max_attempts)
+    finally:
+        with _META_LOCK:
+            entry[1] -= 1
+            if not entry[1]:
+                _META_LOCKS.pop(key, None)
 
 
 def merge_into_meta(addon_meta, tmdb_meta, prefer_tmdb_text=False):

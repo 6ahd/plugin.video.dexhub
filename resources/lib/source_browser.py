@@ -1061,10 +1061,53 @@ def _pack_name_tokens(text):
         return ''
 
 
-def _elite_badge_images(row, tags=None, max_items=10):
+_BADGE_RESOLUTION = re.compile(
+    r'(?<![a-z0-9])(?:4320[pi]?|8k|2160[pi]?|4k|uhd|ultra[ ._-]*hd|'
+    r'1080[pi]?|fhd|full[ ._-]*hd|720[pi]?|576[pi]?|540[pi]?|480[pi]?|360[pi]?|sd)(?![a-z0-9])', re.I)
+
+
+def _badge_quality(row, text=''):
+    """One resolution per source; explicit stream facts precede release hints."""
+    for value in (row.get('quality'), text):
+        matches = [m.group().lower() for m in _BADGE_RESOLUTION.finditer(str(value or ''))]
+        for label, hints in (('8K', ('4320', '8k')), ('4K', ('2160', '4k', 'uhd', 'ultra')),
+                             ('1080p', ('1080', 'fhd', 'full')), ('720p', ('720',)),
+                             ('SD', ('576', '540', '480', '360', 'sd'))):
+            if any(any(m.startswith(h) for h in hints) for m in matches):
+                return label
+    return ''
+
+
+def _badge_resolution_text(row, text):
+    quality = _badge_quality(row, text)
+    if not quality:
+        return text
+    # Keep a formatter's surrounding markers (e.g. crown-gated JSON rules),
+    # but prevent a filename and server hint from matching two resolutions.
+    def replace(match):
+        return match.group() if _badge_quality({}, match.group()) == quality else quality
+    result = _BADGE_RESOLUTION.sub(replace, text)
+    return result + ' ' + quality
+
+
+def _resolution_badge_rule(group, pattern, image):
+    group = str(group or '').lower()
+    if group in ('resolution', 'quality', 'video-resolution'):
+        return True
+    # Community sets use opaque group ids. Recognise a resolution glyph by
+    # its filename or rule without treating WEB/UHD source badges as quality.
+    name = str(image or '').rsplit('/', 1)[-1].partition('?')[0]
+    expression = str(getattr(pattern, 'pattern', pattern))
+    hint = name + ' ' + expression
+    if re.search(r'web|blu.?ray|remux|hdtv|source', hint, re.I):
+        return False
+    return bool(re.search(r'4320|2160|1080|720|576|540|480|360|\b[248]k\b|\bfhd\b|\buhd\b', hint, re.I))
+
+
+def _elite_badge_images(row, tags=None, max_items=10, skip_resolution=False):
     if not _elite_badges_enabled():
         return []
-    text = _elite_badge_blob(row or {}, tags=tags)
+    text = _badge_resolution_text(row or {}, _elite_badge_blob(row or {}, tags=tags))
     if not text:
         return []
     # v5.4.5: the key identifies the RULE SET BY ITS CONTENT, not by the URL
@@ -1081,7 +1124,7 @@ def _elite_badge_images(row, tags=None, max_items=10):
         text = '%s %s' % (text, _pack_name_tokens(text))
     rules_id = _elite_rules_fingerprint(rules)
     max_items = min(int(max_items or 10), 10)
-    cache_key = '%s|%s|%s' % (rules_id, int(max_items or 10), _elite_signature(text))
+    cache_key = '%s|%s|%s|%s' % (rules_id, int(max_items or 10), bool(skip_resolution), _elite_signature(text))
     cached = (row or {}).get('_elite_badge_cache')
     if isinstance(cached, tuple) and len(cached) == 2 and cached[0] == cache_key:
         return list(cached[1])
@@ -1093,12 +1136,16 @@ def _elite_badge_images(row, tags=None, max_items=10):
     out = []
     used_images = set()
     group_counts = {}
+    used_resolution = False
     # v5.4.5: an early exit on "every group is full" was tried here and
     # REMOVED. It was worth ~11% while the signature cache below is worth
     # ~16x, and getting the saturation test exactly right across arbitrary
     # third-party sets proved fragile — one wrong reading silently drops a
     # badge. Speed that risks correctness is not worth 11%.
     for group, pattern, image_url in rules:
+        resolution = _resolution_badge_rule(group, pattern, image_url)
+        if resolution and (skip_resolution or used_resolution):
+            continue
         if image_url in used_images:
             continue
         # v4.7.4: third-party sets use their own group ids ('gq', 'gr', …);
@@ -1111,6 +1158,7 @@ def _elite_badge_images(row, tags=None, max_items=10):
             continue
         out.append(image_url)
         used_images.add(image_url)
+        used_resolution = used_resolution or resolution
         group_counts[group] = group_counts.get(group, 0) + 1
         if len(out) >= max_items:
             break
@@ -1127,7 +1175,7 @@ def _elite_badge_images(row, tags=None, max_items=10):
 # Sort modes for the results drawer. Kept separate from QUALITY_FILTERS so a
 # filter and a sort can be active at the same time.
 SORT_MODES = [
-    ('S:DEFAULT',  'الترتيب \u2022 المقترح'),
+    ('S:DEFAULT',  'الترتيب \u2022 المصدر'),
     ('S:SIZE',     'الترتيب \u2022 الحجم'),
     ('S:QUALITY',  'الترتيب \u2022 الجودة'),
     ('S:PROVIDER', 'الترتيب \u2022 المصدر'),
@@ -1278,7 +1326,7 @@ def _source_badge_step(shape):
     return ((int(shape[1:]) * SOURCE_BADGE_HEIGHT + 47) // 16) * 4
 
 
-def _source_badge_moves(layout):
+def _source_badge_moves(layout, start=0):
     """Nine additive slide bits encode each fixed image's packed origin.
 
     The delimiter also makes x=0 nonempty. v5.10.161: '_', not '|' (Kodi
@@ -1286,7 +1334,7 @@ def _source_badge_moves(layout):
     failed to parse and the row's badges were not drawn). Ordinary list-item controls can
     use these instant conditional animations without a nested container.
     """
-    result, offset = [], 0
+    result, offset = [], max(0, int(start))
     for image, shape in layout:
         units = offset // 4
         result.append('_' + ''.join('b%d_' % (1 << bit)
@@ -1340,7 +1388,7 @@ def _sort_quality_rank(row):
 
 
 def _sorted_rows(rows, mode):
-    """Reorder rows for the chosen mode. S:DEFAULT keeps the ranked order."""
+    """Reorder rows for the chosen mode. S:DEFAULT preserves the source/add-on order."""
     rows = list(rows or [])
     mode = str(mode or 'S:DEFAULT')
     if mode == 'S:SIZE':

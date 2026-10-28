@@ -183,7 +183,7 @@ def migrate_file(relative):
 
 FILES = ('favorites.db', 'playback.db', 'providers.json', 'catalog_state.json',
          'collection_sets.json', 'active_collection.json', 'dex_collection_prefs.json',
-         'nuvio_home_mirror.json', 'nuvio_profile_prefs.json', 'nuvio_enabled_addons.json',
+         'collection_covers.json', 'nuvio_home_mirror.json', 'nuvio_profile_prefs.json', 'nuvio_enabled_addons.json',
          'account_sync_fp.json', 'homeui/layout.json', 'homeui/grid_filters.json',
          'homeui/live_favorites.json', 'tracking_state.json', 'sort_prefs.json')
 
@@ -194,6 +194,7 @@ FILES = ('favorites.db', 'playback.db', 'providers.json', 'catalog_state.json',
 # chosen (the same person). Nuvio's own data is pulled again for the profile.
 ARRANGEMENT = ('homeui/layout.json', 'homeui/grid_filters.json', 'homeui/live_favorites.json',
                'collection_sets.json', 'active_collection.json', 'dex_collection_prefs.json',
+               'collection_covers.json',
                'sort_prefs.json', 'providers.json', 'catalog_state.json')
 PERSONAL = ('favorites.db', 'playback.db', 'tracking_state.json')
 

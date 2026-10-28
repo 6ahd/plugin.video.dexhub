@@ -13,7 +13,7 @@ import xbmc
 
 from . import common as C
 
-_FIRST, _LAST = 31800, 32150        # shared native settings labels
+_FIRST, _LAST = 31800, 32160        # shared native settings labels (32152-32153: the glass, skin 3.28.141)
 _LANGS = {'arabic': 'resource.language.ar_sa', 'english': 'resource.language.en_gb'}
 _CTX = re.compile(r'^msgctxt\s+"#(\d+)"')
 _FIELD = re.compile(r'^(msgid|msgstr)\s+"(.*)"\s*$')

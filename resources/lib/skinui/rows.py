@@ -862,11 +862,12 @@ def _ekey(language):
 
 def _needs_status(items):
     from ..home_art import clean
+    from ..poster_roles import portrait
     for item in list(items or [])[:ENRICH_ITEMS]:
         props, src = item.get('props') or {}, item.get('src') or {}
         if props.get('kind') != 'work':
             continue
-        if (not clean((item.get('art') or {}).get('poster')) and src.get('art_checked') != ENRICH_V):
+        if (not portrait(clean((item.get('art') or {}).get('poster'))) and src.get('art_checked') != ENRICH_V):
             return True
         if src.get('media_type') in ('series', 'episode') and not props.get('dhs.seasons') and src.get('st') != ENRICH_V:
             return True
@@ -904,7 +905,8 @@ def _status_pass(path, data, ctx, stop=None, batch=6):
         art = item.setdefault('art', {})
         if props.get('kind') != 'work':
             continue
-        missing = not clean(art.get('poster')) and src.get('art_checked') != ENRICH_V
+        from ..poster_roles import portrait
+        missing = not portrait(clean(art.get('poster'))) and src.get('art_checked') != ENRICH_V
         status = src.get('media_type') in ('series', 'episode') and not props.get('dhs.seasons') and src.get('st') != ENRICH_V
         if not missing and not status:
             continue
@@ -940,6 +942,7 @@ def _status_pass(path, data, ctx, stop=None, batch=6):
     if current is not None and current.get('h') != data.get('h'):
         return False
     data['enriched'], data['lang'], data['ev'] = not _needs_status(data.get('items')), ctx.language, ENRICH_V
+    data['metadata_at'] = time.time()
     if changed:data['h'] = C.content_hash(data.get('items') or [])
     C.write_json(path, data)
     return changed
@@ -1049,6 +1052,7 @@ def _carry_enrichment(items, old, language, ctx=None):
                 props[key] = before['props'][key]
         if ctx is not None:
             props['dhs.meta'] = ctx.meta(dict(info, kind='work'))
+            props['dhs.hero_meta'] = ctx.hero_meta(dict(info, kind='work'))
             props['dhs.lgmeta'] = ctx.lg_meta(dict(info, kind='work'))
         src = item.setdefault('src', {})
         old_src = before.get('src') or {}
@@ -1151,7 +1155,9 @@ class Context(object):
 
     def supported(self, tile):
         """A movie or series that opens on the title page (homeui details.supported)."""
-        if tile.get('kind') != 'work' or tile.get('cw'):
+        if tile.get('kind') != 'work':
+            return False
+        if tile.get('cw') and not (tile.get('folder') and R.params_of(tile.get('path') or '').get('action') in ('item_open', 'series_meta', 'seasons')):
             return False
         if (tile.get('media_type') or '') not in ('movie', 'series', 'episode'):
             return False
@@ -1236,6 +1242,11 @@ class Context(object):
             if (tile.get('command') or '') == 'srv_refresh':
                 return 'run', C.url('srv_refresh')       # v5.10.198: the servers' waiting row
             return '', ''
+        if kind == 'folder' and tile.get('catalog_node'):
+            from ..catalog_navigation import folder_ref
+            path = tile.get('path') or ''
+            ref = folder_ref(R.params_of(path)) if R.is_dexhub_path(path) else None
+            return 'grid', C.url('skin_folder', **ref, t=tile.get('title') or '') if ref else path
         if kind == 'folder':
             ref = tile.get('folder_ref') or {}
             indexes = tile.get('source_indexes') or []
@@ -1248,6 +1259,10 @@ class Context(object):
                                  folder_id=ref.get('folder_id') or '', media_filter=ref.get('media_filter') or '',
                                  t=tile.get('title') or '')
         path = tile.get('path') or ''
+        from ..catalog_navigation import folder_ref
+        ref = folder_ref(R.params_of(path)) if R.is_dexhub_path(path) else None
+        if ref is not None:
+            return 'grid', C.url('skin_folder', **ref, t=tile.get('title') or '')
         if kind == 'work' and self.title_page == 'dexhub' and self.supported(tile):
             return 'info', ''
         if not path:
@@ -1257,6 +1272,8 @@ class Context(object):
             return 'grid', helper
         dexhub = R.is_dexhub_path(path)
         action = R.params_of(path).get('action', '') if dexhub else ''
+        if dexhub and action == 'skin_list':
+            return 'grid', path
         if dexhub:
             path = self.home_route(self.with_ui_art(path, action, tile))
         if action in R.PLAYER_ACTIONS or not tile.get('folder'):
@@ -1327,6 +1344,16 @@ class Context(object):
         elif kind == 'library':
             out.append(tile.get('brand') or '')
         return '   •   '.join([m for m in out if m])
+
+    def hero_meta(self, tile):
+        """Two genres and the episode code; certification has its own label."""
+        from .hero_text import compact_meta
+        compact = dict(tile)
+        genres = tile.get('genres') or []
+        if isinstance(genres, str):
+            genres = [g.strip() for g in re.split(r'\s*[/,|]\s*', genres) if g.strip()]
+        compact['genres'] = list(genres)[:2]
+        return compact_meta(self.meta(compact), tile.get('mpaa') or '', episode_code(tile))
 
     _MONTHS = (('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'),
                ('يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'))
@@ -1490,13 +1517,16 @@ class Context(object):
             if gif:
                 art['gif'] = gif
         click, target = self.click(tile, spec)
-        if kind == 'work' and not tile.get('studio_logo') and (tile.get('studios') or tile.get('studio')):
+        if kind == 'work':
             try:
                 from .. import studio_art
-                logo = studio_art.resolve(tile.get('studios') or tile.get('studio'))
-                if logo:
-                    tile['studio_logo'] = logo
-                    tile['studio_logo_chip'] = False
+                from ..studio_mark import prepare
+                logo = prepare(tile.get('studio_logo'))
+                if not logo and (tile.get('studios') or tile.get('studio')):
+                    picked = studio_art.pick(names=tile.get('studios') or tile.get('studio'), limit=1)
+                    logo = picked[0][0] if picked else ''
+                tile['studio_logo'] = logo
+                tile['studio_logo_chip'] = False
             except Exception:
                 pass
         hero_title = show if (media == 'episode' and show) else title
@@ -1510,6 +1540,7 @@ class Context(object):
             'dhs.target': target,
             'dhs.badge': self.badge(tile),
             'dhs.meta': self.meta(tile),
+            'dhs.hero_meta': self.hero_meta(tile),
             'dhs.rating': self.rating(tile),
             'dhs.ratings': json.dumps(tile.get('ratings') or {}, ensure_ascii=False),
             'dhs.hero_video': (tile.get('hero_video') or '') if kind == 'folder' else '',
@@ -1528,15 +1559,22 @@ class Context(object):
             'wide_meta': self.wide_meta(tile),
             'dhs.lgmeta': self.lg_meta(tile) if kind == 'work' else '',
         }
+        from ..catalog_follow import target_for
+        props['dhs.follow'] = target_for(tile, click, target, include_works=True)
+        if tile.get('catalog_node') and not tile.get('catalog_banner'):
+            props['dhs.catalog'] = '1'
+            props['dhs.catalog_icon'] = tile.get('catalog_icon') or ''
         # v5.10.227: a show's seasons and status, once TMDb told them
         if tile.get('seasons_count') or tile.get('tv_status'):
             props['dhs.seasons'], props['dhs.tvstatus'], props['dhs.tvstatus_bg'] = \
                 show_chips(self.tr, tile.get('seasons_count'), tile.get('tv_status'))
-        if kind == 'folder' and click == 'grid' and '?action=skin_folder&' in (target or ''):
-            # skin.dexhub 3.2: the folder opens as a page of rows (folderpage.py);
-            # an older skin and Arctic Fuse 3 keep the cards page (dhs.target)
-            from .folderpage import page_url
-            props['dhs.fold'] = page_url(tile.get('folder_ref') or {}, tile.get('title') or '')
+        if click == 'grid' and '?action=skin_folder&' in (target or ''):
+            from ..folder_view import rows_enabled
+            from ..catalog_navigation import folder_ref
+            ref = tile.get('folder_ref') or folder_ref(R.params_of(target))
+            if ref and (rows_enabled() or C.served() == 'dexhub'):
+                from .folderpage import page_url
+                props['dhs.fold'] = page_url(ref, tile.get('title') or '')
         if click == 'info' or self.info_page(tile) or self.supported(tile):
             props.update(self.title_props(tile))
             props['dhs.open_title'] = '1' if self.supported(tile) else ''
@@ -1570,6 +1608,7 @@ class Context(object):
             menu.append([self.tr('خيارات الكتالوج'), 'RunPlugin(%s)' % C.url('skin_row_facet', m=self.tab, id=spec.get('id') or '')])
         if spec.get('key') and spec.get('id') and not spec.get('grid') and self.tab != 'fold':
             menu.append([self.tr('شكل الصف'), 'RunPlugin(%s)' % C.url('skin_row_shape', m=self.tab, id=spec['id'])])
+            menu.append([self.tr('الصف التابع…'), 'RunPlugin(%s)' % C.url('skin_row_follow', m=self.tab, id=spec['id'])])
         return {
             'label': label,
             'label2': tile.get('show') or '',
@@ -1660,6 +1699,7 @@ class Context(object):
             menu.append([self.tr('خيارات الكتالوج'), 'RunPlugin(%s)' % C.url('skin_row_facet', m=self.tab, id=spec.get('id') or '')])
         if spec.get('key') and spec.get('id') and not spec.get('grid') and self.tab != 'fold':
             menu.append([self.tr('شكل الصف'), 'RunPlugin(%s)' % C.url('skin_row_shape', m=self.tab, id=spec['id'])])
+            menu.append([self.tr('الصف التابع…'), 'RunPlugin(%s)' % C.url('skin_row_follow', m=self.tab, id=spec['id'])])
         return {
             'label': label, 'path': list_url(params, title=spec.get('title') or '', shape=spec.get('shape') or ''),
             'menu': menu,
@@ -1672,6 +1712,23 @@ class Context(object):
 # --------------------------------------------------------------------------
 # the TMDb pass (the user's language), made by the service after a row is read
 # --------------------------------------------------------------------------
+
+def _focus_first(tab, row_id, targets):
+    """Selected item and nearby items precede distant enrichment work."""
+    if C.prop('dhs.tab') != tab:
+        return list(targets)
+    try:
+        slot = int(C.prop('dhs.fr') or 0)
+        if not 1 <= slot <= C.ROWS or C.prop('dhs.%s.%d.id' % (tab, slot)) != row_id:
+            return list(targets)
+        cid = C.layout().row_list(slot)
+        position = int(xbmc.getInfoLabel('Container(%d).CurrentItem' % cid)) - 1
+        if not 0 <= position < len(targets):
+            return list(targets)
+        return [targets[i] for i in sorted(range(len(targets)), key=lambda i: abs(i-position))]
+    except (ValueError, TypeError):
+        return list(targets)
+
 
 @_scope.bound
 def enrich(tab, row_id, limit=ENRICH_ITEMS, stop=None, batch=6):
@@ -1699,12 +1756,20 @@ def enrich(tab, row_id, limit=ENRICH_ITEMS, stop=None, batch=6):
     changed = False
     processed = 0
     targets = list(data.get('items') or [])[:limit]
-    for index, item in enumerate(targets):
+    from ..ui_preferences import enabled as ui_enabled
+    metadata_due = ui_enabled('metadata_refresh') and time.time() - float(data.get('metadata_at') or data.get('t') or 0) >= 1800
+    if metadata_due:
+        for item in targets:
+            src = item.get('src') or {}
+            src.pop('enriched', None)
+            src.pop('enrich_failed', None)
+    for index, item in enumerate(_focus_first(tab, row_id, targets)):
         if (stop is not None and stop()) or processed >= batch:
             break
         src = item.get('src') or {}
         props = item.get('props') or {}
-        retry_due = bool(src.get('auto_retry_at') and time.time() >= src['auto_retry_at'])
+        retry_due = bool((src.get('auto_retry_at') and time.time() >= src['auto_retry_at'])
+                         or metadata_due)
         if (props.get('kind') != 'work' or (not retry_due and
                 (src.get('enriched') == language_key or src.get('enrich_failed') == language_key))):
             continue
@@ -1726,8 +1791,10 @@ def enrich(tab, row_id, limit=ENRICH_ITEMS, stop=None, batch=6):
             enricher._enrich_now(tile, ctx.language or '')
         except Exception:
             src['enrich_failed'] = language_key
+            src['auto_retry_at'] = time.time() + 120
             item['src'] = src
             continue
+        src.pop('enrich_failed', None)
         src['enriched'] = language_key
         src['auto_retry_at'] = tile.get('_auto_retry_at') or 0
         if tile.get('imdb_id') and not src.get('imdb_id'):
@@ -1745,6 +1812,9 @@ def enrich(tab, row_id, limit=ENRICH_ITEMS, stop=None, batch=6):
             changed = True
         if tile.get('genres') and tile['genres'] != before['genres']:
             info['genres'] = list(tile['genres'])[:3]
+            changed = True
+        if tile.get('mpaa') and not info.get('mpaa'):
+            info['mpaa'] = tile['mpaa']
             changed = True
         if tile.get('duration') and not before['duration']:
             info['duration'] = tile['duration']
@@ -1768,7 +1838,7 @@ def enrich(tab, row_id, limit=ENRICH_ITEMS, stop=None, batch=6):
         merged = {'kind': 'work', 'year': info.get('year') or '', 'rating': info.get('rating') or 0,
                   'duration': info.get('duration') or 0, 'genres': info.get('genres') or [],
                   'mpaa': info.get('mpaa') or ''}
-        if tile.get('rating') and not info.get('rating'):
+        if tile.get('rating') and tile['rating'] != info.get('rating'):
             info['rating'] = tile['rating']
             merged['rating'] = tile['rating']
             changed = True
@@ -1787,6 +1857,7 @@ def enrich(tab, row_id, limit=ENRICH_ITEMS, stop=None, batch=6):
                     props[name] = value
                     changed = True
         props['dhs.meta'] = ctx.meta(merged)
+        props['dhs.hero_meta'] = ctx.hero_meta(merged)
         props['dhs.lgmeta'] = ctx.lg_meta(merged)
         props['dhs.rating'] = ctx.rating(merged)
         if tile.get('ratings'):
@@ -1806,6 +1877,7 @@ def enrich(tab, row_id, limit=ENRICH_ITEMS, stop=None, batch=6):
                            or (i.get('src') or {}).get('enriched') == language_key
                            or (i.get('src') or {}).get('enrich_failed') == language_key for i in targets)
     data['lang'] = ctx.language
+    data['metadata_at'] = time.time()
     data['ev'] = ENRICH_V
     retries = [(i.get('src') or {}).get('auto_retry_at') for i in targets
                if (i.get('src') or {}).get('auto_retry_at')]

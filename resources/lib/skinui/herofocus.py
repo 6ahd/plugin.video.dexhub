@@ -156,7 +156,20 @@ class HeroFocus(threading.Thread):
                 C.set_prop('dhs.bg.on', '')
                 self._bg_on = False
             return
-        value = xbmc.getInfoLabel('$VAR[DhsHeroFanartLive]')
+        # Never resolve $VAR from a Python worker: Kodi can unload its
+        # variable table during a skin switch (native GetValue crash).
+        if xbmc.getSkinDir() not in ('skin.dexhub', 'skin.dexhub.tvos'):
+            return
+        layout = C.layout()
+        if C.prop('dhs.tab') == 'addons':
+            container = 5102 if C.prop('dhs.afr') == '2' else 5101
+        else:
+            row = _count(C.prop('dhs.fr'))
+            if row == 0 and _count(xbmc.getInfoLabel('Container(%d).NumItems' % layout.spotlight)) > 0:
+                container = layout.spotlight
+            else:
+                container = layout.row_list(max(1, min(row, 20)))
+        value = xbmc.getInfoLabel('Container(%d).ListItem.Art(fanart)' % container)
         if value != getattr(self, '_bg_seen', None):
             self._bg_seen, self._bg_since = value, now
             return
@@ -265,18 +278,24 @@ class HeroFocus(threading.Thread):
         from ..ui_preferences import enabled
         key = found[0]
         home = C.home()
-        home.setProperty(PREFIX + 'id', '')
+        # Identity is a commit marker only when changing titles. Clearing it
+        # on every ratings update briefly selected the legacy tile artwork.
+        if home.getProperty(PREFIX + 'id') != key:
+            home.setProperty(PREFIX + 'id', '')
         if not enabled('metadata_badges'):
             ratings = {}
         # v5.10.297: every platform the sources window shows (not six)
         for name, value in RB.props(ratings, prefix=PREFIX, limit=len(RB.ORDER)).items():
-            home.setProperty(name, value)
+            if home.getProperty(name) != value:
+                home.setProperty(name, value)
         self.publish_badges(key)
         logo, chip = self.studios.get(key) or ('', False)
-        home.setProperty(PREFIX + 'studio_logo', logo)
-        home.setProperty(PREFIX + 'studio_chip', '1' if chip else '')
+        for name, value in (('studio_logo', logo), ('studio_chip', '1' if chip else '')):
+            if home.getProperty(PREFIX + name) != value:
+                home.setProperty(PREFIX + name, value)
         # last: the skin shows them once the id names its title
-        home.setProperty(PREFIX + 'id', key)
+        if home.getProperty(PREFIX + 'id') != key:
+            home.setProperty(PREFIX + 'id', key)
         self.shown = key
         self._shown_studio_seed = (key, self._studio_seeds.get(key, ''))
 

@@ -36,8 +36,8 @@ BUTTONS, SEASONS, EPISODES, CAST, RELATED = 100, 300, 310, 400, 500
 ZONES = {BUTTONS: 'buttons', SEASONS: 'seasons', EPISODES: 'episodes', CAST: 'cast', RELATED: 'related'}
 SERIES_TYPES = ('series', 'episode', 'tv', 'show', 'anime', 'tvshow')
 TMDB_IMG = 'https://image.tmdb.org/t/p/'
-_DETAIL_TTL = 24 * 3600
-_SEASON_TTL = 12 * 3600
+_DETAIL_TTL = 6 * 3600
+_SEASON_TTL = 1800
 # v5.10.194: a server's movie or show (Plex, Emby, Jellyfin, Silo) opens on
 # the title page too; Play keeps the server's own route (direct from the
 # server when Library playback says so), Sources searches as for any title
@@ -111,7 +111,9 @@ def server_route(tile):
 def supported(tile):
     """Movies and series from catalogs, search and favourites open here."""
     tile = tile or {}
-    if tile.get('kind') != 'work' or tile.get('cw'):
+    if tile.get('kind') != 'work':
+        return False
+    if tile.get('cw') and not (tile.get('folder') and R.params_of(tile.get('path') or '').get('action') in ('item_open', 'series_meta', 'seasons')):
         return False
     media = tile.get('media_type') or ''
     if media not in ('movie', 'series', 'episode'):
@@ -492,7 +494,7 @@ class DetailsWindow(W._BaseWindow):
         self.hero['tmdb_id'] = self.hero.get('tmdb_id') or tmdb
         kind = 'tv' if self.series else 'movie'
         lang = self._tmdb_lang()
-        key = 'dh-details-v3:%s:%s:%s' % (kind, tmdb, lang)   # v5.10.322: with the age rating
+        key = 'dh-details-v4:%s:%s:%s' % (kind, tmdb, lang)   # v5.10.322: with the age rating
         data = T._cache_get(key)
         if data is None:
             data = T._request('/%s/%s' % (kind, tmdb), {
@@ -502,7 +504,7 @@ class DetailsWindow(W._BaseWindow):
             }, timeout=8, max_attempts=2) or {}
             # v5.10.120: an empty answer (a timeout) is asked again after
             # two minutes, not ten: the page's cast and related titles
-            T._cache_set(key, data, _DETAIL_TTL if data else 120)
+            T._cache_set(key, data, (1800 if self.series else _DETAIL_TTL) if data else 120)
         self.tmdb = data if isinstance(data, dict) else {}
 
     def _apply_tmdb(self):
@@ -835,7 +837,7 @@ class DetailsWindow(W._BaseWindow):
         if self.tmdb_id:
             from .. import tmdb_direct as T
             lang = self._tmdb_lang()
-            key = 'dh-season:%s:%s:%s' % (self.tmdb_id, number, lang)
+            key = 'dh-season-v2:%s:%s:%s' % (self.tmdb_id, number, lang)
             data = T._cache_get(key)
             if data is None:
                 try:
@@ -1402,6 +1404,8 @@ class DetailsWindow(W._BaseWindow):
         if row:
             play_tile.update(path=row.get('path') or '', season=row['season'], episode=row['episode'], media_type='episode', show=self.hero.get('title') or '')
         entries.insert(0, (self.tr('التشغيل باستخدام…'), 'play_with'))
+        if self.series:
+            entries.insert(1, (self.tr('حلقة عشوائية'), 'random'))     # v5.10.405
         # v5.10.365: its reviews (Trakt, TMDb); rating stays in the Track panel
         entries.append((self.tr('المراجعات'), 'reviews'))
         entries.append((self.tr('مشاهدة جماعية'), 'party'))      # v5.10.366
@@ -1428,7 +1432,9 @@ class DetailsWindow(W._BaseWindow):
                                  poster=hero.get('poster') or '')
             title_reviews.show(work.media, work.imdb, work.tmdb, work.title, self.tr)
             return
-        if key == 'play_with':
+        if key == 'random':
+            self._random_episode()
+        elif key == 'play_with':
             self._launch(player_command(from_tile(play_tile)))
         elif key in ('watch', 'unwatch'):
             self._set_watched(row, key == 'watch')
@@ -1444,6 +1450,29 @@ class DetailsWindow(W._BaseWindow):
                 except Exception:
                     pass
             self.open_path(tile, helper=False)
+
+    def _random_episode(self):
+        """v5.10.405 (an idea from AIOStreams 2.37): a random aired episode
+        of the show, for the ones watched again and again; specials and
+        episodes not out yet are left out, an unwatched one is preferred."""
+        import random
+        import time as _time
+        today = _time.strftime('%Y-%m-%d')
+        rows = []
+        for number, _label in self.seasons:
+            if number <= 0:
+                continue
+            for row in self._season_rows(number) or []:
+                aired = str(row.get('aired') or '')[:10]
+                if row.get('path') and (not aired or aired <= today):
+                    rows.append(row)
+        if not rows:
+            self.notify(self.tr('ما فيه حلقات متاحة'))
+            return
+        fresh = [r for r in rows if not self._watched(self.progress.get((r['season'], r['episode'])))]
+        row = random.choice(fresh if len(fresh) >= 3 else rows)
+        self.notify(self.tr('حلقة عشوائية: %s') % ('S%dE%d' % (row['season'], row['episode'])))
+        self._play_episode(row)
 
     def _person(self):
         pos = self.selected_pos(CAST, -1)

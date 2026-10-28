@@ -855,6 +855,9 @@ class Nuvio:
                 if stamp > 100000000000:
                     stamp /= 1000
                 kind = 'series' if entry.get('content_type') in ('series', 'tv', 'show', 'anime') else 'movie'
+                # Nuvio stores completed progress at position == duration.
+                # Zero is a valid unstarted resume point; Stremio's watched
+                # counters do not exist in this RPC's flat entry contract.
                 out.append({'imdb_id': cid if cid.startswith('tt') else '',
                     'tmdb_id': cid.split(':', 1)[1] if cid.startswith('tmdb:') else '',
                     'canonical_id': cid, 'media_type': kind,
@@ -1381,7 +1384,25 @@ class Nuvio:
             remote = Nuvio._rpc('sync_pull_watch_progress', {'p_profile_id': pid})
             if not isinstance(remote, list):
                 raise RuntimeError('Invalid Nuvio progress snapshot')
-        merged = _merge_progress(rows, Nuvio._progress_to_dex(remote))
+        from . import progress_snapshot as snapshot
+        owner = '%s:%s' % (Nuvio.token().get('user_id') or '', pid)
+        state = _load_sync_state()
+        mirrors = state.get('nuvio_progress_mirrors_386') or {}
+        previous = mirrors.get(owner) or []
+        local = _gather_progress()
+        # Migrate old imports only when Nuvio is the sole cloud source and
+        # no account has yet claimed this Kodi profile's mirror.
+        if not mirrors and not state.get('nuvio_progress_migrated_386') and not Stremio.is_linked():
+            previous = [r for r in local if r.get('event_type') == 'account_sync']
+        pulled = Nuvio._progress_to_dex(remote)
+        if len(pulled) != len(remote):
+            raise RuntimeError('Incomplete Nuvio progress snapshot; keeping local progress')
+        removed = snapshot.missing(previous, pulled, local) if direction != 'push' else []
+        removed_ids = {snapshot.identity(r) for r in removed}
+        # Even force-full/contract repair must not upload a deleted old row.
+        rows = [r for r in rows if snapshot.identity(r) not in removed_ids]
+        accepted = []
+        merged = _merge_progress(rows, pulled)
         if direction != 'pull':
             entries = Nuvio._progress_to_nuvio(rows)
             migrated, old_keys = _old_key_rows(remote)
@@ -1397,6 +1418,7 @@ class Nuvio:
                 Nuvio._rpc('sync_push_watch_progress', {
                     'p_profile_id': pid, 'p_entries': entries[start:start + 500],
                     'p_origin_client_id': _nuvio_client_id()})
+            accepted = Nuvio._progress_to_dex(entries)
             if old_keys:
                 # Delete old keys only after their replacement was accepted,
                 # or a newer native row was already present on the server.
@@ -1407,7 +1429,28 @@ class Nuvio:
                         'p_origin_client_id': _nuvio_client_id()})
                 remote = [e for e in remote if e.get('progress_key') not in old_keys] + migrated
                 merged = _merge_progress(rows, Nuvio._progress_to_dex(remote))
-        return merged
+        # Commit deletions only after every requested operation succeeded.
+        # An exception or malformed pull never becomes an empty snapshot.
+        from . import playback_store
+        deleted = playback_store.delete_synced_entries(removed, return_rows=True)
+        # Removing one episode must not expose an older sibling or a cached
+        # Next Up suggestion. Keep the same ID-based title hiding used by a
+        # local removal, with the old progress timestamp as the cutoff.
+        from .. import continue_hidden
+        for row in deleted:
+            continue_hidden.hide(snapshot.work_keys(row), at=snapshot.stamp(row) - continue_hidden.GRACE)
+        state = _load_sync_state()
+        mirrors = state.setdefault('nuvio_progress_mirrors_386', {})
+        current = (previous if direction == 'push' else pulled) + accepted
+        latest = {}
+        for row in current:
+            key = snapshot.identity(row)
+            if key not in latest or snapshot.stamp(row) >= snapshot.stamp(latest[key]):
+                latest[key] = row
+        mirrors[owner] = list(latest.values())
+        state['nuvio_progress_migrated_386'] = True
+        _save_sync_state(state)
+        return _ProgressSnapshot(merged, removed)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1451,9 +1494,9 @@ class Stremio:
     def _api(method, params):
         _scope.require_current()
         if method == 'addonCollectionSet':
-            raise RuntimeError('Stremio add-on sync is read-only')
-        if method == 'datastorePut' and not _setting_bool('stremio_progress_write_opt_in', False):
-            raise RuntimeError('Enable Stremio progress uploads explicitly before writing')
+            from .stremio_addons import validate as validate_addons
+            if not validate_addons((params or {}).get('addons')):
+                raise RuntimeError('Invalid Stremio add-on write refused')
         if method == 'datastorePut':
             from .stremio_contract import validate
             changes = (params or {}).get('changes')
@@ -1464,7 +1507,9 @@ class Stremio:
             err = body['error']
             msg = err.get('message') if isinstance(err, dict) else str(err)
             raise RuntimeError('Stremio %s: %s' % (method, msg))
-        return body.get('result') if isinstance(body, dict) else None
+        if not isinstance(body, dict) or 'result' not in body:
+            raise RuntimeError('Invalid Stremio API response')
+        return body['result']
 
     @staticmethod
     def login(email, password):
@@ -1494,7 +1539,7 @@ class Stremio:
             manifest = a.get('manifest') or {}
             url = a.get('transportUrl') or manifest.get('url') or ''
             if url:
-                out.append({'manifest_url': url, 'name': manifest.get('name') or a.get('transportName') or ''})
+                out.append({'manifest_url': url, 'name': manifest.get('name') or a.get('transportName') or '', 'stremio_manifest':manifest})
         return out
 
     @staticmethod
@@ -1509,7 +1554,7 @@ class Stremio:
         from .stremio_contract import number, epoch
         out = []
         for item in items or []:
-            if not isinstance(item, dict) or item.get('removed'):
+            if not isinstance(item, dict) or (item.get('removed') and not item.get('temp')):
                 continue
             try:
                 state = item.get('state') or {}
@@ -1517,15 +1562,19 @@ class Stremio:
                     continue
                 duration, position = number(state.get('duration')), number(state.get('timeOffset'))
                 cid = str(item.get('_id') or '')
-                if not cid or not (duration or position):
-                    continue
                 series = item.get('type') == 'series'
+                finished = not position and (number(state.get('flaggedWatched')) > 0 or (not series and number(state.get('timesWatched')) > 0))
+                if not cid or (not position and not finished):
+                    continue
                 video = str(state.get('video_id') or cid)
                 season, episode = state.get('season'), state.get('episode')
-                if series and (season is None or episode is None):
+                if series:
                     parts = video.rsplit(':', 2)
                     if len(parts) == 3 and parts[1].isdigit() and parts[2].isdigit():
                         season, episode = int(parts[1]), int(parts[2])
+                finished = not position and (number(state.get('flaggedWatched')) > 0 or (not series and number(state.get('timesWatched')) > 0))
+                if finished:
+                    position = duration
                 out.append({'imdb_id': cid if cid.startswith('tt') else '',
                     'tmdb_id': cid.split(':', 1)[1] if cid.startswith('tmdb:') else '',
                     'canonical_id': cid, 'media_type': 'series' if series else 'movie',
@@ -1533,8 +1582,8 @@ class Stremio:
                     'background': str(item.get('background') or ''), 'video_id': video,
                     'season': season if series else None, 'episode': episode if series else None,
                     'position': position / 1000, 'duration': duration / 1000,
-                    'percent': _percent_of(position, duration),
-                    'updated_at': int(epoch(item.get('_mtime'))), 'event_type': 'account_sync'})
+                    'percent': 100.0 if finished else _percent_of(position, duration),
+                    'updated_at': int(epoch(state.get('lastWatched')) or epoch(item.get('_mtime'))), 'event_type': 'account_sync', 'finished': finished})
             except (ValueError, TypeError, OverflowError):
                 continue
         if items and not out and any(isinstance(i, dict) and not i.get('removed') and isinstance(i.get('state'), dict) and i['state'].get('timeOffset') for i in items):
@@ -1545,24 +1594,77 @@ class Stremio:
     @staticmethod
     def _progress_to_stremio(rows, existing_by_id):
         from .stremio_contract import changes
-        return changes(rows, existing_by_id)
+        return changes(rows, existing_by_id, videos_loader=Stremio._series_video_ids)
+
+    @staticmethod
+    def _series_video_ids(cid):
+        from .stremio_videos import load
+        return load(cid, _http, read_json, write_json, _scope)
 
     # ── high-level ops ──
     @staticmethod
     def sync_addons(providers, direction='both'):
+        from .stremio_addons import merge, validate
         key = Stremio._auth_key()
-        remote = Stremio._api('addonCollectionGet', {'authKey': key, 'update': True})
-        if not isinstance(remote, dict) or not isinstance(remote.get('addons'), list):
+        snapshot = Stremio._api('addonCollectionGet', {'authKey': key, 'update': True})
+        if not isinstance(snapshot, dict) or not validate(snapshot.get('addons')):
             raise RuntimeError('Invalid Stremio add-on snapshot')
-        return _merge_by_url(providers, Stremio._addons_to_dex(remote['addons']))
+        remote = snapshot['addons']
+        Stremio._last_addons = {'pulled':len(remote) if direction != 'push' else 0,'pushed':0}
+        if direction != 'pull':
+            merged, failed = merge(remote, providers, Stremio._fetch_manifest)
+            if merged != remote:
+                # Refresh before replacing the API collection to retain add-ons
+                # installed in another Stremio client during manifest fetching.
+                fresh = Stremio._api('addonCollectionGet', {'authKey': key, 'update': True})
+                if not isinstance(fresh, dict) or not validate(fresh.get('addons')):
+                    raise RuntimeError('Invalid Stremio add-on refresh; nothing uploaded')
+                merged, failed = merge(fresh['addons'], providers, Stremio._fetch_manifest)
+                if merged != fresh['addons']:
+                    try:
+                        Stremio._api('addonCollectionSet', {'authKey':key,'addons':merged})
+                        Stremio._last_addons['pushed'] = len(merged)-len(fresh['addons'])
+                    except RuntimeError as exc:
+                        if 'max descriptor size' not in str(exc).lower():
+                            raise
+                        # The API rejects the entire collection when just one
+                        # descriptor is too large. Isolate new descriptors; keep
+                        # every existing entry and every catalog/filter intact.
+                        from .stremio_addons import key as addon_key
+                        old_keys = {addon_key(a['transportUrl']) for a in fresh['addons']}
+                        rejected = []
+                        for candidate in [a for a in merged if addon_key(a['transportUrl']) not in old_keys]:
+                            latest = Stremio._api('addonCollectionGet', {'authKey':key,'update':True})
+                            if not isinstance(latest, dict) or not validate(latest.get('addons')):
+                                raise RuntimeError('Invalid Stremio add-on refresh; remaining uploads stopped')
+                            remote = latest['addons']
+                            if addon_key(candidate['transportUrl']) in {addon_key(a['transportUrl']) for a in remote}:
+                                continue
+                            try:
+                                Stremio._api('addonCollectionSet', {'authKey':key,'addons':remote+[candidate]})
+                                remote = remote+[candidate]
+                                Stremio._last_addons['pushed'] += 1
+                            except RuntimeError as single_error:
+                                if 'max descriptor size' not in str(single_error).lower():
+                                    raise
+                                rejected.append(str(candidate['manifest']['name'])[:80])
+                        merged = remote
+                        if rejected:
+                            Stremio._last_addons.update(ok=False,pull_ok=direction!='push',
+                                error='Stremio rejected oversized add-on descriptors: %s. Reduce enabled catalogs in these add-ons and retry; other add-ons were synced.' % ', '.join(rejected))
+                remote = merged
+            if failed:
+                raise RuntimeError('%d add-on manifest(s) are unavailable or incompatible with Stremio' % len(failed))
+        return providers if direction == 'push' else _merge_by_url(providers, Stremio._addons_to_dex(remote))
 
     @staticmethod
     def sync_progress(rows, direction='both'):
-        if not _setting_bool('stremio_progress_write_opt_in', False):
-            direction = 'pull'
         key = Stremio._auth_key()
         merged = rows or []
-        items = Stremio._api('datastoreGet', {'authKey': key, 'collection': Stremio.LIB, 'all': True}) or []
+        items = Stremio._api('datastoreGet', {'authKey': key, 'collection': Stremio.LIB, 'all': True})
+        if not isinstance(items, list) or any(not isinstance(it, dict) or not it.get('_id') for it in items):
+            raise RuntimeError('Invalid Stremio library snapshot; nothing uploaded')
+        Stremio._last_progress = {'pulled':len(items) if direction != 'push' else 0,'pushed':0}
         by_id = {}
         for it in items:
             if it and it.get('_id'):
@@ -1576,7 +1678,10 @@ class Stremio:
             # through the dict(prev) clone path.
             changes = [_sanitize_stremio_item(c)[0] for c in (changes or [])]
             if changes:
-                Stremio._api('datastorePut', {'authKey': key, 'collection': Stremio.LIB, 'changes': changes})
+                for offset in range(0, len(changes), 100):
+                    batch = changes[offset:offset+100]
+                    Stremio._api('datastorePut', {'authKey': key, 'collection': Stremio.LIB, 'changes': batch})
+                    Stremio._last_progress['pushed'] += len(batch)
         return merged
 
     @staticmethod
@@ -1611,13 +1716,16 @@ def _ensure_manifest_suffix(url):
 
 
 def _merge_by_url(local, remote):
+    from .stremio_addons import key
     seen = {}
     for x in local or []:
-        u = (x.get('manifest_url') or x.get('transportUrl') or x.get('url') or '').lower()
+        raw = x.get('manifest_url') or x.get('transportUrl') or x.get('url') or ''
+        u = key(raw) or raw
         if u:
             seen[u] = x
     for x in remote or []:
-        u = (x.get('manifest_url') or x.get('transportUrl') or x.get('url') or '').lower()
+        raw = x.get('manifest_url') or x.get('transportUrl') or x.get('url') or ''
+        u = key(raw) or raw
         if u and u not in seen:
             seen[u] = x
     return list(seen.values())
@@ -1817,7 +1925,7 @@ def _gather_providers():
         rows = store.list_providers() or []
     except Exception:
         return []
-    return [{'manifest_url': r.get('manifest_url', ''), 'name': r.get('name', '')}
+    return [{'manifest_url': r.get('manifest_url', ''), 'name': r.get('name', ''), 'manifest': r.get('manifest')}
             for r in rows if r.get('manifest_url')]
 
 
@@ -1904,7 +2012,8 @@ def _writeback_providers(providers, refresh_existing=False):
         from .. import collection_sets
     except Exception:
         return 0
-    have = set((r.get('manifest_url') or '').lower() for r in (store.list_providers() or []))
+    from .stremio_addons import key
+    have = set(key(r.get('manifest_url')) for r in (store.list_providers() or []))
     added, refreshed, failed = 0, 0, []
     # v5.10.241: an add-on whose manifest could not be read is tried again
     # after six hours, not on every sync (5 s each time in the log)
@@ -1914,20 +2023,23 @@ def _writeback_providers(providers, refresh_existing=False):
     gone = dict((k, v) for k, v in gone.items() if now - float(v or 0) < 6 * 3600)
     for p in providers:
         raw_url = str((p or {}).get('manifest_url') or '').strip()
-        url = raw_url.lower()
+        url = key(raw_url)
         if not url:
             continue
         existed = url in have
         if existed and not refresh_existing:
             continue
-        if url in gone and not refresh_existing:
+        from .stremio_addons import valid_manifest
+        cached_manifest = (p or {}).get('stremio_manifest')
+        if url in gone and not refresh_existing and not valid_manifest(cached_manifest):
             continue
         try:
-            collection_sets.ensure_addon_registered(
-                raw_url,
-                refresh=bool(refresh_existing),
-                display_name=(p or {}).get('name') or '',
-            )
+            if valid_manifest(cached_manifest):
+                store.add_provider((p or {}).get('name') or cached_manifest['name'],raw_url,cached_manifest)
+                gone.pop(url,None)
+            else:
+                collection_sets.ensure_addon_registered(
+                    raw_url,refresh=bool(refresh_existing),display_name=(p or {}).get('name') or '')
             if existed:
                 refreshed += 1
             else:
@@ -2232,6 +2344,12 @@ def queue_library_delete(media_type, canonical_id):
     favorites_store.queue_nuvio_delete(media_type, cid)
 
 
+class _ProgressSnapshot(list):
+    def __init__(self, rows, removed):
+        super().__init__(rows)
+        self.removed = removed
+
+
 def _progress_identity(row):
     return json.dumps([row.get(k) for k in ('media_type', 'canonical_id', 'video_id')], separators=(',', ':'))
 
@@ -2321,8 +2439,6 @@ def run_sync(direction=None, targets=None, force_full=False, sections=None, only
             return {'ok': False, 'error': NO_PROFILE, 'no_profile': True, 'report': waiting}
 
     svc_dir = dict((svc, direction or _direction_for(svc)) for svc in targets)
-    if 'stremio' in svc_dir and not _setting_bool('stremio_progress_write_opt_in', False):
-        svc_dir['stremio'] = 'pull'
     svc_sections = dict((svc, dict(sections) if sections else _sections_for(svc))
                         for svc in targets)
     retry_state = _load_sync_state().get('section_retry_339') or {}
@@ -2410,7 +2526,7 @@ def run_sync(direction=None, targets=None, force_full=False, sections=None, only
                     a_dir = d if addons_changed else ('pull' if d != 'push' else 'skip')
                 if a_dir != 'skip':
                     merged_addons = _merge_by_url(merged_addons, impl.sync_addons(addons, a_dir))
-                section_report['sections']['addons'] = {'ok': True, 'count': len(merged_addons)}
+                section_report['sections']['addons'] = dict({'ok': True, 'count': len(merged_addons)}, **(getattr(Stremio, '_last_addons', {}) if svc == 'stremio' and a_dir != 'skip' else {}))
             except Exception as e:
                 section_report['sections']['addons'] = {'ok': False, 'error': str(e)}
                 _log('%s addons sync failed: %s' % (svc, e))
@@ -2439,7 +2555,13 @@ def run_sync(direction=None, targets=None, force_full=False, sections=None, only
                 candidates = [r for r in progress if r.get('event_type') != 'account_sync' or repair]
                 delta = [r for r in candidates if force_full or acked.get(_progress_identity(r)) != _progress_signature(r)]
                 seed = delta if d in ('both', 'push') else progress
-                merged_progress = _merge_progress(merged_progress, impl.sync_progress(seed, d))
+                synced = impl.sync_progress(seed, d)
+                if getattr(synced, 'removed', None):
+                    from .progress_snapshot import identity, stamp
+                    gone = {identity(r): stamp(r) for r in synced.removed}
+                    merged_progress = [r for r in merged_progress
+                                       if identity(r) not in gone or stamp(r) > gone[identity(r)]]
+                merged_progress = _merge_progress(merged_progress, synced)
                 if d in ('both', 'push'):
                     current_state = _load_sync_state()
                     all_acks = current_state.setdefault('progress_acks_338', {})
@@ -2452,7 +2574,7 @@ def run_sync(direction=None, targets=None, force_full=False, sections=None, only
                     if svc == 'nuvio':
                         current_state['nuvio_progress_contract_338'] = True
                     _save_sync_state(current_state)
-                section_report['sections']['progress'] = {'ok': True, 'count': len(merged_progress)}
+                section_report['sections']['progress'] = dict({'ok': True, 'count': len(merged_progress)}, **(getattr(Stremio, '_last_progress', {}) if svc == 'stremio' else {}))
             except Exception as e:
                 section_report['sections']['progress'] = {'ok': False, 'error': str(e)}
                 _log('%s progress sync failed: %s' % (svc, e))
@@ -2473,7 +2595,8 @@ def run_sync(direction=None, targets=None, force_full=False, sections=None, only
 
     def _pulled(section):
         return any(svc_dir[r['service']] != 'push' and
-                   r.get('sections', {}).get(section, {}).get('ok') for r in report)
+                   (r.get('sections', {}).get(section, {}).get('ok') or
+                    r.get('sections', {}).get(section, {}).get('pull_ok')) for r in report)
 
     _scope.require_current()
     if _pulled('addons'):
@@ -2482,6 +2605,15 @@ def run_sync(direction=None, targets=None, force_full=False, sections=None, only
         wb['collections'] = _writeback_collections(merged_collections)
     if _pulled('progress'):
         wb['progress'] = _writeback_progress(merged_progress)
+        if _fingerprint(progress) != _fingerprint(_gather_progress()):
+            from .. import nextup_logic
+            import xbmcgui
+            nextup_logic.invalidate_nextup_cache(xbmcgui.Window(10000))
+            from ..skinui import common as C, board
+            for tab in C.TABS:
+                for spec in board.load_specs(tab):
+                    if spec.get('progress'):
+                        C.request_refresh(tab, spec['id'])
     if _pulled('library'):
         # Each library provider persists its own successful snapshot.
         # Writing the merged union as Nuvio would mislabel local/Trakt rows.

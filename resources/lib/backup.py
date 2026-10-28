@@ -49,7 +49,8 @@ FILES = {
                 'hub_folder_prefs.json', 'hub_folder_filters.json', 'bucket_meta_map.json', 'catalog_state.json',
                 'sort_prefs.json', 'nuvio_enabled_addons.json', 'last_source_map.json'),
     'home': ('homeui/layout.json', 'homeui/live_favorites.json', 'homeui/profiles.json'),
-    'collections': ('collection_sets.json', 'active_collection.json', 'dex_collection_prefs.json'),
+    'collections': ('collection_sets.json', 'active_collection.json', 'dex_collection_prefs.json',
+                    'collection_covers.json'),     # v5.10.426: covers chosen on the account page
     'accounts': ('trakt_token.json', 'simkl_token.json', 'nuvio_token.json', 'stremio_token.json',
                  'nuvio_profiles.json', 'nuvio_profile_prefs.json',
                  'plex_account.json', 'plex_servers.json', 'plex_client_id.txt'),

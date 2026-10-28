@@ -41,6 +41,13 @@ except Exception:
 
 import xbmcgui
 
+# Restore an interrupted opt-in skin session after a fresh Kodi start.
+try:
+    from resources.lib.temporary_skin import recover as _recover_temporary_skin
+    _recover_temporary_skin()
+except Exception as _temporary_skin_error:
+    xbmc.log('[DexHub] temporary skin recovery: %s' % _temporary_skin_error, xbmc.LOGWARNING)
+
 
 # Trakt/Simkl and Nuvio/Stremio touch the same local playback state.  They
 # must never run concurrently: apart from extra pressure, overlapping pulls
@@ -268,6 +275,11 @@ def _publish_badge_props():
         ui_preferences.sync_skin_place()
     except Exception as exc:
         xbmc.log('[DexHub] badge props publish failed: %s' % exc, xbmc.LOGWARNING)
+    try:
+        from resources.lib import player_capsule      # v5.10.423: TinyPPI is its own again
+        player_capsule.leftovers()
+    except Exception as exc:
+        xbmc.log('[DexHub] TinyPPI leftovers: %s' % exc, xbmc.LOGWARNING)
 
 
 def _publish_core_props(last_sync=''):
@@ -719,6 +731,17 @@ def _settings_version_check():
 
 if __name__ == '__main__':
     _settings_version_check()          # v5.10.378: first, before anything sets a value
+
+    # v5.10.424: the Home comes whole at Kodi's start (as Arctic Fuse 3 does):
+    # watched from the first moment, the rest of the start-up runs beside it
+    def _startup_splash_worker():
+        try:
+            from resources.lib.skinui.startup_splash import watch
+            watch(xbmc.Monitor())
+        except Exception as exc:
+            xbmc.log('[DexHub] startup splash: %s' % exc, xbmc.LOGWARNING)
+
+    threading.Thread(target=_startup_splash_worker, name='DexHub-startup-splash', daemon=True).start()
     _retire_apple_tv_addon()
     try:
         import xbmcaddon

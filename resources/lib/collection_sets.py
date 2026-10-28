@@ -167,6 +167,13 @@ def active_sets():
 
 
 def _builtin_kaptain_set():
+    row = _builtin_kaptain_set_raw()
+    if not row:
+        return row
+    return _dressed([row])[0]
+
+
+def _builtin_kaptain_set_raw():
     global _BUILTIN_SET_CACHE
     if _BUILTIN_SET_CACHE is not None:
         return _BUILTIN_SET_CACHE
@@ -268,6 +275,27 @@ def _file_mtime():
 
 
 def _read():
+    # v5.10.426: with the covers chosen on the account page (cover_overrides)
+    return _dressed(_read_raw())
+
+
+def _dressed(rows):
+    try:
+        from .cover_overrides import dress
+        return dress(rows)
+    except Exception:
+        return rows
+
+
+def _undressed(rows):
+    try:
+        from .cover_overrides import undress
+        return undress(rows)
+    except Exception:
+        return rows
+
+
+def _read_raw():
     global _CACHE_ROWS, _CACHE_MTIME
     mtime = _file_mtime()
     if _CACHE_ROWS is not None and mtime == _CACHE_MTIME:
@@ -292,6 +320,7 @@ def _write(rows):
     # then memory cache is updated.
     from .dexhub.safe_io import write_json as _safe_write_json
     global _CACHE_ROWS, _CACHE_MTIME
+    rows = _undressed(rows)
     _safe_write_json(SETS_FILE, rows)
     _CACHE_ROWS = list(rows)
     _CACHE_MTIME = _file_mtime()
@@ -308,6 +337,7 @@ def _write_fast(rows):
     not block on fsync/backup snapshot.
     """
     global _CACHE_ROWS, _CACHE_MTIME
+    rows = _undressed(rows)
     os.makedirs(os.path.dirname(SETS_FILE), exist_ok=True)
     tmp_path = '%s.tmp.%d.fast' % (SETS_FILE, os.getpid())
     try:
@@ -450,6 +480,8 @@ def _normalize_nuvio_source(src):
             'sortBy': str(src.get('sortBy') or filters.get('sortBy') or filters.get('sort_by') or '').strip(),
             'sortHow': str(src.get('sortHow') or '').strip(),
             'filters': filters,
+            # v5.10.426: a full Discover query (AIO Metadata, DexCloud packs) is kept
+            'tmdbParams': dict(src.get('tmdbParams')) if isinstance(src.get('tmdbParams'), dict) else {},
             'genre': genre,
         }
 

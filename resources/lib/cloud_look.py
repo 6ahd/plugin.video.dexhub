@@ -38,7 +38,7 @@ EXTRA = ('ui_language', 'player_title_actions', 'sources_row_style', 'show_serve
 EXCLUDE = frozenset(('homeui_debug', 'homeui_autostart', 'homeui_size', 'homeui_light_mode', 'homeui_ss_preload',
                      'player_badges_folder', 'player_badges_json_url', 'player_badges_colorful_adopted',
                      'ui_lang_autodetected'))
-FILES = ('homeui/layout.json',)
+FILES = ('homeui/layout.json', 'collection_covers.json')   # v5.10.426: the chosen covers are look
 SKIN_PREFIXES = ('dh.', 'HomeSwitcher.')
 
 
@@ -118,7 +118,17 @@ def signature(look):
 
 def _usable():
     from . import hub_client
-    return hub_client.linked() and hub_client.option('look')
+    if not (hub_client.linked() and hub_client.option('look')):
+        return False
+    try:
+        # v5.10.415: with the TVs syncing, the look travels with them (item by
+        # item, cloud_sync): this older whole-look copy stands down
+        from . import cloud_profile
+        if cloud_profile.devsync().get('on'):
+            return False
+    except Exception:
+        pass
+    return True
 
 
 def push(force=False):

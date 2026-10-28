@@ -61,6 +61,13 @@ def is_english():
 
 
 STRINGS = {
+    'تحديد الحلقة كمشاهدة': 'Mark episode as watched',
+    'إزالة من الحلقة التالية': 'Remove from Next episode',
+    'أزيل المسلسل من الحلقة التالية': 'Removed from Next episode',
+    'تعذر حفظ حالة المشاهدة': 'Could not save watched status',
+    'تعذر تحديد المسلسل': 'Could not identify this series',
+    'تعذر الإزالة من الحلقة التالية: %s': 'Could not remove from Next episode: %s',
+
     'تعذر تجديد جلسة المصدر؛ أعد فتحه': 'Could not renew this source session; open it again',
 
     'التشغيل باستخدام…': 'Play with…',
@@ -3309,6 +3316,13 @@ _TR_MEMO = {}
 _TR_MEMO_LIMIT = 4096
 
 
+
+# Folder display choices added in skin.12.
+STRINGS.update({'العرض داخل الفولدرات': 'View inside folders',
+                   'صفوف بوسترات الكتالوجات': 'Catalog poster rows',
+                   'بطاقات الكتالوجات': 'Catalog cards',
+                   'صفوف بوسترات الكتالوجات أو بطاقات الكتالوجات': 'Catalog poster rows or catalog cards'})
+
 def tr(text):
     if text is None:
         return text
@@ -3371,6 +3385,32 @@ STRINGS.update({
 STRINGS.update({
     'اكتب عنوان السيرفر': 'Type the server address',
     'انتهى طلب الربط، ابدأ من جديد': 'The link request ended, start again',
+    'هذا العنوان ما فيه سيرفر Silo. تأكد من العنوان والمنفذ': 'No Silo server answers at this address. Check the address and port',
+    'السيرفر رفض الدخول، تأكد من اسم المستخدم وكلمة المرور': 'The server refused the sign-in. Check the username and password',
+    'ما وصلنا للسيرفر. تأكد إن Silo شغال وإن العنوان صحيح': 'Could not reach the server. Make sure Silo is running and the address is right',
+    'الكتالوج غير موجود': 'That catalog is no longer there',
+    'الصق رابط الكوليكشن أو نصّه': 'Paste the collection link or its text',
+    'حلقة عشوائية': 'Random episode',
+    'اكتب مراجعتك': 'Write your review',
+    'تنشر في Trakt باسمك': 'Posted to Trakt under your name',
+    'فيها حرق للأحداث، اضغط تقراها': 'Contains spoilers, open to read',
+    'الصور الأصلية': 'Original pictures',
+    'ترجع صور العمل الأصلية': 'Back to the title\'s own pictures',
+    'شعار': 'Logo',
+    'خلفية': 'Backdrop',
+    'اربط Trakt عشان تكتب مراجعة': 'Link Trakt to write a review',
+    'مراجعتك عن %s': 'Your review of %s',
+    'مراجعتك': 'Your review',
+    'Trakt يطلب خمس كلمات على الأقل': 'Trakt needs at least five words',
+    'فيها حرق للأحداث؟': 'Does it contain spoilers?',
+    'ما انرسلت المراجعة': 'The review was not posted',
+    'انرسلت مراجعتك ✓': 'Your review is posted ✓',
+    'المراجعات والتعليقات': 'Reviews and comments',
+    'الصور والشعارات': 'Pictures and logos',
+    '%d إعجاب': '%d likes',
+    'قل رأيك في العمل، تطلع مراجعتك هنا وفي Trakt للي يتابعونك': 'Say what you think: your review shows here and on Trakt for the people who follow you',
+    'حلقة عشوائية: %s': 'Random episode: %s',
+    'ما فيه حلقات متاحة': 'No episodes available',
     'اكتب PIN البروفايل': 'Type the profile PIN',
 })
 
@@ -3510,7 +3550,8 @@ STRINGS.update({
     'دائرة أو مربع مثل Apple TV أو حلقة أو خط': 'Circle, rounded square like Apple TV, ring or line',
     'دائرة': 'Circle',
     'مربع مثل Apple TV': 'Rounded square, like Apple TV',
-    'حلقة': 'Ring',
+    # v5.10.412: its own key; 'حلقة' alone is an episode (this made it "Ring")
+    'حلقة دائرية': 'Ring',
     'خط تحت الأيقونة': 'Line under the icon',
 })
 
@@ -3583,3 +3624,30 @@ STRINGS.update({
     'إظهار البوستر في صفحة العمل': 'Show poster on the title page',
     'مع بوستر بجانب المعلومات، أو بدون بوستر مثل التخطيط السابق': 'Show a poster beside the details, or hide it for the previous layout',
 })
+
+# Player presentation controls added in 5.10.380–393.
+STRINGS.update({'خلفية وشعار أثناء التحميل': 'Artwork while loading', 'انتقال ناعم للفيديو عند توفر أول إطار؛ يحتاج سكين Dex Hub المحدث': 'Fade into video when the first frame is ready; requires the updated Dex Hub skin', 'شعار العمل · الحجم والمكان': 'Clear logo · size and position', 'شعار الاستديو · الحجم والمكان': 'Studio logo · size and position', 'الوصف · الخط والعرض والتمرير': 'Plot · text size, width and scrolling', 'شارات الجودة · الحجم والمكان والوضوح': 'Quality badges · size, position and appearance', 'بيانات العمل والتقييمات': 'Metadata and ratings', 'إظهار الشعار وحجمه ومكانه': 'Logo visibility, size and position', 'إظهار الشعار وحجمه وزاوية عرضه': 'Studio logo visibility, size and corner', 'حجم الخط وعرض الوصف والتمرير': 'Plot text size, width and scrolling', 'الحجم والمكان والشفافية والوضوح': 'Size, position, opacity and appearance', 'بدء التشغيل': 'Playback start', 'شعار الاستديو': 'Studio logo', 'الوصف · Plot': 'Plot', 'البيانات والتقييمات': 'Metadata and ratings', 'رموز المشغّل': 'Player badges', 'أسفل اليسار': 'Bottom left', 'أسفل اليمين': 'Bottom right', 'أعلى اليسار': 'Top left', 'أعلى اليمين': 'Top right', 'أصلي': 'Original', 'تحت البيانات': 'Under details', 'صغير': 'Small', 'عريض': 'Wide', 'فوق البيانات': 'Above details', 'فوق شريط التقدم': 'Above seek bar', 'متوسط': 'Medium', 'مختصر': 'Compact', 'واضح': 'Solid'})
+
+STRINGS.update({'الزجاج والتحديد': 'Glass & focus', 'تشغيل الزجاج ولون التحديد وحركته': 'Glass mode, focus colour and motion', 'كل إعدادات الإضافة': 'All add-on settings', 'كل الخيارات مرتبة حسب القسم داخل الإضافة': 'All options grouped inside the add-on', 'سكين Dex Hub مؤقت': 'Temporary Dex Hub skin', 'يتغير عند فتح الإضافة ويرجع لسكينك عند الخروج': 'Use Dex Hub on launch and restore your skin on exit', 'الخروج من Dex Hub والرجوع لسكيني': 'Leave Dex Hub and restore my skin', 'استعادة السكين الأصلي': 'Restore the original skin', 'إعدادات الإضافة': 'Add-on settings', 'كل الخيارات في المنيو نفسه': 'All options in this menu', 'خيارات هذا القسم': 'Options for this section', 'العام واللغة والثيم': 'General, language and theme', 'التخطي والتحميل': 'Skip and loading', 'الأدوات والإعداد': 'Tools and setup', 'IPTV والسيرفرات': 'IPTV and servers', 'المكتبة والمفضلة': 'Library and favourites', 'ثبّت سكين Dex Hub أولًا لتفعيل السكين المؤقت.': 'Install the Dex Hub skin first to use temporary skin mode.'})
+
+STRINGS.update({'كل خيارات المشغّل': 'All player settings', 'الخيارات التفصيلية لهذا القسم': 'Detailed options for this section', 'المشغّل': 'Player', 'التشغيل وأزرار المشغّل وشكله والحلقة التالية': 'Playback, player controls, appearance and next episode', 'كل خيارات التريلر': 'All trailers settings', 'التريلر': 'Trailers', 'التشغيل التلقائي والصوت والجودة وملء الشاشة': 'Automatic trailers, sound, quality and fullscreen', 'كل خيارات الثيم والمظهر': 'All theme & appearance settings', 'الثيم والمظهر': 'Theme & appearance', 'الثيم والألوان والزجاج والتحديد': 'Theme, colours, glass and focus', 'كل خيارات الرئيسية والصفوف': 'All home & rows settings', 'الرئيسية والصفوف': 'Home & rows', 'التخطيط والتنقّل والبطاقات والبانر': 'Layout, navigation, cards and featured banner', 'كل خيارات الميتاداتا والصور': 'All metadata & artwork settings', 'الميتاداتا والصور': 'Metadata & artwork', 'المصادر واللغة والبوسترات والشعارات والتقييمات': 'Sources, language, posters, logos and ratings', 'كل خيارات مصادر التشغيل': 'All stream sources settings', 'مصادر التشغيل': 'Stream sources', 'إضافات البحث والفلترة وترتيب روابط التشغيل': 'Source add-ons, filters and stream ordering', 'كل خيارات الترجمة': 'All subtitles settings', 'الترجمة': 'Subtitles', 'البحث واللغة والتصفية والمزامنة': 'Search, language, filters and synchronization', 'كل خيارات الحسابات والمزامنة': 'All accounts & sync settings', 'الحسابات والمزامنة': 'Accounts & sync', 'الربط وإدارة الحسابات والمزامنة والمشاهدة الجماعية': 'Connect accounts, sync and watch parties', 'كل خيارات المكتبة والمتابعة': 'All library & progress settings', 'المكتبة والمتابعة': 'Library & progress', 'المفضلة والقوائم وسجل المشاهدة والحلقات': 'Favourites, lists, watch history and episodes', 'كل خيارات IPTV والسيرفرات': 'All iptv & servers settings', 'IPTV والسيرفرات': 'IPTV & servers', 'القنوات وVOD ودليل البرامج ومكتبات السيرفرات': 'Live TV, VOD, programme guide and server libraries', 'كل خيارات السكين واللغة': 'All skin & language settings', 'السكين واللغة': 'Skin & language', 'السكين المؤقت والتبديل واللغة والحجم والأصوات': 'Temporary skin, switching, language, size and sounds', 'كل خيارات الصيانة والنسخ الاحتياطي': 'All maintenance & backup settings', 'الصيانة والنسخ الاحتياطي': 'Maintenance & backup', 'الأداء والكاش والتشخيص والنسخ والاستعادة': 'Performance, cache, diagnostics, backup and restore', 'كل خيارات كودي والخروج': 'All kodi & exit settings', 'كودي والخروج': 'Kodi & exit', 'إضافات كودي وإعداداته والخروج وإعادة التشغيل': 'Kodi add-ons, settings, exit and restart', 'خلفية كاملة': 'Full background', 'خلفية كاملة أو سينمائية أو هادئة أو داكنة': 'Full background, cinematic, soft or dark', 'إضافات كودي': 'Kodi add-ons', 'فتح قسم الإضافات من كودي': 'Open the Kodi add-on browser', 'شعار العمل · Clear logo': 'Clear logo', 'شارات الجودة · Badges': 'Quality badges'})
+
+STRINGS.update({'التصنيف الرقابي عند بداية التشغيل': 'Content rating at playback start', 'تفعيل بطاقة التصنيف ووقت ظهورها ومكانها ومدتها': 'Enable the rating card, choose when it appears, its position and duration'})
+
+STRINGS.update({'أشكال الثيمات والألوان': 'Theme styles & colours', 'معاينة الثيمات واختيار الألوان': 'Preview themes and choose colours', 'أشكال الصفوف والكتالوجات': 'Row & catalog styles', 'شكل كل صف وترتيبه وحجمه': 'Choose each row’s style, order and size', 'إدارة الكتالوجات والمجموعات': 'Catalogs & collections', 'اختيار الكتالوجات وترتيب المجموعات': 'Choose catalogs and arrange collections'})
+
+STRINGS.update({'الصفوف التابعة عند الوقوف': 'Dependent rows on focus', 'كوليكشنات AF3': 'AF3 collections', 'تحديث الميتاداتا تلقائيًا': 'Refresh metadata automatically', 'نقل كوليكشنات AF3 مجددًا': 'Import AF3 collections again', 'فتح كتالوج العنصر في صف تحته بمجرد التحديد': 'Open the selected item as a catalog row below it', 'إظهار قوائم الأفلام والمسلسلات المستوردة من AF3': 'Show movie and series collections imported from AF3', 'قراءة أحدث إعدادات AF3 الموجودة على جهازك': 'Read the latest AF3 settings on this device', 'استكمال البيانات وتحديث التقييم وحالة المسلسل دوريًا': 'Complete metadata and periodically refresh ratings and show status', 'جارٍ تحميل الكتالوج…': 'Loading catalog…'})
+
+STRINGS.update({'الترتيب • المصدر': 'Sort • Source order'})
+
+STRINGS.update({'توصيات الأعمال في صف تابع': 'Dependent rows for title recommendations', 'فتح الكوليكشن المحدد في صف تحته؛ التحكم متاح لكل صف': 'Open the focused collection below its row; configurable per row', 'للأفلام والمسلسلات؛ معطّل افتراضيًا ويمكن تفعيله لكل صف': 'For movies and TV shows; off by default, configurable per row', 'الكوليكشنات تحت هذا الصف: مفعّل': 'Collections below this row: On', 'الكوليكشنات تحت هذا الصف: معطّل': 'Collections below this row: Off', 'توصيات الأعمال تحت هذا الصف: مفعّل': 'Title recommendations below this row: On', 'توصيات الأعمال تحت هذا الصف: معطّل': 'Title recommendations below this row: Off', 'استعادة إعداد الصف التابع الافتراضي': 'Restore default dependent-row settings', 'تحديث إعدادات الصف التابع': 'Dependent-row settings'})
+
+STRINGS.update({'الصف التابع…': 'Dependent row…'})
+
+STRINGS.update({'الصوت والترجمة': 'Audio & subtitles', 'لغة الصوت الأساسية والبديلة والترجمة الإجبارية وSDH': 'Primary and secondary audio languages, forced subtitles and SDH'})
+
+STRINGS.update({'الصوت والفيديو': 'Audio & video', 'مسارات الصوت والصورة والترجمة وتفضيلات التشغيل': 'Audio/video/subtitle tracks and playback preferences', 'طريقة فتح الكوليكشن': 'Open collections as', 'كتالوجات بصفوف بوسترات أو فولدرات؛ الافتراضي كتالوجات': 'Catalog poster rows or folder cards; catalogs by default', 'خط الواجهة وحجمه': 'Interface font & size', 'خطوط الميديا وحجم النص والخط العريض': 'Media folder fonts, text size and bold weight'})
+
+STRINGS.update({'اختر كتالوجًا': 'Choose a catalog'})
+
+STRINGS.update({'الخط غير متاح؛ اختر خطًا آخر': 'Font unavailable; choose another font'})

@@ -347,6 +347,8 @@ def home(classic=False):
     _add(_txt('مكتبتي', 'My Library'), 'home_library', 'cat_watchlist.png',
          _txt('متابعة المشاهدة والمفضلة والقوائم حسب المصدر', 'Continue watching, favorites and lists by source'),
          folder=False, tile='landscape')
+    _add(_txt('الزجاج والتحديد', 'Glass & focus'), 'appearance_options', 'settings.png',
+         _txt('تشغيل الزجاج ولون التحديد وحركته', 'Glass mode, focus colour and motion'), folder=False)
     rows = [
         ('Continue Watching', 'continue', 'root_continue.png', 'square'),
         ('Next Up', 'nextup', 'up-next.png', 'square'),
@@ -1525,6 +1527,7 @@ def _refresh_continue():
 
 
 def appearance():
+    _add(_txt('الزجاج والتحديد', 'Glass & focus'), 'appearance_options', 'settings.png', folder=False)
     if xbmc.getSkinDir() == 'skin.dexhub':
         # v5.10.364: the layouts and the tabs' place are skin.dexhub's; the
         # add-on's own Home under another skin has one design
@@ -1745,7 +1748,7 @@ def source_behavior_dialog():
 
 
 def episode_controls_dialog():
-    """Next episode, native intro skipping and optional preview services."""
+    """Next episode and native intro skipping."""
     _close_native_settings_dialog()
     while True:
         try:
@@ -1785,11 +1788,6 @@ def episode_controls_dialog():
                  'Automatic': _txt('تلقائي', 'Automatic'), 'Off': _txt('متوقف', 'Off')}
         rows.append(_txt('تخطي المقدمة والملخص المدمج: ', 'Built-in intro & recap: ') + names.get(mode, names['Manual']))
         actions.append('native_mode')
-        add_toggle(_txt('صور معاينة التقديم', 'Seek preview images'), 'seek_previews', 'true')
-        rows.append(_txt('مفتاح Seekr الاختياري: ', 'Optional Seekr API key: ') +
-                    (_txt('محفوظ', 'Saved') if _ADDON.getSetting('seekr_api_key') else _txt('غير محدد', 'Not set')))
-        actions.append('seekr_key')
-
         if tidb_installed and mode == 'Off':
             add_toggle(_txt('فرض أزرار Intro وRecap وCredits اليدوية',
                             'Force manual Intro, Recap and Credits buttons'),
@@ -1818,18 +1816,6 @@ def episode_controls_dialog():
                                     [names[v] for v in modes], modes.index(mode) if mode in modes else 0)
             if picked >= 0:
                 _ADDON.setSetting('native_skip_mode', modes[picked])
-        elif action == 'seekr_key':
-            value = xbmcgui.Dialog().input(_txt('مفتاح Seekr — اتركه فارغًا للحذف',
-                                                'Seekr API key — leave empty to remove'),
-                                          defaultt=_ADDON.getSetting('seekr_api_key'),
-                                          type=xbmcgui.INPUT_ALPHANUM, option=xbmcgui.ALPHANUM_HIDE_INPUT)
-            # Kodi returns an empty string on Cancel as well: require an explicit
-            # choice before removing an existing key.
-            if value:
-                _ADDON.setSetting('seekr_api_key', value.strip())
-            elif _ADDON.getSetting('seekr_api_key') and xbmcgui.Dialog().yesno(
-                    'Seekr', _txt('حذف المفتاح المحفوظ؟', 'Remove the saved key?')):
-                _ADDON.setSetting('seekr_api_key', '')
         elif action == 'tidb_settings':
             try:
                 xbmcaddon.Addon('plugin.video.tidb').openSettings()
@@ -1838,7 +1824,7 @@ def episode_controls_dialog():
         else:
             default = 'true' if action in (
                 'auto_next_episode', 'next_episode_same_source',
-                'introdb_manual_buttons', 'seek_previews') else 'false'
+                'introdb_manual_buttons') else 'false'
             _toggle_setting(action, default)
         _invalidate_settings()
 
@@ -1933,13 +1919,14 @@ def subtitles_dialog():
         except Exception:
             timeout = 15
         langs = (_ADDON.getSetting('preferred_subtitle_langs') or 'ar,en').strip()
+        from resources.lib import lang_picker
         rows = [
             '%s:  [B]%s[/B]' % (
                 _txt('الوضع', 'Mode'),
                 mode_labels[mode_values.index(mode)]
                 if mode in mode_values else mode_labels[0]),
-            _txt('اللغات المفضلة: [B]%s[/B]' % (langs or 'ar,en'),
-                 'Preferred languages: [B]%s[/B]' % (langs or 'ar,en')),
+            '%s:  [B]%s[/B]' % (_txt('اللغات المفضلة', 'Preferred languages'),
+                                lang_picker.names([c for c in (langs or 'ar,en').split(',') if c][:3], _txt)),
             _txt('مدة البحث: [B]%d ثانية[/B]' % timeout,
                  'Search time: [B]%d seconds[/B]' % timeout),
             '%s:  [B]%s[/B]' % (
@@ -1951,6 +1938,7 @@ def subtitles_dialog():
                 _txt('مفعّل', 'On') if _enabled('never_auto_ai_subtitles', 'true')
                 else _txt('متوقف', 'Off')),
         ]
+        rows.append(_txt('الصوت والترجمة المدمجة — اللغة والإجبارية وSDH', 'Audio & embedded subtitles — language, forced and SDH'))
         choice = _select_dialog(_txt('الترجمة', 'Subtitles'), rows)
         if choice < 0:
             return True
@@ -1965,7 +1953,7 @@ def subtitles_dialog():
                 _txt('العربية ثم الإنجليزية', 'Arabic, then English'),
                 _txt('العربية فقط', 'Arabic only'),
                 _txt('الإنجليزية ثم العربية', 'English, then Arabic'),
-                _txt('مخصص…', 'Custom…'),
+                _txt('اختر من القائمة…', 'Pick from the list…'),
             )
             pre = presets.index(langs) if langs in presets else 3
             picked = _select_dialog(
@@ -1973,17 +1961,12 @@ def subtitles_dialog():
             if 0 <= picked < len(presets):
                 _ADDON.setSetting('preferred_subtitle_langs', presets[picked])
             elif picked == 3:
-                keyboard = xbmc.Keyboard(
-                    langs or 'ar,en',
-                    _txt('رموز اللغات مفصولة بفاصلة',
-                         'Comma-separated language codes'))
-                keyboard.doModal()
-                if keyboard.isConfirmed():
-                    value = ','.join(
-                        part.strip().lower() for part in
-                        (keyboard.getText() or '').split(',') if part.strip())
-                    if value:
-                        _ADDON.setSetting('preferred_subtitle_langs', value)
+                # v5.10.427: each language picked by name (Nuvio's way), not typed
+                old = [c for c in langs.split(',') if c]
+                codes = lang_picker.edit_order(_txt, _txt('اللغات المفضلة', 'Preferred languages'), old[:3])
+                if codes:
+                    _ADDON.setSetting('preferred_subtitle_langs',
+                                      ','.join(codes + [c for c in old[3:] if c not in codes]))
         elif choice == 2:
             values = (10, 15, 20)
             labels = tuple(_txt('%d ثوانٍ' % value, '%d seconds' % value)
@@ -1996,6 +1979,9 @@ def subtitles_dialog():
             _toggle_setting('enable_stremio_subtitle_broker', 'true')
         elif choice == 4:
             _toggle_setting('never_auto_ai_subtitles', 'true')
+        elif choice == 5:
+            from resources.lib import track_settings
+            track_settings.edit(_ADDON, _txt)
         _invalidate_settings()
 
 
@@ -2389,6 +2375,15 @@ def dispatch():
         return quick_setup()
     if action == 'setup_quality':
         return quality_dialog()
+    if action == 'av_settings':
+        from resources.lib import av_settings
+        return av_settings.show(_ADDON, _txt)
+    if action == 'interface_fonts':
+        from resources.lib import interface_fonts
+        return interface_fonts.choose(_ADDON, _txt)
+    if action == 'track_preferences':
+        from resources.lib import track_settings
+        return track_settings.edit(_ADDON, _txt)
     if action == 'setup_subtitles':
         return subtitles_dialog()
     if action == 'simple_tmdb_api_key':

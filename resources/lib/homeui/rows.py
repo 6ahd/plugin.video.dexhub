@@ -47,7 +47,7 @@ WORK_MEDIATYPES = frozenset(('movie', 'tvshow', 'episode', 'season', 'musicvideo
 
 SHAPES = ('poster', 'landscape', 'square', 'wide', 'ranked', 'tall', 'tall_ranked', 'collage', 'wide_ranked',
           'mosaic', 'stack', 'shelf', 'poster_large', 'feature', 'landscape_info',
-          'collection_spotlight', 'collection_compact', 'collection_ranking')
+          'collection_spotlight', 'collection_compact', 'collection_ranking', 'circle')
 
 
 def _txt(value):
@@ -356,7 +356,12 @@ def tile_from_entry(entry, default_shape='poster'):
         if m:
             ids['tmdb_id'] = m.group(1)
     from ..home_art import first
-    poster = first(art.get('poster'), art.get('tvshow.poster'), art.get('thumb'), art.get('icon'))
+    from ..poster_roles import portrait
+    if work:
+        poster = first(*(portrait(value, (art.get('episode.landscape'),)) for value in
+                         (art.get('tvshow.poster'), art.get('poster'), art.get('thumb'))))
+    else:
+        poster = first(art.get('poster'), art.get('thumb'), art.get('icon'))
     fanart = first(art.get('fanart'), art.get('landscape'), props.get('fanart_image'))
     landscape = first(art.get('landscape'), art.get('thumb'), art.get('fanart'))
     clearlogo = first(art.get('clearlogo'), art.get('logo'), art.get('tvshow.clearlogo'))
@@ -627,6 +632,16 @@ def is_empty_note(tile):
 
 
 def capture_tiles(params, api, shape='poster', works_only=False, limit=60, patience=0.0):
+    from ..catalog_navigation import unwrap
+    params = unwrap(params)
+    if not params:
+        return [], None
+    if params.get('action') in ('skin_folder', 'skin_fold'):
+        from ..catalog_navigation import folder_tiles
+        return folder_tiles(params, api), None
+    if params.get('action') == 'skin_follow':
+        from ..catalog_follow import load_target
+        return load_target(params.get('target') or ''), None
     entries, _elapsed = _capture.run_route(params, api, patience=patience)
     if not entries and _capture.last_error():
         # a crash inside the route is a failure, not an empty catalog

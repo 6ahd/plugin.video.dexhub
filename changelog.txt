@@ -1,3 +1,172 @@
+5.10.431 (skin build 21, skin.dexhub 3.28.162): The version is plain numbers again (5.10.431), as Kodi repositories and the publishing script need; the skin build number lives here in the changelog. Same code as 5.10.430+skin.21.
+
+5.10.430+skin.21: A font of your own (TTF) is added to Kodi's font list without the Default set's name (skin 3.28.161 names every font set, in Arabic in Arabic).
+
+5.10.429+skin.20: Logo circles (row style 'circle'): in the Home row style gallery and on the phone page; drawn by skin 3.28.159 (the add-on's own Home draws it as squares, its grid as square cards).
+
+5.10.428+skin.19: Subtitle and audio languages are picked by name from a list, as in Nuvio (primary, secondary and a third for subtitles; Kodi default or the original audio as the audio's primary) instead of typing codes such as ar,en; the preferred languages show as names. With skin 3.28.158: the plots have room for tall Arabic fonts.
+
+5.10.427+skin.18: The player's subtitles and audio are one page (the Audio and Subtitles buttons open it on their own section: Subtitles, Audio, Look, Kodi's settings for both); the Audio & video menu has one row for them. The interface font is Kodi's Interface > Skin > Fonts setting: Dex Hub no longer keeps a font of its own that it turned Kodi's choice back to (and its check took 9999, Kodi's 'no dialog', for an open dialog, so it seldom applied); it remembers Kodi's font and puts it back once when the skin starts on Default. The font menu opens Kodi's setting or adds a TTF of your own to it.
+
+5.10.426+skin.18: Cover studio. A chosen cover (Collections+ artwork) for any collection, folder or catalog card, kept apart from the collection (collection_covers.json: backups, device sync, the look) so a refresh keeps it and clearing it gives the original back. "Folder cover" and "Catalog cover" in the folder view cards' menu; the account page (DexCloud 2.14) changes covers through api/covers. The phone page lists each catalog's add-on id (collections made on the account page) and each Dex Community folder's cover and cover key (the account page's Dex Community browser). TMDb sources keep a full Discover query (tmdbParams) and accept withCompanies.
+
+5.10.425+skin.18: Collection folder view as a catalog mosaic (a large card, two beside it, a shelf below), each card with a backdrop from its own catalog; Catalogs / Folders pills inside the collection page switch the view in place; the folder view no longer repeats the collection title.
+
+5.10.425+skin.17: Read user media fonts and an optional local font folder. Add interface font weight independently of subtitles. Remove source branding from the font menu. Switch collection poster rows and catalog folder cards inside one window; move controls into skin settings and remove the clock-overlapping button.
+
+5.10.425+skin.16: UI font family and text size in the simple appearance menu, independently of subtitles; unified Audio & video settings. Modern title pages for Stremio progress catalog show cards. Catalog poster rows by default with a folder view choice. Guard late subtitle work and stale page builders; isolate Season 0 source records.
+
+5.10.425
+تسميات خيارَي الزجاج الشفاف وتحديد Apple في إعدادات السكن صارت بلغة Dex Hub مثل باقي الخيارات. يحتاج سكن 3.28.141.
+The labels of the skin's Clear Glass and Apple-style focus options follow Dex Hub's language, as the other settings do. Needs skin 3.28.141.
+
+5.10.424
+الرئيسية تطلع كاملة مرة وحدة مثل Arctic Fuse 3: أول ما يشتغل كودي تبقى شاشة Dex Hub (الشعار وشريط يتحرك) لين تجهز الواجهة وأول الصفوف، وبعدها تختفي بهدوء (أقصى انتظار 15 ثانية، ومفتاحها في صفحة الجوال: «انتظار تجهيز الرئيسية»). وأول 4 صفوف صاروا يتحملون مع بعض بدل ما كل صف ينتظر اللي فوقه، فالرئيسية وتبديل الأقسام أسرع. يحتاج سكن 3.28.139.
+The Home comes whole, as Arctic Fuse 3's does: at Kodi's start Dex Hub's screen (its wordmark and a moving bar) stays until the spotlight and the first rows are in, then fades (15 seconds at most; the switch is on the phone setup page, Wait for the Home to load). And the first four rows load together instead of each waiting for the one above, so the Home and switching sections are quicker. Needs skin 3.28.139.
+
+5.10.423
+بقت بطاقة التصنيف بس: انشالت الكبسولة القديمة (رموز أو كتابة) وخياراتها، وانشال تصميمنا لنوافذ TinyPPI وخيار «معلومات التشغيل»، وTinyPPI صار يشتغل بتصميمه الأصلي (الإضافة تشيل ملفات تصميمنا القديمة من السكن لو بقت). البطاقة لسا تروح للجهة الثانية لو شعارات TinyPPI بنفس جهتها. يحتاج سكن 3.28.138.
+The rating card alone: the old pill (badges or words) and its options are gone, and so are Dex Hub's design of TinyPPI's windows and the Playback info choice; TinyPPI is its own design again (the add-on takes the old design's files out of the skin if they stayed). The card still goes to the other side when TinyPPI's logos sit on its side. Needs skin 3.28.138.
+
+5.10.422
+بطاقة التصنيف ما كانت تطلع على الأجهزة اللي كان فيها الكبسولة قبل (مثل الماك): كودي حافظ الإعدادات القديمة (رموز، ومع OK) فما وصل الافتراضي الجديد. الحين تتحوّل مرة وحدة للبطاقة وأول التشغيل، ولو رجعت اخترت الكبسولة بعدها تبقى.
+The rating card did not come on a device that had the pill before (the Mac): Kodi had kept the old defaults (badges, with OK) in its settings, so the new ones never arrived. They switch once to the card at the start; choosing the pill afterwards stays.
+
+5.10.421
+شكل جديد أول التشغيل مثل نتفلكس: «بطاقة التصنيف». التصنيف العمري كبير (R)، وتحته أسبابه من دليل الوالدين في IMDb (العنف · الألفاظ · الكحول والمخدرات)، وسطر خفيف فيه الجودة والصوت والتقييم، مع خط بنفسجي جنبه. تدخل من الجنب وتبقى ثواني وتطلع، وصارت هي الشكل الافتراضي وتاخذ مكان زاوية دليل الوالدين (يعني شي واحد فوق بدل شيئين). ولو شعارات TinyPPI مكانها نفس الجهة، البطاقة تروح للجهة الثانية. الكبسولة القديمة (رموز أو كتابة) باقية في «الشكل». يحتاج سكن 3.28.137.
+A new look when a film starts, as streaming services show it: the rating card. The age rating large (R), under it what earned it from IMDb's Parents Guide (Violence · Profanity · Drugs), a quiet line with the video, the audio and the rating, and a lavender bar beside it. It slides in, stays a few seconds and leaves; it is the default now and takes the Parents Guide corner's place (one thing at the top, not two). When TinyPPI's logos sit on the same side the card goes to the other. The pill (badges or words) stays under Look. Needs skin 3.28.137.
+
+5.10.420
+الكبسولة صارت تطلع كمان للفيديو اللي ما شغّلته Dex Hub (ملف من الجهاز أو إضافة ثانية) من معلومات كودي نفسه، بعد التشغيل بثواني. وسجل كودي صار يقول بوضوح ليش طلعت أو ما طلعت (السكن مو Dex Hub، مقفلة، «معلومات التشغيل» على TinyPPI، تريلر، أو كودي ما أعطى معلومات الفيديو).
+The capsule also comes for a video Dex Hub did not start (a file on the device, another add-on), from Kodi's own details, a few seconds in. And kodi.log says plainly why it came or did not (another skin, turned off, Playback info on TinyPPI, a trailer, or Kodi gave no video details).
+
+5.10.419
+في خيارات المشغل (وصفحة الجوال) صار فيه «معلومات التشغيل»: Dex Hub أو TinyPPI. Dex Hub: كبسولتنا فوق، وشعارات TinyPPI اللي فوق تنقفل، ونوافذ TinyPPI بتصميمنا. TinyPPI: كبسولتنا تختفي، وشعاراته فوق ترجع (ومع قائمة المشغل لو كانت كبسولتنا تطلع مع OK)، ونوافذه بتصميمه الأصلي. يتبدّل على طول بدون إعادة تشغيل. يحتاج سكن 3.28.136.
+Player options (and the phone setup page) have Playback info: Dex Hub or TinyPPI. Dex Hub: our capsule at the top, TinyPPI's logos at the top off, and TinyPPI's windows in our design. TinyPPI: no capsule, its logos at the top back on (with the player's menu too when our capsule came with OK), and its windows in its own design. It switches straight away, no restart. Needs skin 3.28.136.
+
+5.10.418
+كبسولة التشغيل صارت زجاجية وبالرموز: رموز الجودة (4K وDolby Vision وIMAX، وشارة FEL أو MEL) والصوت (Atmos و7.1.4) وتحتها الترميز ومعدل البت واللغة، والتصنيف العمري مع شعارات التقييمات ودرجاتها (أول ثلاثة من اللي اخترتها لصفحة العمل) بدل النجمة. تطلع أول التشغيل وتغيير المصدر، ومع زر OK تبقى طول ما قائمة المشغل مفتوحة. من الخيارات: متى تظهر (الاثنين، أول التشغيل، مع OK)، الشكل (رموز أو كتابة)، شعارات التقييمات. ومعها رسمنا الصيغ الناقصة: DTS-ES وDTS 96/24 وDTS Express وHE-AAC وAAC-LC وALAC وMP2 و5.1.2 و7.1.2. وسكن 3.28.135 يرسم لوحة TinyPPI ونوافذ VS10 بتصميم Dex Hub (يبقى TinyPPI هو اللي يقرأ كل المعلومات). يحتاج سكن 3.28.135.
+The playback capsule is glass and badges now: the video's badges (4K, Dolby Vision, IMAX, and FEL or MEL), the audio's (Atmos, 7.1.4), under them the codec, bitrate and language, and the age rating with the rating services' logos and scores (the first three chosen for the title page) instead of a star. It shows when a video or another source starts, and with OK for as long as the player's menu is open. Options: when (both, at start, with OK), look (badges or words), rating logos. The formats that had no badge have one: DTS-ES, DTS 96/24, DTS Express, HE-AAC, AAC-LC, ALAC, MP2, 5.1.2, 7.1.2. Skin 3.28.135 also draws TinyPPI's overlay and VS10 dialogs in Dex Hub's design (TinyPPI still reads everything). Needs skin 3.28.135.
+
+5.10.417
+كبسولة التشغيل: أول ما تبدأ الصورة تطلع فوق كبسولة فيها شعار Dex Hub والجودة (مثل 4K DV وتحتها HEVC 10bit · 24.5 Mbps) والصوت (Atmos وتحتها TrueHD 7.1) والتصنيف العمري مع التقييم، تبقى ثواني وتختفي، وما ترجع إلا لو شغّلت من جديد أو غيّرت المصدر. خياراتها في خيارات المشغل وفي صفحة الإعداد من الجوال: تشغيل وإيقاف، التصنيف، المكان (فوق يسار، الوسط، يمين) والمدة (4 أو 6 أو 10 ثواني). دليل الوالدين ينتظرها لين تختفي. يحتاج سكن 3.28.134.
+The playback capsule: once the picture runs a pill at the top shows Dex Hub's mark, the video (4K DV, and under it HEVC 10bit · 24.5 Mbps), the audio (Atmos, and under it TrueHD 7.1) and the age rating with the star rating; it stays a few seconds and fades, and comes again only for a new playback or another source. Its options are in the player options and on the phone setup page: on or off, the rating, the place (top left, centre or right) and how long (4, 6 or 10 seconds). The Parents Guide waits until it is gone. Needs skin 3.28.134.
+
+5.10.416
+دليل الوالدين من IMDb في المشغل صار يطلع بعد ما تبدأ الصورة فعلًا (مع مطابقة معدل التحديث كانت الشاشة سوداء أول ثواني وكان يختفي قبلها)، ومفتاحه صار في خيارات المشغل (البيانات والتقييمات) وفي صفحة الإعداد من الجوال (GitHub #21).
+IMDb's Parents Guide in the player now waits until the picture is running (with refresh rate matching the screen was black for its first seconds and the guide was gone by then), and its switch is in the player options (Metadata and ratings) and on the phone setup page (GitHub #21).
+
+5.10.415
+مزامنة الأجهزة صارت واضحة: كل إعداد وكل ملف (الصفوف، الإضافات، الكوليكشن…) يتزامن لحاله، وتختار من صفحة حسابك: «آخر تعديل يفوز» (آخر شي غيّرته في أي تلفزيون يمشي على الكل بدون ما يمسح اللي غيّرته في تلفزيون ثاني) أو «تلفزيون واحد مصدر» (الباقي يتبعونه وما يرسلون). اللي يغيّره تحديث الإضافة أو السكن ما ينرسل أبد، ولا علامات الإضافة الداخلية ولا إعدادات الشاشة نفسها. يحتاج DexCloud ‏2.13.
+Syncing the TVs is clear now: each setting and file (rows, add-ons, collections...) syncs on its own, and your account page picks how: Latest change wins (the last thing changed on any TV goes to all, without undoing what another TV changed) or One TV is the source (the others follow it and send nothing). What an add-on or skin update changes never goes up, nor the add-on's own bookkeeping or this screen's own settings. Needs DexCloud 2.13.
+
+5.10.414
+في صفحة المسلسل: OK على الموسم يوديك لحلقاته على طول (كان يفتح قائمة كل المواسم حتى لو أنت واقف على الموسم الصح، والاختيار منها كان يكرر الانتقال). قائمة كل المواسم صارت بالضغط المطوّل، ولو اخترت منها نفس الموسم تروح لحلقاته. يحتاج سكن 3.28.132.
+On a show's page OK on a season goes straight to its episodes (it opened the list of all seasons even with the cursor on the right one, and picking from it moved the focus a second time). The list of all seasons is on a long press, and picking the season you are on goes to its episodes. Needs skin 3.28.132.
+
+5.10.413
+صفّين المراجعات والصور ما عادوا يبطّئون فتح صفحة العمل: يتحمّلون بالتدريج تحت الصفوف اللي فوقهم (المراجعات بعد طاقم التمثيل، والصور بعد المراجعات)، وبياناتهم تنقرأ مسبقًا وأنت واقف على البطاقة في الرئيسية، فلما تفتح العمل وتنزل تلقاهم جاهزين. ولو فشل تحميلهم مرة يتعاد لحاله. يحتاج سكن 3.28.130.
+The Reviews and Pictures rows no longer slow the title page down: they load one after another under the rows above them (Reviews after Cast, Pictures after Reviews), and their data is read ahead while the cursor rests on the card on the Home, so they are ready when you open the title and go down. A load that fails is tried again by itself. Needs skin 3.28.130.
+
+5.10.412
+في الواجهة الإنجليزية كانت كلمة «حلقة» تطلع Ring بدل Episode (على البطاقات وسطر النوع وشاشة التوقف). Trakt المقفل من الإعدادات صار يخفي تبويب الأصحاب وبطاقة كتابة المراجعة بدل ما يرجّع Trakt شغّال، ورمز Trakt المنتهي يتجدد قبل جلب المراجعات والأصحاب. السكن 3.28.129: رموز المصدر لملفات 4K وWEB-DL وHD-DVD وSDTV صارت تطلع.
+In English the word for episode showed as Ring (cards, the type line, the screensaver). With Trakt turned off in the settings the Friends tab and the review card stay hidden instead of turning Trakt back on, and an expired Trakt token is renewed before reviews and friends are read. Skin 3.28.129 shows the source flag of 4K, WEB-DL, HD-DVD and SDTV files.
+
+5.10.411
+رجع التريلر داخل البطاقة في السكن 3.28.128 (كان يطلع أسود من 3.28.124). جلب التريلر يجرّب الفيديو الثاني والثالث قبل ما يعتبر العمل بدون تريلر، ويعيد المحاولة مرة لو صار خطأ في الشبكة. إصلاح «تحديث الرئيسية» من القائمة (كان يطيح بخطأ). وإصلاح ملف addon.xml في 5.10.410 (علامة & في وصف التحديث كانت تخرّب الملف وممكن تمنع التثبيت).
+The trailer inside the focused card is back with skin 3.28.128 (it was black since 3.28.124). The trailer lookup tries the second and third video before a title counts as having no trailer, and tries once more after a network error. Refresh Home from the menu works again (it failed with an error). The addon.xml of 5.10.410 did not parse (an unescaped ampersand in its news), which could stop the install.
+
+5.10.410
+«تغيير الصور» و«المراجعات» انشالت من «المزيد» في صفحة العمل لأنها صارت صفوف في الصفحة. وصفحة الإعداد من الجوال صار فيها «شكل رموز الجودة» في قسم المشغل: مؤطرة، Elite، ذهبية، بيضاء، Colorful & Concise، BetterFormatter، Nosvasedis، كلمات، سطر واحد أو بدون.
+Change artwork and Reviews left the title page's More menu (they are rows of the page now). The phone setup page has Badge style under Player: Framed, Elite, Gold, Minimalist white, Colorful & Concise, BetterFormatter, the Nosvasedis packs, Words, One line or None.
+
+5.10.409
+خلفية الانتظار قبل التشغيل تنفتح مرة وحدة للي كانت عندهم مقفلة من النسخ القديمة (كانت مقفلة افتراضيًا قبل 5.10.405 وKodi حافظ «مقفلة» في إعداداتك، فما وصلها التغيير)، ولو قفلتها بعدها تبقى مقفلة. وإصلاح إرسال مكان المشاهدة لسيرفر Plex لما المصدر ما فيه معرّف جهاز (كان يطيح بخطأ client_id).
+The loading artwork is turned on once for installs that still had it off from before 5.10.405 (it was off by default then and Kodi kept that "off" in your settings, so the new default never reached you); turning it off again afterwards stays off. The Plex progress report no longer fails with client_id when a source has no device id of its own.
+
+5.10.408
+Kodi 22 beta1 كان يشغّل ملف شاشة التوقف لطلبات الإضافة (كل ودجت وصف في الرئيسية) ويعلق عند «waiting on thread». صارت الإضافة وشاشة التوقف تدخل من ملف واحد (default.py) فما يلقى Kodi ملف ثاني يشغّله، وشاشة التوقف باقية تشتغل. ما يحتاج مفتاح «Plugin Entry Fix» في الـpatcher لهالنسخة وبعدها.
+Kodi 22 beta1 ran the screensaver file for the add-on's calls (every widget and Home row), which then hung on "waiting on thread". The add-on and its screensaver now share one entry (default.py), so Kodi has no other file to run, and the screensaver still works. The patcher's Plugin Entry Fix is not needed from this version on.
+
+5.10.407
+اختيار خلفية أو شعار من «الصور والشعارات» صار يطبق (في Kodi 22 على CoreELEC كان الضغط يحاول يشغّل ملف فاضي بدل ما يختار)، ونفس الإصلاح لبطاقات المراجعات. بطاقات المراجعات صارت أعرض وفيها ثلاث أسطر كاملة والاسم الطويل يتحرك بدل ما يزاحم التقييم. سطور «الأصحاب» صارت أقصر: الحلقة واسمها بسطر، واسم الشخص بسطر. وسجل كودي صار يكتب ليش ما طلعت خلفية الانتظار لو ما طلعت. يحتاج سكن 3.28.126 (فيه إصلاح خلفية الانتظار: كانت تنرسم تحت صفحة العمل فما تبين).
+Picking a backdrop or logo under Pictures and logos now applies it (on Kodi 22 / CoreELEC the click tried to play an empty file instead), and the review cards got the same fix. Review cards are wider with three whole lines, and a long name scrolls instead of running into the rating. Friends rows are shorter: the episode and its name on one line, the person on the next. The log now says why the loading artwork was not shown when it is not. Needs skin 3.28.126 (the loading artwork was drawn under the title page, so it never showed).
+
+5.10.406
+صفحة العمل فيها صفّين جديدين تحت طاقم التمثيل بدون ما تدخل «المزيد»: «المراجعات والتعليقات» من Trakt وTMDb ببطاقات فيها الاسم والمصدر والتقييم والإعجابات ومقطع من المراجعة (اللي فيها حرق تبقى مخفية لين تفتحها)، وبطاقة «اكتب مراجعتك» تنشرها في Trakt باسمك؛ و«الصور والشعارات» تختار منها خلفية العمل أو شعاره وتتغير الصفحة على طول، مع «الصور الأصلية» للرجوع. وفي الجزيرة تبويب «الأصحاب»: ايش خلّص اللي تتابعهم في Trakt مؤخرًا (المسلسل الواحد سطر واحد بآخر حلقة)، وOK يفتح العمل. يحتاج سكن Dex Hub ‏3.28.125.
+Two new rows on the title page under Cast, no need to open More: Reviews and comments from Trakt and TMDb as cards (author, source, rating, likes and an excerpt; spoilers stay hidden until opened) with a Write your review card that posts to Trakt under your name, and Pictures and logos to pick the backdrop or logo, applied at once, with Original pictures to go back. The island has a Friends tab: what the people you follow on Trakt watched lately (a show is one row with its latest episode); OK opens the title. Needs skin Dex Hub 3.28.125.
+
+5.10.405
+خلفية العمل وشعاره صارت تطلع أول ما تختار المصدر وتبقى لين أول صورة من الفيديو، بدل الشاشة الفاضية وقت التجهيز وانتظار الترجمة، وصارت شغّالة افتراضيًا. ما تطلع أبد لو غيّرت المصدر من داخل المشغل (حتى لو أخذ التبديل وقت طويل) ولا فوق فيديو شغّال، وتختفي لو صار خطأ قبل التشغيل أو انفتح مشغل خارجي. وزر «حلقة عشوائية» في «المزيد» بصفحة المسلسل.
+The title artwork now covers the wait from choosing a source to the first frame (it showed only at the hand-off, after the subtitle wait, on a plain screen), and is on by default. Never shown for a source switched in the player (now for the whole switch, not only its first 15 s) or over a playing video; taken down by an error before playback or an external player. Random episode in a show page's More menu.
+
+5.10.404
+صفحة الإعداد من باركود الجوال صارت بنفس شكل موقع DexCloud: قسم «الكوليكشن» فيه اختصارات Kaptain وcollections.wixct.cc وخانة لصق الرابط وكوليكشنك وزر «حطها صف»، وبطاقة DexCloud تبين حسابك وتفتح الموقع أو تربط التلفزيون بضغطة.
+The phone setup page (the QR on the TV) now matches the DexCloud site: a Collections section with Kaptain and collections.wixct.cc, a paste box, your collections and Add as row, and a DexCloud card that shows the account, opens the site or links the TV in one tap.
+
+5.10.403
+صفحة الإعداد وموقع DexCloud يقدرون يرسلون رابط كوليكشن (Kaptain أو collections.wixct.cc) للتلفزيون مباشرة، بدل ما تكتبه بالريموت، وتطلع مجلداتها في «كوليكشن جاهز».
+The phone setup page and the DexCloud site can send a collection link (Kaptain, collections.wixct.cc) straight to the TV instead of typing it on the remote; its folders then show in Ready collections. Needs DexCloud hub 2.12 for the site.
+
+5.10.402
+إصلاح صفحة الإعداد من الجوال: ما عاد ينمسح اللي تكتبه أو تلصقه (عنوان السيرفر، اسم المستخدم، PIN) كل ثلاث ثواني أو لما ترجع للصفحة. لصق روابط الإضافات صار يقبل النص المنسوخ من المحادثات والملاحظات ويشيل علامات الاتجاه المخفية، ورابط صفحة configure يتحول لـ manifest. ربط Silo من الجوال يقبل عناوين الشبكة المنزلية مثل 192.168.1.10:8090 (كان يفرض https فما يرد السيرفر) والرابط المنسوخ من المتصفح، مع زر «ابدأ من جديد»، وإعادة محاولة قراءة البروفايلات بعد الموافقة. ترتيب الصفوف ما عاد يرجع لمكانه القديم أثناء الحفظ. أول فتح للصفحة صار يتبع لغة التلفزيون (كانت تفتح بالعربي دايم). من الجوال تقدر تحط كتالوجات إضافاتك صفوف في الرئيسية («+ كتالوج من إضافاتك»)، وبعد إضافة أي إضافة يطلع لك اقتراح تحط كتالوجاتها. الإضافات اللي على شبكة البيت بدون https تنضاف بعد موافقتك من الجوال. رسائل أوضح لما عنوان Silo غلط أو السيرفر ما يرد. بطاقات معالج الإعداد ما عاد ينقص سطر الوصف الثاني.
+Phone setup: typed or pasted text (server address, username, PIN) is no longer wiped by the 3-second poll or when returning to the page. Add-on links paste from chats and notes: invisible direction marks and surrounding text are removed, and a /configure page link becomes its manifest. Silo pairing from the phone accepts LAN addresses such as 192.168.1.10:8090 (https was forced, so the server never answered) and links copied from the browser, adds Start over, and retries the profile list after approval. Reordered rows no longer jump back while the new order is saved. The page now opens in the TV's language on a new phone (it always opened in Arabic). Add-on catalogs can be put on the Home from the phone (+ Catalog from your add-ons), and adding an add-on offers to do it. Add-ons on the home network without https are added after you confirm on the phone. Clear messages when a Silo address is wrong or the server does not answer. Setup wizard cards no longer clip the second description line.
+
+5.10.401
+Show loading artwork only for an initial playback start; never on source replacement or over an active video. Remove repeated/conflicting resolution badges and separate the player source quality label from technical badges. Includes the Next episode watched-history and persistent shelf-removal fixes from 5.10.400. Seek previews remain removed.
+
+5.10.400
+Fix Next episode suggestions resurrecting watched episodes or completed series. Persist watched marks for unsaved episode suggestions and report failed saves correctly. Add Remove from Next episode with profile-local persistence across provider refreshes; actual playback can show it again. Revalidate cached suggestions and refresh progress shelves after edits. Retain the release without seek previews.
+
+5.10.399
+Remove seek-preview extraction, Seekr/server thumbnail lookups, prefetch workers and related settings. Native Kodi seeking remains available. Preserve built-in intro/recap skipping, loading artwork and all prior sync fixes.
+
+5.10.398
+Show pending button offsets immediately before Kodi commits a delayed seek. Prioritize the newest button seek using isolated cancellable range readers and dedicated foreground workers. Cancel superseded queued images instead of waiting for them. Continue bounded rolling look-ahead during playback. Faster input polling; mouse previews remain disabled.
+
+5.10.397
+Button-only seek previews. Mouse movement, OSD hover and mouse-slider seeks never start a preview. Prepare nearby button targets with strict traffic limits, reuse actual keyframes and display ready images directly from RAM. Faster input polling; preserves all sync and intro fixes.
+
+5.10.396
+Fix seek preview flicker and stale target jumps. Render only for actual seek input or playback seek events; cache late images silently instead of reopening over video when controls appear. Keep the image mounted across updates and observe active seeks every 100ms. Retains sync, skip and translation fixes.
+
+5.10.395
+Fix seek thumbnail rendering by retaining the parent Kodi window while updating its image control. Keep the latest requested seek target through bounded thumbnail loading, then show the completed image briefly. Clear previews on video/profile changes, leaving fullscreen or disabling previews. Retains English player settings, intro lifetime, optional loading artwork and synchronization fixes.
+
+5.10.394
+Fix native seek previews timing out on remote files: coalesce neighbouring frame packet reads, bound the in-memory byte cache to 4 MiB, warm seek tables on the existing background job and allow transient index retries. Complete English translations for new player presentation and artwork-loading settings. Retains the 5.10.393 loading option, Nuvio/Stremio sync and Skip Intro fixes.
+
+5.10.393
+Optional artwork while loading, off by default: skin-owned modeless backdrop and logo, fading out on Kodi Player.OnAVStart (first frame available). Automatic cleanup on cancellation, failure, profile changes and timeout; no modal waiters or playback delays. Retains seek previews, Nuvio sync and Skip Intro fixes.
+
+5.10.392
+Native on-demand seek previews from indexed MKV/MP4 video using Kodi thumbnail decoding, without an external decoder or Seekr key. Bounded byte-range reads, cancellable worker, aspect-preserving frames and 64 MiB cache. Preserve server previews, optional Seekr fallback, Nuvio zero-position sync fix and full Skip Intro lifetime.
+
+5.10.391
+Fix Nuvio progress sync failing for zero-position movie/episode rows: do not read Stremio watched counters from Nuvio RPC entries. Preserve zero resume, complete Nuvio progress, full Skip Intro interval lifetime and the existing Stremio upload contract.
+
+5.10.390
+Keep manual Skip Intro/Recap available for the complete detected segment. Player controls, seeking, pause and leaving fullscreen no longer permanently dismiss the button; only explicit dismissal or successful skipping does. Restore after temporary controls, close at the segment end. Preserve Stremio sync format and all 5.10.389 fixes.
+
+5.10.389
+Stremio two-way add-on and watch progress sync using official descriptors and libraryItem fields, watched episode bitfields and completion counters. Phone setup now offers explicit pull, push and two-way jobs with progress/results and automatic sync preferences. Temporary removed library items remain eligible for continue watching; preserve remote add-ons, flags and newer progress.
+
+5.10.387
+إصلاح بيانات الهيرو القديمة عند قراءة الصفوف المحفوظة، وإلغاء قص حقول المواسم والحالة، وضبط ارتفاع الوصف وإخفاء وقت الانتهاء من المجلدات. تثبيت أزرار الهيرو والتركيز أثناء تحديث الصور والتقييمات، وإيقاف ظهور شعار الاستديو القديم قبل الجديد. مزامنة حذف متابعة المشاهدة من Nuvio مع حماية التقدم الأحدث، وإظهار الحلقة التالية الصادرة بعد اكتمال الحالية. إعدادات أوضح لحجم ومكان شعاري العمل والاستديو والوصف والشارات، وتغيير مكان الشارات دون إعادة تحميل السكين. تدرج خفيف متلاشي خلف النص ونسب موحدة للهيدر المختصر.
+Mac verification: compact cached hero facts, no truncated season/status fields, complete plot lines, and no false finish time on folders. Stable hero actions during artwork reloads and ratings updates; focused studio logos commit once without legacy fallback. Reconcile Nuvio progress deletions without resurrecting acknowledged rows or deleting newer local playback. Released next episodes join Continue Watching after completion, with background metadata loading. Element-based live player logo/studio sizes and positions, plot typography/width/scrolling and quality badge controls; badge placement no longer reloads the skin. Feathered hero text shade and shared compact proportions.
+
+5.10.386
+تثبيت أزرار الهيرو والتركيز أثناء تحديث الصور والتقييمات، وإيقاف ظهور شعار الاستديو القديم قبل الجديد. مزامنة حذف متابعة المشاهدة من Nuvio مع حماية التقدم الأحدث، وإظهار الحلقة التالية الصادرة بعد اكتمال الحالية. إعدادات أوضح لحجم ومكان شعاري العمل والاستديو والوصف والشارات، وتغيير مكان الشارات دون إعادة تحميل السكين. تدرج خفيف متلاشي خلف النص ونسب موحدة للهيدر المختصر.
+Stable hero actions during artwork reloads and ratings updates; focused studio logos commit once without legacy fallback. Reconcile Nuvio progress deletions without resurrecting acknowledged rows or deleting newer local playback. Released next episodes join Continue Watching after completion, with background metadata loading. Element-based live player logo/studio sizes and positions, plot typography/width/scrolling and quality badge controls; badge placement no longer reloads the skin. Feathered hero text shade and shared compact proportions.
+
+5.10.385
+توحيد شعارات الاستديو الشفافة في الرئيسية وصفحة العمل، وتفضيل العلامات البيضاء وقص الهوامش الزائدة من الصور المحلية. تختفي خانة الاستديو والفاصل عند غياب الشعار، ويستفيد التقييم من العرض كاملًا.
+Unified transparent studio marks on Home and title pages. Prefer white wordmarks, trim readable local logo margins, remove neutral app plates, and collapse missing studio slots together with their divider. Ratings reclaim the full row when no studio logo exists.
+
+5.10.384
+تنسيق بيانات الهيرو بعرض محدد وتصنيفين فقط، والتصنيف العمري في خانة مستقلة، وسطر موحّد للاستديو والتقييم، وتوحيد عرض الوصف. اسم الحلقة الطويل يبقى في صفحة العمل.
+Bounded Home facts with two genres, a dedicated certification label, a separate aligned studio/ratings line, and consistent plot width. Long episode names stay on the title page.
+
 5.10.383
 زر «تخطي المقدمة» صار مستطيل أبيض بزوايا ناعمة وكتابة سوداء مثل Apple TV ونتفلكس. كان يطلع أسود لأن كودي ما يقرأ مسار الصورة المكتوب بـ $INFO في خلفيات الأزرار، فما كان يرسم خلفيته أبد. ونفس الخلل صلحته في كل نوافذ Dex Hub: خلفيات الأزرار وأقنعة الزوايا الدائرية صارت بمسار الإضافة الحقيقي. وفي نسخة Apple TV النوافذ كانت تقرأ خاصية الإضافة العادية بدل خاصيتها، فبعض صورها ما كانت تطلع.
 The Skip intro button is a white rounded rectangle with black text, as on Apple TV and Netflix. It showed dark because Kodi reads a button's textures literally and never resolved the $INFO path, so no background was drawn. The same fix applies to every Dex Hub window: button backgrounds and rounded-corner masks now use the add-on's real path. On the Apple TV flavour the windows read the main add-on's asset property instead of their own, so some images did not show.

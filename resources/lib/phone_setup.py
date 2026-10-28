@@ -20,6 +20,7 @@ Routes (all under /<token>/):
   POST api/login       {service, server, user, password}
   POST api/code        {service}               Nuvio, Trakt, Plex: a code
   POST api/tv          {service}               open that sign-in on the TV
+  POST api/sync        {service: stremio, op: configure|run|status, direction}
   POST api/logout      {service}
   POST api/home        {page, op, ...}         rows, styles, collections (every page)
   POST api/pref        {key, value}            v5.10.286: a Home/display preference
@@ -33,6 +34,7 @@ Routes (all under /<token>/):
 from . import profile_scope as _scope
 
 import json
+import re
 import os
 import threading
 import time
@@ -59,6 +61,10 @@ TOGGLES = {
     'autosync': ('autosync_enabled', True),
     'meta_badges': ('metadata_badges', True),
 }
+# v5.10.410: the phone's badge styles (player_badges' styles and ready packs)
+BADGE_CHOICES = ('colorful', 'elite', 'gold', 'white', 'sterzeck', 'betterformatter', 'nosv_transparent',
+                 'nosv_mono', 'nosv_solid', 'nosv_classic', 'minimal', 'compact', 'off')
+
 LABELS = (
     ('homeui_show_row_source', ('true', 'false')),
     ('homeui_title_style', ('logo', 'text')),
@@ -431,15 +437,57 @@ def _home(page=None):
     groups = []
     if page in _EDITABLE:
         try:
+            from .cover_overrides import folder_key
             for g in community.groups():
                 if g.get('loose'):
                     continue
-                groups.append({'id': g['id'], 'name': g['name'],
-                               'folders': [{'id': f['id'], 'name': f['name']} for f in g.get('folders') or []]})
+                # v5.10.426: each folder's cover (a chosen one when there is)
+                # and its cover key, for DexCloud's Dex Community browser
+                groups.append({'id': g['id'], 'name': g['name'], 'imported': bool(g.get('set_name')),
+                               'folders': [{'id': f['id'], 'name': f['name'], 'cover': f.get('cover') or '',
+                                            'shape': f.get('shape') or '', 'logo': f.get('logo') or '',
+                                            'catalogs': len(f.get('catalogs') or []),
+                                            'key': folder_key(g.get('set_id'), g.get('entry_id'), f['id'])}
+                                           for f in g.get('folders') or []]})
         except Exception:
             _log('community groups: %s' % traceback.format_exc(), xbmc.LOGWARNING)
     return {'page': page, 'pages': _pages(), 'rows': out, 'groups': groups,
+            'catalogs': _catalogs(app, page) if page in _EDITABLE else [],
             'editable': page in _EDITABLE}
+
+
+def _catalog_ref(params):
+    params = params or {}
+    return '%s|%s|%s' % (params.get('provider_id') or '', params.get('media_type') or '',
+                         params.get('catalog_id') or '')
+
+
+def _catalogs(app, page):
+    """v5.10.402: the catalogs of the installed add-ons, for the phone's
+    "add a catalog row" sheet (a Home without Nuvio shows no add-on row
+    until one is put there), each saying whether this page has it."""
+    from .homeui import layout_pick as LP
+    added = set(_catalog_ref(c.get('params')) for c in app.layout.page(page)['custom']
+                if (c.get('params') or {}).get('action') == 'catalog_all')
+    want = page if page in ('movie', 'series') else ''
+    out = []
+    try:
+        for provider, catalogs in LP.catalog_choices(app.api()):
+            name = LP._provider_name(provider)
+            for cat in catalogs:
+                if want and cat.get('type') != want:
+                    continue
+                ref = _catalog_ref({'provider_id': provider.get('id'), 'media_type': cat.get('type'),
+                                    'catalog_id': cat.get('id')})
+                # v5.10.426: the add-on's manifest id and the catalog's own id
+                # (the account page makes collections of chosen catalogs)
+                out.append({'ref': ref, 'source': name, 'type': str(cat.get('type') or ''),
+                            'name': LP.clean_label(cat.get('name') or cat.get('id')), 'added': ref in added,
+                            'addon_id': str((provider.get('manifest') or {}).get('id') or ''),
+                            'catalog_id': str(cat.get('id') or '')})
+    except Exception:
+        _log('catalog choices: %s' % traceback.format_exc(), xbmc.LOGWARNING)
+    return out
 
 
 # ------------------------------------------------------------------ the server
@@ -453,6 +501,9 @@ class Session(object):
         self.done = False
         self.codes = {}             # service: {code, url, link, status, error}
         self.silo_pending = None    # a Silo account waiting for its profile
+        self.silo_gen = 0           # bumped by a new pairing or a cancel; stale polls stop
+        self.cloud_pair = None      # v5.10.404: a DexCloud link started from the page
+        self.stremio_job = None
         self.changes = 0
         self.uploads = {}
         self.refresh_after = False  # v5.10.286: rows read again once the TV window closes
@@ -497,6 +548,10 @@ class Session(object):
                     pending = {'status': 'profile', 'profiles': choices}
             if pending and not row['linked']:
                 row['pairing'] = pending
+            if key == 'stremio':
+                from .dexhub import nuvio_stremio_sync as sync
+                row['sync'] = dict(enabled=_flag('stremio_sync_enabled',False),direction=sync._direction_for('stremio'), **sync._sections_for('stremio'))
+                with self.lock:row['sync']['job'] = dict(self.stremio_job or {})
             services[key] = row
         from .dexhub.nuvio_stremio_sync import Nuvio
         identity = Nuvio.token()
@@ -519,6 +574,7 @@ class Session(object):
             'homeui_poster_scale': _scale(),
             'trailer_status': xbmcgui.Window(10000).getProperty('dhs.trailer.notice'),
             'addon_version': _addon().getAddonInfo('version'),
+            'cloud': self._cloud_info(),
             'skin_id': xbmc.getSkinDir(),
         }
         for key, values in LABELS:
@@ -529,6 +585,10 @@ class Session(object):
             from . import ui_preferences as UP
             data['prefs'] = dict((k, UP.value(k)) for k in UP.OPTIONS)
             data['prefs_choices'] = dict((k, list(v[1]) if v[1] else None) for k, v in UP.OPTIONS.items())
+            # v5.10.410: the badges' style, as the TV's Player badges list
+            from . import player_badges as PB
+            data['prefs']['player_badge_choice'] = PB.style_key()
+            data['prefs_choices']['player_badge_choice'] = list(BADGE_CHOICES)
             if xbmc.getSkinDir() != 'skin.dexhub':
                 # v5.10.364: layouts and the tabs' place are skin.dexhub's
                 data['prefs_choices']['homeui_layout_mode'] = []
@@ -662,6 +722,8 @@ class Session(object):
     def pref(self, body):
         """v5.10.286: a Home/display preference or a control centre entry."""
         key, value = str(body.get('key') or ''), body.get('value')
+        if key == 'player_badge_choice':
+            return self._badge_choice(str(value or ''))
         options = _ui_options()
         if key in options:
             self._ui_pref(key, value)
@@ -678,6 +740,16 @@ class Session(object):
                     self.refresh_after = True
             return {'ok': True, 'key': key, 'value': control.phone_values().get(key)}
         raise ValueError('unknown setting')
+
+    def _badge_choice(self, value):
+        """v5.10.410: a style (Framed, Minimal, Compact, None) or one of the
+        ready packs; a pack is read once, on the TV, as from its own list."""
+        from . import player_badges as PB
+        if value not in BADGE_CHOICES:
+            raise ValueError('unknown badge style')
+        done = (PB.select_style(value, quiet=True) if value in PB.STYLES
+                else PB.use_preset(value, quiet=True))
+        return {'ok': bool(done), 'key': 'player_badge_choice', 'value': PB.style_key()}
 
     def _meta_refresh(self):
         try:
@@ -708,12 +780,23 @@ class Session(object):
         if body.get('op') == 'remove':
             store.remove_provider(str(body.get('id') or ''))
         else:
-            url = str(body.get('url') or '').strip()
+            from .dexhub.links import manifest_link
+            url = manifest_link(body.get('url'))
             if not url:
                 raise ValueError('no url')
-            if url.startswith('http://'):
-                url = 'https://' + url[7:]       # the TV's own add flow upgrades the same way
-            row = api.add_provider_from_url(url)
+            if url.lower().startswith('http://'):
+                # the TV's own add flow upgrades the same way, and asks before
+                # plain http; v5.10.402: the person on the phone answers that
+                # question there (an add-on on the home network has no https)
+                try:
+                    row = api.add_provider_from_url('https://' + url[7:])
+                except Exception as exc:
+                    if not body.get('allow_http'):
+                        _log('add-on over https failed (%s); asking the phone about http' % exc)
+                        return {'ok': True, 'need_http': True, 'addons': _addons()}
+                    row = api.add_provider_from_url(url)
+            else:
+                row = api.add_provider_from_url(url)
             _log('add-on added: %s' % ((row or {}).get('name') or '?'))
         _republish('sources')
         return {'ok': True, 'addons': _addons()}
@@ -734,7 +817,11 @@ class Session(object):
         elif service == 'silo':
             # v5.10.242: the profile (and its PIN) is chosen on the phone next
             from .providers import silo_provider
-            return self._silo_profiles(silo_provider.login_account(server, user, password))
+            try:
+                pending = silo_provider.login_account(server, user, password)
+            except Exception as exc:
+                raise self._silo_failed(exc)
+            return self._silo_profiles(pending)
         elif service == 'iptv':
             self._iptv(server, user, password)
         else:
@@ -780,6 +867,45 @@ class Session(object):
             pass
         _republish('accounts')
 
+    def sync(self, body):
+        """Explicit Stremio settings and one-shot background runs from phone."""
+        from .dexhub import nuvio_stremio_sync as cloud
+        if body.get('service') != 'stremio':
+            raise ValueError('Unknown sync service')
+        operation = body.get('op','run')
+        if operation == 'status':
+            with self.lock:return {'ok':True,'job':dict(self.stremio_job or {})}
+        direction = body.get('direction','both')
+        if direction not in ('pull','push','both'):
+            raise ValueError('Unknown sync direction')
+        if operation == 'configure':
+            if any(type(body.get(k)) is not bool for k in ('enabled','addons','progress')):
+                raise ValueError('Invalid sync switches')
+            for field in ('enabled','addons','progress'):
+                _set('stremio_sync_'+field,'true' if body[field] else 'false')
+            _set('stremio_sync_direction',{'both':'Two-way','push':'Upload only','pull':'Download only'}[direction])
+            return {'ok':True}
+        if operation != 'run' or not cloud.Stremio.is_linked():
+            raise ValueError('Link Stremio first')
+        if not any(_flag('stremio_sync_'+k,True) for k in ('addons','progress')):
+            raise ValueError('Select add-ons or watch progress first')
+        with self.lock:
+            if self.stremio_job and self.stremio_job.get('status') == 'running':
+                return {'ok':True,'job':dict(self.stremio_job)}
+            self.stremio_job = {'status':'running','direction':direction}
+        def run():
+            try:
+                result = cloud.run_sync(direction=direction,targets=['stremio'],force_full=True,
+                    sections={'addons':_flag('stremio_sync_addons',True),'progress':_flag('stremio_sync_progress',True),'collections':False,'library':False})
+                job = {'status':'done','result':result}
+                self.refresh_after = True
+            except Exception as exc:
+                job = {'status':'failed','error':cloud._short_url(str(exc))}
+            with self.lock:self.stremio_job = job
+        thread = threading.Thread(target=_scope.capture(run),name='StremioPhoneSync',daemon=True)
+        thread.start()
+        return {'ok':True,'job':{'status':'running','direction':direction}}
+
     def _after_link(self, service):
         """Pull the account's add-ons and Home the way the TV sign-in does."""
         _republish('accounts')
@@ -804,6 +930,7 @@ class Session(object):
             self._servers_changed(service)
         elif service == 'silo':
             from .providers import silo_provider
+            self._silo_reset()
             silo_provider.sign_out()
             self._servers_changed('silo')
         elif service == 'trakt':
@@ -868,19 +995,35 @@ class Session(object):
             server = str(body.get('server') or '').strip()
             if not server:
                 raise ValueError(_tr('اكتب عنوان السيرفر'))
-            if '://' not in server:
-                server = 'https://' + server
-            pairing = silo_provider.start_device_login(server)
+            # v5.10.402: the address goes as typed; the provider cleans pasted
+            # text and tries http for LAN addresses (https was forced here, so
+            # 192.168.x.x:port servers never answered from the phone)
+            try:
+                pairing = silo_provider.start_device_login(server)
+            except Exception as exc:
+                raise self._silo_failed(exc)
             url = str(pairing.get('verification_uri_complete') or pairing.get('verification_uri') or '')
-            info = {'code': str(pairing.get('user_code') or ''), 'url': url, 'status': 'pending'}
+            info = {'code': str(pairing.get('user_code') or ''), 'url': url, 'status': 'pending',
+                    'server': str(pairing.get('_server_url') or '')}
+            with self.lock:
+                self.silo_gen += 1
+                gen = self.silo_gen
+            approved = {}
 
             def poll():
-                status, value = silo_provider.poll_device_login(pairing)
-                if status == 'approved' and isinstance(value, dict) and value.get('token'):
-                    return 'ok' if self._silo_profiles(value).get('linked') else 'profile'
-                if status in ('denied', 'expired', 'consumed'):
-                    return status
-                return 'pending'
+                with self.lock:
+                    if gen != self.silo_gen:
+                        return 'cancelled'
+                if not approved:
+                    status, value = silo_provider.poll_device_login(pairing)
+                    if status in ('denied', 'expired', 'consumed'):
+                        return status
+                    if not (status == 'approved' and isinstance(value, dict) and value.get('token')):
+                        return 'pending'
+                    approved.update(value)
+                # the device code is spent once approved: a failed profile
+                # read retries with the same tokens instead of polling again
+                return 'ok' if self._silo_profiles(dict(approved)).get('linked') else 'profile'
             every = max(2, min(int(pairing.get('interval') or 5), 10))
             life = max(60, min(int(pairing.get('expires_in') or 300), 900))
         else:
@@ -910,6 +1053,8 @@ class Session(object):
                 break
         if status == 'profile':
             return                      # the phone picks the profile now
+        if status == 'cancelled' and service == 'silo':
+            return                      # a newer pairing (or a cancel) owns the card now
         with self.lock:
             if service in self.codes:
                 self.codes[service]['status'] = status if status != 'pending' else 'expired'
@@ -946,6 +1091,23 @@ class Session(object):
                 self.codes.pop(service, None)
 
     # -------------------------------------------------------------- Silo
+    @staticmethod
+    def _silo_failed(exc):
+        """v5.10.402: what the phone says when a Silo address does not work
+        (it showed 'HTTP Error 404: File not found' or a socket error)."""
+        status = getattr(exc, 'code', None) or getattr(exc, 'status', 0) or 0
+        text = str(exc or '')
+        low = text.lower()
+        if status in (404, 405) or 'not found' in low or 'غير صالح' in text:
+            return ValueError(_tr('هذا العنوان ما فيه سيرفر Silo. تأكد من العنوان والمنفذ'))
+        if status in (401, 403):
+            return ValueError(text if text and not text.lower().startswith('http error') else
+                              _tr('السيرفر رفض الدخول، تأكد من اسم المستخدم وكلمة المرور'))
+        if any(k in low for k in ('refused', 'timed out', 'timeout', 'unreachable', 'name or service',
+                                   'getaddrinfo', 'no route', 'reset by peer', 'ssl', 'certificate')):
+            return ValueError(_tr('ما وصلنا للسيرفر. تأكد إن Silo شغال وإن العنوان صحيح'))
+        return exc
+
     def _silo_profiles(self, pending):
         """A signed-in Silo account: one open profile links at once; else the
         phone shows the profiles (a locked one asks for its PIN there)."""
@@ -973,9 +1135,18 @@ class Session(object):
         _log('silo linked from the phone (%s)' % (profile.get('name') or '?'))
         self._servers_changed('silo')
 
+    def _silo_reset(self):
+        with self.lock:
+            self.silo_gen += 1
+            self.silo_pending = None
+            self.codes.pop('silo', None)
+
     def silo(self, body):
         """The profile picked on the phone (with its PIN when it has one)."""
         from .providers import silo_provider
+        if body.get('op') == 'cancel':
+            self._silo_reset()      # v5.10.402: start over from the phone
+            return {'ok': True}
         with self.lock:
             pending = dict(self.silo_pending or {})
         profile = (pending.get('profiles') or {}).get(str(body.get('profile') or ''))
@@ -989,6 +1160,140 @@ class Session(object):
             token = silo_provider.verify_pin(pending['auth'], profile.get('id'), pin)
         self._silo_link(pending['auth'], profile, token)
         return {'ok': True}
+
+    # -------------------------------------------------------------- DexCloud
+    def _cloud_info(self):
+        """v5.10.404: this TV and the DexCloud account (the site at the hub's
+        address), from what the TV already knows: no call to the hub."""
+        try:
+            from . import hub_client
+            data = hub_client.state()
+            info = {'linked': hub_client.linked(), 'url': hub_client.base(),
+                    'label': data.get('label') or '', 'account': ((data.get('extra') or {}).get('account') or '')}
+        except Exception:
+            return {'linked': False, 'url': '', 'label': '', 'account': ''}
+        with self.lock:
+            pair = dict(self.cloud_pair or {})
+        if pair and not info['linked']:
+            info['pairing'] = {'url': pair.get('url') or '', 'code': pair.get('code') or '',
+                               'status': pair.get('status') or 'pending'}
+        return info
+
+    def cloud(self, body):
+        """Link this TV to DexCloud from the page: the hub's own pairing (the
+        phone opens the hub with the code, signs in and approves)."""
+        from . import hub_client
+        if body.get('op') == 'start' and not hub_client.linked():
+            start = hub_client.pair_start(timeout=8)
+            start['status'] = 'pending'
+            with self.lock:
+                self.cloud_pair = start
+
+            def watch():
+                monitor = xbmc.Monitor()
+                ends = time.time() + hub_client.PAIR_TTL
+                while time.time() < ends and not monitor.waitForAbort(3):
+                    with self.lock:
+                        if self.cloud_pair is not start:
+                            return
+                    done = hub_client.pair_check(start)
+                    if done is None:
+                        break
+                    if done:
+                        with self.lock:
+                            self.cloud_pair = None
+                        _log('linked to DexCloud from the phone')
+                        try:
+                            hub_client.after_pair()
+                        except Exception:
+                            pass
+                        return
+                with self.lock:
+                    if self.cloud_pair is start:
+                        start['status'] = 'expired'
+            threading.Thread(target=watch, name='DexHubPhone-cloud', daemon=True).start()
+        return dict(self._cloud_info(), ok=True)
+
+    # -------------------------------------------------------------- collections
+    def collection(self, body):
+        """v5.10.403: a collection from a link or its pasted JSON (Kaptain,
+        collections.wixct.cc, Nuvio, Fusion): the TV's Collections > Import
+        from JSON without typing a long link on the remote. A link already
+        imported is read again. Its folders then show in Ready collections."""
+        from . import collection_sets as cs
+        from .homeui import community
+        from .dexhub.links import _INVISIBLE_RE
+        raw = _INVISIBLE_RE.sub('', str(body.get('url') or body.get('text') or '')).strip()
+        if not raw:
+            raise ValueError(_tr('الصق رابط الكوليكشن أو نصّه'))
+        name = str(body.get('name') or '').strip()[:80]
+        found = re.search(r'https?://\S+', raw) if not raw.lstrip().startswith(('{', '[')) else None
+        url = found.group(0).rstrip('.,;)]') if found else ''
+
+        def resolver(addon_id, share_url):
+            # no one at the TV to ask: the known manifests only; the rest
+            # stay as they are and are linked when the add-on is installed
+            try:
+                sibling = cs.manifest_url_from_collections_url(share_url)
+                if sibling and (cs.addon_requires_configuration(addon_id) or 'plex' in str(addon_id or '').lower()):
+                    return sibling
+            except Exception:
+                pass
+            try:
+                return cs.known_manifest_for_addon_id(addon_id) or ''
+            except Exception:
+                return ''
+
+        updated = False
+        if url:
+            existing = next((r for r in cs.list_sets() if r.get('source_url') == url), None)
+            if existing:
+                row = cs.refresh_set(existing.get('id'), manifest_resolver=resolver)
+                updated = True
+            else:
+                row = cs.add_set_from_url(url, name=name or None, manifest_resolver=resolver)
+        else:
+            row = cs.add_set_from_text(raw, source_label=name or _tr('مُدخل يدويًا'), manifest_resolver=resolver)
+        try:
+            community.reset()
+        except Exception:
+            pass
+        _republish('collections')
+        _log('collection %s from the phone: %s' % ('refreshed' if updated else 'imported', row.get('name') or '?'))
+        return {'ok': True, 'name': row.get('name') or '', 'entries': len(row.get('entries') or []),
+                'updated': updated, 'home': _home('all')}
+
+    def covers(self, body):
+        """v5.10.426: the account page's cover studio. op 'list': what can
+        take a cover (collections, their folders and catalogs) with the
+        pictures they show; op 'set': covers chosen (``items``) and cleared
+        (``clear``). The Home and the folder pages show them at once."""
+        from . import cover_overrides as co
+        op = str(body.get('op') or 'list')
+        if op == 'set':
+            items = body.get('items') if isinstance(body.get('items'), list) else []
+            clear = body.get('clear') if isinstance(body.get('clear'), list) else []
+            count = co.apply_changes(items[:500], clear[:500])
+            if count:
+                try:
+                    from .homeui import community
+                    community.reset()
+                except Exception:
+                    pass
+                _republish('collections')
+                try:
+                    from . import cloud_look
+                    cloud_look.mark()
+                except Exception:
+                    pass
+                _log('covers from the account page: %d changed' % count)
+            out = {'ok': True, 'changed': count, 'sets': co.targets()}
+        else:
+            out = {'ok': True, 'sets': co.targets()}
+        if body.get('home'):
+            # the Dex Community browser asks for its groups again with the covers
+            out['home'] = _home(str(body.get('home')) if str(body.get('home')) in dict(PAGES) else 'all')
+        return out
 
     # -------------------------------------------------------------- the Home
     def home(self, body):
@@ -1026,6 +1331,27 @@ class Session(object):
                 community.add_folders(layout, page, group['name'], chosen)
             else:
                 community.add_group(layout, page, group)
+        elif op == 'add_catalog':
+            # v5.10.402: an add-on catalog as a Home row, the TV's Add row
+            # > Catalog from sources, picked on the phone
+            if page not in _EDITABLE:
+                raise ValueError('rows are added on the Home pages')
+            from .homeui import layout_pick as LP
+            from .homeui import layout as L
+            ref = str(body.get('ref') or '')
+            match = None
+            for provider, catalogs in LP.catalog_choices(SR.app().api()):
+                for cat in catalogs:
+                    if _catalog_ref({'provider_id': provider.get('id'), 'media_type': cat.get('type'),
+                                     'catalog_id': cat.get('id')}) == ref:
+                        match = (provider, cat)
+            if not match:
+                raise ValueError(_tr('الكتالوج غير موجود'))
+            current = layout.page(page)
+            if any(_catalog_ref(c.get('params')) == ref for c in current['custom']):
+                return {'ok': True, 'home': _home(page)}
+            spec = L.new_custom(LP.catalog_spec(SR.app(), match[0], match[1]))
+            layout.save_page(page, custom=current['custom'] + [spec])
         elif op == 'remove':
             key = str(body.get('key') or '')
             current = layout.page(page)
@@ -1212,7 +1538,8 @@ class _Handler(BaseHTTPRequestHandler):
         handlers = {'api/profile': 'profile', 'api/set': 'set', 'api/addon': 'addon', 'api/login': 'login', 'api/code': 'code',
                     'api/tv': 'tv', 'api/logout': 'logout', 'api/home': 'home', 'api/done': 'finish',
                     'api/silo': 'silo', 'api/transfer': 'transfer', 'api/files': 'files',
-                    'api/pref': 'pref'}  # v5.10.286
+                    'api/pref': 'pref', 'api/sync':'sync', 'api/collection': 'collection', 'api/cloud': 'cloud',
+                    'api/covers': 'covers'}  # v5.10.286; covers v5.10.426
         name = handlers.get(route)
         if not name:
             return self._send(404, {'ok': False})

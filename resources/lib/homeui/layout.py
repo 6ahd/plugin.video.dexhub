@@ -27,7 +27,7 @@ import uuid
 PAGES = ('all', 'movie', 'series')
 SHAPE_CHOICES = ('poster', 'landscape', 'wide', 'square', 'ranked', 'tall', 'tall_ranked', 'collage', 'wide_ranked',
                  'mosaic', 'stack', 'poster_large', 'feature', 'landscape_info',
-                 'collection_spotlight', 'collection_compact', 'collection_ranking')
+                 'collection_spotlight', 'collection_compact', 'collection_ranking', 'circle')
 
 
 def style_choices(tr, media_path, only=None):
@@ -53,7 +53,9 @@ def style_choices(tr, media_path, only=None):
             ('collage', 'كوليكشن جدار', 'الكتالوج كله ببانر واحد، بوستراته جدار مائل'),
             ('mosaic', 'كوليكشن موزاييك', 'بانر فيه البوسترات مربعات مرتبة مثل ألبوم الصور'),
             ('stack', 'كوليكشن مكدّس', 'بانر فيه البوسترات فوق بعض مثل رزمة صور'),
-            ('square', 'مربع', 'بطاقات مربعة، للقنوات والمجموعات'))
+            ('square', 'مربع', 'بطاقات مربعة، للقنوات والمجموعات'),
+            # v5.10.429 (skin 3.28.159): the logo, or the picture, in a circle
+            ('circle', 'دوائر الشعارات', 'للمنصات والشبكات والممثلين، الشعار أو الصورة في دائرة'))
     return [(key, tr(name), tr(line), media_path('rowpreview_%s.jpg' % (key or 'auto')))
             for key, name, line in rows if only is None or key in only]
 
@@ -108,6 +110,32 @@ TAB_PAGES = PAGES + ('library', 'servers')
 def store_key(media):
     media = str(media or 'all')
     return media if media in TAB_PAGES else 'all'
+
+
+def retired_af3(spec):
+    """Recognize only the removed importer, never a user's label or AF3 skin."""
+    from urllib.parse import parse_qsl, urlsplit
+    if not isinstance(spec, dict):
+        return False
+    meta = spec.get('meta') or {}
+    if str(spec.get('key') or '').startswith('af3:'):
+        return True
+    if any('af3-community:' in str(spec.get(k) or '') for k in ('community', 'set_id', 'group_id')):
+        return True
+    if any(str(ref.get('group_id') or '').startswith('af3-community:')
+           for ref in spec.get('folders') or [] if isinstance(ref, dict)):
+        return True
+    for params in (spec.get('params'), meta.get('params')):
+        params = dict(params or {})
+        for _ in range(8):
+            if params.get('action') != 'skin_list':
+                break
+            params = dict(parse_qsl(params.get('r') or ''))
+        if params.get('action') in ('skin_af3_catalog', 'skin_af3_import'):
+            return True
+    return any(urlsplit(str(tile.get('path') or '')).netloc == 'plugin.video.dexhub'
+               and dict(parse_qsl(urlsplit(str(tile.get('path') or '')).query)).get('action') == 'skin_af3_catalog'
+               for tile in spec.get('tiles') or [] if isinstance(tile, dict))
 
 
 def custom_key(spec):
@@ -223,7 +251,7 @@ class Layout(object):
                 'order': [str(k) for k in (raw.get('order') or []) if k],
                 'hidden': dict((str(k), bool(v)) for k, v in (raw.get('hidden') or {}).items()),
                 'custom': [dict(c) for c in (raw.get('custom') or [])
-                           if isinstance(c, dict) and c.get('id')],
+                           if isinstance(c, dict) and c.get('id') and not retired_af3(c)],
             }
 
     def save_page(self, media, order=None, hidden=None, custom=None):

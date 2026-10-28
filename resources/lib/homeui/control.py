@@ -37,237 +37,15 @@ ENTRY_PROP = 'dexhub.control.entry'     # v5.10.358: the entry last opened
 # (key, kind, icon, title, line, where); where: '' everywhere, 'skin' in
 # skin.dexhub, 'addon' outside it, 'player' in skin.dexhub or Arctic Fuse 3,
 # 'coreelec' on CoreELEC
-SECTION_LIST = (
-    ('home', 'house', 'الرئيسية', 'ترتيب صفحتك وما يظهر فيها', (
-        ('phone', 'open', 'mobile', 'إعداد من الجوال', 'امسح الباركود وجهّز كل شي من جوالك', ''),
-        ('search', 'open', 'search', 'بحث', 'أفلام ومسلسلات وأشخاص من كل مصادرك', ''),
-        ('layout', 'open', 'table-cells-large', 'ترتيب الصفحة الرئيسية', 'الصفوف وترتيبها وشكل كل صف', ''),
-        ('new_rows', 'toggle', 'circle-xmark', 'صفوف جديدة مخفية',
-         'تنتظرك في ترتيب الصفحة', ''),
-        ('group_recs', 'toggle', 'layer-group', 'تجميع التوصيات',
-         '«لأنك شاهدت» في صف واحد', ''),
-        ('community', 'open', 'users', 'Dex Community', 'كتالوجات جاهزة تضيفها بضغطة', ''),
-        ('refresh', 'open', 'arrows-rotate', 'تحديث الرئيسية', 'جلب الصفوف من جديد', ''),
-        ('screensaver', 'open', 'moon', 'شاشة التوقف', 'الخلفيات ووقت التشغيل', ''),
-        ('ss_preload', 'toggle', 'moon', 'تجهيز الرئيسية وقت شاشة التوقف', 'الصفوف والصور تتجهز والجهاز فاضي، فترجع للرئيسية وهي جاهزة', 'skin'),
-    )),
-    # v5.10.299: one Appearance place, in three steps (colours, the Home's
-    # shape, motion); every choice shows at once, the skin's settings page
-    # opens here too
-    ('look_theme', 'palette', 'المظهر: الثيم والألوان', 'كل تغيير يظهر فورًا في السكين ونوافذ كودي', (
-        ('theme', 'open', 'palette', 'الثيم', 'ألوان السكين كلها بضغطة', 'skin'),
-        ('focus_colour', 'run', 'palette', 'لون التحديد', 'لون المؤشر في السكين ونوافذ كودي', 'skin'),
-        ('focus_text', 'pick', 'tags', 'الكتابة على التحديد', 'تلقائي حسب اللون أو أبيض أو داكن', 'skin'),
-        ('kodi_focus', 'pick', 'sliders', 'شكل التحديد', 'بلون التحديد أو أبيض مثل Nuvio، في الواجهة ونوافذ كودي', 'skin'),
-        ('amoled', 'toggle', 'moon', 'أسود كامل AMOLED', 'خلفية الصفحات سوداء تمامًا', 'skin'),
-        ('glow', 'pick', 'wand-magic-sparkles', 'إضاءة الصفحات', 'هادئة أو قوية أو بدون', 'skin'),
-        ('focus_glow', 'toggle', 'wand-magic-sparkles', 'إضاءة حول البطاقة المحددة', 'هالة خفيفة بلون التحديد', 'skin'),
-    )),
-    ('look_layout', 'display', 'المظهر: الواجهة والبطاقات', 'شكل الرئيسية والقوائم والبطاقات', (
-        ('home_layout_mode', 'pick', 'display', 'وضع الواجهة', 'هيرو وصفوف أو سينمائي أو رف بطاقات أو غيرها', 'skin'),
-        ('nav_position', 'pick', 'list-ul', 'مكان تبويبات الأقسام', 'شريط علوي أو قائمة جانبية', 'skin'),
-        ('nav_icons', 'toggle', 'bars', 'القائمة الجانبية أيقونات فقط', 'ما تنفتح بالكلمات لما تروح لها', 'skin'),
-        ('nav_autohide', 'toggle', 'eye-slash', 'إخفاء القائمة عند التمرير', 'الشريط العلوي أو القائمة الجانبية تختفي لما تنزل للصفوف وترجع لما تطلع أو تروح يسار', 'skin'),
-        ('nav_focus_open', 'toggle', 'circle-dot', 'فتح الأقسام بالتمرير', 'القسم ينفتح لما توقف على أيقونته ثانية، بدون ضغط', 'skin'),
-        ('back_exit', 'toggle', 'power-off', 'الرجوع من القائمة يسأل عن الخروج', 'زر الرجوع على الشريط العلوي أو القائمة الجانبية يسألك تطلع من كودي', 'skin_exit'),
-        ('bg_settle', 'toggle', 'image', 'الخلفية تتبع التحديد بعد التوقف', 'خلفية الرئيسية تتغير لما توقف على العمل، فالتنقل أخف', 'skin'),
-        ('nav_names', 'toggle', 'list-ul', 'أسماء الأقسام', 'أسماء بجانب أيقونات الشريط', ''),
-        ('size', 'open', 'up-right-and-down-left-from-center', 'حجم الواجهة والبطاقات', 'من 50% إلى 200%', ''),
-        ('card_style', 'pick', 'layer-group', 'عناوين البطاقات', 'على الصورة أو تحتها أو بدون', ''),
-        ('title_poster', 'toggle', 'image', 'إظهار البوستر في صفحة العمل', 'مع بوستر بجانب المعلومات، أو بدون بوستر مثل التخطيط السابق', ''),
-        ('title_style', 'pick', 'image', 'عنوان العمل', 'شعار العمل أو نص', ''),
-        ('background_style', 'pick', 'display', 'نمط الخلفية', 'سينمائي أو هادئ أو داكن', ''),
-        ('clean_look', 'toggle', 'wand-magic-sparkles', 'مظهر نظيف', 'تحديد أبيض، سطر المعلومات كلام بدون كبسولات ملونة، وأسماء الصفوف مختصرة', 'skin'),
-        # v5.10.379: the spotlight as in Arctic Fuse 3: its row, its size, the section
-        ('spotlight', 'run', 'clapperboard', 'أعمال السبوت لايت', 'الصف اللي تجي منه أعمال السبوت لايت في هذا القسم، أو بدون', 'skin'),
-        ('spot_count', 'run', 'clapperboard', 'عدد أعمال السبوت لايت', 'من 5 إلى 20 عمل', 'skin'),
-        ('spot_section', 'toggle', 'display', 'سبوت لايت كامل', 'لما تطلع للسبوت لايت تنزل الصفوف تحت ويصير العمل قدامك مثل Arctic Fuse 3', 'skin'),
-        ('row_dim', 'pick', 'display', 'تعتيم الصفوف', 'الصفوف غير المحددة', ''),
-        ('row_source', 'toggle', 'tags', 'إظهار مصدر الصف', 'From بجانب عنوان الصف', ''),
-        ('season_names', 'toggle', 'tags', 'أسماء المواسم', 'الموسم 1: Murder House بدل الموسم 1', ''),
-        ('rating_inline', 'toggle', 'star', 'التقييم في سطر التفاصيل', 'بعد التصنيفات والسنة والمدة بدل سطر لحاله', ''),
-        ('compact_hero', 'toggle', 'display', 'هيرو الصفين أصغر', 'أزرار وأسماء صفوف أصغر ونبذة أعرض في وضع الصفين', ''),
-        ('servers', 'toggle', 'server', 'قسم السيرفرات', 'Plex وEmby وJellyfin وSilo في الرئيسية', ''),
-    )),
-    ('look_motion', 'wand-magic-sparkles', 'المظهر: الحركة والتريلرات', 'التحديد والخلفيات والتريلر', (
-        ('focus_motion', 'pick', 'wand-magic-sparkles', 'حركة التحديد', 'تكبير أو رفع أو قفزة أو إضاءة', ''),
-        ('ui_sounds', 'run', 'sliders', 'أصوات التنقل', 'نقرة ناعمة مثل Apple TV، أو أصوات كودي، أو بدون', ''),
-        # v5.10.376: sharper backdrops and posters (Kodi's 720 cache, TMDb sizes)
-        ('image_quality', 'run', 'image', 'جودة الصور', 'الخلفيات والبوسترات: عادية، أو عالية 1080 للأجهزة القوية', ''),
-        ('kenburns', 'toggle', 'image', 'تحريك الخلفيات', 'حركة بطيئة للصورة خلف العمل', ''),
-        ('focus_gif', 'toggle', 'film', 'الصور المتحركة', 'صور GIF للأعمال اللي فيها', ''),
-        ('carousel', 'toggle', 'clapperboard', 'تدوير البانر', 'التنقل التلقائي بين الأعمال', ''),
-        ('plot_scroll', 'toggle', 'sliders', 'تحريك النبذة', 'تمرير النبذة الطويلة', ''),
-        ('hide_plot', 'toggle', 'eye-slash', 'إخفاء النبذة', 'واجهة أبسط مع عنوان العمل وتفاصيله', ''),
-        ('trailers', 'pick', 'clapperboard', 'التريلرات', 'متى يبدأ تريلر العمل المحدد', ''),
-        ('trailer_sound', 'toggle', 'film', 'صوت التريلر', 'التريلر بصوته أو صامت', ''),
-        ('trailer_volume', 'pick', 'film', 'مستوى صوت التريلر', 'من 0 إلى 100؛ يرجع صوت المشاهدة بعد التريلر', ''),
-        ('trailer_place', 'pick', 'clapperboard', 'مكان التريلر', 'خلف الصفحة، أو داخل البطاقة المحددة وهي مفتوحة في صفها', ''),
-        ('trailer_clean', 'toggle', 'eye-slash', 'تريلر بدون كتابة', 'الشعار والتصنيفات والتقييمات تختفي وقت التريلر وترجع مع أي زر', ''),
-        ('immersive_after', 'pick', 'clapperboard', 'ملء الشاشة بعد', 'بعد كم ثانية يملأ التريلر الشاشة وتختفي الصفوف', ''),
-        ('hero_shuffle', 'toggle', 'clapperboard', 'خلط أعمال البانر', 'ترتيب جديد كل يوم من نفس الكتالوج', ''),
-    )),
-    ('player', 'circle-play', 'المشغل', 'التشغيل والرموز والترجمة', (
-        ('player', 'open', 'circle-play', 'خيارات المشغل', 'الشعار والتقييمات وسطر المعلومات', 'player'),
-        ('sources_style', 'pick', 'list-ul', 'صفحة المصادر', 'مثل Nuvio TV أو صفوف مختصرة', ''),
-        ('osd_buttons', 'open', 'circle-play', 'أزرار المشغل وشكله', 'الأزرار وترتيبها مع معاينة النمط واللون', 'player'),
-        ('osd_preset', 'pick', 'wand-magic-sparkles', 'شكل جاهز للمشغل', 'Nuvio وApple TV وNetflix وغيرها بضغطة', 'player'),
-        ('osd_style', 'pick', 'display', 'نمط شريط المشغل', 'كلاسيكي أو زجاجي أو سينمائي أو بسيط', 'player'),
-        ('osd_dim', 'pick', 'sliders', 'تعتيم خلفية المشغل', 'من شفاف بدون ظل إلى 95%', 'player'),
-        ('osd_area', 'pick', 'sliders', 'مكان ظل المشغل', 'تحت الشريط أو فوق وتحت أو بدون', 'player'),
-        ('osd_scrim', 'pick', 'palette', 'لون ظل المشغل', 'أسود أو لون الثيم أو العمل أو لون تختاره', 'player'),
-        ('osd_buttons_bg', 'pick', 'circle-dot', 'خلفية أزرار المشغل', 'بدون أو شكل خفيف أو إطار', 'player'),
-        ('osd_shape', 'pick', 'circle-dot', 'شكل المؤشر في المشغل', 'دائرة أو مربع أو حلقة أو خط أو نقطة أو شفاف', 'player'),
-        ('osd_accent', 'pick', 'palette', 'لون المشغل', 'أبيض أو لون الثيم أو يتبع العمل المشغّل', 'player'),
-        ('badges_visible', 'toggle', 'sliders', 'إظهار رموز الجودة في المشغّل', 'إخفاؤها أو إرجاعها دون تغيير حزمة الرموز', ''),
-        ('badges_brightness', 'pick', 'sliders', 'وضوح رموز الجودة', 'واضح بلا تعتيم أو هادئ', ''),
-        ('badges', 'open', 'tags', 'رموز الجودة', 'في المشغل والسيرفرات والروابط', ''),
-        ('playback', 'open', 'gauge-high', 'طريقة التشغيل', 'أول رابط أو قائمة المصادر', ''),
-        ('source_behavior', 'open', 'list-check', 'المصادر وسلوك التشغيل', 'الترتيب والفلترة والاستئناف', ''),
-        ('source_addons', 'open', 'list-check', 'إضافات البحث عن المصادر', 'الإضافات اللي يسألها البحث', ''),
-        ('subtitles', 'open', 'closed-captioning', 'الترجمة', 'اللغة والمزامنة التلقائية', ''),
-        ('episodes', 'open', 'forward-step', 'الحلقات والتخطي', 'الحلقة التالية وتخطي المقدمة', ''),
-    )),
-    ('following', 'list-check', 'مكتبتي', 'المحفوظات وقوائم المشاهدة والتقدم', (
-        ('library', 'open', 'list-check', 'فتح مكتبتي', 'كل المحفوظات وقوائم المشاهدة حسب المصدر', ''),
-        ('follow', 'open', 'clock-rotate-left', 'نشاط المشاهدة', 'متابعة المشاهدة والحلقة التالية والقادم', ''),
-        ('library_split', 'toggle', 'table-cells-large', 'فصل الأفلام والمسلسلات في المكتبة', 'صف للأفلام وصف للمسلسلات لكل مصدر', ''),
-        ('watching', 'open', 'clock-rotate-left', 'متابعة المشاهدة والحلقة التالية',
-         'المصدر وحسابات التقدم وشكل البطاقات', ''),
-        ('continue_split', 'run', 'table-cells-large', 'متابعة المشاهدة في الرئيسية',
-         'صف واحد للكل أو صفين: أفلام ومسلسلات', ''),
-        ('follow_order', 'pick', 'sliders', 'ترتيب متابعة المشاهدة', 'في الرئيسية وفي متابعتي', ''),
-        ('episode_art', 'pick', 'image', 'صور الحلقات', 'صورة الحلقة نفسها بدل صورة المسلسل', ''),
-        ('episode_titles', 'pick', 'tags', 'أسماء الحلقات', 'اسم الحلقة بدل «الحلقة 3»', ''),
-        ('follow_merge', 'toggle', 'layer-group', 'دمج الخدمات', 'العمل مرة وحدة ولو كان في أكثر من خدمة', ''),
-        # v5.10.374 (Reddit): an episode not out yet in Next episode, with its day, or hidden
-        ('nextup_unaired', 'toggle', 'clock-rotate-left', 'الحلقات اللي ما نزلت', 'في الحلقة التالية مع يوم نزولها، أو تختفي لين تنزل', ''),
-        ('lib_sort', 'pick', 'list-ul', 'ترتيب المفضلة وقوائم المشاهدة', 'في المكتبة وفي متابعتي', ''),
-        ('trakt_smart', 'toggle', 'arrows-rotate', 'مزامنة Trakt الذكية', 'يجلب من Trakt بس لما يتغير شي فيه', ''),
-        ('reminders', 'toggle', 'clock-rotate-left', 'تذكير بالحلقات الجديدة', 'إشعار يوم ما تنزل حلقة من مسلسل تتابعه', ''),
-        ('credits_panel', 'pick', 'forward-step', 'شاشة نهاية الحلقة', 'الحلقة التالية أو أعمال مشابهة مع بداية التترات', ''),
-    )),
-    ('metadata', 'database', 'الميتاداتا', 'من وين تجي البيانات والصور وبأي لغة', (
-        ('meta_source', 'run', 'database', 'مصدر الميتاداتا والصور', 'للكتالوجات وصفحات الأعمال', ''),
-        ('meta_lang', 'pick', 'language', 'لغة الميتاداتا', 'لغة القصص والشعارات', ''),
-        ('server_meta', 'pick', 'server', 'ميتاداتا السيرفرات', 'Plex وEmby وJellyfin وSilo', ''),
-        ('tmdb_key', 'run', 'key', 'مفتاح TMDb', 'مفتاحك الخاص يسرّع الصفحات', ''),
-        ('posters', 'open', 'images', 'مصدر البوسترات', 'بوسترات الكتالوجات كلها', ''),
-        ('logos', 'open', 'image', 'الشعارات والخلفيات', 'Fanart.tv وClearLogo', ''),
-        ('ratings', 'toggle', 'star', 'تعزيز التقييمات', 'التقييمات وشعار الشبكة', ''),
-        ('ratings_pick', 'run', 'star', 'التقييمات الظاهرة', 'اختار اللي يظهر: IMDb وRotten Tomatoes وMetacritic وغيرها', ''),
-        ('meta_refresh', 'run', 'arrows-rotate', 'مسح كاش الميتاداتا', 'البيانات والصور من جديد', ''),
-    )),
-    ('accounts', 'user-gear', 'الحسابات والمصادر', 'Nuvio وTrakt والسيرفرات والإضافات', (
-        ('phone', 'open', 'mobile', 'إعداد من الجوال', 'تربط حساباتك وتضيف مصادرك من الجوال', ''),
-        ('setup', 'open', 'user-gear', 'الحسابات', 'Nuvio وStremio وTrakt والسيرفرات', ''),
-        ('sources', 'open', 'link', 'صفحة المصادر', 'كل مصدر وحالته في صفحة وحدة', ''),
-        ('add_source', 'open', 'circle-plus', 'إضافة مصدر', 'رابط إضافة Stremio أو Nuvio', ''),
-        ('nuvio', 'open', 'id-card', 'مزامنة Nuvio', 'الهوم والمجموعات ومتابعة المشاهدة', ''),
-        ('trakt', 'open', 'clock-rotate-left', 'Trakt', 'سجل المشاهدة والمزامنة', ''),
-        ('hub_extra', 'open', 'star', 'DexCloud', 'شكلك في حسابك، صفوف أسرع، ومشاهدة جماعية', ''),
-        ('party', 'open', 'users', 'مشاهدة جماعية', 'تتفرجون مع بعض، كل واحد على تلفزيونه', ''),
-    )),
-    ('system', 'gears', 'النظام', 'الإعدادات والسكين والتشخيص', (
-        ('settings', 'open', 'sliders', 'إعدادات Dex Hub', 'مركز الإعداد', ''),
-        ('skin_pick', 'open', 'brush', 'تغيير السكين', 'أي سكين مثبت على طول', ''),
-        ('skin_back', 'open', 'arrow-rotate-left', 'الرجوع للسكين السابق', 'السكين اللي كان قبل Dex Hub', 'skin'),
-        ('skin', 'open', 'brush', 'سكين Dex Hub', 'يصير Dex Hub سكين كودي', 'addon'),
-        ('classic', 'open', 'list-ul', 'قائمة Dex Hub', 'كل أقسام الإضافة في قائمة', ''),
-        ('kodi', 'open', 'kodi', 'إعدادات كودي', 'النظام والصوت والشاشة', ''),
-        ('speed', 'open', 'bolt', 'وضع السرعة', 'إعداد الخفة للبحث والتشغيل بضغطة', ''),
-        ('diagnostics', 'open', 'stethoscope', 'التشخيص', 'حالة المصادر والاتصال', ''),
-        ('backup', 'open', 'box-archive', 'النسخ الاحتياطي', 'كل الإعداد أو أجزاء منه، وترجّعه متى ما تبي', ''),
-        ('clear_cache', 'open', 'broom', 'مسح الكاش', 'كاش الصفحات والطلبات', ''),
-        ('power', 'open', 'power-off', 'إيقاف التشغيل', 'إطفاء أو إعادة تشغيل الجهاز', ''),
-        ('android', 'open', 'circle-dot', 'إعادة التشغيل إلى أندرويد', 'تشغيل أندرويد الجهاز', 'coreelec'),
-    )),
-)
+SECTION_LIST = (('theme', 'palette', 'الثيم والمظهر', 'الثيم والألوان والزجاج والتحديد', (('interface_fonts', 'open', 'tags', 'خط الواجهة وحجمه', 'من إعدادات كودي، أو خط من ملفاتك', ''), ('glass_focus', 'open', 'sliders', 'الزجاج والتحديد', 'تشغيل الزجاج ولون التحديد وحركته', ''), ('theme', 'open', 'palette', 'أشكال الثيمات والألوان', 'معاينة الثيمات واختيار الألوان', ''), ('focus_colour', 'run', 'palette', 'لون التحديد', 'لون المؤشر في السكين ونوافذ كودي', 'skin'), ('focus_text', 'pick', 'tags', 'الكتابة على التحديد', 'تلقائي حسب اللون أو أبيض أو داكن', 'skin'), ('kodi_focus', 'pick', 'sliders', 'شكل التحديد', 'بلون التحديد أو أبيض مثل Nuvio، في الواجهة ونوافذ كودي', 'skin'), ('amoled', 'toggle', 'moon', 'أسود كامل AMOLED', 'خلفية الصفحات سوداء تمامًا', 'skin'), ('glow', 'pick', 'wand-magic-sparkles', 'إضاءة الصفحات', 'هادئة أو قوية أو بدون', 'skin'), ('focus_glow', 'toggle', 'wand-magic-sparkles', 'إضاءة حول البطاقة المحددة', 'هالة خفيفة بلون التحديد', 'skin'), ('background_style', 'pick', 'display', 'نمط الخلفية', 'خلفية كاملة أو سينمائية أو هادئة أو داكنة', ''), ('clean_look', 'toggle', 'wand-magic-sparkles', 'مظهر نظيف', 'تحديد أبيض، سطر المعلومات كلام بدون كبسولات ملونة، وأسماء الصفوف مختصرة', 'skin'), ('focus_motion', 'pick', 'wand-magic-sparkles', 'حركة التحديد', 'تكبير أو رفع أو قفزة أو إضاءة', ''), ('category_theme', 'open', 'sliders', 'كل خيارات الثيم والمظهر', 'الخيارات التفصيلية لهذا القسم', ''))), ('home', 'house', 'الرئيسية والصفوف', 'التخطيط والتنقّل والبطاقات والبانر', (('folder_view', 'pick', 'sliders', 'طريقة فتح الكوليكشن', 'كتالوجات بصفوف بوسترات أو فولدرات؛ الافتراضي كتالوجات', ''), ('follow_rows', 'toggle', 'layer-group', 'الصفوف التابعة عند الوقوف', 'فتح الكوليكشن المحدد في صف تحته؛ التحكم متاح لكل صف', ''), ('follow_works', 'toggle', 'film', 'توصيات الأعمال في صف تابع', 'للأفلام والمسلسلات؛ معطّل افتراضيًا ويمكن تفعيله لكل صف', ''), ('search', 'open', 'search', 'بحث', 'أفلام ومسلسلات وأشخاص من كل مصادرك', ''), ('layout', 'open', 'table-cells-large', 'أشكال الصفوف والكتالوجات', 'شكل كل صف وترتيبه وحجمه', ''), ('catalogs', 'open', 'layer-group', 'إدارة الكتالوجات والمجموعات', 'اختيار الكتالوجات وترتيب المجموعات', ''), ('new_rows', 'toggle', 'circle-xmark', 'صفوف جديدة مخفية', 'تنتظرك في ترتيب الصفحة', ''), ('group_recs', 'toggle', 'layer-group', 'تجميع التوصيات', '«لأنك شاهدت» في صف واحد', ''), ('community', 'open', 'users', 'Dex Community', 'كتالوجات جاهزة تضيفها بضغطة', ''), ('refresh', 'open', 'arrows-rotate', 'تحديث الرئيسية', 'جلب الصفوف من جديد', ''), ('home_layout_mode', 'pick', 'display', 'وضع الواجهة', 'هيرو وصفوف أو سينمائي أو رف بطاقات أو غيرها', 'skin'), ('nav_position', 'pick', 'list-ul', 'مكان تبويبات الأقسام', 'شريط علوي أو قائمة جانبية', 'skin'), ('nav_icons', 'toggle', 'bars', 'القائمة الجانبية أيقونات فقط', 'ما تنفتح بالكلمات لما تروح لها', 'skin'), ('nav_autohide', 'toggle', 'eye-slash', 'إخفاء القائمة عند التمرير', 'الشريط العلوي أو القائمة الجانبية تختفي لما تنزل للصفوف وترجع لما تطلع أو تروح يسار', 'skin'), ('nav_focus_open', 'toggle', 'circle-dot', 'فتح الأقسام بالتمرير', 'القسم ينفتح لما توقف على أيقونته ثانية، بدون ضغط', 'skin'), ('bg_settle', 'toggle', 'image', 'الخلفية تتبع التحديد بعد التوقف', 'خلفية الرئيسية تتغير لما توقف على العمل، فالتنقل أخف', 'skin'), ('nav_names', 'toggle', 'list-ul', 'أسماء الأقسام', 'أسماء بجانب أيقونات الشريط', ''), ('card_style', 'pick', 'layer-group', 'عناوين البطاقات', 'على الصورة أو تحتها أو بدون', ''), ('title_poster', 'toggle', 'image', 'إظهار البوستر في صفحة العمل', 'مع بوستر بجانب المعلومات، أو بدون بوستر مثل التخطيط السابق', ''), ('title_style', 'pick', 'image', 'عنوان العمل', 'شعار العمل أو نص', ''), ('spotlight', 'run', 'clapperboard', 'أعمال السبوت لايت', 'الصف اللي تجي منه أعمال السبوت لايت في هذا القسم، أو بدون', 'skin'), ('spot_count', 'run', 'clapperboard', 'عدد أعمال السبوت لايت', 'من 5 إلى 20 عمل', 'skin'), ('spot_section', 'toggle', 'display', 'سبوت لايت كامل', 'لما تطلع للسبوت لايت تنزل الصفوف تحت ويصير العمل قدامك مثل Arctic Fuse 3', 'skin'), ('row_dim', 'pick', 'display', 'تعتيم الصفوف', 'الصفوف غير المحددة', ''), ('row_source', 'toggle', 'tags', 'إظهار مصدر الصف', 'From بجانب عنوان الصف', ''), ('season_names', 'toggle', 'tags', 'أسماء المواسم', 'الموسم 1: Murder House بدل الموسم 1', ''), ('rating_inline', 'toggle', 'star', 'التقييم في سطر التفاصيل', 'بعد التصنيفات والسنة والمدة بدل سطر لحاله', ''), ('compact_hero', 'toggle', 'display', 'هيرو الصفين أصغر', 'أزرار وأسماء صفوف أصغر ونبذة أعرض في وضع الصفين', ''), ('kenburns', 'toggle', 'image', 'تحريك الخلفيات', 'حركة بطيئة للصورة خلف العمل', ''), ('focus_gif', 'toggle', 'film', 'الصور المتحركة', 'صور GIF للأعمال اللي فيها', ''), ('carousel', 'toggle', 'clapperboard', 'تدوير البانر', 'التنقل التلقائي بين الأعمال', ''), ('plot_scroll', 'toggle', 'sliders', 'تحريك النبذة', 'تمرير النبذة الطويلة', ''), ('hide_plot', 'toggle', 'eye-slash', 'إخفاء النبذة', 'واجهة أبسط مع عنوان العمل وتفاصيله', ''), ('hero_shuffle', 'toggle', 'clapperboard', 'خلط أعمال البانر', 'ترتيب جديد كل يوم من نفس الكتالوج', ''), ('category_home', 'open', 'sliders', 'كل خيارات الرئيسية والصفوف', 'الخيارات التفصيلية لهذا القسم', ''))), ('trailers', 'clapperboard', 'التريلر', 'التشغيل التلقائي والصوت والجودة وملء الشاشة', (('trailers', 'pick', 'clapperboard', 'التريلرات', 'متى يبدأ تريلر العمل المحدد', ''), ('trailer_sound', 'toggle', 'film', 'صوت التريلر', 'التريلر بصوته أو صامت', ''), ('trailer_volume', 'pick', 'film', 'مستوى صوت التريلر', 'من 0 إلى 100؛ يرجع صوت المشاهدة بعد التريلر', ''), ('trailer_place', 'pick', 'clapperboard', 'مكان التريلر', 'خلف الصفحة، أو داخل البطاقة المحددة وهي مفتوحة في صفها', ''), ('trailer_clean', 'toggle', 'eye-slash', 'تريلر بدون كتابة', 'الشعار والتصنيفات والتقييمات تختفي وقت التريلر وترجع مع أي زر', ''), ('immersive_after', 'pick', 'clapperboard', 'ملء الشاشة بعد', 'بعد كم ثانية يملأ التريلر الشاشة وتختفي الصفوف', ''), ('category_trailers', 'open', 'sliders', 'كل خيارات التريلر', 'الخيارات التفصيلية لهذا القسم', ''))), ('player', 'circle-play', 'المشغّل', 'التشغيل وأزرار المشغّل وشكله والحلقة التالية', (('audio_tracks', 'open', 'sliders', 'الصوت والفيديو', 'مسارات الصوت والصورة والترجمة وتفضيلات التشغيل', ''), ('player_element_capsule', 'run', 'sliders', 'التصنيف الرقابي عند بداية التشغيل', 'تفعيل بطاقة التصنيف ووقت ظهورها ومكانها ومدتها', ''), ('player_element_loading', 'run', 'image', 'خلفية وشعار أثناء التحميل', 'انتقال ناعم للفيديو عند توفر أول إطار؛ يحتاج سكين Dex Hub المحدث', 'skin'), ('player_element_logo', 'run', 'image', 'شعار العمل · Clear logo', 'إظهار الشعار وحجمه ومكانه', 'player'), ('player_element_studio', 'run', 'image', 'شعار الاستديو', 'إظهار الشعار وحجمه وزاوية عرضه', 'player'), ('player_element_plot', 'run', 'list-ul', 'الوصف · Plot', 'حجم الخط وعرض الوصف والتمرير', 'player'), ('player_element_badges', 'run', 'tags', 'شارات الجودة · Badges', 'الحجم والمكان والشفافية والوضوح', 'player'), ('player', 'open', 'circle-play', 'خيارات المشغل', 'الشعار والتقييمات وسطر المعلومات', 'player'), ('osd_buttons', 'open', 'circle-play', 'أزرار المشغل وشكله', 'الأزرار وترتيبها مع معاينة النمط واللون', 'player'), ('osd_preset', 'pick', 'wand-magic-sparkles', 'شكل جاهز للمشغل', 'Nuvio وApple TV وNetflix وغيرها بضغطة', 'player'), ('osd_style', 'pick', 'display', 'نمط شريط المشغل', 'كلاسيكي أو زجاجي أو سينمائي أو بسيط', 'player'), ('osd_dim', 'pick', 'sliders', 'تعتيم خلفية المشغل', 'من شفاف بدون ظل إلى 95%', 'player'), ('osd_area', 'pick', 'sliders', 'مكان ظل المشغل', 'تحت الشريط أو فوق وتحت أو بدون', 'player'), ('osd_scrim', 'pick', 'palette', 'لون ظل المشغل', 'أسود أو لون الثيم أو العمل أو لون تختاره', 'player'), ('osd_buttons_bg', 'pick', 'circle-dot', 'خلفية أزرار المشغل', 'بدون أو شكل خفيف أو إطار', 'player'), ('osd_shape', 'pick', 'circle-dot', 'شكل المؤشر في المشغل', 'دائرة أو مربع أو حلقة أو خط أو نقطة أو شفاف', 'player'), ('osd_accent', 'pick', 'palette', 'لون المشغل', 'أبيض أو لون الثيم أو يتبع العمل المشغّل', 'player'), ('badges_visible', 'toggle', 'sliders', 'إظهار رموز الجودة في المشغّل', 'إخفاؤها أو إرجاعها دون تغيير حزمة الرموز', ''), ('badges_brightness', 'pick', 'sliders', 'وضوح رموز الجودة', 'واضح بلا تعتيم أو هادئ', ''), ('badges', 'open', 'tags', 'رموز الجودة', 'في المشغل والسيرفرات والروابط', ''), ('episodes', 'open', 'forward-step', 'الحلقات والتخطي', 'الحلقة التالية وتخطي المقدمة', ''), ('credits_panel', 'pick', 'forward-step', 'شاشة نهاية الحلقة', 'الحلقة التالية أو أعمال مشابهة مع بداية التترات', ''), ('category_player', 'open', 'sliders', 'كل خيارات المشغّل', 'الخيارات التفصيلية لهذا القسم', ''))), ('metadata', 'image', 'الميتاداتا والصور', 'المصادر واللغة والبوسترات والشعارات والتقييمات', (('metadata_refresh', 'toggle', 'arrows-rotate', 'تحديث الميتاداتا تلقائيًا', 'استكمال البيانات وتحديث التقييم وحالة المسلسل دوريًا', ''), ('image_quality', 'run', 'image', 'جودة الصور', 'الخلفيات والبوسترات: عادية، أو عالية 1080 للأجهزة القوية', ''), ('meta_source', 'run', 'database', 'مصدر الميتاداتا والصور', 'للكتالوجات وصفحات الأعمال', ''), ('meta_lang', 'pick', 'language', 'لغة الميتاداتا', 'لغة القصص والشعارات', ''), ('server_meta', 'pick', 'server', 'ميتاداتا السيرفرات', 'Plex وEmby وJellyfin وSilo', ''), ('tmdb_key', 'run', 'key', 'مفتاح TMDb', 'مفتاحك الخاص يسرّع الصفحات', ''), ('posters', 'open', 'images', 'مصدر البوسترات', 'بوسترات الكتالوجات كلها', ''), ('logos', 'open', 'image', 'الشعارات والخلفيات', 'Fanart.tv وClearLogo', ''), ('ratings', 'toggle', 'star', 'تعزيز التقييمات', 'التقييمات وشعار الشبكة', ''), ('ratings_pick', 'run', 'star', 'التقييمات الظاهرة', 'اختار اللي يظهر: IMDb وRotten Tomatoes وMetacritic وغيرها', ''), ('meta_refresh', 'run', 'arrows-rotate', 'مسح كاش الميتاداتا', 'البيانات والصور من جديد', ''), ('category_metadata', 'open', 'sliders', 'كل خيارات الميتاداتا والصور', 'الخيارات التفصيلية لهذا القسم', ''))), ('sources', 'server', 'مصادر التشغيل', 'إضافات البحث والفلترة وترتيب روابط التشغيل', (('sources_style', 'pick', 'list-ul', 'صفحة المصادر', 'مثل Nuvio TV أو صفوف مختصرة', ''), ('playback', 'open', 'gauge-high', 'طريقة التشغيل', 'أول رابط أو قائمة المصادر', ''), ('source_behavior', 'open', 'list-check', 'المصادر وسلوك التشغيل', 'الترتيب والفلترة والاستئناف', ''), ('source_addons', 'open', 'list-check', 'إضافات البحث عن المصادر', 'الإضافات اللي يسألها البحث', ''), ('add_source', 'open', 'circle-plus', 'إضافة مصدر', 'رابط إضافة Stremio أو Nuvio', ''), ('category_sources', 'open', 'sliders', 'كل خيارات مصادر التشغيل', 'الخيارات التفصيلية لهذا القسم', ''))), ('subtitles', 'comment-dots', 'الترجمة', 'البحث واللغة والتصفية والمزامنة', (('subtitles', 'open', 'closed-captioning', 'الترجمة', 'اللغة والمزامنة التلقائية', ''), ('category_subtitles', 'open', 'sliders', 'كل خيارات الترجمة', 'الخيارات التفصيلية لهذا القسم', ''))), ('accounts', 'user-gear', 'الحسابات والمزامنة', 'الربط وإدارة الحسابات والمزامنة والمشاهدة الجماعية', (('phone', 'open', 'mobile', 'إعداد من الجوال', 'امسح الباركود وجهّز كل شي من جوالك', ''), ('setup', 'open', 'user-gear', 'الحسابات', 'Nuvio وStremio وTrakt والسيرفرات', ''), ('sources', 'open', 'link', 'صفحة المصادر', 'كل مصدر وحالته في صفحة وحدة', ''), ('nuvio', 'open', 'id-card', 'مزامنة Nuvio', 'الهوم والمجموعات ومتابعة المشاهدة', ''), ('trakt', 'open', 'clock-rotate-left', 'Trakt', 'سجل المشاهدة والمزامنة', ''), ('hub_extra', 'open', 'star', 'DexCloud', 'شكلك في حسابك، صفوف أسرع، ومشاهدة جماعية', ''), ('party', 'open', 'users', 'مشاهدة جماعية', 'تتفرجون مع بعض، كل واحد على تلفزيونه', ''), ('category_accounts', 'open', 'sliders', 'كل خيارات الحسابات والمزامنة', 'الخيارات التفصيلية لهذا القسم', ''))), ('library', 'list-check', 'المكتبة والمتابعة', 'المفضلة والقوائم وسجل المشاهدة والحلقات', (('library', 'open', 'list-check', 'فتح مكتبتي', 'كل المحفوظات وقوائم المشاهدة حسب المصدر', ''), ('follow', 'open', 'clock-rotate-left', 'نشاط المشاهدة', 'متابعة المشاهدة والحلقة التالية والقادم', ''), ('library_split', 'toggle', 'table-cells-large', 'فصل الأفلام والمسلسلات في المكتبة', 'صف للأفلام وصف للمسلسلات لكل مصدر', ''), ('watching', 'open', 'clock-rotate-left', 'متابعة المشاهدة والحلقة التالية', 'المصدر وحسابات التقدم وشكل البطاقات', ''), ('continue_split', 'run', 'table-cells-large', 'متابعة المشاهدة في الرئيسية', 'صف واحد للكل أو صفين: أفلام ومسلسلات', ''), ('follow_order', 'pick', 'sliders', 'ترتيب متابعة المشاهدة', 'في الرئيسية وفي متابعتي', ''), ('episode_art', 'pick', 'image', 'صور الحلقات', 'صورة الحلقة نفسها بدل صورة المسلسل', ''), ('episode_titles', 'pick', 'tags', 'أسماء الحلقات', 'اسم الحلقة بدل «الحلقة 3»', ''), ('follow_merge', 'toggle', 'layer-group', 'دمج الخدمات', 'العمل مرة وحدة ولو كان في أكثر من خدمة', ''), ('nextup_unaired', 'toggle', 'clock-rotate-left', 'الحلقات اللي ما نزلت', 'في الحلقة التالية مع يوم نزولها، أو تختفي لين تنزل', ''), ('lib_sort', 'pick', 'list-ul', 'ترتيب المفضلة وقوائم المشاهدة', 'في المكتبة وفي متابعتي', ''), ('trakt_smart', 'toggle', 'arrows-rotate', 'مزامنة Trakt الذكية', 'يجلب من Trakt بس لما يتغير شي فيه', ''), ('reminders', 'toggle', 'clock-rotate-left', 'تذكير بالحلقات الجديدة', 'إشعار يوم ما تنزل حلقة من مسلسل تتابعه', ''), ('category_library', 'open', 'sliders', 'كل خيارات المكتبة والمتابعة', 'الخيارات التفصيلية لهذا القسم', ''))), ('live', 'display', 'IPTV والسيرفرات', 'القنوات وVOD ودليل البرامج ومكتبات السيرفرات', (('servers', 'toggle', 'server', 'قسم السيرفرات', 'Plex وEmby وJellyfin وSilo في الرئيسية', ''), ('category_live', 'open', 'sliders', 'كل خيارات IPTV والسيرفرات', 'الخيارات التفصيلية لهذا القسم', ''))), ('skin', 'brush', 'السكين واللغة', 'السكين المؤقت والتبديل واللغة والحجم والأصوات', (('temporary_skin', 'toggle', 'brush', 'سكين Dex Hub مؤقت', 'يتغير عند فتح الإضافة ويرجع لسكينك عند الخروج', ''), ('screensaver', 'open', 'moon', 'شاشة التوقف', 'الخلفيات ووقت التشغيل', ''), ('ss_preload', 'toggle', 'moon', 'تجهيز الرئيسية وقت شاشة التوقف', 'الصفوف والصور تتجهز والجهاز فاضي، فترجع للرئيسية وهي جاهزة', 'skin'), ('back_exit', 'toggle', 'power-off', 'الرجوع من القائمة يسأل عن الخروج', 'زر الرجوع على الشريط العلوي أو القائمة الجانبية يسألك تطلع من كودي', 'skin_exit'), ('size', 'open', 'up-right-and-down-left-from-center', 'حجم الواجهة والبطاقات', 'من 50% إلى 200%', ''), ('ui_sounds', 'run', 'sliders', 'أصوات التنقل', 'نقرة ناعمة مثل Apple TV، أو أصوات كودي، أو بدون', ''), ('skin_pick', 'open', 'brush', 'تغيير السكين', 'أي سكين مثبت على طول', ''), ('skin_back', 'open', 'arrow-rotate-left', 'الرجوع للسكين السابق', 'السكين اللي كان قبل Dex Hub', 'skin'), ('skin', 'open', 'brush', 'سكين Dex Hub', 'يصير Dex Hub سكين كودي', 'addon'), ('category_skin', 'open', 'sliders', 'كل خيارات السكين واللغة', 'الخيارات التفصيلية لهذا القسم', ''))), ('maintenance', 'gears', 'الصيانة والنسخ الاحتياطي', 'الأداء والكاش والتشخيص والنسخ والاستعادة', (('speed', 'open', 'bolt', 'وضع السرعة', 'إعداد الخفة للبحث والتشغيل بضغطة', ''), ('diagnostics', 'open', 'stethoscope', 'التشخيص', 'حالة المصادر والاتصال', ''), ('backup', 'open', 'box-archive', 'النسخ الاحتياطي', 'كل الإعداد أو أجزاء منه، وترجّعه متى ما تبي', ''), ('clear_cache', 'open', 'broom', 'مسح الكاش', 'كاش الصفحات والطلبات', ''), ('category_maintenance', 'open', 'sliders', 'كل خيارات الصيانة والنسخ الاحتياطي', 'الخيارات التفصيلية لهذا القسم', ''))), ('system', 'power-off', 'كودي والخروج', 'إضافات كودي وإعداداته والخروج وإعادة التشغيل', (('kodi_addons', 'open', 'puzzle-piece', 'إضافات كودي', 'فتح قسم الإضافات من كودي', ''), ('leave_dexhub', 'open', 'arrow-rotate-left', 'الخروج من Dex Hub والرجوع لسكيني', 'استعادة السكين الأصلي', 'temporary'), ('classic', 'open', 'list-ul', 'قائمة Dex Hub', 'كل أقسام الإضافة في قائمة', ''), ('kodi', 'open', 'kodi', 'إعدادات كودي', 'النظام والصوت والشاشة', ''), ('power', 'open', 'power-off', 'إيقاف التشغيل', 'إطفاء أو إعادة تشغيل الجهاز', ''), ('android', 'open', 'circle-dot', 'إعادة التشغيل إلى أندرويد', 'تشغيل أندرويد الجهاز', 'coreelec'), ('category_system', 'open', 'sliders', 'كل خيارات كودي والخروج', 'الخيارات التفصيلية لهذا القسم', ''))))
 
 # open entries the callers leave to their route
-ROUTES = {
-    'phone': 'phone_setup',
-    'add_source': 'add_provider',
-    'library': 'home_library',
-    'follow': 'home_follow',
-    'watching': 'simple_watching',
-    'nuvio': 'simple_open_page&target=nuvio_sync_menu',
-    'trakt': 'simple_trakt',
-    'playback': 'playback_mode',
-    'source_behavior': 'simple_source_behavior',
-    'source_addons': 'source_addons',
-    'subtitles': 'setup_subtitles',
-    'episodes': 'simple_episode_controls',
-    'posters': 'poster_pick_global',
-    'logos': 'simple_fanarttv',
-    'speed': 'setup_stability',
-    'diagnostics': 'setup_diagnostics',
-    'backup': 'backup_menu',
-    'hub_extra': 'hub_extra',         # v5.10.366
-    'party': 'party',
-    'clear_cache': 'clear_cache',
-    'osd_buttons': 'osd_buttons',     # v5.10.299
-}
+ROUTES = {'interface_fonts': 'interface_fonts', 'audio_tracks': 'av_settings', 'glass_focus': 'appearance_options', 'leave_dexhub': 'temporary_skin_exit', 'phone': 'phone_setup', 'add_source': 'add_provider', 'library': 'home_library', 'follow': 'home_follow', 'watching': 'simple_watching', 'nuvio': 'simple_open_page&target=nuvio_sync_menu', 'trakt': 'simple_trakt', 'playback': 'playback_mode', 'source_behavior': 'simple_source_behavior', 'source_addons': 'source_addons', 'subtitles': 'setup_subtitles', 'episodes': 'simple_episode_controls', 'posters': 'poster_pick_global', 'logos': 'simple_fanarttv', 'speed': 'setup_stability', 'diagnostics': 'setup_diagnostics', 'backup': 'backup_menu', 'hub_extra': 'hub_extra', 'party': 'party', 'clear_cache': 'clear_cache', 'osd_buttons': 'osd_buttons', 'category_player': 'preferences_player', 'category_trailers': 'preferences_trailers', 'category_theme': 'preferences_theme', 'category_home': 'preferences_home', 'category_metadata': 'preferences_metadata', 'category_sources': 'preferences_sources', 'category_subtitles': 'preferences_subtitles', 'category_accounts': 'preferences_accounts', 'category_library': 'preferences_library', 'category_live': 'preferences_live', 'category_skin': 'preferences_skin', 'category_maintenance': 'preferences_maintenance', 'category_system': 'preferences_system', 'kodi_addons': 'open_kodi_addons', 'theme': 'theme_select', 'catalogs': 'simple_nuvio_collections'}
 
 TRAILER_STEPS = ((0, 'فوري'), (1, 'بعد ثانية'), (2, 'بعد ثانيتين'), (3, 'بعد 3 ثوانٍ'),
                  (5, 'بعد 5 ثوانٍ'), (8, 'بعد 8 ثوانٍ'))
 # (setting, [(value, label)]) of the pick entries kept in one setting
-PICKS = {
-    'badges_brightness': ('player_badges_brightness', (('solid', 'واضح بلا تعتيم'), ('soft', 'هادئ'))),
-    'title_style': ('homeui_title_style', (('logo', 'شعار العمل'), ('text', 'نص'))),
-    'background_style': ('homeui_background_style', (('cinematic', 'سينمائي'), ('soft', 'هادئ'), ('dark', 'داكن'), ('fullscreen', 'ملء الشاشة'))),
-    # v5.10.286: the two new Home layouts first (cinematic keeps the default: options[0]
-    # is only the fallback label, the setting's default stays cinematic)
-    'home_layout_mode': ('homeui_layout_mode', (('cinematic', 'هيرو وصفوف'), ('legacy', 'ليقسي'), ('cinema', 'سينمائي ملء الشاشة'), ('shelf', 'رف بطاقات عريضة'),
-                                                ('netflix', 'هيرو وصف واحد'), ('two_rows', 'هيرو مختصر وصفين'),
-                                                ('spotlight_posters', 'Spotlight وبوسترات'))),
-    'nav_position': ('homeui_nav_position', (('top', 'أعلى الشاشة'), ('side', 'قائمة جانبية'))),
-    'trailer_volume': ('homeui_trailer_volume', tuple((str(v), str(v) + '%') for v in range(0,101,5))),
-    'trailer_place': ('homeui_trailer_mode', (('background', 'خلفية الشاشة'), ('card', 'داخل البطاقة'))),
-    'immersive_after': ('homeui_immersive_delay', tuple((v, 'بعد %s ثوانٍ' % v) for v in ('4', '6', '8', '10')) + (('12', 'بعد 12 ثانية'), ('16', 'بعد 16 ثانية'), ('20', 'بعد 20 ثانية'))),
-    'meta_lang': ('homeui_metadata_language', (('Auto', 'تلقائي (لغة الواجهة)'), ('Arabic', 'العربية'),
-                                                ('English', 'English'))),
-    'server_meta': ('server_metadata', (('0', 'من السيرفر أولاً'), ('1', 'من المصدر المختار'))),
-    'card_style': ('homeui_card_style', (('Overlay', 'على الصورة'), ('Below', 'تحت الصورة'),
-                                         ('None', 'بدون عناوين'))),
-    'focus_motion': ('homeui_focus_motion', (('zoom', 'تكبير ناعم'), ('lift', 'رفع للأعلى'), ('pop', 'قفزة'),
-                                             ('glow', 'إضاءة فقط'))),
-    'row_dim': ('homeui_row_dim', (('light', 'خفيف'), ('off', 'بدون'), ('strong', 'قوي'))),
-    # v5.10.208: the Following and library section
-    'follow_order': ('follow_order', (('recent', 'آخر مشاهدة أولاً'), ('almost', 'الأقرب للنهاية أولاً'),
-                                      ('oldest', 'الأقدم أولاً'))),
-    'lib_sort': ('library_sort', (('added', 'وقت الإضافة'), ('title', 'الاسم'), ('year', 'السنة'))),
-    'episode_art': ('continue_episode_art', (('off', 'صورة المسلسل'), ('started', 'الحلقات اللي بدأتها'),
-                                             ('all', 'كل الحلقات'))),
-    # v5.10.217: when the end-of-episode panel comes up
-    'credits_panel': ('credits_panel', (('auto', 'مع التترات'), ('end', 'آخر الحلقة'), ('off', 'بدون'))),
-    # v5.10.214
-    'episode_titles': ('episode_titles', (('all', 'كل الحلقات'), ('started', 'الحلقات اللي بدأتها'),
-                                          ('off', 'الرقم فقط'))),
-    # v5.10.301: the sources window's rows
-    'sources_style': ('sources_row_style', (('full', 'مثل Nuvio TV'), ('compact', 'مختصرة'))),
-    # v5.10.299: the player bar's look (osd_look.py)
-    'osd_style': ('player_osd_style', (('classic', 'كلاسيكي'), ('glass', 'زجاجي'), ('cinematic', 'سينمائي'),
-                                       ('minimal', 'بسيط'))),
-    'osd_shape': ('player_osd_shape', (('circle', 'دائرة'), ('square', 'مربع مثل Apple TV'), ('ring', 'حلقة'),
-                                       ('line', 'خط تحت الأيقونة'), ('dot', 'نقطة تحت الأيقونة'),
-                                       ('soft', 'دائرة شفافة'))),
-    'osd_dim': ('player_osd_dim', (('0', 'شفاف بدون ظل'), ('15', '15%'), ('30', '30%'), ('50', '50%'), ('60', '60%'),
-                                   ('70', '70%'), ('80', '80% مثل Nuvio'), ('85', '85%'), ('95', '95%'))),
-    # v5.10.302: the shades and the buttons' backing; ready looks set all of it
-    'osd_area': ('player_osd_area', (('bottom', 'تحت الشريط فقط'), ('both', 'فوق وتحت مثل Nuvio'), ('none', 'بدون ظل · شفاف'))),
-    'osd_scrim': ('player_osd_scrim', (('auto', 'أسود بلمسة من لون المشغل'), ('black', 'أسود'), ('theme', 'لون خلفية الثيم'),
-                                       ('artwork', 'يتبع ألوان العمل المشغّل'), ('navy', 'كحلي'), ('plum', 'بنفسجي غامق'),
-                                       ('wine', 'عنابي'), ('forest', 'أخضر غامق'), ('slate', 'رمادي أزرق'), ('warm', 'بني دافئ'))),
-    'osd_buttons_bg': ('player_osd_buttons', (('none', 'بدون خلفية'), ('soft', 'شكل خفيف خلف كل زر'), ('outline', 'إطار حول كل زر'))),
-    'osd_preset': ('player_osd_preset', (('custom', 'مخصص (اختياراتك)'), ('nuvio', 'Nuvio'), ('appletv', 'Apple TV'),
-                                         ('netflix', 'على طريقة Netflix'), ('infuse', 'على طريقة Infuse'), ('plex', 'على طريقة Plex'),
-                                         ('disney', 'على طريقة Disney+'), ('artwork', 'ألوان العمل'), ('clean', 'شفاف ونظيف'),
-                                         ('theme', 'ألوان الثيم'))),
-    'osd_accent': ('player_osd_accent', (('white', 'أبيض'), ('theme', 'لون الثيم'), ('artwork', 'يتبع العمل المشغّل'),
-                                         ('violet', 'بنفسجي'), ('blue', 'أزرق'), ('cyan', 'سماوي'), ('green', 'أخضر'),
-                                         ('gold', 'ذهبي'), ('orange', 'برتقالي'), ('red', 'أحمر'), ('pink', 'وردي'))),
-}
+PICKS = {'folder_view': ('homeui_folder_view', (('rows', 'صفوف بوسترات الكتالوجات'), ('catalogs', 'بطاقات الكتالوجات'))), 'badges_brightness': ('player_badges_brightness', (('solid', 'واضح بلا تعتيم'), ('soft', 'هادئ'))), 'title_style': ('homeui_title_style', (('logo', 'شعار العمل'), ('text', 'نص'))), 'background_style': ('homeui_background_style', (('cinematic', 'سينمائي'), ('soft', 'هادئ'), ('dark', 'داكن'), ('fullscreen', 'خلفية كاملة'))), 'home_layout_mode': ('homeui_layout_mode', (('cinematic', 'هيرو وصفوف'), ('legacy', 'ليقسي'), ('cinema', 'سينمائي ملء الشاشة'), ('shelf', 'رف بطاقات عريضة'), ('netflix', 'هيرو وصف واحد'), ('two_rows', 'هيرو مختصر وصفين'), ('spotlight_posters', 'Spotlight وبوسترات'))), 'nav_position': ('homeui_nav_position', (('top', 'أعلى الشاشة'), ('side', 'قائمة جانبية'))), 'trailer_volume': ('homeui_trailer_volume', (('0', '0%'), ('5', '5%'), ('10', '10%'), ('15', '15%'), ('20', '20%'), ('25', '25%'), ('30', '30%'), ('35', '35%'), ('40', '40%'), ('45', '45%'), ('50', '50%'), ('55', '55%'), ('60', '60%'), ('65', '65%'), ('70', '70%'), ('75', '75%'), ('80', '80%'), ('85', '85%'), ('90', '90%'), ('95', '95%'), ('100', '100%'))), 'trailer_place': ('homeui_trailer_mode', (('background', 'خلفية الشاشة'), ('card', 'داخل البطاقة'))), 'immersive_after': ('homeui_immersive_delay', (('4', 'بعد 4 ثوانٍ'), ('6', 'بعد 6 ثوانٍ'), ('8', 'بعد 8 ثوانٍ'), ('10', 'بعد 10 ثوانٍ'), ('12', 'بعد 12 ثانية'), ('16', 'بعد 16 ثانية'), ('20', 'بعد 20 ثانية'))), 'meta_lang': ('homeui_metadata_language', (('Auto', 'تلقائي (لغة الواجهة)'), ('Arabic', 'العربية'), ('English', 'English'))), 'server_meta': ('server_metadata', (('0', 'من السيرفر أولاً'), ('1', 'من المصدر المختار'))), 'card_style': ('homeui_card_style', (('Overlay', 'على الصورة'), ('Below', 'تحت الصورة'), ('None', 'بدون عناوين'))), 'focus_motion': ('homeui_focus_motion', (('zoom', 'تكبير ناعم'), ('lift', 'رفع للأعلى'), ('pop', 'قفزة'), ('glow', 'إضاءة فقط'))), 'row_dim': ('homeui_row_dim', (('light', 'خفيف'), ('off', 'بدون'), ('strong', 'قوي'))), 'follow_order': ('follow_order', (('recent', 'آخر مشاهدة أولاً'), ('almost', 'الأقرب للنهاية أولاً'), ('oldest', 'الأقدم أولاً'))), 'lib_sort': ('library_sort', (('added', 'وقت الإضافة'), ('title', 'الاسم'), ('year', 'السنة'))), 'episode_art': ('continue_episode_art', (('off', 'صورة المسلسل'), ('started', 'الحلقات اللي بدأتها'), ('all', 'كل الحلقات'))), 'credits_panel': ('credits_panel', (('auto', 'مع التترات'), ('end', 'آخر الحلقة'), ('off', 'بدون'))), 'episode_titles': ('episode_titles', (('all', 'كل الحلقات'), ('started', 'الحلقات اللي بدأتها'), ('off', 'الرقم فقط'))), 'sources_style': ('sources_row_style', (('full', 'مثل Nuvio TV'), ('compact', 'مختصرة'))), 'osd_style': ('player_osd_style', (('classic', 'كلاسيكي'), ('glass', 'زجاجي'), ('cinematic', 'سينمائي'), ('minimal', 'بسيط'))), 'osd_shape': ('player_osd_shape', (('circle', 'دائرة'), ('square', 'مربع مثل Apple TV'), ('ring', 'حلقة دائرية'), ('line', 'خط تحت الأيقونة'), ('dot', 'نقطة تحت الأيقونة'), ('soft', 'دائرة شفافة'))), 'osd_dim': ('player_osd_dim', (('0', 'شفاف بدون ظل'), ('15', '15%'), ('30', '30%'), ('50', '50%'), ('60', '60%'), ('70', '70%'), ('80', '80% مثل Nuvio'), ('85', '85%'), ('95', '95%'))), 'osd_area': ('player_osd_area', (('bottom', 'تحت الشريط فقط'), ('both', 'فوق وتحت مثل Nuvio'), ('none', 'بدون ظل · شفاف'))), 'osd_scrim': ('player_osd_scrim', (('auto', 'أسود بلمسة من لون المشغل'), ('black', 'أسود'), ('theme', 'لون خلفية الثيم'), ('artwork', 'يتبع ألوان العمل المشغّل'), ('navy', 'كحلي'), ('plum', 'بنفسجي غامق'), ('wine', 'عنابي'), ('forest', 'أخضر غامق'), ('slate', 'رمادي أزرق'), ('warm', 'بني دافئ'))), 'osd_buttons_bg': ('player_osd_buttons', (('none', 'بدون خلفية'), ('soft', 'شكل خفيف خلف كل زر'), ('outline', 'إطار حول كل زر'))), 'osd_preset': ('player_osd_preset', (('custom', 'مخصص (اختياراتك)'), ('nuvio', 'Nuvio'), ('appletv', 'Apple TV'), ('netflix', 'على طريقة Netflix'), ('infuse', 'على طريقة Infuse'), ('plex', 'على طريقة Plex'), ('disney', 'على طريقة Disney+'), ('artwork', 'ألوان العمل'), ('clean', 'شفاف ونظيف'), ('theme', 'ألوان الثيم'))), 'osd_accent': ('player_osd_accent', (('white', 'أبيض'), ('theme', 'لون الثيم'), ('artwork', 'يتبع العمل المشغّل'), ('violet', 'بنفسجي'), ('blue', 'أزرق'), ('cyan', 'سماوي'), ('green', 'أخضر'), ('gold', 'ذهبي'), ('orange', 'برتقالي'), ('red', 'أحمر'), ('pink', 'وردي')))}
 # v5.10.299: the skin's own looks (skin strings; the theme is published again at once)
 #   key: (skin string, ((value, label), ...)); '' is the skin's default (Skin.Reset)
 SKIN_PICKS = {
@@ -276,10 +54,7 @@ SKIN_PICKS = {
     'kodi_focus': ('dh.kodifocus', (('', 'بلون التحديد'), ('white', 'أبيض مثل Nuvio'))),
 }
 #   key: (skin string, its value when on, on by default)
-SKIN_TOGGLES = {
-    'amoled': ('dh.amoled', 'on', False),
-    'focus_glow': ('dh.focusglow', '', True),     # off is the string 'off'
-}
+SKIN_TOGGLES = {'follow_works': ('homeui_follow_works', 'false'), 'follow_rows': ('homeui_follow_rows', 'false'), 'metadata_refresh': ('metadata_refresh', 'true'), 'amoled': ('dh.amoled', 'on', False), 'focus_glow': ('dh.focusglow', '', True)}
 PICK_LINES = {
     'osd_accent': '«يتبع العمل» ياخذ لون من صورة العمل اللي تشغله',
     'osd_dim': 'خلفية شريط المشغل: كل ما زادت النسبة صارت أغمق، وشفاف بدون ظل أبدًا',
@@ -293,19 +68,10 @@ PICK_LINES = {
     'credits_panel': 'الفيديو يصغر في الزاوية وتطلع الحلقة التالية بعد عد تنازلي، وللأفلام أعمال مشابهة. «مع التترات» يبدأ مع فصل التترات أو قبل النهاية بقليل',
     'episode_titles': 'في البطاقات وقائمة حلقات الموسم. «الحلقات اللي بدأتها» يخلي اللي ما شفتها بالرقم حتى ما ينكشف شي',
 }
-TOGGLES = {'title_poster': ('homeui_title_poster', 'true'), 'library_split': ('library_split_media', 'true'), 'badges_visible': ('player_badges_visible', 'true'),
-           'row_source': ('homeui_show_row_source', 'true'), 'plot_scroll': ('homeui_plot_scroll', 'true'),
-           'hide_plot': ('homeui_hide_plot', 'false'), 'rating_inline': ('homeui_rating_inline', 'true'),
-           'compact_hero': ('homeui_compact_hero', 'true'), 'nav_icons': ('homeui_nav_icons_only', 'false'), 'nav_autohide': ('homeui_nav_autohide', 'false'), 'nav_focus_open': ('homeui_nav_focus_open', 'false'), 'back_exit': ('homeui_back_exit', 'true'), 'hero_shuffle': ('homeui_hero_shuffle', 'false'), 'clean_look': ('homeui_clean_look', 'true'), 'spot_section': ('homeui_spot_section', 'true'), 'ss_preload': ('homeui_ss_preload', 'true'), 'servers': ('show_servers', 'true'), 'bg_settle': ('homeui_bg_settle', 'true'), 'trailer_clean': ('homeui_trailer_clean', 'true'), 'carousel': ('homeui_carousel', 'true'),'trailer_sound': ('homeui_trailer_sound', 'true'), 'ratings': ('metadata_badges', 'true'),
-           'nav_names': ('homeui_nav_names', 'false'), 'follow_merge': ('follow_merge', 'true'),
-           'nextup_unaired': ('nextup_show_unaired', 'true'),
-           'trakt_smart': ('trakt_smart_sync', 'true'), 'season_names': ('season_names', 'true'),
-           'reminders': ('episode_reminders', 'true'),
-           'new_rows': ('home_hide_new_rows', 'false'), 'group_recs': ('home_group_recs', 'false'),
-           'kenburns': ('homeui_kenburns', 'true'), 'focus_gif': ('homeui_focus_gif', 'true')}
+TOGGLES = {'temporary_skin': ('temporary_skin_on_launch', 'true'), 'title_poster': ('homeui_title_poster', 'true'), 'library_split': ('library_split_media', 'true'), 'badges_visible': ('player_badges_visible', 'true'), 'row_source': ('homeui_show_row_source', 'true'), 'plot_scroll': ('homeui_plot_scroll', 'true'), 'hide_plot': ('homeui_hide_plot', 'false'), 'rating_inline': ('homeui_rating_inline', 'true'), 'compact_hero': ('homeui_compact_hero', 'true'), 'nav_icons': ('homeui_nav_icons_only', 'false'), 'nav_autohide': ('homeui_nav_autohide', 'false'), 'nav_focus_open': ('homeui_nav_focus_open', 'false'), 'back_exit': ('homeui_back_exit', 'true'), 'hero_shuffle': ('homeui_hero_shuffle', 'false'), 'clean_look': ('homeui_clean_look', 'true'), 'spot_section': ('homeui_spot_section', 'true'), 'ss_preload': ('homeui_ss_preload', 'true'), 'servers': ('show_servers', 'true'), 'bg_settle': ('homeui_bg_settle', 'true'), 'trailer_clean': ('homeui_trailer_clean', 'true'), 'carousel': ('homeui_carousel', 'true'), 'trailer_sound': ('homeui_trailer_sound', 'true'), 'ratings': ('metadata_badges', 'true'), 'nav_names': ('homeui_nav_names', 'false'), 'follow_merge': ('follow_merge', 'true'), 'nextup_unaired': ('nextup_show_unaired', 'true'), 'trakt_smart': ('trakt_smart_sync', 'true'), 'season_names': ('season_names', 'true'), 'reminders': ('episode_reminders', 'true'), 'new_rows': ('home_hide_new_rows', 'false'), 'group_recs': ('home_group_recs', 'false'), 'kenburns': ('homeui_kenburns', 'true'), 'focus_gif': ('homeui_focus_gif', 'true')}
 SIZES = {'': 'عادي', 'large': 'كبير', 'xlarge': 'كبير جداً',
          'normal': 'عادي', 'extra large': 'كبير جداً'}
-_SETTINGS = ('homeui_title_poster', 'homeui_nav_icons_only', 'homeui_nav_autohide', 'homeui_nav_focus_open', 'homeui_back_exit', 'homeui_immersive_delay', 'homeui_hero_shuffle', 'homeui_clean_look', 'homeui_spot_section', 'homeui_spot_count', 'homeui_spot_source', 'homeui_ss_preload', 'show_servers', 'homeui_bg_settle', 'homeui_trailer_clean', 'ratings_shown', 'library_split_media', 'player_badges_visible', 'player_badges_brightness', 'homeui_poster_scale', 'homeui_show_row_source', 'homeui_title_style', 'homeui_background_style', 'homeui_plot_scroll', 'homeui_hide_plot', 'homeui_rating_inline', 'homeui_compact_hero', 'homeui_carousel', 'homeui_layout_mode', 'homeui_nav_position', 'homeui_metadata_language', 'server_metadata', 'homeui_card_style', 'homeui_focus_motion',
+_SETTINGS = ('homeui_folder_view', 'temporary_skin_on_launch', 'homeui_title_poster', 'homeui_nav_icons_only', 'homeui_nav_autohide', 'homeui_nav_focus_open', 'homeui_back_exit', 'homeui_immersive_delay', 'homeui_hero_shuffle', 'homeui_clean_look', 'homeui_spot_section', 'homeui_spot_count', 'homeui_spot_source', 'homeui_ss_preload', 'show_servers', 'homeui_bg_settle', 'homeui_trailer_clean', 'ratings_shown', 'library_split_media', 'player_badges_visible', 'player_badges_brightness', 'homeui_poster_scale', 'homeui_show_row_source', 'homeui_title_style', 'homeui_background_style', 'homeui_plot_scroll', 'homeui_hide_plot', 'homeui_rating_inline', 'homeui_compact_hero', 'homeui_carousel', 'homeui_layout_mode', 'homeui_nav_position', 'homeui_metadata_language', 'server_metadata', 'homeui_card_style', 'homeui_focus_motion',
              'homeui_row_dim', 'homeui_trailer_sound', 'metadata_badges', 'homeui_nav_names', 'homeui_trailers',
              'homeui_trailer_delay', 'homeui_trailer_volume', 'homeui_trailer_mode', 'homeui_size', 'global_meta_source_id', 'global_meta_source_all',
              'tmdb_api_key', 'global_poster_source_id', 'follow_order', 'library_sort', 'follow_merge',
@@ -330,6 +96,7 @@ def _where():
         coreelec = appliance = False
     return {'skin': skin == 'skin.dexhub', 'addon': skin != 'skin.dexhub',
             'player': skin in ('skin.dexhub', 'skin.arctic.fuse.3'), 'coreelec': coreelec, '': True,
+            'temporary': bool(xbmcgui.Window(10000).getProperty('dexhub.temporary_skin.active')),
             'skin_exit': skin == 'skin.dexhub' and not appliance}     # v5.10.367
 
 
@@ -347,6 +114,9 @@ def sections():
 def launch(key):
     """Run an open entry the caller does not handle itself (its route)."""
     route = ROUTES.get(key)
+    if route and key == 'catalogs':
+        xbmc.executebuiltin('ActivateWindow(Videos,plugin://%s/?action=%s,return)' % (ADDON_ID, route))
+        return True
     if route:
         xbmc.executebuiltin('RunPlugin(plugin://%s/?action=%s)' % (ADDON_ID, route))
         return True
@@ -451,6 +221,9 @@ def apply_entry(key, value):
             value = value.strip().lower() == 'true'
         was_on = (_addon().getSetting(setting) or default).lower() == 'true'
         write(setting, 'true' if value else 'false')
+        if key == 'follow_rows':
+            from ..skinui.common import ask_republish
+            ask_republish('catalog settings changed')
         if key in ('new_rows', 'group_recs', 'row_source'):
             # v5.10.236: the Home's rows again with the new choice
             # (v5.10.286: and with or without their source line)
@@ -514,9 +287,15 @@ class ControlCentre(xbmcgui.WindowXMLDialog):
     def _value(self, key):
         """(value, switch) of an entry: switch 'on', 'off' or ''."""
         tr, snap = self.tr, self.snap
+        if key.startswith('player_element_'):
+            from .. import player_controls, ui_preferences
+            group = key[len('player_element_'):]
+            keys = player_controls.GROUPS[group][2]
+            return ' · '.join(player_controls.label(ui_preferences.value(k)) for k in keys[:3]), ''
         if key in PICKS:
             setting, options = PICKS[key]
-            current = snap.get(setting) or options[0][0]
+            from ..ui_preferences import OPTIONS
+            current = snap.get(setting) or (OPTIONS[setting][0] if setting in OPTIONS else options[0][0])
             for value, label in options:
                 if value.lower() == current.lower():
                     return tr(label), ''
@@ -676,6 +455,8 @@ class ControlCentre(xbmcgui.WindowXMLDialog):
         except Exception:
             return
         want = xbmcgui.Window(10000).getProperty(LAST_PROP) or ''
+        from ..menu_taxonomy import CONTROL_ALIASES
+        want = CONTROL_ALIASES.get(want, want)
         start = next((i for i, s in enumerate(self.sections) if s[0] == want), 0)
         control.selectItem(start)
         self._show_section(start)
@@ -882,6 +663,10 @@ class ControlCentre(xbmcgui.WindowXMLDialog):
 
     def _run(self, key):
         tr = self.tr
+        if key.startswith('player_element_'):
+            from .. import player_controls
+            player_controls.show(key[len('player_element_'):])
+            return True
         if key == 'ratings_pick':
             # v5.10.334: which ratings show (the Home, the title pages, the player)
             from . import ratings as RB

@@ -602,14 +602,15 @@ class App(object):
         window = BrowseWindow(ui_size.xml('dexhub_browse.xml'), self.addon_path, 'Default', '1080i',
                               app=self, mode='folder', folder_ref={
                                   'set_id': set_id, 'group_id': group_id,
-                                  'folder_id': folder_id, 'media_filter': media_filter},
-                              title=title)
+                                  'folder_id': folder_id, 'media_filter': media_filter}, title=title)
         self._show(window)
 
     def open_grid(self, params, title='', shape='poster', page_tile=None):
         from .window import GridWindow
         if shape in ('wide', 'wide_ranked', 'feature', 'landscape_info'):
             shape = 'landscape'     # the grid has no big banner cards
+        elif shape == 'circle':
+            shape = 'square'
         elif shape in ('ranked', 'tall', 'tall_ranked', 'collage', 'mosaic', 'stack',
                        'poster_large', 'collection_spotlight', 'collection_compact', 'collection_ranking'):
             shape = 'poster'
@@ -944,6 +945,9 @@ def _details_tile(params):
     route = [('action', 'item_open'), ('media_type', params.get('m') or media), ('canonical_id', canonical),
              ('title', params.get('title') or ''), ('tmdb_id', params.get('tmdb') or ''),
              ('imdb_id', params.get('imdb') or ''), ('source_provider_id', params.get('src') or '')]
+    if params.get('srv'):
+        from urllib.parse import parse_qsl
+        route=list(parse_qsl(params['srv']))
     return {'kind': 'work', 'media_type': media, 'title': params.get('title') or '',
             'year': params.get('year') or '', 'imdb_id': params.get('imdb') or '',
             'tmdb_id': params.get('tmdb') or '', 'folder': media == 'series',

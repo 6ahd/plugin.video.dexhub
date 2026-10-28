@@ -35,7 +35,9 @@ def display_art(art):
 
 def repair_missing_poster(tile):
     """Fill absent art by exact ID; do not replace source text or guess by name."""
-    if clean(tile.get('poster')):
+    from .poster_roles import portrait
+    tile['poster'] = portrait(clean(tile.get('poster')))
+    if tile['poster']:
         return False
     from . import profile_scope
     profile_scope.require_current()

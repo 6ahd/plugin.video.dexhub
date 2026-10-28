@@ -289,7 +289,7 @@ def source_settings(addon):
         'quality_profile':       profile_key,
         'codec_exclusions':      codec_exclusions,
         'dr_exclusions':         dr_exclusions,
-        'order_mode':            'addon' if profile_key == 'nuvio' else 'ranked',
+        'order_mode':            'addon',
     }
 
 
@@ -488,7 +488,7 @@ def finalize_stream_entries(entries, settings, preferred_source=None, resort=Tru
     original = list(entries or [])
     filtered = filter_stream_entries(original, settings)
     ordered_source = filtered if filtered else original
-    if resort:
+    if resort and settings.get('order_mode', 'addon') != 'addon':
         keyed = [(stream_sort_key(e, settings, preferred_source=preferred_source), e)
                  for e in ordered_source]
         for key, entry in keyed:
@@ -502,13 +502,13 @@ def finalize_stream_entries(entries, settings, preferred_source=None, resort=Tru
             if not entry.get('_dh_rank'):
                 entry['_dh_rank'] = list(stream_sort_key(
                     entry, settings, preferred_source=preferred_source)[:9])
-    if settings.get('order_mode') == 'addon':
+    if settings.get('order_mode', 'addon') == 'addon':
         ordered = addon_order(ordered, settings)
     return renumber_stream_entries(ordered)
 
 
 def addon_order(entries, settings):
-    """v5.10.292 (Like Nuvio): the sources as the add-ons gave them. The
+    """Default: sources exactly as their add-ons gave them. The
     add-ons in the Sources order (the list Nuvio syncs), each add-on's rows in
     the order it returned them (AIOStreams sorted by its own rules). A row
     with no add-on position (a media server) keeps its ranked place among

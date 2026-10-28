@@ -178,44 +178,33 @@ def clear_cache():
 
 
 def pick(rows=None, names=None, limit=1):
-    """Studio logos to draw, as [(texture, chip)] (v5.10.105).
-
-    rows: [{'name', 'logo'}] from TMDb Helper's cache or TMDb (logo is the
-    TMDb image URL). An installed studio pack logo (made for dark skins) is
-    drawn as it is; otherwise the TMDb logo, which is often dark, is drawn
-    on a light chip (chip True). names: plain studio names tried against the
-    packs when no row gave a logo.
-    """
-    out = []
-    seen = set()
-    for row in rows or []:
-        if not isinstance(row, dict):
-            continue
+    """Prefer transparent white pack marks; never use square platform tiles."""
+    from .studio_mark import prepare
+    out, seen = [], set()
+    if limit <= 0:
+        return out
+    candidates = [row for row in (rows or []) if isinstance(row, dict)]
+    candidates += [{'name': name} for name in _names(names or [])]
+    for row in candidates:
         name = str(row.get('name') or '').strip()
         if not name or name.casefold() in seen:
             continue
         seen.add(name.casefold())
-        local = resolve_player(name) or resolve(name)
-        if local:
-            out.append((local, False))
-        elif row.get('logo'):
-            out.append((_display_logo_url(row.get('logo')), True))
+        local = resolve_player(name)
+        if not local:
+            candidate = resolve(name)
+            local = candidate if candidate.startswith('resource://') else ''
+        mark = prepare(local) if local else ''
+        if not mark and row.get('logo'):
+            mark = prepare(_display_logo_url(row['logo']))
+        if mark:
+            out.append((mark, False))
         if len(out) >= limit:
-            return out
-    if not out:
-        for name in _names(names or []):
-            if name.casefold() in seen:
-                continue
-            seen.add(name.casefold())
-            local = resolve_player(name) or resolve(name)
-            if local:
-                out.append((local, False))
-            if len(out) >= limit:
-                break
+            break
     return out
 
 
 def _display_logo_url(value):
     """Use a crisp TMDb studio image without rewriting other image services."""
-    value = str(value or '')
+    value = str(value or '').strip()
     return re.sub(r'^(https://image\.tmdb\.org/t/p/)w\d+/', r'\g<1>w500/', value)

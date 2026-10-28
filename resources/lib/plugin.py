@@ -10164,6 +10164,7 @@ def stremio_sync_menu():
     add_item(tr('وضع المزامنة والتوقيت'), build_url(action='sync_options'),
              is_folder=False, art=root_art('refresh'),
              info={'title': tr('وضع المزامنة والتوقيت')})
+    add_item(tr('إعدادات سحب ورفع Stremio'),build_url(action='stremio_configure'),is_folder=False,art=root_art('settings'))
     add_item(tr('إصلاح مكتبة Stremio (تواريخ تالفة)'), build_url(action='stremio_repair_library'),
              is_folder=False, art=root_art('stremio'),
              info={'title': tr('إصلاح مكتبة Stremio (تواريخ تالفة)'),
@@ -20003,6 +20004,12 @@ def _continue_rows(limit=500):
         rows = native_continue.rows(sys.modules[__name__], local, limit)
     except Exception:
         rows = local
+    try:
+        from . import continue_nextup
+        rows = continue_nextup.merge(rows, _nextup_items_cached(limit=60, cached_only=True),
+                                    playback_store.list_finished_items(limit=400), _work_keys)
+    except Exception as exc:
+        xbmc.log('[DexHub] continue next episode: %s' % exc, xbmc.LOGDEBUG)
     # v5.10.286: titles removed from Continue Watching stay out (every
     # source's rows of them), until newer progress of the title arrives
     return _continue_order(_continue_merge(_cw_hidden_filter(_with_iptv(_continue_source_filter(_drop_finished(rows))))))
@@ -20266,23 +20273,8 @@ def _continue_source_filter(rows):
 
 
 def _cw_direct_from(row):
-    """(name, kind) of what a Continue Watching row plays from directly:
-    'Plex Native • DexMedia' is ('DexMedia', 'plex'); an add-on source is
-    (its name, 'addon'). None when nothing is known."""
-    name = str(row.get('provider_name') or '').strip()
-    # a name, never an address or a file (some rows keep the source's path or
-    # icon there: the hero showed /Users/.../addons/plugin.video...)
-    if not name or '/' in name or '\\' in name or '://' in name or len(name) > 48:
-        return None
-    head, _sep, tail = name.partition('•')
-    head = head.strip()
-    word = head.lower().split(' ')[0] if head else ''
-    for kind in ('plex', 'emby', 'jellyfin', 'silo'):
-        if word == kind:
-            return ((tail.strip() or head), kind)
-    if row.get('native_server_id'):
-        return ((tail.strip() or head), 'server')
-    return (name, 'addon')
+    from .playback_source import label
+    return label(sys.modules[__name__], row)
 
 
 def _native_continue_path(row):
@@ -20484,7 +20476,12 @@ def _cw_episode_poster(row):
     landscape; the portrait poster becomes the show poster when available.
     """
     tmdb_id = str(row.get('show_tmdb_id') or row.get('tmdb_id') or '').strip()
-    imdb_id = str(row.get('imdb_id') or '').strip()
+    imdb_id = str(row.get('show_imdb_id') or row.get('imdb_id') or '').strip()
+    canonical = str(row.get('canonical_id') or '')
+    if not imdb_id and canonical.startswith('tt'):
+        imdb_id = canonical.split(':')[0]
+    if not tmdb_id and canonical.startswith('tmdb:'):
+        tmdb_id = canonical.split(':')[1]
     if not (tmdb_id or imdb_id):
         return ''
     try:
@@ -20798,19 +20795,14 @@ def continue_watching(page='0'):
             info['resumetime'] = float(position)
             info['totaltime'] = float(duration)
 
-        _row_poster = row.get('poster') or ''
+        from .poster_roles import portrait
+        _row_poster = portrait(row.get('poster'))
         if is_episode:
-            # Portrait slot gets the SHOW poster when cached; the episode
-            # still (a random frame) only ever suits the landscape slot.
-            _row_poster = _cw_episode_poster(row) or _row_poster
-        if not _row_poster:
-            # v5.10.251: no poster at all (an episode whose show art is not
-            # cached, a server title): the show's backdrop, then the
-            # episode's own picture, instead of a blank card
-            if is_episode and not row.get('background'):
-                row = _recent_show_art(row)
-            _row_poster = (row.get('show_poster') or row.get('background')
-                           or (_episode_picture(row, row_ids, started=True) if is_episode else '') or '')
+            _row_poster = (portrait(_cw_episode_poster(row))
+                           or portrait(row.get('show_poster')) or _row_poster)
+        # A backdrop or episode still is a display fallback, never a poster.
+        # Missing show posters are completed by the existing background art
+        # worker with exact show IDs; listing a shelf does not wait on HTTP.
         # v5.10.302: Like Nuvio: the profile's poster pattern on Continue Watching
         _row_poster = _cw_nuvio_poster(row, _row_poster, is_episode)
         _poster_art = _wrap_tokenized_url(_row_poster)
@@ -20841,11 +20833,10 @@ def continue_watching(page='0'):
         }
         # v5.10.221: OK plays straight from a server or a known source: say
         # which one (skin.dexhub draws it over the plot of the hero)
-        if not path_is_folder:
-            _direct = _cw_direct_from(row)
-            if _direct:
-                properties['dexhub.direct_from'] = _direct[0]
-                properties['dexhub.direct_kind'] = _direct[1]
+        _direct = _cw_direct_from(row)
+        if _direct:
+            properties['dexhub.direct_from'] = _direct[0]
+            properties['dexhub.direct_kind'] = _direct[1]
         if not path_is_folder:
             if duration > 0 and position > 0:
                 if _KODI_MAJOR < 20:
@@ -21031,9 +21022,12 @@ def _cw_remove_remote(members, episode):
         xbmc.log('[DexHub] cw_remove Nuvio: %s' % exc, xbmc.LOGWARNING)
 
 
-def cw_mark_watched(media_type='', canonical_id='', video_id='', refresh=True, on_local=None):
+def cw_mark_watched(media_type='', canonical_id='', video_id='', refresh=True, on_local=None,
+                    season=None, episode=None, title='', imdb_id='', show_tmdb_id=''):
     try:
-        playback_store.mark_watched(media_type, canonical_id, video_id)
+        if not playback_store.mark_watched(media_type, canonical_id, video_id, season=season, episode=episode,
+                                           title=title, imdb_id=imdb_id, show_tmdb_id=show_tmdb_id):
+            raise ValueError(tr('تعذر حفظ حالة المشاهدة'))
         _invalidate_nextup_cache()
         _cw_progress_changed()
         notify(tr('تم وسمه كمشاهد'))
@@ -25658,7 +25652,7 @@ def _series_videos_cached(canonical_id, media_type='series', title=''):
     )
 
 
-def _nextup_items_cached(limit=40):
+def _nextup_items_cached(limit=40, cached_only=False):
     return _nextup_items_cached_logic(
         limit=limit,
         window=xbmcgui.Window(WINDOW_ID),
@@ -25666,6 +25660,7 @@ def _nextup_items_cached(limit=40):
         playback_store_mod=playback_store,
         series_videos_loader=_series_videos_cached,
         log_prefix='[DexHub]',
+        cached_only=cached_only,
     )
 
 
@@ -25717,6 +25712,34 @@ def _nextup_airs(row, now=None):
 def _nextup_show_unaired():
     """v5.10.374: Episodes not out yet in Next episode (with their date), or hidden."""
     return (ADDON.getSetting('nextup_show_unaired') or 'true').strip().lower() != 'false'
+
+
+def nextup_remove(media_type='series', canonical_id='', video_id='', refresh=True, on_local=None,
+                  season=None, episode=None, title='', imdb_id='', show_tmdb_id=''):
+    try:
+        target = dict(media_type=media_type, canonical_id=canonical_id, video_id=video_id,
+                      season=season, episode=episode, title=title, imdb_id=imdb_id, show_tmdb_id=show_tmdb_id)
+        if not playback_store.hide_nextup(target):
+            raise ValueError(tr('تعذر تحديد المسلسل'))
+        _invalidate_nextup_cache()
+        _cw_progress_changed()
+        notify(tr('أزيل المسلسل من الحلقة التالية'))
+    except Exception as exc:
+        error(tr('تعذر الإزالة من الحلقة التالية: %s') % exc)
+        return False
+    if refresh:xbmc.executebuiltin('Container.Refresh')
+    if on_local:on_local()
+    return True
+
+
+def _nextup_actions(row, ids):
+    data = dict(media_type=row.get('media_type') or 'series', canonical_id=row.get('canonical_id') or '',
+                video_id=row.get('video_id') or row.get('canonical_id') or '',
+                season=row.get('season') or '', episode=row.get('episode') or '', title=row.get('title') or '',
+                imdb_id=row.get('imdb_id') or ids.get('imdb_id') or '',
+                show_tmdb_id=row.get('show_tmdb_id') or ids.get('tmdb_id') or '')
+    return [(tr('تحديد الحلقة كمشاهدة'), 'RunPlugin(%s)' % build_url(action='cw_mark_watched', **data)),
+            (tr('إزالة من الحلقة التالية'), 'RunPlugin(%s)' % build_url(action='nextup_remove', **data))]
 
 
 def nextup():
@@ -25846,7 +25869,7 @@ def nextup():
                 'plot':       row.get('plot') or '',
                 'playcount':  0,
             }
-            ctx_menu = _build_source_picker_menu(
+            ctx_menu = _nextup_actions(row, row_ids) + _build_source_picker_menu(
                 media_type=row.get('media_type') or 'series',
                 canonical_id=canonical, title=title or canonical,
                 season=season, episode=episode, video_id=video_id,
@@ -27374,6 +27397,7 @@ def _jsonrpc_call(method, params=None):
 
 def _launch_replacement_source(stream_key, resume_seconds='', resume_percent='', fallback_keys=None, subtitle_path='', subtitle_enabled=None, subtitle_name=''):
     """Start the replacement in a fresh plugin invocation after handoff."""
+    _mark_in_place_switch()
     params = {'action': 'play', 'stream_key': str(stream_key or '')}
     if resume_seconds not in (None, '', 0, '0'):
         params['resume_seconds'] = str(resume_seconds)
@@ -28022,8 +28046,11 @@ def _dispatch(params=None):
         return cw_play_from_start(media_type=params.get('media_type', ''), canonical_id=params.get('canonical_id', ''), video_id=params.get('video_id', ''), season=params.get('season', ''), episode=params.get('episode', ''), title=params.get('title', ''), provider_name=params.get('provider_name', ''), source_provider_id=params.get('source_provider_id', ''))
     if action == 'cw_remove':
         return cw_remove(media_type=params.get('media_type', ''), canonical_id=params.get('canonical_id', ''), video_id=params.get('video_id', ''))
-    if action == 'cw_mark_watched':
-        return cw_mark_watched(media_type=params.get('media_type', ''), canonical_id=params.get('canonical_id', ''), video_id=params.get('video_id', ''))
+    if action in ('cw_mark_watched', 'nextup_remove'):
+        handler = cw_mark_watched if action == 'cw_mark_watched' else nextup_remove
+        return handler(media_type=params.get('media_type', 'series'), canonical_id=params.get('canonical_id', ''),
+                       video_id=params.get('video_id', ''), season=params.get('season'), episode=params.get('episode'),
+                       title=params.get('title', ''), imdb_id=params.get('imdb_id', ''), show_tmdb_id=params.get('show_tmdb_id', ''))
     if action == 'collection_tools_menu':
         return collection_tools_menu()
     if action == 'dex_collection_hide':
@@ -28159,6 +28186,8 @@ def _dispatch(params=None):
         return nuvio_restore_library()
     if action == 'stremio_repair_library':
         return stremio_repair_library()
+    if action == 'stremio_configure':
+        return _accounts_route_mod.configure_stremio(ADDON,tr)
     if action == 'stremio_sync_menu':
         return stremio_sync_menu()
     if action == 'account_sync_now':

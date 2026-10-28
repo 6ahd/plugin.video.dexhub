@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-"""The player's subtitle page and audio page (v5.10.316), one design for both.
+"""The player's subtitles and audio, one page (v5.10.427; two pages of one
+design since v5.10.316). The Audio and Subtitles buttons open the same page,
+on their own section: the subtitle, the audio, the subtitle's look, then
+Kodi's own settings for both.
 
 Subtitles:
   الترجمة              the subtitle on screen; OK opens the side page with
@@ -178,7 +181,8 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
     def __init__(self, *args, **kwargs):
         super(SubtitleWindow, self).__init__(*args)
         self.section = kwargs.get('section') or ''
-        self.kind = kwargs.get('kind') or 'subtitles'
+        self.kind = kwargs.get('kind') or 'subtitles'      # the section the page opens on
+        self.side_kind = self.kind                          # whose tracks the side page lists
         self.rows = []
         self.side_rows = []
         self.side = ''              # '', 'tracks', 'online'
@@ -216,13 +220,9 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
                 continue
             rows.append({'id': key, 'label': _t(ar, en), 'value': _t('مفعّل', 'On') if value else _t('مطفأ', 'Off'),
                          'adjust': True, 'toggle': True})
-        rows.append({'id': 'kodi_audio', 'label': _t('إعدادات Kodi', 'Kodi settings'), 'value': '',
-                     'opens': True, 'kick': _t('المزيد', 'MORE')})
         return rows
 
     def _rows(self):
-        if self.kind == 'audio':
-            return self._audio_rows()
         rows = []
         state = _props('currentsubtitle', 'subtitleenabled', 'subtitles')
         enabled = bool(state.get('subtitleenabled'))
@@ -246,6 +246,7 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
         rows.append({'id': 'shift', 'label': _t('رفع وخفض الترجمة', 'Move up or down'),
                      'value': '', 'adjust': True})
         rows.append({'id': 'sync', 'label': _t('مزامنة تلقائية', 'Auto sync'), 'value': '', 'opens': True})
+        rows.extend(self._audio_rows())
         preset = xbmcgui.Window(10000).getProperty('dhs.substyle.preset')
         rows.append({'id': 'preset', 'label': _t('شكل جاهز', 'Look'),
                      'value': dict(PRESET_NAMES).get(preset, ('', ''))[1 if _english() else 0] or _t('اختر', 'Choose'),
@@ -273,8 +274,10 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
         if S.fonts_waiting():
             rows.append({'id': 'note', 'label': _t('خطوط عربية جديدة', 'New Arabic fonts'),
                          'value': _t('بعد إعادة التشغيل', 'after a restart'), 'kick': _t('المزيد', 'MORE')})
-        rows.append({'id': 'kodi', 'label': _t('إعدادات Kodi', 'Kodi settings'), 'value': '',
+        rows.append({'id': 'kodi', 'label': _t('إعدادات Kodi للترجمة', 'Kodi subtitle settings'), 'value': '',
                      'opens': True, 'kick': '' if S.fonts_waiting() else _t('المزيد', 'MORE')})
+        rows.append({'id': 'kodi_audio', 'label': _t('إعدادات Kodi للصوت', 'Kodi audio settings'), 'value': '',
+                     'opens': True})
         return rows
 
     @staticmethod
@@ -300,6 +303,8 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
                 position = next((i for i, r in enumerate(self.rows) if r['id'] == keep), 0)
             elif self.section == 'look':
                 position = next((i for i, r in enumerate(self.rows) if r['id'] == 'preset'), 0)
+            elif self.kind == 'audio':
+                position = next((i for i, r in enumerate(self.rows) if r['id'] == 'astream'), 0)
             self.list.reset()
             self.list.addItems([self._item(r) for r in self.rows])
             self.list.selectItem(position)
@@ -335,7 +340,7 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
 
     # ------------------------------------------------------------ side page
     def _track_rows(self):
-        if self.kind == 'audio':
+        if self.side_kind == 'audio':
             got = _props('currentaudiostream', 'audiostreams')
             current = (got.get('currentaudiostream') or {}).get('index')
             out = []
@@ -511,8 +516,8 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
     def open_side(self, mode):
         self.side = mode
         if mode == 'tracks':
-            title = _t('مسارات الصوت', 'Audio tracks') if self.kind == 'audio' else _t('الترجمات', 'Subtitles')
-            icon = 'dexhub/osd/legacy/audio-lines.png' if self.kind == 'audio' else 'dexhub/osd/legacy/languages.png'
+            title = _t('مسارات الصوت', 'Audio tracks') if self.side_kind == 'audio' else _t('الترجمات', 'Subtitles')
+            icon = 'dexhub/osd/legacy/audio-lines.png' if self.side_kind == 'audio' else 'dexhub/osd/legacy/languages.png'
             hint = _t('اختر، ويمين للرجوع', 'Choose; Right goes back')
             self.side_list = self.track_list
             self.side_rows = []
@@ -535,7 +540,7 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
         self.side = ''
         self.clearProperty('side')
         self.setFocusId(MAIN)
-        self.refresh_id('astream' if self.kind == 'audio' else 'track')
+        self.refresh_id('astream' if self.side_kind == 'audio' else 'track')
         if was == 'online':
             self.refresh_id('online')
 
@@ -738,10 +743,8 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
         self.head_list = self.getControl(HEAD)
         self.dex_list = self.getControl(DEX)
         self.side_list = self.track_list
-        self.setProperty('title', _t('إعدادات الصوت', 'Audio settings') if self.kind == 'audio'
-                         else _t('إعدادات الترجمة', 'Subtitle settings'))
-        self.setProperty('icon', 'dexhub/osd/legacy/audio-lines.png' if self.kind == 'audio'
-                         else 'dexhub/osd/legacy/captions.png')
+        self.setProperty('title', _t('الترجمة والصوت', 'Subtitles & audio'))
+        self.setProperty('icon', 'dexhub/osd/legacy/captions.png')
         self.setProperty('hint', _t('يمين ويسار للتغيير، وOK يفتح القائمة', 'Left and Right change it; OK opens the list'))
         self.build()
         if self.section == 'tracks':
@@ -798,6 +801,7 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
         row = self.rows[index] if 0 <= index < len(self.rows) else {}
         rid = row.get('id')
         if rid in ('track', 'astream'):
+            self.side_kind = 'audio' if rid == 'astream' else 'subtitles'
             self.open_side('tracks')
         elif rid == 'online':
             self.open_side('online')

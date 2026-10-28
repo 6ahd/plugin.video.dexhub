@@ -45,7 +45,7 @@ def edit_mode(addon, txt):
     settings_cache.invalidate()
     ui_preferences.publish()
     return True
-def _scope(media, canonical, video='', season='', episode=''):
+def _legacy_scope(media, canonical, video='', season='', episode=''):
     canonical = str(canonical or '').strip()
     if not canonical:
         return ''
@@ -65,9 +65,46 @@ def _scope(media, canonical, video='', season='', episode=''):
     return 'last-played-' + hashlib.sha256(identity.encode()).hexdigest()
 
 
+def _scope(media, canonical, video='', season='', episode=''):
+    canonical = str(canonical or '').strip()
+    if not canonical:
+        return ''
+    episodic = season not in (None, '') and episode not in (None, '')
+    if episodic:
+        try:
+            number, part = int(season), int(episode)
+        except (ValueError, TypeError):
+            return ''
+        if number < 0 or part < 1:
+            return ''
+        canonical = re.sub(r'^((?:tt\d+|tmdb:\d+)):\d+:\d+$', r'\1', canonical)
+        identity = 'series|%s|%s|%s' % (canonical, number, part)
+    elif str(media or '').lower() in ('series', 'episode', 'tv', 'tvshow', 'show', 'anime'):
+        if not video:
+            return ''
+        identity = 'series|%s|%s' % (canonical, video)
+    else:
+        identity = 'movie|%s' % canonical
+    return 'last-played-' + hashlib.sha256(identity.encode()).hexdigest()
+
+
 def saved(api, media, canonical, video='', season='', episode=''):
     key = _scope(media, canonical, video, season, episode)
-    record = api.cache_store.get('last_played', key) if key else None
+    if not key:
+        return {}
+    record = api.cache_store.get('last_played', key)
+    if not isinstance(record, dict) or not isinstance(record.get('ctx'), dict):
+        # A special episode used a video-ID key in older versions. Read it
+        # only when the exact season/episode remains the same.
+        legacy = _legacy_scope(media, canonical, video, season, episode)
+        record = api.cache_store.get('last_played', legacy) if legacy and legacy != key else None
+        ctx = record.get('ctx') if isinstance(record, dict) else None
+        if isinstance(ctx, dict) and season not in (None, '') and episode not in (None, ''):
+            try:
+                if int(ctx.get('season')) != int(season) or int(ctx.get('episode')) != int(episode):
+                    return {}
+            except (TypeError, ValueError):
+                return {}
     return record if isinstance(record, dict) and isinstance(record.get('ctx'), dict) else {}
 
 

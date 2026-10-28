@@ -1579,10 +1579,183 @@ msgctxt "#32964"
 msgid "Off"
 msgstr "متوقف"
 
-msgctxt "#32965"
-msgid "Seek preview images (server or Seekr)"
-msgstr "صور معاينة التقديم (السيرفر أو Seekr)"
 
-msgctxt "#32966"
-msgid "Seekr API key (optional)"
-msgstr "مفتاح Seekr (اختياري)"
+
+msgctxt "#32968"
+msgid "Artwork while loading"
+msgstr "خلفية وشعار أثناء التحميل"
+
+msgctxt "#33900"
+msgid "Glass & focus"
+msgstr "الزجاج والتحديد"
+
+msgctxt "#33901"
+msgid "Open glass & focus"
+msgstr "فتح خيارات الزجاج والتحديد"
+
+msgctxt "#33902"
+msgid "Choose skin"
+msgstr "اختيار السكين"
+
+msgctxt "#33903"
+msgid "Temporary Dex Hub skin on launch"
+msgstr "استخدام سكين Dex Hub مؤقتًا عند فتح الإضافة"
+
+msgctxt "#33904"
+msgid "All add-on settings"
+msgstr "كل إعدادات الإضافة"
+
+msgctxt "#33905"
+msgid "تفعيل Self‑Hosted"
+msgstr "Enable Self‑Hosted"
+
+msgctxt "#33906"
+msgid "رابط AIO Metadata"
+msgstr "AIO Metadata URL"
+
+msgctxt "#33907"
+msgid "Kodi & exit"
+msgstr "كودي والخروج"
+
+msgctxt "#33908"
+msgid "Kodi add-ons"
+msgstr "إضافات كودي"
+
+msgctxt "#33909"
+msgid "Kodi settings"
+msgstr "إعدادات كودي"
+
+msgctxt "#33910"
+msgid "Leave Dex Hub and restore my skin"
+msgstr "الخروج من Dex Hub والرجوع لسكيني"
+
+msgctxt "#33920"
+msgid "Row & catalog styles"
+msgstr "أشكال الصفوف والكتالوجات"
+
+msgctxt "#33921"
+msgid "Catalogs & collections"
+msgstr "إدارة الكتالوجات والمجموعات"
+
+msgctxt "#33922"
+msgid "Dependent rows on focus"
+msgstr "الصفوف التابعة عند الوقوف"
+
+
+msgctxt "#33924"
+msgid "Refresh metadata automatically"
+msgstr "تحديث الميتاداتا تلقائيًا"
+
+
+msgctxt "#33926"
+msgid "Dependent rows for title recommendations"
+msgstr "توصيات الأعمال في صف تابع"
+
+msgctxt "#33929"
+msgid "View inside folders"
+msgstr "العرض داخل الفولدرات"
+
+msgctxt "#33930"
+msgid "Catalog poster rows"
+msgstr "صفوف بوسترات الكتالوجات"
+
+msgctxt "#33931"
+msgid "Catalog cards"
+msgstr "بطاقات الكتالوجات"
+
+
+msgctxt "#33940"
+msgid "Primary audio language: default, original or language code"
+msgstr "لغة الصوت الأساسية: default أو original أو رمز لغة"
+
+msgctxt "#33941"
+msgid "Secondary audio language"
+msgstr "لغة الصوت البديلة"
+
+msgctxt "#33942"
+msgid "Prefer original audio within the selected language"
+msgstr "تفضيل الصوت الأصلي عند تساوي اللغة"
+
+msgctxt "#33943"
+msgid "Avoid commentary and descriptive audio automatically"
+msgstr "تجنّب التعليق والوصف الصوتي تلقائيًا"
+
+msgctxt "#33944"
+msgid "Embedded subtitle selection"
+msgstr "اختيار الترجمة المدمجة"
+
+msgctxt "#33945"
+msgid "SDH / hearing-impaired tracks"
+msgstr "مسارات SDH لضعاف السمع"
+
+msgctxt "#33946"
+msgid "Preferred language"
+msgstr "اللغة المفضلة"
+
+msgctxt "#33947"
+msgid "Forced only in preferred language"
+msgstr "الإجبارية فقط باللغة المفضلة"
+
+msgctxt "#33948"
+msgid "Off automatically"
+msgstr "إيقاف تلقائي"
+
+msgctxt "#33949"
+msgid "Follow Kodi"
+msgstr "اتبع كودي"
+
+msgctxt "#33950"
+msgid "Any track"
+msgstr "أي مسار"
+
+msgctxt "#33951"
+msgid "Prefer regular"
+msgstr "تفضيل المسار العادي"
+
+msgctxt "#33952"
+msgid "Prefer SDH"
+msgstr "تفضيل SDH"
+
+msgctxt "#33953"
+msgid "Audio & subtitles"
+msgstr "الصوت والترجمة"
+
+msgctxt "#33960"
+msgid "Audio & video"
+msgstr "الصوت والفيديو"
+
+msgctxt "#33961"
+msgid "Interface font & size"
+msgstr "خط الواجهة وحجمه"
+
+msgctxt "#33962"
+msgid "Interface font"
+msgstr "خط الواجهة"
+
+msgctxt "#33963"
+msgid "Interface font size"
+msgstr "حجم خط الواجهة"
+
+msgctxt "#33964"
+msgid "عرض الكوليكشنات"
+msgstr "عرض الكوليكشنات"
+
+msgctxt "#33965"
+msgid "اختر كتالوجًا"
+msgstr "اختر كتالوجًا"
+
+msgctxt "#33966"
+msgid "صفوف البوسترات"
+msgstr "صفوف البوسترات"
+
+msgctxt "#33967"
+msgid "بطاقات الكتالوجات"
+msgstr "بطاقات الكتالوجات"
+
+msgctxt "#33968"
+msgid "كتالوجات"
+msgstr "كتالوجات"
+
+msgctxt "#33969"
+msgid "مجلدات"
+msgstr "مجلدات"

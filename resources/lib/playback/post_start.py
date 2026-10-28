@@ -169,7 +169,27 @@ def _player_has_real_media(player):
     return True
 
 
-def run_job(job, monitor=None):
+def _job_current(job, player=None):
+    try:
+        valid = job.get('_valid')
+        if callable(valid) and not valid():
+            return False
+        from ..session_store import load_session
+        uid = str(job.get('uid') or '')
+        if not uid or str((load_session() or {}).get('playback_uid') or '') != uid:
+            return False
+        if player is not None:
+            if not _player_has_real_media(player):
+                return False
+            expected = job.get('_playing_file')
+            if expected and player.getPlayingFile() != expected:
+                return False
+        return True
+    except Exception:
+        return False
+
+
+def run_job(job, monitor=None, valid=None):
     """Execute one published job on a service-interpreter thread.
 
     Behaviour is a verbatim port of the removed plugin workers:
@@ -181,6 +201,8 @@ def run_job(job, monitor=None):
     Every stage is bounded and abort-aware; the worker dies with playback.
     """
     job = dict(job or {})
+    if valid is not None:
+        job['_valid'] = valid
     stream_key = str(job.get('stream_key') or 'play')
     title = str(job.get('title') or '')
     provider = str(job.get('provider') or '')
@@ -203,7 +225,7 @@ def run_job(job, monitor=None):
     try:
         # Stage 1 — wait for real media (the old DexHubPlayPost budget).
         for _ in range(100):
-            if kodi_monitor.abortRequested():
+            if kodi_monitor.abortRequested() or not _job_current(job):
                 return
             xbmc.sleep(250)
             try:
@@ -217,6 +239,12 @@ def run_job(job, monitor=None):
                 _emit('play-start-timeout', level=xbmc.LOGWARNING,
                       stream_key=stream_key, title=title, provider=provider)
             return
+        try:
+            job['_playing_file'] = player.getPlayingFile()
+        except Exception:
+            pass
+        if not _job_current(job, player):
+            return
         if apply_job:
             _emit('play-started', stream_key=stream_key, title=title,
                   provider=provider)
@@ -224,14 +252,41 @@ def run_job(job, monitor=None):
             # seek/subtitle call sticks.
             xbmc.sleep(800)
 
-        # Stage 2 — elected subtitle.
-        if apply_job:
-            _apply_selected_subtitle(player, apply_job, kodi_monitor)
+        # Per-profile audio at startup, after real media is available.
+        # Explicit subtitle choices and exact source-switch restoration win.
+        from .. import track_preferences
+        ctx = job.get('ctx') or {}
+        def same_session():
+            return _job_current(job, player)
+        if not same_session():
+            return
+        try:
+            track_preferences.apply_audio(player, ctx, job.get('uid'))
+        except Exception:
+            pass
+        explicit_subtitle = track_preferences.manual(ctx)
+        from ..settings_cache import cached_addon
+        embedded_mode = cached_addon().getSetting('embedded_subtitle_mode') or 'preferred'
+        if embedded_mode != 'preferred' and not explicit_subtitle:
+            apply_job = None
+            job['discovery'] = False
+            job['attach_rows'] = []
+        if not explicit_subtitle and same_session():
             try:
                 from .subtitle_files import _force_preferred_subtitle_on_player
-                _force_preferred_subtitle_on_player(
-                    player, show=bool(apply_job.get('force')),
-                    attempts=4, delay_ms=400)
+                _force_preferred_subtitle_on_player(player, show=bool((apply_job or {}).get('force')), attempts=4, delay_ms=300, expected_uid=job.get('uid') or '')
+            except Exception:
+                pass
+
+        # Stage 2 — elected subtitle.
+        if apply_job:
+            _apply_selected_subtitle(player, apply_job, kodi_monitor, valid=same_session)
+            try:
+                from .subtitle_files import _force_preferred_subtitle_on_player
+                if not explicit_subtitle and same_session():
+                    _force_preferred_subtitle_on_player(
+                        player, show=bool(apply_job.get('force')),
+                        attempts=4, delay_ms=400, expected_uid=job.get('uid') or '')
             except Exception:
                 pass
 
@@ -242,12 +297,12 @@ def run_job(job, monitor=None):
         # before, so the last one, often Chinese, ended up showing)
         attach, counts = _attacher(player, job, stream_key)
         attach_rows = job.get('attach_rows') or []
-        if attach_rows and _player_has_real_media(player):
+        if attach_rows and same_session():
             attach(attach_rows)
 
         # Stage 4 — background broker discovery.
         if job.get('discovery') and not kodi_monitor.abortRequested() \
-                and _player_has_real_media(player):
+                and same_session():
             _discover_and_attach(player, job, stream_key, attach=attach, counts=counts)
     except Exception as exc:
         _emit('play-post-start-error', level=xbmc.LOGWARNING, error=exc,
@@ -259,7 +314,9 @@ def run_job(job, monitor=None):
             pass
 
 
-def _apply_selected_subtitle(player, apply_job, kodi_monitor):
+def _apply_selected_subtitle(player, apply_job, kodi_monitor, valid=None):
+    if valid is not None and not valid():
+        return
     path = str(apply_job.get('path') or '')
     try:
         index = int(apply_job.get('index'))
@@ -276,11 +333,13 @@ def _apply_selected_subtitle(player, apply_job, kodi_monitor):
                         break
                 except Exception:
                     break
-                if kodi_monitor.abortRequested():
+                if kodi_monitor.abortRequested() or (valid is not None and not valid()):
                     return
                 xbmc.sleep(250)
             else:
                 return
+    if valid is not None and not valid():
+        return
     try:
         player.showSubtitles(False)
     except Exception:
@@ -351,10 +410,10 @@ def _subtitle_state():
         return None
 
 
-def _restore_subtitle_state(state):
+def _restore_subtitle_state(state, valid=None):
     """Back to the subtitle the viewer had (setSubtitles selects and shows
     the file it adds)."""
-    if not state:
+    if not state or (valid is not None and not valid()):
         return
     pid, index, enabled = state[0], state[1], state[2]
     try:
@@ -384,7 +443,7 @@ def _track_count(pid):
         return -1
 
 
-def _wait_for_tracks(state, added, seconds=3.0):
+def _wait_for_tracks(state, added, seconds=3.0, valid=None):
     """Until the player lists the subtitles just added (or a few seconds)."""
     if not state or len(state) < 5 or state[4] < 0:
         xbmc.sleep(700)
@@ -392,6 +451,8 @@ def _wait_for_tracks(state, added, seconds=3.0):
     import time
     end = time.monotonic() + seconds
     while time.monotonic() < end:
+        if valid is not None and not valid():
+            return
         if _track_count(state[0]) >= state[4] + added:
             xbmc.sleep(250)
             return
@@ -421,7 +482,8 @@ def _attacher(player, job, stream_key):
     except Exception:
         _sort_key = None
     apply_job = job.get('apply') or {}
-    show = bool(apply_job.get('force'))
+    from ..track_preferences import manual
+    show = bool(apply_job.get('force')) and not manual(job.get('ctx'))
     prefs = [str(c).split('-')[0] for c in (_preferred_languages() or ['ar', 'en'])]
 
     def _rank(lang):
@@ -433,8 +495,19 @@ def _attacher(player, job, stream_key):
     lock = threading.Lock()
     counts = {'added': 0}
 
+    def alive():
+        return _job_current(job, player)
+
     def attach(rows):
+        if not alive():
+            return
+        from ..settings_cache import cached_addon
+        if (cached_addon().getSetting('embedded_subtitle_mode') or 'preferred') != 'preferred':
+            return
         with lock:
+            if not alive():
+                return
+            before = _subtitle_state()
             fresh = []
             for row in (rows or []):
                 if _rank(row.get('lang') or row.get('language')) >= 99:
@@ -455,6 +528,12 @@ def _attacher(player, job, stream_key):
                 fresh = sorted(fresh, key=_sort_key)
             fresh = sorted(fresh, key=lambda r: _rank(r.get('lang') or r.get('language')))[:room]
             prepared = _prepare_subtitle_files(fresh, stream_key, prefer_local_copy=True)
+            if not alive():
+                return
+            # A viewer changed the track or visibility while the download
+            # was running: retain that choice and leave the list alone.
+            if before != _subtitle_state():
+                return
             # a prepared row is {path, subtitle: the add-on's row, lang_key}
             for row in prepared:
                 sub = row.get('subtitle') or {}
@@ -473,7 +552,7 @@ def _attacher(player, job, stream_key):
                 prepared = sorted(prepared, key=lambda r: -r.get('_rank', 99))
             added = 0
             for row in prepared:
-                if not _player_has_real_media(player):
+                if not alive():
                     break
                 try:
                     player.setSubtitles(row['path'])
@@ -485,21 +564,35 @@ def _attacher(player, job, stream_key):
                 return
             # Kodi adds a subtitle file a moment after setSubtitles returns,
             # and selects it then: restoring before that was undone by it
-            _wait_for_tracks(state, added)
+            _wait_for_tracks(state, added, valid=alive)
+            if not alive():
+                return
             if switch_on:
                 try:
                     player.showSubtitles(True)
                 except Exception:
                     pass
             else:
-                _restore_subtitle_state(state)
+                _restore_subtitle_state(state, valid=alive)
                 # Kodi may still switch to the new file after that: check
                 # for a few seconds and put the viewer's choice back
                 for _ in range(12):
+                    if not alive():
+                        return
                     xbmc.sleep(250)
+                    if not alive():
+                        return
                     now = _subtitle_state()
+                    if now and state:
+                        # A different pre-existing track, or subtitles turned
+                        # off by the viewer, is not an auto-selected sidecar.
+                        old_count = state[4] if len(state) > 4 else -1
+                        manual_track = (now[1] is not None and now[1] != state[1]
+                                        and 0 <= int(now[1]) < old_count)
+                        if manual_track or (state[2] and not now[2]):
+                            return
                     if now and state and (now[1] != state[1] or now[2] != state[2]):
-                        _restore_subtitle_state(state)
+                        _restore_subtitle_state(state, valid=alive)
             counts['added'] += added
             xbmc.log('[DexHub] subtitles: %d more in the player list%s'
                      % (added, ' (switched to the better language)' if switch_on else ''), xbmc.LOGINFO)
@@ -515,7 +608,15 @@ def _discover_and_attach(player, job, stream_key, attach=None, counts=None):
         from .subtitle_files import _collect_playback_subtitles
         if attach is None:
             attach, counts = _attacher(player, job, stream_key)
+        if not _job_current(job, player):
+            return
         ctx = dict(job.get('ctx') or {})
+        previous_cancel = ctx.get('subtitle_cancel_event')
+        class Cancelled:
+            def is_set(self):
+                return ((previous_cancel is not None and previous_cancel.is_set())
+                        or not _job_current(job, player))
+        ctx['subtitle_cancel_event'] = Cancelled()
         ctx['subtitle_on_rows'] = attach
         try:
             discovered = _collect_playback_subtitles(

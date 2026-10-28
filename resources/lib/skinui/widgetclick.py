@@ -107,94 +107,36 @@ def adapt(entries):
     seasons listing. ``entries``: (path, ListItem, is_folder) as Kodi gets
     them; anything else, or any other place, is left as it is."""
     try:
-        if not entries or not any(('item_open' in str(path or '')) or ('action=streams' in str(path or ''))
-                                   or ('action=play_item' in str(path or ''))
-                                   for path, _li, _folder in entries):
-            return entries
-        from . import common as C
-        if C.served() == 'dexhub':
-            # v5.10.249: in skin.dexhub every title of a catalog (Stremio
-            # add-ons, collections, search) opens the skin's title page, in
-            # the Videos window too, not the add-on's classic listing
-            return _all_to_title_page(entries, widget=in_widget())
-        if not any(folder and 'item_open' in str(path or '') for path, _li, folder in entries):
-            return entries
-        if not in_widget() or not af3_widgets():
-            return entries
-        from . import items as I
+        from .title_route import mode
+        if mode()=='dexhub':
+            return _all_to_title_page(entries,widget=in_widget())
     except Exception:
-        return entries
-    out = []
-    changed = 0
-    for path, li, folder in entries:
-        try:
-            text = str(path or '')
-            if folder and text.startswith(_BASE) and 'item_open' in text:
-                params = dict(parse_qsl(urlsplit(text).query))
-                if params.get('action') == 'item_open' and str(params.get('media_type') or '').lower() in SERIES:
-                    query = title_query(params, _year(li))
-                    if query:
-                        path = run_path(C.url('skin_title', u=text, **dict(query)))
-                        folder = False
-                        li.setMimeType(MIME)
-                        # the context menu's Information opens the same page
-                        li.setProperty('dhs.q', urlencode(query))
-                        li.setProperty('dhs.id', dict(query).get('i') or '')
-                        li.setProperty('dhs.media', 'series')
-                        changed += 1
-        except Exception:
-            pass
-        out.append((path, li, folder))
-    if changed:
-        try:
-            xbmc.log('[DexHub] widget: %d series open the title page in the skin' % changed, xbmc.LOGDEBUG)
-        except Exception:
-            pass
-    return out
+        pass
+    return entries
+
 
 
 def _all_to_title_page(entries, widget=False):
-    """skin.dexhub (v5.10.249): a work of a classic listing opens the skin's
-    title page: a film or a series (item_open), or a film whose OK listed
-    its sources (streams, no season). A widget runs the page at once; the
-    Videos window runs skin_go as a script (no resolve waits on it)."""
+    """One title page for server and add-on browse entries in every skin."""
     from . import common as C
-    out = []
-    changed = 0
-    for path, li, folder in entries:
+    from .title_click import query_for
+    out=[]
+    for path,li,folder in entries:
         try:
-            text = str(path or '')
-            if text.startswith(_BASE):
-                params = dict(parse_qsl(urlsplit(text).query))
-                action = params.get('action', '')
-                work = action == 'item_open' or (
-                    action in ('streams', 'play_item') and not folder and not params.get('season')
-                    and not params.get('episode') and not params.get('resume_seconds')
-                    and not params.get('source_mode')
-                    and not params.get('force_picker') and not params.get('stream_key')
-                    and str(params.get('media_type') or 'movie').lower() not in SERIES)
-                query = title_query(params, _year(li)) if work else []
-                if query:
-                    if widget:
-                        path = run_path(C.url('skin_title', u=text, **dict(query)))
-                        li.setMimeType(MIME)
-                    else:
-                        path = C.url('skin_go', do='info', q=urlencode(query), u=text)
-                    folder = False
-                    try:
-                        li.setProperty('IsPlayable', 'false')
-                    except Exception:
-                        pass
-                    li.setProperty('dhs.q', urlencode(query))
-                    li.setProperty('dhs.id', dict(query).get('i') or '')
-                    li.setProperty('dhs.media', dict(query).get('m') or '')
-                    changed += 1
+            text=str(path or '')
+            query=query_for(text,li,folder)
+            if query:
+                if widget:
+                    path=run_path(C.url('skin_title',u=text,**dict(query)))
+                    li.setMimeType(MIME)
+                else:
+                    path=C.url('skin_go',do='info',q=urlencode(query),u=text)
+                folder=False
+                li.setProperty('IsPlayable','false')
+                li.setProperty('dhs.q',urlencode(query))
+                li.setProperty('dhs.id',dict(query).get('i') or '')
+                li.setProperty('dhs.media',dict(query).get('m') or '')
         except Exception:
             pass
-        out.append((path, li, folder))
-    if changed:
-        try:
-            xbmc.log('[DexHub] skin: %d title(s) of this listing open the title page' % changed, xbmc.LOGDEBUG)
-        except Exception:
-            pass
+        out.append((path,li,folder))
     return out

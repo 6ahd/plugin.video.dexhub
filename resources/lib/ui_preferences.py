@@ -5,9 +5,13 @@ import xbmcgui
 
 # key: (default, choices, Arabic label, English label)
 OPTIONS = {
+    'homeui_folder_view': ('rows', ('rows', 'catalogs'), 'طريقة فتح الكوليكشن', 'Open collections as'),
+    'homeui_follow_works': ('false', None, 'توصيات الأعمال في صف تابع', 'Dependent rows for title recommendations'),
+    'homeui_follow_rows': ('false', None, 'الصفوف التابعة عند الوقوف', 'Dependent rows on focus'),
+    'metadata_refresh': ('true', None, 'تحديث الميتاداتا تلقائيًا', 'Refresh metadata automatically'),
     'homeui_show_row_source': ('true', None, 'إظهار مصدر الصف', 'Show row source'),
     'homeui_title_style': ('logo', ('logo', 'text'), 'عنوان العمل', 'Title style'),
-    'homeui_background_style': ('cinematic', ('cinematic', 'soft', 'dark', 'fullscreen'), 'نمط الخلفية', 'Background style'),
+    'homeui_background_style': ('fullscreen', ('cinematic', 'soft', 'dark', 'fullscreen'), 'نمط الخلفية', 'Background style'),
     'library_split_media': ('true', None, 'فصل الأفلام والمسلسلات في المكتبة', 'Separate movie and show library rows'),
     'player_badges_visible': ('true', None, 'إظهار رموز الجودة في المشغّل', 'Show player badges'),
     'player_badges_brightness': ('solid', ('solid', 'soft'), 'وضوح رموز الجودة', 'Badge appearance'),
@@ -58,12 +62,27 @@ OPTIONS = {
     # v5.10.311: the title page asks for the sources while you look at it
     'sources_warm': ('true', None, 'تجهيز المصادر مسبقاً في صفحة العمل', 'Get sources ready on the title page'),
     'player_subtitle_filter': ('off', ('off', 'mine', 'first'), 'تصفية الترجمات في المشغّل', 'Subtitle filter in the player'),
+    # v5.10.405: on by default (a plain screen while the source opened);
+    # never over a playing video or a source switched in the player
+    'player_loading_art': ('true', None, 'خلفية وشعار أثناء التحميل', 'Artwork while loading'),
     'player_show_clearlogo': ('true', None, 'شعار العمل في المشغّل', 'Work logo in player'),
     'player_logo_position': ('above_info', ('above_info', 'top_left', 'top_right'), 'مكان شعار العمل', 'Work logo position'),
+    # v5.10.417: the playback capsule (player_capsule.py, skin.dexhub 3.28.134)
+    # v5.10.417: the playback capsule; v5.10.423 the rating card alone (player_capsule.py)
+    'player_capsule': ('true', None, 'بطاقة التصنيف عند التشغيل', 'Rating card at the start'),
+    'player_capsule_when': ('both', ('start', 'both', 'ok'), 'متى تظهر البطاقة', 'When the card shows'),
+    'player_capsule_place': ('top_left', ('top_left', 'top_center', 'top_right'), 'مكان البطاقة', 'Card place'),
+    'player_capsule_time': ('6', ('4', '6', '10'), 'مدة البطاقة', 'Card time'),
+    'player_logo_size': ('normal', ('small', 'normal', 'large'), 'حجم شعار العمل (Clear logo)', 'Clear logo size'),
     'player_show_plot': ('true', None, 'النبذة في المشغّل', 'Plot in player'),
+    'player_plot_size': ('normal', ('small', 'normal', 'large'), 'حجم خط الوصف (Plot)', 'Plot text size'),
+    'player_plot_width': ('normal', ('short', 'normal', 'wide'), 'عرض الوصف', 'Plot width'),
+    'player_plot_scroll': ('false', None, 'تمرير الوصف الطويل تلقائيًا', 'Scroll long plots automatically'),
     'player_show_metadata': ('true', None, 'بيانات العمل في المشغّل', 'Metadata in player'),
     'player_show_ratings': ('true', None, 'التقييمات في المشغّل', 'Ratings in player'),
     'player_show_studio': ('true', None, 'شعار الشبكة في المشغّل', 'Network logo in player'),
+    'player_studio_size': ('normal', ('small', 'normal', 'large'), 'حجم شعار الاستديو', 'Studio logo size'),
+    'player_studio_position': ('bottom_right', ('bottom_right', 'bottom_left', 'top_right', 'top_left'), 'مكان شعار الاستديو', 'Studio logo position'),
     'metadata_badges': ('true', None, 'تعزيز التقييمات وشعار الشبكة', 'Supplement ratings & network logo'),
     # v5.10.322 (GitHub #21): IMDb's Parents Guide on the title page and when a video starts
     'parents_guide': ('true', None, 'دليل الوالدين من IMDb', 'IMDb Parents Guide'),
@@ -98,6 +117,8 @@ OPTIONS = {
     'homeui_nav_autohide': ('false', None, 'إخفاء القائمة عند التمرير', 'Hide the menu while scrolling'),
     # v5.10.380: immediate tab focus, with IPTV kept click-only
     'homeui_nav_focus_open': ('true', None, 'فتح الأقسام بالتمرير', 'Open sections on focus'),
+    # v5.10.424: the Home comes whole at Kodi's start (skinui/startup_splash.py, skin.dexhub 3.28.139)
+    'homeui_startup_splash': ('true', None, 'انتظار تجهيز الرئيسية عند التشغيل', 'Wait for the Home to load at start'),
     # v5.10.363 (GitHub #27): Back on the Home's menu asks to exit Kodi (skin.dexhub 3.28.92)
     'homeui_back_exit': ('true', None, 'الرجوع من القائمة يسأل عن الخروج', 'Back on the menu asks to exit Kodi'),
     # v5.10.334: the Home's backdrop changes once the cursor rests (lighter scrolling)
@@ -121,7 +142,7 @@ OPTIONS = {
     'homeui_show_nextup': ('false', None, 'صف الحلقة التالية', 'Next Up row'),
     'favorites_layout': ('separate', ('separate', 'merged'), 'ترتيب المفضلة', 'Favorites layout'),
 }
-DISPLAY_ONLY = frozenset(('homeui_title_poster',)) | frozenset(k for k in OPTIONS if k.startswith('player_') or k in ('homeui_trailers', 'homeui_trailer_mode', 'homeui_trailer_delay', 'homeui_trailer_sound', 'homeui_trailer_quality', 'homeui_immersive', 'homeui_carousel', 'homeui_carousel_interval', 'homeui_kenburns', 'homeui_focus_gif', 'homeui_plot_scroll', 'homeui_hide_plot', 'homeui_rating_inline', 'homeui_compact_hero', 'homeui_nav_icons_only', 'homeui_nav_autohide', 'homeui_nav_focus_open', 'homeui_back_exit', 'homeui_bg_settle', 'homeui_immersive_delay', 'homeui_ss_preload', 'homeui_clean_look', 'homeui_spot_section', 'homeui_spot_count', 'homeui_trailer_clean', 'homeui_focus_motion', 'homeui_live_preview', 'homeui_nav_names')) | frozenset(('show_servers', 'metadata_badges', 'badges_home', 'iptv_epg_enabled', 'iptv_show_live', 'iptv_show_vod', 'iptv_show_movies', 'iptv_show_series', 'favorites_layout', 'player_badge_style', 'player_badges_json_url', 'player_badges_folder', 'homeui_row_dim'))
+DISPLAY_ONLY = frozenset(('homeui_title_poster', 'homeui_startup_splash')) | frozenset(k for k in OPTIONS if k.startswith('player_') or k in ('homeui_trailers', 'homeui_trailer_mode', 'homeui_trailer_delay', 'homeui_trailer_sound', 'homeui_trailer_quality', 'homeui_immersive', 'homeui_carousel', 'homeui_carousel_interval', 'homeui_kenburns', 'homeui_focus_gif', 'homeui_plot_scroll', 'homeui_hide_plot', 'homeui_rating_inline', 'homeui_compact_hero', 'homeui_nav_icons_only', 'homeui_nav_autohide', 'homeui_nav_focus_open', 'homeui_back_exit', 'homeui_bg_settle', 'homeui_immersive_delay', 'homeui_ss_preload', 'homeui_clean_look', 'homeui_spot_section', 'homeui_spot_count', 'homeui_trailer_clean', 'homeui_focus_motion', 'homeui_live_preview', 'homeui_nav_names')) | frozenset(('show_servers', 'metadata_badges', 'badges_home', 'iptv_epg_enabled', 'iptv_show_live', 'iptv_show_vod', 'iptv_show_movies', 'iptv_show_series', 'favorites_layout', 'player_badge_style', 'player_badges_json_url', 'player_badges_folder', 'homeui_row_dim'))
 # Source/player choices affect the next handoff, not catalog contents. The
 # service already invalidates settings and publishes player properties first.
 DISPLAY_ONLY |= frozenset(('homeui_show_row_source', 'homeui_title_style', 'homeui_background_style', 'homeui_poster_scale', 'homeui_layout_mode', 'homeui_nav_position', 'remember_last_source', 'source_resolution_mode',
@@ -167,10 +188,50 @@ def _migrate_focus_navigation():
         addon.setSetting('homeui_nav_focus_migrated', 'true')
 
 
+def _migrate_loading_art():
+    """v5.10.409: on once. Before 5.10.405 it was off by default and Kodi
+    kept that "false" in the user's settings, so the new default never came
+    (the log: "loading art: not shown (turned off in the settings)").
+    Turning it off again afterwards is respected."""
+    addon = _addon()
+    if addon.getSetting('player_loading_art_migrated') == 'true':
+        return
+    if addon.setSetting('player_loading_art', 'true') is not False:
+        addon.setSetting('player_loading_art_migrated', 'true')
+
+
+def _migrate_rating_start():
+    """Restore the requested start + OK mode once; later choices stay intact."""
+    addon = _addon()
+    if addon.getSetting('rating_start_v7') == 'true':
+        return
+    if addon.getSetting('player_capsule_when') == 'ok':
+        if addon.setSetting('player_capsule_when', 'both') is False:
+            return
+    addon.setSetting('rating_start_v7', 'true')
+
+
+def _migrate_collection_click_only():
+    """Apply the requested click-only default once per Kodi profile."""
+    addon = _addon()
+    if addon.getSetting('collection_click_only_v11') == 'true':
+        return
+    for name in ('homeui_follow_rows', 'homeui_follow_works'):
+        if addon.setSetting(name, 'false') is False:
+            return
+    addon.setSetting('collection_click_only_v11', 'true')
+
+
 def value(key):
     default, choices, _, _ = OPTIONS[key]
+    if key in ('homeui_follow_rows', 'homeui_follow_works'):
+        _migrate_collection_click_only()
+    if key == 'player_capsule_when':
+        _migrate_rating_start()
     if key == 'homeui_nav_focus_open':
         _migrate_focus_navigation()
+    if key == 'player_loading_art':
+        _migrate_loading_art()
     result = _addon().getSetting(key) or default
     if key == 'homeui_trailer_mode':
         from .trailer_preferences import display_mode
@@ -275,11 +336,10 @@ def _remember_applied(values):
 
 
 def sync_skin_place(reason='settings'):
-    """v5.10.149: the badge place saved before skin.dexhub 3.20.4 read it
-    from a skin string: copied once (and the skin reloaded) when they differ.
+    """Synchronize the player design and title page button includes.
 
-    v5.10.312: also the player design and the title page buttons (read when
-    the skin loads). What was applied is kept in skin_strings.json and that
+    Badge placement is live in skin 3.28.113 and needs no reload.
+    What was applied is kept in skin_strings.json and that
     is what a change is measured against: 5.10.310 compared with the skin
     string read back from a service thread, which could stay "stale" and
     reload the skin on every settings write (a source window was closed by
@@ -288,10 +348,9 @@ def sync_skin_place(reason='settings'):
     try:
         if xbmc.getSkinDir() != 'skin.dexhub':
             return False
-        want = {'DexHub.BadgesPlace': value('player_badges_place'),
-                'DexHub.OsdDesign': value('player_osd_design'),
+        want = {'DexHub.OsdDesign': value('player_osd_design'),
                 'DexHub.TitleActions': value('player_title_actions')}
-        empty = {'DexHub.BadgesPlace': 'seekbar', 'DexHub.OsdDesign': 'legacy', 'DexHub.TitleActions': 'icons'}
+        empty = {'DexHub.OsdDesign': 'legacy', 'DexHub.TitleActions': 'icons'}
         applied = _applied()
         if not applied:
             # first run: what the skin holds now
@@ -331,6 +390,8 @@ def sync_skin_place(reason='settings'):
 def set_value(key, selected):
     if key not in OPTIONS:
         return False
+    if key in ('homeui_follow_rows', 'homeui_follow_works'):
+        _migrate_collection_click_only()
     choices = OPTIONS[key][1] or ('true', 'false')
     if selected not in choices:
         return False
@@ -345,6 +406,18 @@ def set_value(key, selected):
     from .settings_cache import invalidate
     invalidate()
     publish()
+    if key == 'homeui_folder_view':
+        from .folder_view import apply_current
+        apply_current()
+    if key in ('player_show_studio', 'player_show_ratings', 'metadata_badges'):
+        from . import player_presentation
+        player_presentation.refresh_current()
+    if key == 'homeui_startup_splash':
+        try:
+            from .skinui import startup_splash
+            startup_splash.follow_setting(selected != 'false')
+        except Exception:
+            pass
     if key == 'video_back_background':
         try:
             from .homeui import keymap
@@ -360,6 +433,9 @@ def set_value(key, selected):
             osd_look.after_write(key, selected)
         except Exception:
             pass
+    if key in ('homeui_follow_rows', 'homeui_follow_works'):
+        from .skinui.common import ask_republish
+        ask_republish('catalog settings changed')
     if key == 'homeui_show_row_source':
         # v5.10.286: skin.dexhub publishes its rows again with or without the source line
         try:
@@ -370,12 +446,8 @@ def set_value(key, selected):
     if key in ('player_osd_design', 'player_title_actions'):
         # v5.10.310: these two are read when the skin loads
         sync_skin_place('you changed %s' % key)
-    if key == 'player_badges_place' and xbmc.getSkinDir() == 'skin.dexhub':
-        # v5.10.149: skin.dexhub 3.20.4 loads only this place's badge row
-        # (read when the skin loads): kept as a skin string, then reloaded
-        xbmc.executebuiltin('Skin.SetString(DexHub.BadgesPlace,%s)' % selected)
-        _remember_applied(dict(_applied(), **{'DexHub.BadgesPlace': selected}))
-        xbmc.executebuiltin('ReloadSkin()')
+    # Badge placement is runtime visibility in skin 3.28.113. Moving it
+    # under a playing video must never reload the skin or pause playback.
     try:
         from . import cloud_look      # v5.10.366
         cloud_look.mark()
@@ -392,9 +464,11 @@ def edit(key, txt):
     if choices is None:
         return set_value(key, 'false' if current == 'true' else 'true')
     labels = {
+        'rows': txt('كتالوجات — صفوف بوسترات (الافتراضي)', 'Catalogs — poster rows (default)'),
+        'catalogs': txt('فولدرات — بطاقات اختيار الكتالوج', 'Folders — catalog selector cards'),
         'logo': txt('شعار العمل', 'Clear logo'), 'text': txt('نص', 'Text'),
         'soft': txt('هادئ', 'Soft'), 'dark': txt('داكن', 'Dark'), 'solid': txt('واضح بلا تعتيم', 'Solid'),
-        'fullscreen': txt('ملء الشاشة', 'Full screen'),  # v5.10.374 (skin.dexhub 3.28.98)
+        'fullscreen': txt('خلفية كاملة', 'Full background'),  # v5.10.374 (skin.dexhub 3.28.98)
         'cinematic': txt('سينمائي', 'Cinematic') if key == 'homeui_background_style' else txt('هيرو وصفوف', 'Hero and rows'),
         'shelf': txt('رف بطاقات عريضة', 'Wide card shelf'),
         'legacy': txt('ليقسي', 'Legacy'),  # v5.10.325: the Nuvio Legacy stage
@@ -408,12 +482,18 @@ def edit(key, txt):
         'side': txt('قائمة جانبية', 'Sidebar'),
         'auto': txt('تلقائي · متناسق', 'Auto · balanced'),
         'small': txt('صغير', 'Small'),
+        'normal': txt('متوسط', 'Medium'),
+        'large': txt('كبير', 'Large'),
+        'short': txt('مختصر', 'Compact'),
+        'wide': txt('عريض', 'Wide'),
         'original': txt('الحجم الأصلي', 'Original size'),
         'above_info': txt('فوق بيانات العمل', 'Above work details'),
         'seekbar': txt('فوق شريط التقدم', 'Above the seek bar'),
         'info': txt('تحت بيانات العمل', 'Under the work details'),
         'top_left': txt('أعلى اليسار', 'Top left'),
         'top_right': txt('أعلى اليمين', 'Top right'),
+        'bottom_left': txt('أسفل اليسار', 'Bottom left'),
+        'bottom_right': txt('أسفل اليمين', 'Bottom right'),
         'separate': txt('قوائم مستقلة حسب المصدر', 'Separate lists by source'),
         'merged': txt('قائمة موحدة', 'Combined list'),
         'light': txt('خفيف', 'Light'),
@@ -441,9 +521,13 @@ def edit(key, txt):
 
 def player_dialog(txt):
     """Equivalent controls remain available when another skin is active."""
-    keys = [k for k in OPTIONS if k.startswith('player_')]
+    from . import player_controls
+    groups = list(player_controls.GROUPS)
+    grouped = {k for row in player_controls.GROUPS.values() for k in row[2]}
+    keys = [k for k in OPTIONS if k.startswith('player_') and k not in grouped]
     while True:
         labels = [txt('شكل رموز الجودة · صور ومعاينة', 'Quality badge style · preview')]
+        labels += [txt(*player_controls.GROUPS[g][:2]) for g in groups]
         display = {'true': txt('مفعّل', 'On'), 'false': txt('مطفأ', 'Off'), 'above_info': txt('فوق البيانات', 'Above details'), 'top_left': txt('أعلى اليسار', 'Top left'), 'top_right': txt('أعلى اليمين', 'Top right'), 'seekbar': txt('فوق شريط التقدم', 'Above the seek bar'), 'info': txt('تحت البيانات', 'Under the details'), 'legacy': txt('مثل Nuvio legacy', 'Like Nuvio legacy'), 'classic': txt('الكلاسيكي السابق', 'Previous classic'), 'icons': txt('أيقونات', 'Icons'), 'pills': txt('كبسولات نصية', 'Text pills'), 'off': txt('الكل', 'All languages'), 'mine': txt('لغاتي فقط', 'My languages only'), 'first': txt('لغتي الأولى فقط', 'My first language only')}
         from . import osd_look
         labels += [txt(OPTIONS[k][2], OPTIONS[k][3]) + ' · ' + (osd_look.label(k, value(k), txt) if k in osd_look.KEYS else display.get(value(k), value(k))) + ('%' if k == 'player_badges_opacity' else '') for k in keys]
@@ -453,8 +537,10 @@ def player_dialog(txt):
         if pick == 0:
             from . import player_badges
             player_badges.show(txt)
+        elif pick <= len(groups):
+            player_controls.show(groups[pick - 1])
         else:
-            edit(keys[pick - 1], txt)
+            edit(keys[pick - len(groups) - 1], txt)
 
 
 def iptv_available(media=''):

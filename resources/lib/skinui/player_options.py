@@ -20,6 +20,12 @@ SEEDED = 'DexHub.PlayerSeeded'
 # settings), 'on' (a setting that turns it on), 'off' (one that turns it
 # off), 'string' ((setting, [(value, label)])), 'seconds' (a number)
 OPTIONS = (
+    ('خلفية وشعار أثناء التحميل', 'presentation', 'loading'),
+    ('شعار العمل · الحجم والمكان', 'presentation', 'logo'),
+    ('شعار الاستديو · الحجم والمكان', 'presentation', 'studio'),
+    ('الوصف · الخط والعرض والتمرير', 'presentation', 'plot'),
+    ('شارات الجودة · الحجم والمكان والوضوح', 'presentation', 'badges'),
+    ('بيانات العمل والتقييمات', 'presentation', 'info'),
     ('رموز المشغّل', 'badges', 'player_badge_style'),
     # v5.10.288: the bar's buttons, shown or hidden, in their order (skin 3.28.40 slots)
     ('أزرار المشغل', 'osd_buttons', ''),
@@ -70,6 +76,10 @@ def _set(name, value):
 
 
 def _value(kind, data, tr):
+    if kind == 'presentation':
+        from .. import player_controls, ui_preferences
+        keys = player_controls.GROUPS[data][2]
+        return ' · '.join(player_controls.label(ui_preferences.value(k)) for k in keys[:3])
     if kind == 'badges':
         from .. import player_badges
         return player_badges.style_label()
@@ -99,6 +109,10 @@ def _value(kind, data, tr):
 
 def _change(kind, data, tr, label):
     """Change one option; the settings it touched."""
+    if kind == 'presentation':
+        from .. import player_controls
+        player_controls.show(data)
+        return []
     if kind == 'osd_buttons':
         from .. import osd_buttons
         osd_buttons.edit()

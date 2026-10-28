@@ -60,7 +60,8 @@ LOGO_SHAPES = ('wide', 'wide_ranked', 'tall', 'tall_ranked', 'feature')
 SHAPE_OFFSET = {'poster': 0, 'landscape': 1, 'square': 2, 'wide': 3, 'ranked': 0, 'tall': 4,
                 'tall_ranked': 4, 'collage': 5, 'wide_ranked': 3, 'mosaic': 5, 'stack': 5, 'shelf': 5,
                 'poster_large': 0, 'feature': 3, 'landscape_info': 1,
-                'collection_spotlight': 5, 'collection_compact': 5, 'collection_ranking': 5}
+                'collection_spotlight': 5, 'collection_compact': 5, 'collection_ranking': 5,
+                'circle': 2}     # the add-on's own Home draws circles as squares
 RANKED_SHAPES = ('ranked', 'tall_ranked', 'wide_ranked')     # the place beside each card
 COLLAGE_SHAPES = ('collage', 'mosaic', 'stack', 'collection_spotlight', 'collection_compact', 'collection_ranking')
 ROW_A_BASE, ROW_B_BASE, GRID_BASE = 5000, 5100, 6000
@@ -507,7 +508,7 @@ class _BaseWindow(xbmcgui.WindowXML):
             'dh.badge': badge,
             'dh.progress': str(progress) if progress else '',
             'dh.remaining': remaining,
-            'dh.provider': tile.get('provider') or '',
+            'dh.provider': tile.get('direct_from') or '',
         })
         return out
 
@@ -2005,6 +2006,11 @@ class _BaseWindow(xbmcgui.WindowXML):
             self.watch_channel(tile)
             return
         path = tile.get('path') or ''
+        from ..catalog_navigation import folder_ref
+        ref = folder_ref(R.params_of(path)) if R.is_dexhub_path(path) else None
+        if ref is not None:
+            self.app.open_folder(title=tile.get('title') or tile.get('label') or '', **ref)
+            return
         if R.is_dexhub_path(path) and R.params_of(path).get('action') in ('home_vod_list', 'home_vod_series'):
             # (home_vod_series: an IPTV series from the search or Continue Watching, v5.10.239)
             grid = dict(R.params_of(path), action='home_vod_list')
@@ -2195,7 +2201,7 @@ class _BaseWindow(xbmcgui.WindowXML):
         elif command.startswith('__row_'):
             self.row_command(command)
         elif any('action=' + action in command for action in
-                 ('cw_remove', 'cw_mark_watched', 'iptv_cw_remove', 'iptv_cw_watched')):
+                 ('cw_remove', 'cw_mark_watched', 'nextup_remove', 'iptv_cw_remove', 'iptv_cw_watched')):
             self.cw_remove(tile, command)
         else:
             self.run_builtin(command)
@@ -2227,7 +2233,7 @@ class _BaseWindow(xbmcgui.WindowXML):
         match = re.search(r'plugin://[^)"\s]+', str(command or ''))
         params = dict(parse_qsl(urlsplit(match.group(0)).query)) if match else {}
         action = params.get('action')
-        if action not in ('cw_remove', 'cw_mark_watched', 'iptv_cw_remove', 'iptv_cw_watched'):
+        if action not in ('cw_remove', 'cw_mark_watched', 'nextup_remove', 'iptv_cw_remove', 'iptv_cw_watched'):
             return
         self._discard_progress_tile(tile)
 
@@ -2239,14 +2245,16 @@ class _BaseWindow(xbmcgui.WindowXML):
                     ok = api.iptv_cw_change(video_id=params.get('video_id', ''),
                                             watched=action == 'iptv_cw_watched', refresh=False)
                 else:
+                    extra = {key:params.get(key) for key in ('season','episode','title','imdb_id','show_tmdb_id')} if action in ('cw_mark_watched','nextup_remove') else {}
                     ok = getattr(api, action)(media_type=params.get('media_type', ''),
                                                canonical_id=params.get('canonical_id', ''),
-                                               video_id=params.get('video_id', ''), refresh=False)
+                                               video_id=params.get('video_id', ''), refresh=False, **extra)
             except Exception:
                 self.app.log('progress edit failed:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
             if not ok and not self._closing:
                 self.on_progress_changed()  # Restore the saved state if the write failed.
-        thread = threading.Thread(target=job, name='DexHub-homeui-progress-edit')
+        from .. import profile_scope
+        thread = threading.Thread(target=profile_scope.capture(job), name='DexHub-homeui-progress-edit')
         thread.daemon = True
         thread.start()
 
@@ -2750,6 +2758,9 @@ class _BaseWindow(xbmcgui.WindowXML):
             props['collage_button'] = tile.get('collage_button') or ''
             props['cstyle'] = tile.get('cstyle') or 'collage'
             props.update(tile.get('collection_preview') or {})
+        if tile.get('catalog_node') and not tile.get('catalog_banner'):
+            props['dhs.catalog'] = '1'
+            props['dhs.catalog_icon'] = tile.get('catalog_icon') or ''
         for key, value in props.items():
             if value:
                 li.setProperty(key, value)
@@ -2947,6 +2958,7 @@ class BrowseWindow(_BaseWindow):
         self._live_section = kwargs.get('live_section') or 'channels'
         self.vod_only = bool(kwargs.get('live_section'))
         self._fresh_rows = False
+        self._build_scope = threading.local()
 
     # ---------------------------------------------------------- lifecycle
     def onInit(self):
@@ -3149,6 +3161,9 @@ class BrowseWindow(_BaseWindow):
         key = NAV_BUTTON_KEYS.get(control_id) or self._selected_key(control_id)
         if not key:
             return
+        if key == 'addons':
+            self._launch('RunPlugin(plugin://plugin.video.dexhub/?action=open_kodi_addons)')
+            return
         if self.mode in ('library', 'servers', 'addons'):
             # a tab of another page: back to the Home, which opens it (v5.10.167)
             if key == self.mode:
@@ -3308,8 +3323,10 @@ class BrowseWindow(_BaseWindow):
             self._launch('RunPlugin(plugin://plugin.video.dexhub/?action=skin_pick)')
         elif key == 'settings':
             self._launch('ActivateWindow(Videos,plugin://plugin.video.dexhub/?action=setup_center,return)')
+        elif key == 'leave_dexhub':
+            self._launch('RunPlugin(plugin://plugin.video.dexhub/?action=temporary_skin_exit)')
         elif key == 'kodi':
-            self._launch('ActivateWindow(Settings)')
+            self._launch('RunPlugin(plugin://plugin.video.dexhub/?action=open_kodi_settings)')
         elif key == 'power':
             self._launch('ActivateWindow(ShutdownMenu)')
         elif key == 'android':
@@ -3338,14 +3355,17 @@ class BrowseWindow(_BaseWindow):
         if self.mode == 'servers':
             row = self._row_a()
             if row is not None and self.zone == 'rows':
-                out = [(self.tr('شكل الصف'), '__row_shape__')]
+                out = [(self.tr('شكل الصف'), '__row_shape__'), (self.tr('الصف التابع…'), '__row_follow__')]
                 if (row.meta or {}).get('params'):
                     out.append((self.tr('أضف هذا الصف للرئيسية'), '__row_add_home__'))
                 return out
             return []
         if self.zone != 'rows' or self._row_a() is None or self.mode == 'live':
             return []
-        shape = [(self.tr('شكل الصف'), '__row_shape__')]
+        shape = [(self.tr('شكل الصف'), '__row_shape__'),
+                 (self.tr('الصف التابع…'), '__row_follow__')]
+        if self.mode == 'folder' and self.folder_ref.get('folder_id'):
+            shape.insert(0, (self.tr('العرض داخل الفولدرات'), '__folder_view__'))
         if self.mode != 'home':
             return shape
         return shape + [(self.tr('إخفاء هذا الصف'), '__row_hide__'),
@@ -3353,7 +3373,11 @@ class BrowseWindow(_BaseWindow):
 
     def row_command(self, command):
         row = self._row_a()
-        if command == '__row_hide__' and row is not None:
+        if command == '__folder_view__':
+            from ..folder_view import choose
+            if choose():
+                self._switch_media(self.media)
+        elif command == '__row_hide__' and row is not None:
             self.app.layout.hide(self.media, row.key, True)
             try:
                 xbmcgui.Dialog().notification(
@@ -3364,6 +3388,11 @@ class BrowseWindow(_BaseWindow):
             self._reload_layout()
         elif command == '__row_layout__':
             self.open_layout(select_key=row.key if row is not None else '')
+        elif command == '__row_follow__' and row is not None:
+            from .. import row_follow
+            if row_follow.edit(self.media, row.key, row.title, self.tr):
+                from .catalog_follow import update
+                update(self, self._selected_tile() or {})
         elif command == '__row_shape__' and row is not None:
             self._pick_row_shape(row)
         elif command in ('__row_search_forget__', '__row_search_clear__'):
@@ -3490,6 +3519,7 @@ class BrowseWindow(_BaseWindow):
     def _switch_media(self, media):
         self.stop_trailer(wait=False)
         with self._lock:
+            self._build_gen += 1
             self.media = media
             self._mark_nav()
             self._built = False
@@ -3517,7 +3547,26 @@ class BrowseWindow(_BaseWindow):
         lane.submit(lambda: self._build_rows_job(gen, media), priority=0,
                     key=('build', self.key, gen))
 
+    def _build_is_current(self):
+        generation = getattr(getattr(self, '_build_scope', None), 'generation', None)
+        return generation is None or generation == self._build_gen
+
     def _build_rows_job(self, gen=0, media=None):
+        if gen != self._build_gen or (media is not None and media != self.media):
+            return
+        if not hasattr(self, '_build_scope'):
+            self._build_scope = threading.local()
+        previous = getattr(self._build_scope, 'generation', None)
+        self._build_scope.generation = gen
+        try:
+            self._build_rows_generation(gen, media)
+        finally:
+            if previous is None:
+                del self._build_scope.generation
+            else:
+                self._build_scope.generation = previous
+
+    def _build_rows_generation(self, gen=0, media=None):
         started = _now()
         self._build_reason = ''
         try:
@@ -3559,7 +3608,7 @@ class BrowseWindow(_BaseWindow):
         self.app.log('%s rows ready: %d in %.0f ms' % (
             'search' if self.search is not None else self.mode, len(rows), (_now() - started) * 1000))
         self._install_rows(rows, initial=False)
-        if self.search is not None:
+        if self.search is not None and self._build_is_current():
             self._search_shown(rows)
 
     def _home_rows(self):
@@ -3573,7 +3622,9 @@ class BrowseWindow(_BaseWindow):
 
         The Home layout editor lists these; nothing here loads a row.
         """
-        return self._candidate_rows(media) + self._custom_rows(media)
+        rows = self._candidate_rows(media)
+        progress = [r for r in rows if r.key in ('continue', 'nextup')]
+        return progress + [r for r in rows if r not in progress] + self._custom_rows(media)
 
     def _candidate_rows(self, media):
         api = self.app.api()
@@ -3774,6 +3825,8 @@ class BrowseWindow(_BaseWindow):
         signature = [(t['key'], t['label'], t.get('hint') or '', t.get('icon') or '',
                       t.get('count') or '', t.get('tone') or '') for t in tabs]
         with self._lock:
+            if not self._build_is_current():
+                return
             self._tabs = list(tabs)
             # a tab chosen while this build ran stays chosen (that build is
             # thrown away, and the next one shows it)
@@ -3844,14 +3897,17 @@ class BrowseWindow(_BaseWindow):
         self._start_build()
 
     def _show_tab_hero(self, tab):
-        brand = {
-            'kind': 'brand', 'title': tab.get('label') or '',
-            'plot': tab.get('plot') or '',
-            'fanart': os.path.join(self.app.addon_path, 'resources', 'media', 'fanart.jpg'),
-        }
-        self._brand_tile = brand
-        self.show_hero(brand)
-        self.prop('dh.subtitle', tab.get('hint') or '')
+        with self._lock:
+            if not self._build_is_current():
+                return
+            brand = {
+                'kind': 'brand', 'title': tab.get('label') or '',
+                'plot': tab.get('plot') or '',
+                'fanart': os.path.join(self.app.addon_path, 'resources', 'media', 'fanart.jpg'),
+            }
+            self._brand_tile = brand
+            self.show_hero(brand)
+            self.prop('dh.subtitle', tab.get('hint') or '')
 
     def catalog_menu(self):
         row = self._row_a()
@@ -4731,6 +4787,9 @@ class BrowseWindow(_BaseWindow):
         """The first rows of a collection folder, read while the cursor rests on
         its card (v5.10.106, after Nuvio Hub): opening it then takes them
         from memory. Nothing is read while a video plays or the cursor moved on."""
+        from ..ui_preferences import enabled
+        if not enabled('homeui_follow_rows'):
+            return
         ref = (tile or {}).get('folder_ref') or {}
         if not ref.get('folder_id') or self._real_playing:
             return
@@ -4770,6 +4829,8 @@ class BrowseWindow(_BaseWindow):
     def _folder_rows(self):
         api = self.app.api()
         ref = self.folder_ref
+        from ..folder_view import rows_enabled
+        self._folder_view_mode = rows_enabled()
         folder, specs = self._folder_sources(ref)
         if not folder:
             return []
@@ -4784,6 +4845,12 @@ class BrowseWindow(_BaseWindow):
         if page.get('hero_video'):
             # the folder's banner video plays while its rows load
             self.schedule_trailer(page, delay=0.6)
+        from ..folder_view import rows_enabled
+        if not rows_enabled():
+            from ..catalog_navigation import folder_tiles
+            cards = folder_tiles(ref, api)
+            return [R.Row('folder:catalogs', self.page_title, shape='landscape', kind='nav',
+                          tiles=cards, subtitle=self.tr('اختر كتالوجًا'))]
         rows = []
         for key, title, subtitle, params in specs:
             rows.append(R.Row(key, title, shape='poster', kind='catalog', subtitle=subtitle,
@@ -5065,7 +5132,8 @@ class BrowseWindow(_BaseWindow):
             return []
         if time.time() - float(data.get('t') or 0) > 7 * 86400:
             return []
-        return [snap for snap in (data.get('rows') or []) if isinstance(snap, dict)]
+        from .layout import retired_af3
+        return [snap for snap in (data.get('rows') or []) if isinstance(snap, dict) and not retired_af3(snap)]
 
     def _load_cache(self):
         if self.mode != 'home':
@@ -5136,7 +5204,7 @@ class BrowseWindow(_BaseWindow):
     def _install_rows(self, rows, initial=False):
         first_install = False
         with self._lock:
-            if self._closing:
+            if self._closing or not self._build_is_current():
                 return
             focus_before = self.focus_id()
             prev_key = self.rows[self.ri].key if 0 <= self.ri < len(self.rows) else None
@@ -5761,6 +5829,9 @@ class BrowseWindow(_BaseWindow):
         self.show_hero(tile)
         self.ensure_focus_art(tile)
         self.enrich(tile, priority=2, focus=True)
+        from .catalog_follow import update as follow_catalog
+        self.app.scheduler.call_later(self.key + ':follow', 0.4, lambda: follow_catalog(self, self._current_tile())
+                                      if not self._closing and not self._covered and self._current_tile() else None)
         self.channel_epg_soon(tile)
         self.schedule_trailer(tile)
         if tile.get('kind') == 'folder' and tile.get('folder_ref'):
@@ -5977,11 +6048,29 @@ class BrowseWindow(_BaseWindow):
 
     def on_uncover(self):
         super(BrowseWindow, self).on_uncover()
+        if self.mode == 'folder':
+            from ..folder_view import rows_enabled
+            if getattr(self, '_folder_view_mode', rows_enabled()) != rows_enabled():
+                self._switch_media(self.media)
         if (self.mode == 'home' and self._built
                 and self.app.layout.stamp() != getattr(self, '_layout_stamp', None)):
             # a row was added to the Home from another page (the Servers page)
             self._reload_layout()
         self.on_playback_returned()
+
+    def _preview_addons_tab(self, key):
+        if key == 'addons' and self.mode in ('home', 'library', 'servers') and self.search is None:
+            self._addons_return = (self.mode, self.media)
+            self.mode = 'addons'
+            self._show_tabs([], '')
+        elif key != 'addons' and getattr(self, '_addons_return', None):
+            self.mode, self.media = self._addons_return
+            self._addons_return = None
+        else:
+            return
+        self._hero_tile = None
+        self.prop('dh.mode', self.mode)
+        self._switch_media(self.media)
 
     # ----------------------------------------------------------- events
     def onFocus(self, control_id):
@@ -5992,6 +6081,7 @@ class BrowseWindow(_BaseWindow):
             zone = 'rows'
         elif control_id in NAV_BUTTON_KEYS:
             zone = 'nav'
+            self._preview_addons_tab(NAV_BUTTON_KEYS[control_id])
         else:
             zone = {NAV: 'nav', NAV_ICONS: 'nav', PROFILE: 'nav', HERO_BTNS: 'hero',
                     NP: 'np', TABS: 'tabs', 93: 'tools', 94: 'tools',
@@ -6167,6 +6257,9 @@ class BrowseWindow(_BaseWindow):
                 seed = None if row.meta.get('stale') else {'tiles': row.tiles, 'more': row.more}
                 self.app.open_grid(row.meta.get('params') or {}, title=row.title, shape=row.shape,
                                    page_tile=seed)
+            return
+        if kind == 'folder' and tile.get('catalog_node'):
+            self.open_path(tile)
             return
         if kind == 'folder':
             ref = tile.get('folder_ref') or {}
@@ -7279,6 +7372,9 @@ class GridWindow(_BaseWindow):
             return
         tile = self._selected()
         if tile is None:
+            return
+        if tile.get('kind') == 'folder' and tile.get('catalog_node'):
+            self.open_path(tile)
             return
         if tile.get('kind') == 'folder':
             ref = tile.get('folder_ref') or {}

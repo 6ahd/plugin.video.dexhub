@@ -10,6 +10,8 @@ the right, as Nuvio Legacy's Saved panel (salvospainel.c):
   Schedule   the next episodes of the shows you follow and the films you
              keep, this week and later, with the day, the network and a
              Finale / Premiere badge
+  Friends    (v5.10.406) what the people you follow on Trakt watched lately,
+             a binge as one row; OK opens the title
 
 skin.dexhub draws it (Custom_1195_DexPanel.xml); the window's choices are
 skin strings (DexHub.PanelTab, PanelSort, PanelGroup, PanelStyle) that the
@@ -35,8 +37,8 @@ import xbmc
 
 from . import common as C
 
-TABS = ('saved', 'alerts', 'schedule', 'monitored')
-_TTL = {'saved': 60.0, 'schedule': 3 * 3600.0}
+TABS = ('saved', 'alerts', 'schedule', 'monitored', 'friends')
+_TTL = {'saved': 60.0, 'schedule': 3 * 3600.0, 'friends': 15 * 60.0}
 _BUSY = set()
 _BUSY_LOCK = threading.Lock()
 _WEEK = 6           # days ahead that are "this week"
@@ -412,7 +414,57 @@ def refresh_alerts():
         C.set_prop('dhs.panel.rev', uuid.uuid4().hex)
 
 
-_MAKERS = {'saved': _saved, 'schedule': _schedule, 'alerts': _alerts, 'monitored': _monitored}
+def _friends():
+    """v5.10.406: what the people you follow on Trakt watched lately, newest
+    first; a person's run of one show's episodes is one row (the latest, and
+    how many more)."""
+    from .. import trakt
+    from .. import reminders as RM
+    try:
+        if not trakt.linked():
+            return {'rows': [], 'count': 0, 'linked': False}
+        seen = trakt.following_activity()
+    except Exception as exc:
+        C.log('panel friends: %s' % exc, xbmc.LOGWARNING)
+        return {'rows': [], 'count': 0, 'linked': True}
+    rows, by_key = [], {}
+    for act in seen:
+        ids = act.get('ids') or {}
+        key = (act['user'], act['kind'], str(ids.get('trakt') or act.get('show') or act.get('title')))
+        if key in by_key:
+            by_key[key]['more'] += 1
+            continue
+        episode = act['kind'] == 'episode'
+        row = {'kind': 'ep' if episode else 'movie', 'user': act.get('name') or act['user'],
+               'title': (act.get('show') if episode else act.get('title')) or '',
+               'ep_title': (act.get('title') or '') if episode else '',
+               'season': _int(act.get('season')), 'episode': _int(act.get('episode')), 'year': act.get('year') or '',
+               'imdb': str(ids.get('imdb') or ''), 'tmdb': str(ids.get('tmdb') or ''), 'at': act.get('at') or '',
+               'more': 0, 'poster': '', 'fanart': ''}
+        by_key[key] = row
+        rows.append(row)
+    rows = rows[:40]
+
+    def art(row):
+        try:
+            data = (RM._show(row['tmdb']) if row['kind'] == 'ep' else RM._movie(row['tmdb'])) or {}
+            row['poster'] = RM._art(data.get('poster'), 'poster')
+            row['fanart'] = RM._art(data.get('backdrop'), 'backdrop')
+        except Exception:
+            pass
+    threads = [threading.Thread(target=art, args=(row,), name='DexHubPanel', daemon=True)
+               for row in rows if row['tmdb']]
+    for th in threads:
+        th.start()
+    deadline = time.monotonic() + 8.0
+    for th in threads:
+        th.join(max(0.0, deadline - time.monotonic()))
+    return {'rows': rows, 'count': len(rows), 'linked': True,
+            'people': len(set(r['user'] for r in rows))}
+
+
+_MAKERS = {'saved': _saved, 'schedule': _schedule, 'alerts': _alerts, 'monitored': _monitored,
+           'friends': _friends}
 
 
 def _make(tab):
@@ -484,6 +536,12 @@ def _kicker(tab, got):
         if _int(got.get('resume')):
             line += '  ·  ' + _t('%d للإكمال', '%d TO RESUME') % _int(got.get('resume'))
         return line
+    if tab == 'friends':
+        if got.get('linked') is False:
+            return _t('اربط Trakt', 'LINK TRAKT')
+        people = _int(got.get('people'))
+        return (_t('%d عمل · من %d شخص تتابعه', '%d TITLES · FROM %d PEOPLE YOU FOLLOW') % (n, people)
+                if n else _t('ما فيه نشاط جديد', 'NOTHING NEW'))
     if tab == 'schedule':
         eps = _int(got.get('eps'))
         if n and eps == n:
@@ -497,6 +555,11 @@ def _publish(tab, got):
     C.set_prop('dhs.panel.label.read', _t('تعليم الكل كمقروء', 'Mark all read'))
     C.set_prop('dhs.panel.label.monitored', _t('المراقَبة', 'Monitoring'))
     C.set_prop('dhs.panel.empty.monitored', _t('أضف مصدراً من زر الإدارة ثم حدّثه', 'Add a source using Manage, then refresh it'))
+    C.set_prop('dhs.panel.label.friends', _t('الأصحاب', 'Friends'))
+    C.set_prop('dhs.panel.label.refresh', _t('حدّث النشاط', 'Refresh'))
+    if tab == 'friends':
+        C.set_prop('dhs.panel.empty.friends', _t('اربط Trakt وتابع ناس، وتشوف هنا ايش خلّصوا', 'Link Trakt and follow people to see what they finished')
+                   if got.get('linked') is False else _t('اللي تتابعهم ما شافوا شي مؤخراً', 'The people you follow have not watched anything lately'))
     C.set_prop('dhs.panel.n.%s' % tab, str(_int(got.get('count'))) if _int(got.get('count')) else '')
     C.set_prop('dhs.panel.kick.%s' % tab, _kicker(tab, got))
 
@@ -660,6 +723,50 @@ def _alert_items(got):
     return items
 
 
+def _ago_words(stamp):
+    """(the day column's name, its number, when) for a Trakt time."""
+    try:
+        moment = datetime.datetime.strptime(stamp[:19], '%Y-%m-%dT%H:%M:%S').replace(tzinfo=datetime.timezone.utc)
+        day = moment.astimezone().date()
+    except Exception:
+        return '', '', ''
+    delta = (datetime.date.today() - day).days
+    if delta <= 0:
+        return _t('اليوم', 'TODAY'), str(day.day), 'today'
+    if delta == 1:
+        return _t('أمس', 'YDAY'), str(day.day), 'week'
+    _line, column, number, _when = _day_words(day.isoformat())
+    return column, number, 'week' if delta < 7 else 'later'
+
+
+def _friend_items(got):
+    items = []
+    for index, row in enumerate(got.get('rows') or []):
+        wday, mday, when = _ago_words(row.get('at') or '')
+        media = 'series' if row['kind'] == 'ep' else 'movie'
+        # short lines: what was watched, then who (a long episode name or
+        # person's name no longer runs into the rest)
+        if row['kind'] == 'ep':
+            line = '  ·  '.join(x for x in (_t('م%d ح%d', 'S%d E%d') % (row['season'], row['episode']),
+                                            row.get('ep_title') or '') if x)
+        else:
+            line = '  ·  '.join(x for x in (_t('فيلم', 'Movie'), str(row.get('year') or '')) if x)
+        who = row.get('user', '')
+        if row.get('more'):
+            who += '  ·  ' + _t('+%d حلقات', '+%d episodes') % row['more']
+        props = {'kind': 'work', 'wday': wday, 'mday': mday, 'when': when, 'badge': who,
+                 'dhs.target': _open_url({'m': media, 'title': row.get('title') or '', 'imdb': row.get('imdb') or '',
+                                          'tmdb': row.get('tmdb') or '',
+                                          'id': row.get('imdb') or ('tmdb:%s' % row['tmdb'] if row.get('tmdb') else '')})}
+        if index == 0:
+            props['kick'] = _t('Trakt', 'TRAKT')
+        items.append({'label': row.get('title') or '', 'label2': line, 'path': '', 'folder': False,
+                      'art': {'thumb': row.get('fanart') or row.get('poster') or '', 'poster': row.get('poster') or '',
+                              'landscape': row.get('fanart') or '', 'fanart': row.get('fanart') or ''},
+                      'props': props})
+    return items
+
+
 def listing(params, handle):
     from . import items as I
     tab = params.get('tab') if params.get('tab') in TABS else 'saved'
@@ -682,6 +789,8 @@ def listing(params, handle):
                            params.get('style') or 'list')
     elif tab == 'schedule':
         out = _schedule_items(got)
+    elif tab == 'friends':
+        out = _friend_items(got)
     else:
         out = _alert_items(got)
     I.directory(handle, out, content='videos')
@@ -690,7 +799,7 @@ def listing(params, handle):
 
 def refresh(params, handle):
     """The pencil's long press and the panel's own refresh: read again."""
-    for tab in ('saved', 'schedule'):
+    for tab in ('saved', 'schedule', 'friends'):
         try:
             _publish(tab, data(tab, fresh=True))
         except Exception:

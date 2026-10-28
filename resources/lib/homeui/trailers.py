@@ -44,6 +44,8 @@ _HEIGHTS = {'DEF_2160p': 2160, 'DEF_1080p': 1080, 'DEF_720p': 720,
 _URL_TTL = 20 * 60
 _VIDEO_TTL = 7 * 24 * 3600
 _MISS_TTL = 24 * 3600
+_CANDIDATES = 3       # videos tried before a title counts as "no trailer"
+_RETRY_WAIT = 0.6
 
 _Q_COMBINED = ('query($id: ID!){title(id:$id){latestTrailer{id name{value} '
                'playbackURLs{videoDefinition videoMimeType url}}}}')
@@ -255,11 +257,20 @@ class TrailerResolver(object):
             return None
         result = None
         try:
-            video_id = row.get('vid') if now - float(row.get('t') or 0) < _VIDEO_TTL else ''
-            if video_id and _VIDEO_RE.match(str(video_id)):
-                result = self._from_video(video_id, row.get('name') or '', timeout)
-            if not result:
-                result = self._discover(imdb_id, season, timeout)
+            for attempt in range(2):
+                try:
+                    video_id = row.get('vid') if now - float(row.get('t') or 0) < _VIDEO_TTL else ''
+                    if video_id and _VIDEO_RE.match(str(video_id)):
+                        result = self._from_video(video_id, row.get('name') or '', timeout)
+                    if not result:
+                        result = self._discover(imdb_id, season, timeout)
+                    break
+                except Exception as exc:
+                    # v5.10.411: one more try after a network or IMDb hiccup
+                    if attempt:
+                        raise
+                    self._log('trailer lookup for %s, trying again: %s' % (imdb_id, exc))
+                    time.sleep(_RETRY_WAIT)
         except Exception as exc:
             self._log('trailer lookup failed for %s: %s' % (imdb_id, exc))
             # Network trouble is not "no trailer": keep no negative entry.
@@ -319,8 +330,14 @@ class TrailerResolver(object):
         nodes = [edge.get('node') or {} for edge in
                  ((title.get('videoStrip') or {}).get('edges') or []) if isinstance(edge, dict)]
         nodes = [n for n in nodes if _VIDEO_RE.match(str(n.get('id') or ''))]
-        best = max(nodes, key=lambda n: _score_trailer(n, season)) if nodes else None
-        best = best or title.get('latestTrailer')
-        if not best or not _VIDEO_RE.match(str(best.get('id') or '')):
-            return None
-        return self._from_video(best['id'], (best.get('name') or {}).get('value') or '', timeout)
+        nodes.sort(key=lambda n: _score_trailer(n, season), reverse=True)
+        latest = title.get('latestTrailer') or {}
+        if _VIDEO_RE.match(str(latest.get('id') or '')) and latest.get('id') not in [n.get('id') for n in nodes]:
+            nodes.append(latest)
+        # v5.10.411: the next videos when the best one has no playable stream
+        # (it was kept as "no trailer" for a day after the first one)
+        for node in nodes[:_CANDIDATES]:
+            packed = self._from_video(node['id'], (node.get('name') or {}).get('value') or '', timeout)
+            if packed:
+                return packed
+        return None

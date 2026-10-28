@@ -26,6 +26,9 @@ def _parents_guide_corner():
         from .ui_preferences import value
         if str(value('parents_guide') or 'true').lower() == 'false':
             return
+        from . import player_capsule
+        if player_capsule.takes_guide():      # v5.10.421: the rating card shows it
+            return
         ctx = load_session() or {}
         imdb = ''
         for raw in (ctx.get('show_imdb_id'), ctx.get('imdb_id'), ctx.get('canonical_id')):
@@ -54,11 +57,35 @@ def _parents_guide_corner():
             if not rows:
                 return
             player = xbmc.Player()
+            monitor = xbmc.Monitor()
+            # v5.10.416 (GitHub #21): its seconds start once the picture runs.
+            # With refresh rate matching the screen is black for a few
+            # seconds after the start, and the guide was gone before it came.
+            first, waited = None, time.time()
+            while time.time() - waited < 25 and not monitor.abortRequested():
+                if not player.isPlayingVideo():
+                    return
+                try:
+                    at = player.getTime()
+                except Exception:
+                    at = 0.0
+                first = at if first is None else first
+                if at - first >= 2.0 and not xbmc.getCondVisibility('Player.Paused'):
+                    break
+                if monitor.waitForAbort(0.5):
+                    return
+            # v5.10.417: after the playback capsule, not over it (both top left)
+            try:
+                from . import player_capsule
+                for _ in range(40):
+                    if not (player_capsule.busy() or player_capsule.starting()) or monitor.waitForAbort(0.5):
+                        break
+            except Exception:
+                pass
             if not player.isPlayingVideo():
                 return
             home.setProperty('dhs.pg.overlay', PG.lines(rows))
             home.setProperty('dhs.pg.title', 'IMDb ' + ('Parents Guide' if PG._english() else 'دليل الوالدين'))
-            monitor = xbmc.Monitor()
             end = time.time() + 12
             while time.time() < end and not monitor.abortRequested():
                 if monitor.waitForAbort(0.5) or not player.isPlayingVideo():
@@ -392,12 +419,22 @@ class UrlCompanionReporter(BaseReporter):
         return self._post(ctx, 'companionUrl', position_ms or int(ctx.get('duration_ms') or 0), 'stopped', mark_watched=True)
 
 
+def _plex_client_id():
+    try:
+        from .plex_client import client_identifier
+        return client_identifier()
+    except Exception:
+        return 'dexhub-kodi'
+
+
 class PlexReporter(BaseReporter):
     def _headers(self, ctx):
         return {
             'X-Plex-Product': ctx.get('product', 'Dex Hub'),
             'X-Plex-Version': ctx.get('product_version', '2.6.0'),
-            'X-Plex-Client-Identifier': ctx['client_id'],
+            # v5.10.409: a source without its own id (the reporter failed
+            # with 'client_id', so Plex never heard the position)
+            'X-Plex-Client-Identifier': ctx.get('client_id') or _plex_client_id(),
             'X-Plex-Provides': 'player',
             'X-Plex-Device-Name': ctx.get('device_name', 'Kodi'),
             'X-Plex-Platform': 'Kodi',
@@ -858,6 +895,8 @@ def _invalidate_nextup_cache():
                 win.clearProperty(key)
             except Exception:
                 pass
+        from .nextup_logic import _delete_file_cache
+        _delete_file_cache()
     except Exception:
         pass
 
@@ -1046,7 +1085,21 @@ class CompanionPlayer(xbmc.Player):
             pass
 
         if not self._foreign_active:
+            try:
+                from . import player_capsule     # v5.10.417: once per file (a new source too)
+                player_capsule.start()
+            except Exception:
+                pass
             _parents_guide_corner()
+        else:
+            try:
+                # v5.10.420: a video Dex Hub did not start (a file, another
+                # add-on) has the capsule too, from Kodi's own details only,
+                # and a few seconds later (the display mode switch)
+                from . import player_capsule
+                player_capsule.start(foreign=True)
+            except Exception:
+                pass
 
     def onAVChange(self):
         self.onAVStarted()
@@ -1978,11 +2031,13 @@ class CompanionPlayer(xbmc.Player):
                 pass
             return
         if not job:
-            return
+            job = {'uid': uid, 'ctx': dict(self.ctx), 'tracks': True}
 
         def _runner():
             try:
-                post_start.run_job(job, monitor=_monitor)
+                post_start.run_job(job, monitor=_monitor,
+                    valid=lambda: not self._foreign_active and
+                    str(self._active_playback_uid or '') == uid)
             except Exception as exc:
                 _monitor('play-post-start-error', level=xbmc.LOGWARNING,
                          error=exc, title=self.ctx.get('title') or '')
@@ -2179,6 +2234,11 @@ class CompanionPlayer(xbmc.Player):
 
 
     def onPlayBackStopped(self):
+        try:
+            from . import player_capsule
+            player_capsule.stopped()
+        except Exception:
+            pass
         # v5.10.239: a Home trailer's end (foreign) changes no watch progress:
         # the widgets are not marked stale for it (30 trailers an hour each
         # rebuilt Continue Watching)
@@ -2323,6 +2383,11 @@ class CompanionPlayer(xbmc.Player):
             self._maybe_play_next(next_ep)
 
     def onPlayBackEnded(self):
+        try:
+            from . import player_capsule
+            player_capsule.stopped()
+        except Exception:
+            pass
         if not self._foreign_active and self.ctx.get('server_type') == 'silo':
             from .providers.silo_playback import early_end
             position, duration = self._position_ms(), self._duration_ms()

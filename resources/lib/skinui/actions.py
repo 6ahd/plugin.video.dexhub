@@ -226,8 +226,10 @@ def _menu_once(params, from_menu=False):
     tr = _tr
     key = params.get('key') or ''
     # v5.10.299: the skin's settings page opens the one Appearance place
-    looks = {'customize': 'look_layout', 'look': 'look_theme', 'look_theme': 'look_theme',
-             'look_layout': 'look_layout', 'look_motion': 'look_motion'}
+    looks = {'customize': 'home', 'look': 'theme', 'look_theme': 'theme',
+             'look_layout': 'home', 'look_motion': 'trailers'}
+    from ..menu_taxonomy import META
+    looks.update({'section_'+section:section for section in META})
     if not key or key in looks:
         from ..homeui import control
         if key in looks:
@@ -260,7 +262,7 @@ def _menu_once(params, from_menu=False):
     elif key == 'sources':
         launch('ActivateWindow(Videos,%s,return)' % _arg(C.url('setup_connections')))
     elif key == 'refresh':
-        refresh_home(params, handle)
+        refresh_home(params, None)       # v5.10.411: this menu has no handle (NameError)
     elif key == 'size':
         if C.served() == 'dexhub':
             # v5.10.120: skin.dexhub's cards take the size too (3.6.0)
@@ -283,9 +285,9 @@ def _menu_once(params, from_menu=False):
             return 'settings:cancel'
         return 'settings'
     elif key == 'kodi':
-        launch('ActivateWindow(Settings)')
+        launch('RunPlugin(%s)' % _arg(C.url('open_kodi_settings')))
     elif key == 'theme':
-        launch('ActivateWindow(1191)')          # v5.10.299: the skin's theme gallery
+        launch('ActivateWindow(1191)' if xbmc.getSkinDir() == 'skin.dexhub' else 'RunPlugin(%s)' % _arg(C.url('theme_select')))          # v5.10.299: the skin's theme gallery
     elif key == 'skin_pick':
         from . import switch
         switch.pick({})
@@ -772,16 +774,15 @@ def more(params, handle):
     # v5.10.322: as Nuvio Legacy's "..." menu
     if t.hero.get('plot'):
         entries.append((_tr('قراءة النبذة'), 'synopsis'))
-    entries.append((_tr('تغيير الصور'), 'artwork'))
-    # v5.10.365: its reviews (Trakt, TMDb); rating stays in the Track panel
-    entries.append((_tr('المراجعات'), 'reviews'))
+    # v5.10.410: Change artwork and Reviews left the menu; they are the
+    # page's Pictures and Reviews rows now (both still open by what=)
     entries.append((_tr('مشاهدة جماعية'), 'party'))      # v5.10.366
     if t.series:
         entries.append((_tr('الصفحة الكلاسيكية'), 'classic'))
     what = (params.get('what') or '').strip()     # v5.10.309: the title page's own shortcut discs
     if what == 'watch':
         what = next((e[1] for e in entries if e[1] in ('watch', 'unwatch')), '')
-    if what not in [e[1] for e in entries]:
+    if what not in [e[1] for e in entries] + ['artwork', 'reviews']:
         choice = choose(t.hero.get('title') or '', [e[0] for e in entries], subtitle=_tr('المزيد'))
         if choice < 0:
             return None
@@ -925,7 +926,10 @@ def grid(params, handle):
     from . import items as I
     from ..homeui import rows as R
     from ..homeui import grid_filters as GF
-    route = dict(parse_qsl(params.get('r') or '', keep_blank_values=True))
+    from ..catalog_navigation import unwrap
+    route = unwrap(dict(parse_qsl(params.get('r') or '', keep_blank_values=True)))
+    if not route:
+        return _end(handle)
     title = params.get('t') or ''
     shape = params.get('s') or ''
     continuation = bool(params.get('n'))
@@ -1096,6 +1100,41 @@ def _facet_props(facets, state, app):
     }
 
 
+def _catalog_art(ref, specs):
+    """A backdrop for each catalog card from the titles its row already read
+    (folderpage's rows, cached under the same ids): a card whose catalog was
+    not read yet keeps the collection's cover. A picture another card took
+    is not used twice. A cover chosen for the catalog (cover_overrides) wins."""
+    from .folderpage import TAB, _specs
+    try:
+        from ..cover_overrides import catalog_cover
+    except Exception:
+        catalog_cover = None
+    used = set()
+    found = []
+    for spec in _specs(ref, specs):
+        # v5.10.426: a cover chosen for this catalog on the account page first
+        index = str(spec.get('key') or '').rpartition(':')[2]     # fold:src:<n> / fold:src:all
+        art = catalog_cover(ref.get('set_id'), ref.get('folder_id'), index) if catalog_cover else ''
+        if art:
+            found.append(art)
+            continue
+        try:
+            data = C.read_row(C.row_file(TAB, spec['id'])) or {}
+        except Exception:
+            data = {}
+        for item in (data.get('items') or [])[:12]:
+            pics = item.get('art') or {}
+            pic = str(pics.get('fanart') or pics.get('landscape') or '')
+            if pic and pic not in used:
+                art = pic
+                break
+        if art:
+            used.add(art)
+        found.append(art)
+    return found
+
+
 def folder(params, handle):
     """A collection folder's catalogs as cards ("All" first when it has it)."""
     from . import rows
@@ -1107,30 +1146,64 @@ def folder(params, handle):
            'folder_id': params.get('folder_id') or '', 'media_filter': params.get('media_filter') or ''}
     fn = W.BrowseWindow.__dict__['_folder_sources']
     folder_data, specs = fn(home, ref)
-    title = params.get('t') or (folder_data or {}).get('name') or ''
+    title = (folder_data or {}).get('name') or params.get('t') or ''
     wrap = getattr(rows.api(), '_wrap_tokenized_url', None) or (lambda u: u)
     cover = ''
     background = ''
     if folder_data:
         cover = wrap(str(folder_data.get('background') or folder_data.get('poster') or ''))
         background = wrap(str(folder_data.get('background') or folder_data.get('poster') or ''))
+    logo = wrap(str((folder_data or {}).get('clearlogo') or ((folder_data or {}).get('poster') if (folder_data or {}).get('hide_title') else '') or ''))
     items = []
-    for key, name, subtitle, route in specs:
+    inline = params.get('inline') == '1'
+    # skin.18: each card shows a backdrop of its own catalog (read titles only)
+    own_art = _catalog_art(ref, specs) if inline else [''] * len(specs)
+    from ..cover_overrides import folder_key, catalog_key
+    cover_menu = []
+    if ref.get('folder_id'):
+        cover_menu.append((app.tr('غلاف المجلد…'), 'RunPlugin(%s)' % C.url(
+            'skin_cover_pick', kind='folder', name=title,
+            # a top-level folder is the collection's entry itself (no group)
+            key=folder_key(ref['set_id'], ref.get('group_id'), ref['folder_id']) if ref.get('group_id')
+            else folder_key(ref['set_id'], ref['folder_id']))))
+    for (key, name, subtitle, route), art in zip(specs, own_art):
         target = rows.list_url(route, title='%s  •  %s' % (title, name) if title else name)
+        card = art or cover
+        index = str(key).rpartition(':')[2]
+        menu = [(app.tr('غلاف الكتالوج…'), 'RunPlugin(%s)' % C.url(
+            'skin_cover_pick', kind='catalog', name=name,
+            key=catalog_key(ref['set_id'], ref['folder_id'], index)))] + cover_menu
         items.append({
+            'menu': menu,
             'label': name, 'label2': subtitle, 'path': target, 'folder': True,
-            'art': {'poster': cover, 'landscape': cover, 'thumb': cover, 'fanart': background},
+            'art': {'poster': cover, 'landscape': card, 'thumb': card, 'fanart': art or background, 'clearlogo': logo},
             'info': {'title': name, 'mediatype': 'video', 'plot': subtitle},
             'props': {'kind': 'nav', 'subtitle': subtitle, 'dhs.click': 'grid', 'dhs.target': target,
                       'dhs.badge': app.tr('كتالوج'), 'dhs.meta': subtitle},
         })
     row = params.get('row') or ''
+    if inline:
+        # the folder view's mosaic: a large card, two beside it, the rest below
+        part = params.get('part') or ''
+        if part == 'hero':
+            items = items[:1]
+        elif part == 'side':
+            items = items[1:3]
+        elif part == 'rest':
+            items = items[3:]
+        I.directory(handle, items, content='videos')
+        return None
     if row:
         # the last row of a collection folder's page (folderpage.py)
         I.directory(handle, items, tab=row.split(':', 1)[0], content='videos', row=row)
         raise SystemExit        # a row of a page, like the Home's (serve.widget)
+    data = C.read_json(C.spec_file('fold'), {}) or {}
+    if data.get('ref') != ref:
+        C.write_json(C.spec_file('fold'), {'ref': ref, 'title': title})
+    for item in items:
+        item['menu'] = list(item.get('menu') or []) + [(app.tr('طريقة فتح الكوليكشن'), 'RunPlugin(%s)' % C.url('skin_folder_view'))]
     I.directory(handle, items, content='videos',
-                props={'dhs.grid': '1', 'dhs.title': title, 'dhs.shape': 'landscape'})
+                props={'dhs.grid': '1', 'dhs.title': title, 'dhs.title_logo': logo, 'dhs.shape': 'landscape'})
     return None
 
 
@@ -1227,7 +1300,7 @@ def row_facet(params, handle):
             xbmc.executebuiltin('SetFocus(%d)' % (5000 + slot))
 
 
-_PLAIN_STYLES = ('poster', 'landscape', 'square', 'wide', 'tall', 'poster_large', 'feature', 'landscape_info')
+_PLAIN_STYLES = ('poster', 'landscape', 'square', 'wide', 'tall', 'poster_large', 'feature', 'landscape_info', 'circle')
 
 
 def row_shape(params, handle):
@@ -1271,14 +1344,36 @@ def row_shape(params, handle):
     C.request_refresh(tab, row_id)
 
 
+def row_follow(params, handle):
+    from . import rows
+    from .. import row_follow as policy
+    tab = params.get('m') or C.prop('dhs.tab') or 'all'
+    spec = rows.find_spec(tab, params.get('id') or '')
+    if spec and spec.get('key'):
+        a = rows.app()
+        policy.edit(tab, spec['key'], spec.get('title') or '', a.tr)
+
+
 def trailer_config(params, handle):
     from ..trailer_preferences import publish_presentation
     publish_presentation()
 
 
+def _social(name):
+    # v5.10.406: the title page's Reviews and Pictures rows (title_social)
+    def run(params, handle):
+        from . import title_social
+        return getattr(title_social, name)(params, handle)
+    return run
+
+
 ROUTES = {
+    'skin_review_read': _social('review_read'),
+    'skin_review_write': _social('review_write'),
+    'skin_art_set': _social('art_set'),
     'skin_trailer_config': trailer_config,
     'skin_row_shape': row_shape,
+    'skin_row_follow': row_follow,
     'skin_publish': publish,
     'skin_refresh': refresh_home,
     'skin_menu': menu,
@@ -1315,8 +1410,12 @@ def _panel(name, params, handle):
 
 
 def _fold(params, handle):
-    from . import folderpage
-    return folderpage.open_page(params, handle)
+    from ..folder_view import rows_enabled
+    if rows_enabled():
+        from .folderpage import open_page
+        return open_page(params, handle)
+    from ..catalog_navigation import open_selector
+    return open_selector(params, handle)
 
 
 def _profile(params, handle):

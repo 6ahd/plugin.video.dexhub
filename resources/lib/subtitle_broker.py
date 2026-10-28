@@ -309,22 +309,18 @@ def _provider_order(ctx):
 
 
 def _preferred_languages():
-    raw = (ADDON.getSetting('preferred_subtitle_langs') or 'ar,en').strip()
-    if not raw:
-        return ['ar', 'en']
-    return [x.strip().lower() for x in raw.split(',') if x.strip()]
+    from .track_preferences import languages
+    return languages(ADDON.getSetting('preferred_subtitle_langs') or 'ar,en') or ['ar','en']
 
 
 def _lang_priority(lang, prefs):
-    """Return sort priority — lower is better. Preferred langs rank by position."""
-    lang = (lang or 'und').strip().lower().replace('_', '-')
-    # Normalize common codes.
-    alias = {'ara': 'ar', 'arabic': 'ar', 'eng': 'en', 'english': 'en'}
-    lang_short = alias.get(lang, lang.split('-')[0])
+    from .track_preferences import language
+    code = language(lang)
     for i, pref in enumerate(prefs):
-        if lang_short == pref:
-            return i
-    return 999 + len(lang_short)  # unpreferred — stable last
+        target = language(pref)
+        if code and target and code.split('-')[0] == target.split('-')[0]:
+            return i * 2 + (0 if code == target else 1)
+    return 999
 
 
 def _sort_by_lang_preference(rows):

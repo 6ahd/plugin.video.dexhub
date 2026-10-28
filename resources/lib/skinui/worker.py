@@ -300,6 +300,11 @@ class Worker(object):
                 self.ratings.start()
             except Exception:
                 C.log('ratings off:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
+        self.catalog_follow = None
+        if self.mode == 'dexhub':
+            from .catalog_follow import Controller
+            self.catalog_follow = Controller(self.monitor, lambda: self.busy() or self.preview_transition())
+            self.catalog_follow.start()
         # v5.10.132: grids and title lists worked out here for the plugin
         # calls (listing.py), skin.dexhub and Arctic Fuse 3 alike
         self.listing = None
@@ -312,6 +317,8 @@ class Worker(object):
         try:
             self._loop(rows)
         finally:
+            if self.catalog_follow is not None:
+                self.catalog_follow.stop()
             if self.listing is not None:
                 self.listing.stop()
             if self.ratings is not None:
@@ -373,8 +380,11 @@ class Worker(object):
     def _loop(self, rows):
         if self.mode == 'dexhub':
             try:
-                from .. import theme_sync
+                from .. import theme_sync, interface_fonts
                 theme_sync.reset()
+                interface_fonts.reset()
+                from ..folder_view import initialize_defaults
+                initialize_defaults()
             except Exception:
                 pass
         else:
@@ -396,6 +406,8 @@ class Worker(object):
                 try:
                     from .. import theme_sync
                     theme_sync.tick()
+                    from .. import interface_fonts
+                    interface_fonts.tick()
                 except Exception:
                     C.log('theme:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
             self.watch_playback()
@@ -815,6 +827,8 @@ class Worker(object):
         tp = tp or C.layout().tp
         lists = [(tp['seasons'], 'seasons'), (tp['episodes'], 'episodes')] if series else []
         lists += [(tp['cast'], 'cast'), (tp['related'], 'related')]
+        # v5.10.413: Reviews (after Cast) and Pictures (after Reviews)
+        lists += [(8450, 'reviews'), (8460, 'artwork')]
         for index, (cid, name) in enumerate(lists):
             if cond('Integer.IsGreater(Container(%d).NumItems,0)' % cid):
                 continue

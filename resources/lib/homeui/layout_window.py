@@ -313,6 +313,7 @@ class LayoutWindow(xbmcgui.WindowXMLDialog):
                         ('rename', self.tr('إعادة تسمية الكوليكشن'))]
         options += [('move', self.tr('تحريك الصف')),
                     ('style', self.tr('شكل الصف')),
+                    ('follow', self.tr('الصف التابع…')),
                     ('toggle', self.tr('إظهار الصف') if entry['hidden'] else self.tr('إخفاء الصف')),
                     ('top', self.tr('إلى أعلى الصفحة')),
                     ('bottom', self.tr('إلى أسفل الصفحة'))]
@@ -344,6 +345,10 @@ class LayoutWindow(xbmcgui.WindowXMLDialog):
             self._rename(index)
         elif key == 'style':
             self._style(index)
+        elif key == 'follow':
+            from .. import row_follow
+            if row_follow.edit(self.media, entry['key'], entry.get('label') or '', self.tr):
+                self.changed.add(self.media)
         elif key == 'combine':
             self._combine(index)
 

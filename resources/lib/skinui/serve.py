@@ -27,9 +27,26 @@ _WIDGET_ACTIONS = ('skin_row', 'skin_search')
 
 def run(params):
     action = params.get('action') or ''
+    if action in ('skin_af3_catalog', 'skin_af3_import'):
+        handle = _handle()
+        if handle >= 0:
+            from .items import directory
+            directory(handle, [], content='videos')
+        return None
+    if action == 'skin_cover_pick':
+        # v5.10.426: a cover from Collections+ for a folder or catalog card
+        from ..cover_picker import pick
+        return pick(params)
+    if action == 'skin_folder_view':
+        from ..folder_view import native_options
+        return native_options(params, _handle())
     if action == 'skin_fold':
-        from .folderpage import request_open
-        return request_open(params, _handle())
+        from ..folder_view import rows_enabled
+        if rows_enabled() or C.served() == 'dexhub':
+            from .folderpage import request_open
+            return request_open(params, _handle())
+        from ..catalog_navigation import open_selector
+        return open_selector(params, _handle())
     if action == 'skin_empty':
         from .items import directory
         handle = _handle()
@@ -72,7 +89,8 @@ def run(params):
         if listing.serve_call(action, params, _handle()):
             return None
         # everything else needs the router
-        if action in ('skin_seasons', 'skin_episodes', 'skin_cast', 'skin_related', 'skin_collection', 'skin_studios'):
+        if action in ('skin_seasons', 'skin_episodes', 'skin_cast', 'skin_related', 'skin_collection', 'skin_studios',
+                      'skin_reviews', 'skin_artwork'):
             from . import title
             return title.listing(action, params, _handle())
         from . import actions

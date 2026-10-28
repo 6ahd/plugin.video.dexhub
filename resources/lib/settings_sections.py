@@ -4,36 +4,9 @@ The skin XML is generated at packaging time. Opening settings imports only
 this small declaration; it never builds skin controls or reloads a skin.
 """
 # key, Arabic, English, action, folder, menu icon, asset, skin item id
-SECTIONS = (
-    ('appearance','المظهر والثيم','Appearance & Theme','simple_appearance',True,'brush','dexhub_infinity.png',1),
-    ('home','الرئيسية والويدجت','Home & Widgets','simple_home_options',False,'table-cells-large','collection_movies.png',2),
-    ('playback','المشغّل وطريقة التشغيل','Player & Playback','setup_playback_quality',True,'circle-play','play.png',4),
-    ('badges','رموز الجودة','Quality Badges','badges_section',False,'sliders','settings.png',11),
-    ('metadata','الميتاداتا والصور','Metadata & Artwork','simple_metadata',True,'image','tmdb.png',7),
-    ('accounts','الحسابات والمصادر','Accounts & Sources','home_setup',False,'user-gear','sync_accounts.png',5),
-    ('library','المكتبة واللستات','Library & Lists','simple_favorites',False,'list-check','root_favorites.png',6),
-    ('iptv','IPTV وVOD والسيرفرات','IPTV, VOD & Servers','simple_sources_libraries',True,'livetv','root_sources.png',8),
-    ('subtitles','الترجمة','Subtitles','setup_subtitles',False,'comment-dots','settings.png',9),
-    ('performance','الأداء والصيانة','Performance & Maintenance','setup_performance',True,'gears','settings.png',10),
-)
-EXTRA = (
-    ('quick','الإعداد السريع','Quick Setup','simple_quick_setup',False,'update','settings.png',0),
-    ('advanced','الإعدادات المتقدمة','Advanced Settings','open_settings',False,'sliders','settings.png',3),
-)
-DESCRIPTIONS = {
-    'appearance':('الثيم والألوان والمؤشر','Theme, colours and focus'),
-    'home':('الويدجت والتريلر والبانر والحركة','Widgets, trailers, banners and motion'),
-    'playback':('طريقة التشغيل وآخر نسخة والجودة','Playback method, last version and quality'),
-    'badges':('معاينة الرموز وحجمها ومكانها','Badge preview, size and placement'),
-    'metadata':('مصدر البيانات والبوسترات واللغة','Metadata source, posters and language'),
-    'accounts':('الربط وإدارة المصادر','Connect accounts and manage sources'),
-    'library':('اللستات حسب المصدر والتتبع والمتابعة','Lists by source, tracking and progress'),
-    'iptv':('الأقسام والقنوات وVOD ودليل البرامج','Sections, channels, VOD and programme guide'),
-    'subtitles':('البحث والاختيار والمزامنة','Search, selection and synchronisation'),
-    'performance':('الخفة والكاش والتشخيص والنسخ الاحتياطي','Light mode, cache, diagnostics and backup'),
-    'quick':('الربط والإعداد المبدئي','Connect accounts and set up'),
-    'advanced':('خيارات كودي والتكاملات الإضافية','Kodi options and additional integrations'),
-}
+SECTIONS = (('theme', 'الثيم والمظهر', 'Theme & appearance', 'control_section_theme', False, 'palette', 'settings.png', 42), ('home', 'الرئيسية والصفوف', 'Home & rows', 'control_section_home', False, 'house', 'settings.png', 43), ('trailers', 'التريلر', 'Trailers', 'control_section_trailers', False, 'clapperboard', 'settings.png', 41), ('player', 'المشغّل', 'Player', 'control_section_player', False, 'circle-play', 'settings.png', 40), ('metadata', 'الميتاداتا والصور', 'Metadata & artwork', 'control_section_metadata', False, 'image', 'settings.png', 44), ('sources', 'مصادر التشغيل', 'Stream sources', 'control_section_sources', False, 'server', 'settings.png', 45), ('subtitles', 'الترجمة', 'Subtitles', 'control_section_subtitles', False, 'comment-dots', 'settings.png', 46), ('accounts', 'الحسابات والمزامنة', 'Accounts & sync', 'control_section_accounts', False, 'user-gear', 'settings.png', 47), ('library', 'المكتبة والمتابعة', 'Library & progress', 'control_section_library', False, 'list-check', 'settings.png', 48), ('live', 'IPTV والسيرفرات', 'IPTV & servers', 'control_section_live', False, 'display', 'settings.png', 49), ('skin', 'السكين واللغة', 'Skin & language', 'control_section_skin', False, 'brush', 'settings.png', 50), ('maintenance', 'الصيانة والنسخ الاحتياطي', 'Maintenance & backup', 'control_section_maintenance', False, 'gears', 'settings.png', 51), ('system', 'كودي والخروج', 'Kodi & exit', 'control_section_system', False, 'power-off', 'settings.png', 52))
+EXTRA = ()
+DESCRIPTIONS = {'player': ('التشغيل وأزرار المشغّل وشكله والحلقة التالية', 'Playback, player controls, appearance and next episode'), 'trailers': ('التشغيل التلقائي والصوت والجودة وملء الشاشة', 'Automatic trailers, sound, quality and fullscreen'), 'theme': ('الثيم والألوان والزجاج والتحديد', 'Theme, colours, glass and focus'), 'home': ('التخطيط والتنقّل والبطاقات والبانر', 'Layout, navigation, cards and featured banner'), 'metadata': ('المصادر واللغة والبوسترات والشعارات والتقييمات', 'Sources, language, posters, logos and ratings'), 'sources': ('إضافات البحث والفلترة وترتيب روابط التشغيل', 'Source add-ons, filters and stream ordering'), 'subtitles': ('البحث واللغة والتصفية والمزامنة', 'Search, language, filters and synchronization'), 'accounts': ('الربط وإدارة الحسابات والمزامنة والمشاهدة الجماعية', 'Connect accounts, sync and watch parties'), 'library': ('المفضلة والقوائم وسجل المشاهدة والحلقات', 'Favourites, lists, watch history and episodes'), 'live': ('القنوات وVOD ودليل البرامج ومكتبات السيرفرات', 'Live TV, VOD, programme guide and server libraries'), 'skin': ('السكين المؤقت والتبديل واللغة والحجم والأصوات', 'Temporary skin, switching, language, size and sounds'), 'maintenance': ('الأداء والكاش والتشخيص والنسخ والاستعادة', 'Performance, cache, diagnostics, backup and restore'), 'system': ('إضافات كودي وإعداداته والخروج وإعادة التشغيل', 'Kodi add-ons, settings, exit and restart')}
 
 
 def all_sections():
@@ -43,7 +16,7 @@ def all_sections():
 # Opening or editing preferences does not mean viewing progress changed.
 # Settings changes themselves invalidate the rows that actually depend on them.
 SETTING_ACTIONS = frozenset(row[3] for row in all_sections()) | frozenset((
-    'ui_option', 'ui_options_publish', 'playback_mode', 'simple_source_behavior', 'source_addons',
+    'av_settings', 'interface_fonts', 'track_preferences', 'ui_option', 'ui_options_publish', 'playback_mode', 'simple_source_behavior', 'source_addons',
     'setup_playback', 'setup_quality', 'simple_episode_controls', 'player_appearance', 'osd_buttons',
     'player_badges', 'player_badge', 'player_badge_packs', 'badges_url',
     'simple_metadata_language', 'meta_source_picker', 'simple_tmdb_api_key',

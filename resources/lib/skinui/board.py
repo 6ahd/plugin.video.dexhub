@@ -19,8 +19,8 @@ def find_spec(tab, row_id):
     for spec in load_specs(tab):
         if spec.get('id') == row_id:
             return spec
-    return None
-
+    from .catalog_follow import spec
+    return spec(tab, row_id)
 
 def row_path(tab, row_id, version=0, slot=0):
     """A row's plugin path; v5.10.165: with its slot (n), so the row's call
@@ -126,7 +126,7 @@ def update_spot(tab, specs=None):
             C.log('spotlight of %s: the chosen row %s has no titles with a backdrop yet' % (tab, wanted))
     if source is None:
         for spec in specs:
-            if spec.get('own') or spec.get('progress') or (spec.get('kind') or 'catalog') != 'catalog':
+            if spec.get('_follow_parent') or spec.get('own') or spec.get('progress') or (spec.get('kind') or 'catalog') != 'catalog':
                 continue
             data = C.read_row(C.row_file(tab, spec['id'])) or {}     # v5.10.188: its quick copy
             items = hero_order([item for item in data.get('items') or [] if _spot_worthy(item)], spec['id'])[:limit]
@@ -274,6 +274,8 @@ def tidy_titles(specs):
 
 
 def _publish_tab(tab, specs):
+    from .catalog_follow import compose
+    specs = compose(tab, specs)
     shown = 0
     source_on = show_source()       # v5.10.286
     names = tidy_titles(specs) if clean_look() else {}
@@ -354,7 +356,8 @@ def is_published(tab, row_id):
 
 def mark_empty(tab, row_id, empty, slot=None):
     """v5.10.120: a row served with no titles. skin.dexhub loads a row once
-    the row above has its first title (one plugin call at a time); a row
+    the row above has its first title (one plugin call at a time; rows 1-4
+    together since 3.28.139, tools/release/skin_rows_together.py); a row
     that came back empty stopped the rows under it until the next publish
     took it away. Its slot is marked (dhs.<tab>.<n>.empty = its key) and
     the rows under it load at once; the mark goes with the next publish
@@ -380,7 +383,8 @@ def mark_pending(tab, row_id, pending, slot=None):
 
 def published(tab):
     """[(slot, spec)] of the rows on the tab now."""
-    specs = dict((s['id'], s) for s in load_specs(tab))
+    from .catalog_follow import virtuals
+    specs = dict((s['id'], s) for s in load_specs(tab) + virtuals(tab))
     out = []
     for n in range(1, C.ROWS + 1):
         row_id = C.prop('dhs.%s.%d.id' % (tab, n))

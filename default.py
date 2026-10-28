@@ -6,6 +6,17 @@ lib_path = os.path.join(addon_path, 'resources', 'lib')
 if lib_path not in sys.path:
     sys.path.insert(0, lib_path)
 
+# v5.10.408: the screensaver's entry is this file too (xbmc.ui.screensaver,
+# library default.py). Kodi 22 beta1 ran screensaver.py for the add-on's
+# plugin:// calls, every widget and row of the Home, and the call then hung
+# on "waiting on thread"; with one library there is no other file to run.
+# A screensaver start has no plugin:// address.
+if not (sys.argv and str(sys.argv[0]).startswith('plugin://')):
+    # started as before from screensaver.py: nothing else loaded first
+    from resources.lib.homeui.screensaver import run as _screensaver
+    _screensaver()
+    sys.exit(0)
+
 from resources.lib.tvos_compat import install as install_tvos_compat
 install_tvos_compat()
 

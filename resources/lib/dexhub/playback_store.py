@@ -4,6 +4,7 @@ import os
 import sqlite3
 import threading
 import time
+import uuid
 
 from .common import profile_path
 
@@ -83,6 +84,9 @@ def _ensure_db():
             for name, kind in _ID_COLUMNS:
                 if name not in columns:
                     conn.execute('ALTER TABLE playback ADD COLUMN %s %s' % (name, kind))
+            new_shelf_state = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='nextup_hidden'").fetchone() is None
+            conn.execute('CREATE TABLE IF NOT EXISTS nextup_hidden (key TEXT PRIMARY KEY, group_id TEXT NOT NULL)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_nextup_hidden_group ON nextup_hidden(group_id)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_playback_updated ON playback(updated_at DESC)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_playback_percent ON playback(percent)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_playback_imdb ON playback(imdb_id, updated_at DESC)')
@@ -99,6 +103,13 @@ def _ensure_db():
             _DB_READY.add(os.fspath(DB_PATH))
         finally:
             conn.close()
+        if new_shelf_state:
+            # Old cached Home menus must receive the new shelf actions once.
+            try:
+                from .. import progress_events
+                progress_events.changed()
+            except Exception:
+                pass
 
 
 _UPSERT_SQL = """
@@ -122,7 +133,8 @@ _UPSERT_SQL = """
             position=excluded.position,
             duration=excluded.duration,
             percent=excluded.percent,
-            stream_url=excluded.stream_url,
+            stream_url=CASE WHEN excluded.event_type='account_sync' AND excluded.stream_url=''
+                            THEN playback.stream_url ELSE excluded.stream_url END,
             event_type=excluded.event_type,
             updated_at=excluded.updated_at,
             tmdb_id=CASE WHEN excluded.tmdb_id != '' THEN excluded.tmdb_id ELSE playback.tmdb_id END,
@@ -243,6 +255,14 @@ def upsert_entries(entries, mark_dirty=True):
         finally:
             conn.close()
     if changed and mark_dirty:
+        try:
+            for row in rows:
+                if (row.get('ext_updated_at') is None and float(row.get('position') or 0) > 0 and
+                        str(row.get('event_type') or '').lower() in ('start','progress','pause','stop','finished','scrobble')):
+                    reveal_nextup(row)
+        except Exception:
+            # A shelf preference must never fail an already-committed progress save.
+            pass
         _mark_sync_dirty()
         try:
             from .. import watch_log    # v5.10.334: the island's week
@@ -536,24 +556,155 @@ def delete_entry(media_type, canonical_id, video_id):
 
 
 @_scope.bound
-def mark_watched(media_type, canonical_id, video_id):
-    """Finish an existing row and schedule the usual local-progress sync."""
+def delete_synced_entries(rows, return_rows=False):
+    """Delete only the captured revision; playback during HTTP always wins."""
+    _ensure_db()
+    changed = 0
+    deleted = []
+    with _DB_LOCK:
+        conn = _connect()
+        try:
+            for row in rows:
+                cursor = conn.execute(
+                    'DELETE FROM playback WHERE media_type=? AND canonical_id=? AND video_id=? '
+                    'AND updated_at=? AND COALESCE(position,0)=? AND COALESCE(duration,0)=? '
+                    'AND COALESCE(percent,0)=?',
+                    (row.get('media_type') or '', row.get('canonical_id') or '',
+                     row.get('video_id') or '', int(row.get('updated_at') or 0),
+                     float(row.get('position') or 0), float(row.get('duration') or 0),
+                     float(row.get('percent') or 0)))
+                changed += max(0, cursor.rowcount)
+                if cursor.rowcount > 0:
+                    deleted.append(row)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    return deleted if return_rows else changed
+
+
+@_scope.bound
+def nextup_history(shows):
+    """All episode states of the requested series, using indexed ID lookups.
+
+    The recent-activity LIMIT must never hide an older watched finale.
+    """
+    from ..nextup_state import show_keys, SERIES_TYPES
+    unique = {}
+    for row in shows or []:
+        signature = tuple(str(row.get(k) or '') for k in ('canonical_id','imdb_id','show_tmdb_id'))
+        unique.setdefault(signature, row)
+    shows = list(unique.values())
+    if not shows:return []
+    _ensure_db();out = {};conn = _connect()
+    try:
+        for start in range(0, len(shows), 50):
+            ids = {'canonical_id': set(), 'imdb_id': set(), 'show_tmdb_id': set()}
+            for row in shows[start:start+50]:
+                if row.get('canonical_id'):ids['canonical_id'].add(str(row['canonical_id']))
+                for key in show_keys(row):
+                    kind, value = key.split(':', 1)
+                    if kind == 'imdb':
+                        ids['imdb_id'].add(value);ids['canonical_id'].add(value)
+                    elif kind == 'tmdb':
+                        ids['show_tmdb_id'].add(value)
+                        ids['canonical_id'].update(('tmdb:'+value, 'tmdb_'+value))
+            clauses, values = [], []
+            for field, group in ids.items():
+                if group:
+                    group = sorted(group)
+                    clauses.append(field+' IN ('+','.join('?' for _ in group)+')');values.extend(group)
+            if not clauses:continue
+            query = ('SELECT media_type,canonical_id,video_id,season,episode,percent,event_type,updated_at,'
+                     'imdb_id,show_tmdb_id,provider_name,native_server_id FROM playback WHERE media_type IN ('+
+                     ','.join('?' for _ in SERIES_TYPES)+') AND ('+' OR '.join(clauses)+')')
+            for v in conn.execute(query, list(SERIES_TYPES)+values):
+                names = ('media_type','canonical_id','video_id','season','episode','percent','event_type','updated_at',
+                         'imdb_id','show_tmdb_id','provider_name','native_server_id')
+                row = dict(zip(names, v));out[(v[0],v[1],v[2])] = row
+    finally:conn.close()
+    return list(out.values())
+
+
+@_scope.bound
+def hidden_nextup_keys():
+    _ensure_db();conn = _connect()
+    try:return {row[0] for row in conn.execute('SELECT key FROM nextup_hidden')}
+    finally:conn.close()
+
+
+@_scope.bound
+def hide_nextup(row):
+    """Local, profile-scoped shelf preference; never delete watch history."""
+    from ..nextup_state import show_keys
+    keys = show_keys(row)
+    if not keys:return False
     _ensure_db()
     with _DB_LOCK:
         conn = _connect()
         try:
-            cursor = conn.execute(
-                "UPDATE playback SET percent=100.0, event_type='watched', "
-                "position=CASE WHEN duration>0 THEN duration ELSE position END, updated_at=? "
-                "WHERE media_type=? AND canonical_id=? AND video_id=?",
-                (int(time.time()), media_type or '', canonical_id or '', video_id or ''),
-            )
-            changed = cursor.rowcount > 0
+            conn.execute('BEGIN IMMEDIATE')
+            groups = {v[0] for v in conn.execute('SELECT group_id FROM nextup_hidden WHERE key IN ('+
+                       ','.join('?' for _ in keys)+')', sorted(keys))}
+            for group in groups:
+                keys.update(v[0] for v in conn.execute('SELECT key FROM nextup_hidden WHERE group_id=?',(group,)))
+                conn.execute('DELETE FROM nextup_hidden WHERE group_id=?',(group,))
+            group = uuid.uuid4().hex
+            conn.executemany('INSERT INTO nextup_hidden(key,group_id) VALUES(?,?)',[(key,group) for key in sorted(keys)])
             conn.commit()
-        finally:
-            conn.close()
-    if changed:
-        _mark_sync_dirty()
+        except Exception:
+            conn.rollback();raise
+        finally:conn.close()
+    return True
+
+
+@_scope.bound
+def reveal_nextup(row):
+    from ..nextup_state import show_keys, SERIES_TYPES
+    if row.get('media_type') not in SERIES_TYPES:return
+    keys = show_keys(row)
+    if not keys:return
+    _ensure_db()
+    with _DB_LOCK:
+        conn = _connect()
+        try:
+            conn.execute('DELETE FROM nextup_hidden WHERE group_id IN (SELECT group_id FROM nextup_hidden WHERE key IN ('+
+                         ','.join('?' for _ in keys)+'))',sorted(keys));conn.commit()
+        finally:conn.close()
+
+
+@_scope.bound
+def mark_watched(media_type, canonical_id, video_id, season=None, episode=None,
+                 title='', imdb_id='', show_tmdb_id=''):
+    """Persist a manual watched event even for an unsaved Next Up proposal."""
+    from ..nextup_state import coordinate, SERIES_TYPES
+    if not media_type or not canonical_id or not video_id:return False
+    _ensure_db()
+    with _DB_LOCK:
+        conn = _connect()
+        try:
+            conn.row_factory = sqlite3.Row
+            conn.execute('BEGIN IMMEDIATE')
+            existing = conn.execute('SELECT * FROM playback WHERE media_type=? AND canonical_id=? AND video_id=?',
+                                    (media_type,canonical_id,video_id)).fetchone()
+            row = dict(existing) if existing else dict(media_type=media_type,canonical_id=canonical_id,video_id=video_id)
+            point = coordinate(dict(video_id=video_id, season=season if season not in (None,'') else row.get('season'),
+                                    episode=episode if episode not in (None,'') else row.get('episode')))
+            if media_type in SERIES_TYPES and not point:
+                conn.rollback();return False
+            if point:row.update(season=point[0],episode=point[1])
+            for key,value in (('title',title),('imdb_id',imdb_id),('show_tmdb_id',show_tmdb_id)):
+                if value and not row.get(key):row[key]=value
+            row.update(percent=100.,event_type='watched',position=float(row.get('duration') or row.get('position') or 0),
+                       ext_updated_at=max(int(time.time()),int(row.get('updated_at') or 0)+1))
+            cursor = conn.execute(_UPSERT_SQL,_upsert_params(conn,row))
+            changed = cursor.rowcount > 0;conn.commit()
+        except Exception:
+            conn.rollback();raise
+        finally:conn.close()
+    if changed:_mark_sync_dirty()
     return changed
 
 

@@ -102,6 +102,35 @@ def _query(text):
 
 def _run_inner():
     import sys
+    _menu_params = _query(sys.argv[2].lstrip('?')) if len(sys.argv) > 2 else {}
+    _menu_action = _menu_params.get('action', '')
+    if _menu_action.startswith('control_section_'):
+        from .menu_taxonomy import META
+        section=_menu_action[len('control_section_'):]
+        if section in META:
+            from .skinui.actions import menu
+            return menu({'key':'section_'+section},-1)
+    if _menu_action.startswith('preferences_'):
+        from .menu_taxonomy import META
+        from .simple_settings_menu import run
+        if _menu_action[len('preferences_'):] in META:
+            return run(_menu_action[len('preferences_'):])
+    if _menu_action == 'simple_settings':
+        from .simple_settings_menu import run
+        return run(_menu_params.get('category', ''))
+    if _menu_action in ('temporary_skin_exit', 'open_kodi_addons', 'open_kodi_settings'):
+        from . import temporary_skin
+        return {'temporary_skin_exit': temporary_skin.leave, 'open_kodi_addons': temporary_skin.open_kodi_addons, 'open_kodi_settings': temporary_skin.open_kodi_settings}[_menu_action]()
+    if _menu_action in ('', 'home'):
+        from .folder_view import initialize_defaults as _folder_defaults
+        _folder_defaults()
+        from .temporary_skin import enter
+        if enter(int(sys.argv[1]) if len(sys.argv) > 1 else -1, _menu_params):
+            return None
+    # Open the skin's appearance section before loading catalog routes.
+    if len(sys.argv) > 2 and _query(sys.argv[2].lstrip('?')).get('action') == 'appearance_options':
+        from .appearance_options import open_settings
+        return open_settings()
     # v5.10.109: skin.dexhub's own routes. skin_row (a row of the skin's Home)
     # is answered from its cache before anything else is imported.
     if len(sys.argv) > 2 and 'action=skin_' in sys.argv[2]:

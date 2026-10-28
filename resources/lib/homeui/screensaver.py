@@ -255,6 +255,7 @@ def _features():
                         'chip': _tr(name), 'kind': 'tmdb', 'year': _year(row),
                         'rating': ('%.1f' % float(vote)) if vote else '',
                         'fanart': _image(row.get('backdrop_path'), 'backdrop'),
+                        'poster': _image(row.get('poster_path'), 'poster'),
                         'title': str(row.get('name') or row.get('title') or ''),
                         'meta': '   ·   '.join(m for m in meta if m),
                         'plot': _story(row.get('overview')), 'logo': ''})
@@ -267,7 +268,7 @@ def _calendar():
     today = datetime.date.today()
     end = today + datetime.timedelta(days=7)
     lang = 'en-US' if _english() else 'ar-SA'
-    entries, seen = [], set()
+    entries, seen = [], {}
 
     media = chosen_media()
 
@@ -278,14 +279,23 @@ def _calendar():
             return
         key = (day.isoformat(), title)
         if key in seen:
+            old = seen[key]
+            old['poster'] = old.get('poster') or poster
+            old['tmdb_id'] = old.get('tmdb_id') or str(tmdb_id or '')
             return
-        seen.add(key)
-        entries.append({'date': day.isoformat(), 'title': title, 'detail': detail, 'poster': poster, 'kind': kind,
-                        'tmdb_id': str(tmdb_id or ''), 'media': 'movie' if kind == 'movie' else 'series'})
+        entry = {'date': day.isoformat(), 'title': title, 'detail': detail, 'poster': poster, 'kind': kind,
+                        'tmdb_id': str(tmdb_id or ''), 'media': 'movie' if kind == 'movie' else 'series'}
+        entries.append(entry)
+        seen[key] = entry
     from .. import watch_sources as W
-    for ev in W.calendar_events():
+    try:
+        personal_events = W.calendar_events()
+    except Exception as exc:
+        _log('personal calendar failed (%s)' % exc.__class__.__name__)
+        personal_events = []
+    for ev in personal_events:
         try:
-            add(datetime.date.fromisoformat(ev['date']), ev['title'], ev['detail'], ev['poster'], ev['kind'], ev['tmdb_id'])
+            add(datetime.date.fromisoformat(ev['date']), ev['title'], ev.get('detail') or '', ev.get('poster') or '', ev['kind'], ev.get('tmdb_id') or '')
         except (ValueError, KeyError):
             continue
     if W.config().get('personal_only'):
@@ -358,6 +368,22 @@ def cinema(refresh=False):
         except Exception:
             pass
     return features, calendar, True
+
+
+def _save_calendar_art(original, repaired):
+    """Persist repaired art without changing cache age, scope or other data."""
+    path = os.path.join(_profile(), 'ss_cinema.json')
+    try:
+        with open(path, encoding='utf-8') as handle:
+            cached = json.load(handle)
+        if cached.get('calendar') != original or cached.get('lang') != _english() or cached.get('cfg') != _config():
+            return
+        cached['calendar'] = repaired
+        with open(path + '.art.tmp', 'w', encoding='utf-8') as handle:
+            json.dump(cached, handle, ensure_ascii=False)
+        os.replace(path + '.art.tmp', path)
+    except (OSError, ValueError, TypeError):
+        pass
 
 
 def _logo_for(feature):
@@ -592,6 +618,12 @@ class Saver(xbmcgui.WindowXMLDialog):
             if not fresh and not self.done.is_set():
                 features, calendar, _ = cinema(refresh=True)
                 self._take(features, calendar)
+            if not self.done.is_set():
+                from .calendar_art import enrich
+                repaired = enrich(calendar, features + self.home, _image, _tmdb, self.done)
+                if repaired != calendar and not self.done.is_set():
+                    self._take(features, repaired)
+                    _save_calendar_art(calendar, repaired)
         except Exception as exc:
             _log('load failed (%s)' % exc)
 
@@ -611,7 +643,8 @@ class Saver(xbmcgui.WindowXMLDialog):
                 else:
                     swap = True
             if calendar:
-                self.calendar = list(calendar)
+                from .calendar_art import enrich
+                self.calendar = enrich(calendar, features + self.home, _image)
         self._fill_week()
         self._fill_releases()
         if swap:
@@ -845,7 +878,7 @@ class Saver(xbmcgui.WindowXMLDialog):
                 continue
             li = xbmcgui.ListItem(label=entry.get('title') or '', label2=entry.get('detail') or '', offscreen=True)
             if entry.get('poster'):
-                li.setArt({'poster': entry['poster']})
+                li.setArt({'poster': entry['poster'], 'thumb': entry['poster'], 'icon': entry['poster']})
             li.setProperty('when', _when(day, today, english))
             li.setProperty('rel', _relative(day, today))
             li.setProperty('active', '1' if index == self.active else '')
@@ -890,7 +923,7 @@ class Saver(xbmcgui.WindowXMLDialog):
                 continue
             li = xbmcgui.ListItem(label=entry.get('title') or '', label2=entry.get('detail') or '', offscreen=True)
             if entry.get('poster'):
-                li.setArt({'poster': entry['poster']})
+                li.setArt({'poster': entry['poster'], 'thumb': entry['poster'], 'icon': entry['poster']})
             li.setProperty('day', _tr('اليوم') if day == today else (_WEEK_EN if english else _WEEK_AR)[day.weekday()])
             li.setProperty('num', str(day.day))
             li.setProperty('today', '1' if day == today else '')

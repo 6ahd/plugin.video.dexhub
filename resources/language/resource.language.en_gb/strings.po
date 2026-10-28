@@ -18,8 +18,8 @@ msgid "Playback mode"
 msgstr "Playback mode"
 
 msgctxt "#30110"
-msgid "Language / اللغة"
-msgstr "Language / اللغة"
+msgid "Language"
+msgstr "Language"
 
 msgctxt "#30111"
 msgid "Request timeout (seconds)"
@@ -1579,10 +1579,183 @@ msgctxt "#32964"
 msgid "Off"
 msgstr "Off"
 
-msgctxt "#32965"
-msgid "Seek preview images (server or Seekr)"
-msgstr "Seek preview images (server or Seekr)"
 
-msgctxt "#32966"
-msgid "Seekr API key (optional)"
-msgstr "Seekr API key (optional)"
+
+msgctxt "#32968"
+msgid "Artwork while loading"
+msgstr "Artwork while loading"
+
+msgctxt "#33900"
+msgid "Glass & focus"
+msgstr "Glass & focus"
+
+msgctxt "#33901"
+msgid "Open glass & focus"
+msgstr "Open glass & focus"
+
+msgctxt "#33902"
+msgid "Choose skin"
+msgstr "Choose skin"
+
+msgctxt "#33903"
+msgid "Temporary Dex Hub skin on launch"
+msgstr "Temporary Dex Hub skin on launch"
+
+msgctxt "#33904"
+msgid "All add-on settings"
+msgstr "All add-on settings"
+
+msgctxt "#33905"
+msgid "Enable Self-Hosted"
+msgstr "Enable Self-Hosted"
+
+msgctxt "#33906"
+msgid "AIO Metadata URL"
+msgstr "AIO Metadata URL"
+
+msgctxt "#33907"
+msgid "Kodi & exit"
+msgstr "Kodi & exit"
+
+msgctxt "#33908"
+msgid "Kodi add-ons"
+msgstr "Kodi add-ons"
+
+msgctxt "#33909"
+msgid "Kodi settings"
+msgstr "Kodi settings"
+
+msgctxt "#33910"
+msgid "Leave Dex Hub and restore my skin"
+msgstr "Leave Dex Hub and restore my skin"
+
+msgctxt "#33920"
+msgid "Row & catalog styles"
+msgstr "Row & catalog styles"
+
+msgctxt "#33921"
+msgid "Catalogs & collections"
+msgstr "Catalogs & collections"
+
+msgctxt "#33922"
+msgid "Dependent rows on focus"
+msgstr ""
+
+
+msgctxt "#33924"
+msgid "Refresh metadata automatically"
+msgstr ""
+
+
+msgctxt "#33926"
+msgid "Dependent rows for title recommendations"
+msgstr "Dependent rows for title recommendations"
+
+msgctxt "#33929"
+msgid "View inside folders"
+msgstr "View inside folders"
+
+msgctxt "#33930"
+msgid "Catalog poster rows"
+msgstr "Catalog poster rows"
+
+msgctxt "#33931"
+msgid "Catalog cards"
+msgstr "Catalog cards"
+
+
+msgctxt "#33940"
+msgid "Primary audio language: default, original or language code"
+msgstr "Primary audio language: default, original or language code"
+
+msgctxt "#33941"
+msgid "Secondary audio language"
+msgstr "Secondary audio language"
+
+msgctxt "#33942"
+msgid "Prefer original audio within the selected language"
+msgstr "Prefer original audio within the selected language"
+
+msgctxt "#33943"
+msgid "Avoid commentary and descriptive audio automatically"
+msgstr "Avoid commentary and descriptive audio automatically"
+
+msgctxt "#33944"
+msgid "Embedded subtitle selection"
+msgstr "Embedded subtitle selection"
+
+msgctxt "#33945"
+msgid "SDH / hearing-impaired tracks"
+msgstr "SDH / hearing-impaired tracks"
+
+msgctxt "#33946"
+msgid "Preferred language"
+msgstr "Preferred language"
+
+msgctxt "#33947"
+msgid "Forced only in preferred language"
+msgstr "Forced only in preferred language"
+
+msgctxt "#33948"
+msgid "Off automatically"
+msgstr "Off automatically"
+
+msgctxt "#33949"
+msgid "Follow Kodi"
+msgstr "Follow Kodi"
+
+msgctxt "#33950"
+msgid "Any track"
+msgstr "Any track"
+
+msgctxt "#33951"
+msgid "Prefer regular"
+msgstr "Prefer regular"
+
+msgctxt "#33952"
+msgid "Prefer SDH"
+msgstr "Prefer SDH"
+
+msgctxt "#33953"
+msgid "Audio & subtitles"
+msgstr "Audio & subtitles"
+
+msgctxt "#33960"
+msgid "Audio & video"
+msgstr "Audio & video"
+
+msgctxt "#33961"
+msgid "Interface font & size"
+msgstr "Interface font & size"
+
+msgctxt "#33962"
+msgid "Interface font"
+msgstr "Interface font"
+
+msgctxt "#33963"
+msgid "Interface font size"
+msgstr "Interface font size"
+
+msgctxt "#33964"
+msgid "Collection view"
+msgstr "Collection view"
+
+msgctxt "#33965"
+msgid "Choose a catalog"
+msgstr "Choose a catalog"
+
+msgctxt "#33966"
+msgid "Poster rows"
+msgstr "Poster rows"
+
+msgctxt "#33967"
+msgid "Catalog cards"
+msgstr "Catalog cards"
+
+msgctxt "#33968"
+msgid "Catalogs"
+msgstr "Catalogs"
+
+msgctxt "#33969"
+msgid "Folders"
+msgstr "Folders"

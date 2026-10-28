@@ -57,7 +57,9 @@ def _fresh(data):
     # read again after THIN_TTL, not kept for hours
     if enabled() or source_appearance():
         thin = thin or not complete(data.get('hero') or {})
-    return time.time() - float(data.get('t') or 0) < (THIN_TTL if thin else C.TTL_TITLE)
+    series = str((data.get('hero') or {}).get('media_type') or '').lower() in ('series','tv','tvshow','episode','anime')
+    ttl = THIN_TTL if thin else (1800 if series else C.TTL_TITLE)
+    return time.time() - float(data.get('t') or 0) < ttl
 
 
 def _remember(key, data):
@@ -722,13 +724,18 @@ def listing(action, params, handle):
                                        + urlencode([('page', urlencode(sorted(q.items())))]))
             item['props'] = props
             out.append(item)
+    elif action in ('skin_reviews', 'skin_artwork'):
+        # v5.10.406: reviews (and writing one) and pictures on the page itself
+        from . import title_social as SO
+        out = SO.review_items(title, q) if action == 'skin_reviews' else SO.artwork_items(title, q)
     elif action in ('skin_collection', 'skin_studios'):
         # v5.10.313: the saga's card and the studios' tiles under More like this
         from . import title_extras as X
         title.ensure_extras()
         out = X.collection_items(title) if action == 'skin_collection' else X.studio_items(title)
     name = {'skin_seasons': 'seasons', 'skin_episodes': 'episodes', 'skin_cast': 'cast',
-            'skin_related': 'related', 'skin_collection': 'collection', 'skin_studios': 'studios'}.get(action)
+            'skin_related': 'related', 'skin_collection': 'collection', 'skin_studios': 'studios',
+            'skin_reviews': 'reviews', 'skin_artwork': 'artwork'}.get(action)
     if name:
         # Keep a section loadable until its request actually finishes empty.
         key = 'dhs.tp.none.%s' % name
