@@ -20,7 +20,7 @@ Any Stremio & Nuvio add-on · Plex, Emby, Jellyfin & Silo · Live TV · Native T
 
 ## Why Dex Hub
 
-<img src=".github/screenshots/works-with-everything.svg" alt="Any source in, any skin out: Stremio and Nuvio add-ons, your own servers, Live TV and your accounts go into Dex Hub; it plays in the Dex Hub skin, any other skin, Arctic Fuse 3 or your skin's widgets" />
+<img src=".github/screenshots/works-with-everything.png" alt="Any source in, any skin out: Stremio and Nuvio add-ons, your own servers, Live TV and your accounts go into Dex Hub; it plays in the Dex Hub skin, any other skin, Arctic Fuse 3 or your skin's widgets" />
 
 **It takes any add-on as a source.** Paste the link of any Stremio or Nuvio add-on (Torrentio, AIOStreams, Comet, MediaFusion, your own) and it joins the search. Your Plex, Emby, Jellyfin and Silo servers sit in the same picker, next to debrid, Usenet and direct links. No add-on is locked in and none is left out.
 
