@@ -20,7 +20,7 @@
 <control type="textbox"><left>0</left><top>0</top><width>380</width><height>130</height><font>font36_title</font><textcolor>FFFFFFFF</textcolor><label>[B]$INFO[Window.Property(nv_title)][/B]</label><visible>String.IsEmpty(Window.Property(dexhub.results.clearlogo))</visible></control>
 <control type="textbox"><left>0</left><top>150</top><width>380</width><height>74</height><font>af3_font_mini_bold</font><textcolor>FFE9EBEF</textcolor><label>$INFO[Window.Property(nv_l1)]$INFO[Window.Property(nv_l3),   ·   ,]</label></control>
 <control type="image"><left>0</left><top>232</top><width>64</width><height>2</height><texture colordiffuse="66FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture></control>
-<control type="textbox"><left>0</left><top>248</top><width>380</width><height>202</height><font>af3_font_mini</font><textcolor>FFC9CDD4</textcolor><label>$INFO[Window.Property(nv_l2),[B],[/B][CR]]$INFO[Window.Property(plot)]</label></control>
+<control type="textbox"><left>0</left><top>248</top><width>380</width><height>202</height><font>af3_font_mini</font><textcolor>FFC9CDD4</textcolor><label>$INFO[Window.Property(nv_l2),[B],[/B][CR]]$INFO[Window.Property(plot)]</label><autoscroll delay="4000" time="2600" repeat="9000">true</autoscroll></control>
 </control>
 <control type="group"><left>52</left><top>744</top>
 <control type="image"><left>-20</left><top>-14</top><width>752</width><height>250</height><texture border="60" colordiffuse="80000000">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/nuvio/shadow.png</texture></control>

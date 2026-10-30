@@ -6,7 +6,7 @@
 
 Any Stremio & Nuvio add-on · Plex, Emby, Jellyfin & Silo · Live TV · Native Trakt, Simkl & MDBList · With or without its own skin · Arabic-first UI
 
-[![Version](https://img.shields.io/badge/version-5.10.448-7c3aed)](../../releases/latest)
+[![Version](https://img.shields.io/badge/version-5.10.449-7c3aed)](../../releases/latest)
 [![Skin](https://img.shields.io/badge/skin-3.28.168-ffd23f)](../../releases/latest)
 [![Kodi](https://img.shields.io/badge/Kodi-21%20Omega%20%7C%2022%20Piers-33d8f7)]()
 [![License](https://img.shields.io/badge/license-all%20rights%20reserved-ef4444)](LICENSE.txt)
@@ -59,7 +59,9 @@ Any Stremio & Nuvio add-on · Plex, Emby, Jellyfin & Silo · Live TV · Native T
 
 ## What's new
 
-**Dex Hub 5.10.448 · Dex Hub skin 3.28.168**
+**Dex Hub 5.10.449 · Dex Hub skin 3.28.168**
+
+5.10.449: the focused source card grows to every line of its description, and the sources page scrolls the whole plot.
 
 <table>
   <tr>

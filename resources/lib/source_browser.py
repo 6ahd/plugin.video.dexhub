@@ -236,12 +236,27 @@ def _nuvio_size(value):
 
 def _nuvio_line_count(text, per_line):
     """How many lines Kodi will wrap this text into (v5.10.303, an estimate
-    from the characters a card line holds)."""
+    from the characters a card line holds). v5.10.449: Kodi wraps at spaces,
+    so a long word ('Anywhere][WEBDL-2160p][DV') starts a line of its own;
+    counted word by word, as Kodi lays it out (the plain character count
+    gave the focused card a line or two too few and cut its last lines)."""
+    per_line = max(1, per_line)
     count = 0
     for line in str(text or '').split('\n'):
-        line = line.strip()
-        if line:
-            count += max(1, -(-len(line) // max(1, per_line)))
+        words = line.split()
+        if not words:
+            continue
+        lines, used = 1, 0
+        for word in words:
+            size = len(word)
+            if used and used + 1 + size > per_line:
+                lines, used = lines + 1, 0
+            if used:
+                used += 1
+            used += size
+            while used > per_line:              # a word wider than the line
+                lines, used = lines + 1, used - per_line
+        count += lines
     return count
 
 
@@ -1253,19 +1268,10 @@ def _nice_type(label):
     return _TYPE_WORDS.get(text.upper(), text) if text.isupper() else text
 
 
-def _plot_two_lines(text):
-    """v5.10.151: the header's plot in two lines at most (the box showed half
-    of a third line): cut at a word with an ellipsis. Arabic letters are
-    wider in the skin's font, so its budget is smaller."""
-    text = ' '.join(str(text or '').split())
-    budget = 125 if _RTL_STRONG_RE.search(text) else 150
-    if len(text) <= budget:
-        return text
-    cut = text[:budget]
-    space = cut.rfind(' ')
-    if space > budget * 0.6:
-        cut = cut[:space]
-    return cut.rstrip(' ,.;:\u060c\u061b-') + '\u2026'
+def _plot_full(text):
+    """v5.10.449: the header's whole plot on one paragraph. Its box shows
+    three lines and scrolls the rest (autoscroll), so nothing is cut."""
+    return ' '.join(str(text or '').split())
 
 
 _PNG_ASPECT = {}
@@ -1915,7 +1921,8 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         # landscape — so no extra fallback is needed here.
         self.setProperty('dexhub.results.poster', _poster or '')
         self.setProperty('title', _title)
-        self.setProperty('plot', _plot_two_lines(_clean_header_plot(_plot)))
+        # v5.10.449: the whole plot; the box scrolls it (sources_*.xml autoscroll)
+        self.setProperty('plot', _plot_full(_clean_header_plot(_plot)))
         self.setProperty('year', _year)
         self.setProperty('rating', _rating)
         self.setProperty('genre', _genre)
@@ -2417,7 +2424,7 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                 if art.get('plot'):
                     _cleaned_plot = _clean_header_plot(art.get('plot'))
                     if _cleaned_plot:
-                        self.setProperty('plot', _plot_two_lines(_cleaned_plot))
+                        self.setProperty('plot', _plot_full(_cleaned_plot))
                 if art.get('year'):
                     self.setProperty('year', _kodi_safe_text(art.get('year') or ''))
                 if art.get('genre'):
@@ -2984,12 +2991,16 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             # v5.10.303: the focused card grows to its text: the height step
             # (a focused layout per step of 58 px from 140, chosen by the
             # container from the focused row's nv_fh; sources_nuvio.xml)
-            _nv_desc_lines = _nuvio_line_count(_nv_desc, 68)
-            _h = (58 if _nv_name_lines < 2 else 94) + 29 * min(14, _nv_desc_lines) + 52
-            li.setProperty('nv_fh', str(max(0, min(7, -(-(_h - 140) // 58)))))
+            # v5.10.449: the card's text box is 610 px of af3_font_mini, about
+            # 46 characters a line (measured on the Mac: 'Inception (2010) -
+            # [Movies' then 'Anywhere][WEBDL-2160p][DV HDR10][EAC3 5'); its
+            # name is one scrolling line, so only the description adds lines.
+            # Prism's steps hold 1 + 2n lines, Halo's 1 + n.
+            _nv_desc_lines = _nuvio_line_count(_nv_desc, 46)
+            li.setProperty('nv_fh', str(max(0, min(7, _nv_desc_lines // 2))))
             li.setProperty('nv_desc', _nuvio_lines(_nv_desc))
             # v5.10.438: Halo's focused card grows one line (29 px) at a time
-            li.setProperty('halo_fh', str(max(0, min(13, _nuvio_line_count(_nv_desc, 60) - 1))))
+            li.setProperty('halo_fh', str(max(0, min(13, _nv_desc_lines - 1))))
             # single line forms for the resting card (v5.10.303)
             li.setProperty('nv_name1', _bidi_anchor('  ·  '.join(x for x in _nv_name.split('\n') if x)))
             li.setProperty('nv_desc1', _bidi_anchor((_nv_desc.split('\n') or [''])[0]))
