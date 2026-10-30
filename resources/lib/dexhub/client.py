@@ -1251,6 +1251,14 @@ def _get_pool(size, lane='default'):
         return pool
 
 
+RETIRED = []
+
+
+def release_retired():
+    """The closed lane executors, freed once their workers have ended."""
+    del RETIRED[:]
+
+
 def shutdown_lane_pools(cancel_pending=True):
     """Terminate every lane executor so the Python interpreter can finalize.
 
@@ -1280,6 +1288,11 @@ def shutdown_lane_pools(cancel_pending=True):
     for _lane, pool in pools:
         if pool is None:
             continue
+        # v5.10.448: kept until its workers are gone (default.py frees them
+        # then): an executor freed while a worker still runs fires its weak
+        # reference's callback beside that worker, and Kodi 22 (Python 3.14)
+        # crashed there (crash reports of 30 Oct 05:22 and 06:25)
+        RETIRED.append(pool)
         try:
             # wait=False: never block the invocation on a slow provider.
             # cancel_futures: queued-but-unstarted work belongs to a request
@@ -1759,17 +1772,35 @@ def iter_parallel(func, items, workers=None, timeout=None, lane='default'):
         return
 
     pending = set(futures.keys())
+    # v5.10.436: wait in short steps and hand Kodi the turn between them.
+    # A Python window's keys (Back on the source search) and Kodi's quit only
+    # reach the script while it calls into Kodi; one long as_completed() wait
+    # held them until a provider answered or the budget ran out, so Back did
+    # not cancel the search and a quit could find the call still waiting.
     try:
-        iterator = as_completed(futures, timeout=timeout) if timeout else as_completed(futures)
-        for future in iterator:
-            pending.discard(future)
-            idx = futures[future]
-            try:
-                yield (items[idx], future.result(timeout=0.1))
-            except Exception as exc:
-                yield (items[idx], exc)
-    except TimeoutError:
-        return
+        import xbmc
+        monitor = xbmc.Monitor()
+    except Exception:
+        monitor = None
+    deadline = time.monotonic() + float(timeout) if timeout else None
+    try:
+        while pending:
+            step = 0.1
+            if deadline is not None:
+                left = deadline - time.monotonic()
+                if left <= 0:
+                    return
+                step = min(step, left)
+            done, _rest = _future_wait(pending, timeout=step, return_when=FIRST_COMPLETED)
+            for future in done:
+                pending.discard(future)
+                idx = futures[future]
+                try:
+                    yield (items[idx], future.result(timeout=0.1))
+                except Exception as exc:
+                    yield (items[idx], exc)
+            if monitor is not None and monitor.waitForAbort(0.001):
+                return
     except Exception:
         return
     finally:

@@ -58,6 +58,11 @@ class OptionsDialog(xbmcgui.WindowXMLDialog):
                     li.setProperty('logo', 'true')
             if desc:
                 li.setProperty('desc', str(desc))
+            # v5.10.448: the gallery's tags (the style's kind and its colour; suggested)
+            if isinstance(option, (list, tuple)) and len(option) > 4:
+                li.setProperty('group', str(option[4] or ''))
+                li.setProperty('gtint', str(option[5] or '') if len(option) > 5 else '')
+                li.setProperty('suggested', str(option[6] or '') if len(option) > 6 else '')
             items.append(li)
         try:
             ctrl = self.getControl(LIST)

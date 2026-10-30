@@ -8,6 +8,23 @@ import uuid
 
 from .common import profile_path
 
+import re as _re
+
+_SHOW_IN_VIDEO = _re.compile(r'^(tt\d{5,12}):\d+:\d+$')
+
+
+def show_id(media_type, canonical_id, video_id):
+    """v5.10.436: an episode's progress saved under the EPISODE's IMDb id
+    (Nuvio: content_id tt10989880, video_id tt10986410:1:1) belongs to the
+    show its video id names. Left as it was, the card took another show's
+    name and art and its source search looked for the wrong show."""
+    cid = str(canonical_id or '')
+    if str(media_type or '').lower() in ('series', 'episode', 'tv', 'show', 'anime') and cid.startswith('tt'):
+        m = _SHOW_IN_VIDEO.match(str(video_id or ''))
+        if m and m.group(1) != cid:
+            return m.group(1)
+    return canonical_id
+
 DB_PATH = _scope.ScopedPath('playback.db')
 _DB_READY = set()
 _DB_LOCK = threading.RLock()
@@ -157,8 +174,8 @@ def _mark_sync_dirty():
 
 def _upsert_params(conn, row):
     media_type = row.get('media_type') or ''
-    canonical_id = row.get('canonical_id') or ''
     video_id = row.get('video_id') or ''
+    canonical_id = show_id(media_type, row.get('canonical_id') or '', video_id)
     ext_updated_at = row.get('ext_updated_at')
     try:
         ts = int(ext_updated_at) if ext_updated_at else int(time.time())
@@ -347,12 +364,15 @@ def list_continue_items(limit=50):
     conn.close()
     out = []
     for row in rows:
+        cid = show_id(row[0], row[1], row[2])
         out.append({
-            'media_type': row[0], 'canonical_id': row[1], 'video_id': row[2], 'title': row[3],
+            'media_type': row[0], 'canonical_id': cid, 'video_id': row[2], 'title': row[3],
             'provider_name': row[4], 'poster': row[5], 'background': row[6], 'clearlogo': row[7],
             'season': row[8], 'episode': row[9], 'position': row[10], 'duration': row[11],
             'percent': row[12], 'updated_at': row[13],
-            'tmdb_id': row[14], 'imdb_id': row[15], 'tvdb_id': row[16], 'show_tmdb_id': row[17],
+            # an episode id saved as the show's also stood in its imdb field
+            'tmdb_id': row[14], 'imdb_id': cid if (cid != row[1] and row[15] == row[1]) else row[15],
+            'tvdb_id': row[16], 'show_tmdb_id': row[17],
             'native_server_id': row[18], 'native_item_id': row[19],
             'show_title': row[20] or '',
             'event_type': row[21] or '', 'stream_url': row[22] or '',

@@ -53,6 +53,14 @@ def listitem(item, tab='', row=''):
                 if found:
                     art[key] = found
     if art:
+        try:
+            # v5.10.448: TMDb sizes bounded here too (the rows of the Home and
+            # of a folder page did not pass through ui_core): a card's backdrop
+            # at w780, not the original asked for the page's own background
+            from ..image_policy import bound_art
+            art = bound_art(art)
+        except Exception:
+            pass
         li.setArt(art)
     info = item.get('info') or {}
     if not info and art and not str(item.get('path') or '').startswith('favourites://'):

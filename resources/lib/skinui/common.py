@@ -311,10 +311,42 @@ def read_row(path, default=None):
                 with open(side, 'rb') as handle:
                     data = marshal.load(handle)
                 if isinstance(data, dict):
-                    return data
+                    return _one_card_per_work(data)
         except Exception:
             pass
-    return read_json(path, default)
+    return _one_card_per_work(read_json(path, default))
+
+
+def _one_card_per_work(data):
+    """v5.10.436: Continue Watching shows a title once. A server's own resume
+    (Silo, Plex…) and the local record of the same film can carry no shared
+    id, so the merge keeps both; once the TMDb pass has given them the same
+    poster they are one work (a show: its newest episode). Every reader of the row goes through here, so
+    the cards and their positions stay the same for all of them."""
+    try:
+        if not isinstance(data, dict) or not (data.get('kind') == 'continue'
+                                              or str(data.get('key') or '').startswith('continue')):
+            return data
+        items = data.get('items') or []
+        seen, kept = set(), []
+        for item in items:
+            info = item.get('info') or {} if isinstance(item, dict) else {}
+            art = item.get('art') or {} if isinstance(item, dict) else {}
+            poster = str(art.get('poster') or '')
+            kind = str(info.get('mediatype') or '')
+            # one card per show too: the newest episode (rows come newest first)
+            kind = 'show' if kind in ('episode', 'tvshow', 'season') else kind
+            key = (kind, poster.rsplit('/', 1)[-1]) if 'image.tmdb.org' in poster else None
+            if key and key in seen:
+                continue
+            if key:
+                seen.add(key)
+            kept.append(item)
+        if len(kept) != len(items):
+            data = dict(data, items=kept)
+    except Exception:
+        pass
+    return data
 
 
 def _write_side(side, data):

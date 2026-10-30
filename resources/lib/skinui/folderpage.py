@@ -123,24 +123,11 @@ def open_page(params, handle):
         # Do not add two competing reads or join them for thirty seconds.
         C.set_prop('dhs.fold.loading', '')
         _focus_first_row(window, request_token=request_token)
-        from ..folder_view import rows_enabled
-        if not rows_enabled():
-            from .. import profile_scope
-            scope = profile_scope.key()
-
-            def warm():
-                with profile_scope.bind(scope):
-                    _warm_cards(specs, ref, title)
-            thread = threading.Thread(target=warm, name='dexhub-fold-cards')
-            thread.daemon = True
-            thread.start()
         return None
     xbmc.executebuiltin('ActivateWindow(%d)' % window)
     from ..folder_view import rows_enabled
     threads = _prefetch(specs[:min(PREFETCH, SKIN_ROWS - 1)]) if rows_enabled() else []
     _focus_first_row(window)
-    if not rows_enabled():
-        _warm_cards(specs, ref, title)
     started = time.monotonic()
     for thread in threads:
         thread.join(max(0.1, 30.0 - (time.monotonic() - started)))
@@ -186,7 +173,12 @@ def _focus_first_row(window=WINDOW, timeout=10.0, request_token=''):
             return
         if cond('Window.IsActive(%d)' % window):
             if cond('Integer.IsGreater(Container(%d).NumItems,0)' % first):
-                if cond('Control.HasFocus(%d)' % FOCUS_HOLDER):
+                if first == TABS:
+                    # v5.10.448: a new collection starts on its first tab (Kodi
+                    # keeps the list's place from the last collection)
+                    if cond('Control.HasFocus(%d)' % FOCUS_HOLDER) or cond('Control.HasFocus(%d)' % TABS):
+                        xbmc.executebuiltin('SetFocus(%d,0,absolute)' % TABS)
+                elif cond('Control.HasFocus(%d)' % FOCUS_HOLDER):
                     xbmc.executebuiltin('SetFocus(%d)' % first)
                 return
         elif time.monotonic() - started > 3.0:
@@ -217,30 +209,60 @@ def _prefetch(specs):
     return threads
 
 
-CARD_ART = 6             # folder view: catalogs read for their cards' pictures
+TABS = 7100              # v5.10.448: the folder view's catalog tabs
+TITLE_LISTS = (7110, 7111)   # its titles: posters, ranked
+REST = 0.4               # the cursor rests this long on a tab before its titles are asked for
+_PICK = {'seen': '', 'since': 0.0}
 
 
-def _warm_cards(specs, ref, title):
-    """The folder view's first cards without a picture of their own (their
-    catalog never read): read those catalogs, then show the cards again with
-    their pictures. Once read, a later visit finds them ready."""
-    todo = [spec for spec in specs[:CARD_ART]
-            if not (C.read_row(C.row_file(TAB, spec['id'])) or {}).get('items')]
-    if not todo:
+def publish_pick(data, index=0):
+    """The folder view's titles: the catalog `index` (of the page's specs) in
+    the page's first row slot (dhs.fold.1.*), read, refreshed and given its
+    TMDb pass like any row; then its neighbours are read ahead."""
+    from . import board
+    specs = list(data.get('rows') or [])
+    if not specs:
         return False
-    threads = _prefetch(todo)
-    started = time.monotonic()
-    for thread in threads:
-        thread.join(max(0.1, 20.0 - (time.monotonic() - started)))
-    data = C.read_json(C.spec_file(TAB), {}) or {}
-    if (data.get('ref') != ref or C.prop('dhs.fold.view') != 'catalogs'
-            or not xbmc.getCondVisibility('Window.IsActive(%d)' % window_id())):
-        return False
-    if not any((C.read_row(C.row_file(TAB, spec['id'])) or {}).get('items') for spec in todo):
-        return False
-    from ..folder_view import publish_cards
-    publish_cards(title, ref, stamp='%d' % int(time.time()))
+    index = max(0, min(int(index or 0), len(specs) - 1))
+    C.set_prop('dhs.fold.pick', str(index))
+    board._publish_tab(TAB, [specs[index]])
+    near = [specs[n] for n in (index + 1, index - 1, index + 2) if 0 <= n < len(specs)]
+    todo = [spec for spec in near if not C.read_row(C.row_file(TAB, spec['id']))]
+    if todo:
+        _prefetch(todo[:2])
     return True
+
+
+def _follow_tabs():
+    """The tab the cursor rests on gives the titles under it (the service's
+    loop, every quarter second): at once when the cursor left the tabs,
+    after REST seconds while it moves along them."""
+    if C.prop('dhs.fold.view') != 'catalogs' or not xbmc.getCondVisibility('Window.IsActive(%d)' % WINDOW):
+        _PICK['seen'] = ''
+        return
+    wanted = xbmc.getInfoLabel('Container(%d).ListItem.Property(dhs.spec)' % TABS)
+    if not wanted or wanted == C.prop('dhs.fold.pick'):
+        _PICK['seen'] = ''
+        return
+    now = time.monotonic()
+    if wanted != _PICK['seen']:
+        _PICK.update(seen=wanted, since=now)
+    if xbmc.getCondVisibility('Control.HasFocus(%d)' % TABS) and now - _PICK['since'] < REST:
+        return
+    _PICK['seen'] = ''
+    data = C.read_json(C.spec_file(TAB), {}) or {}
+    try:
+        publish_pick(data, int(wanted))
+    except Exception as exc:
+        C.log('folder tab: %s' % exc, xbmc.LOGWARNING)
+        return
+    # a new catalog starts at its first title (Kodi keeps a list's place when
+    # its items change): the visible title list to 0, the focus back on the tabs
+    if xbmc.getCondVisibility('Control.HasFocus(%d)' % TABS):
+        for cid in TITLE_LISTS:
+            if xbmc.getCondVisibility('Control.IsVisible(%d)' % cid):
+                xbmc.executebuiltin('SetFocus(%d,0,absolute)' % cid)
+        xbmc.executebuiltin('SetFocus(%d)' % TABS)
 
 
 def republish():
@@ -317,6 +339,7 @@ def watch_open_requests(monitor):
                     if _request_current(token):
                         C.set_prop('dhs.fold.loading_label', 'Could not load collection. Press Back.' if _english()
                                    else 'تعذر تحميل الكوليكشن. اضغط رجوع.')
+            _follow_tabs()
             if monitor.waitForAbort(0.1 if raw else 0.25):
                 break
     finally:

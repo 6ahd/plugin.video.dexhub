@@ -17,6 +17,10 @@ lib_path = os.path.join(addon_path, 'resources', 'lib')
 if lib_path not in sys.path:
     sys.path.insert(0, lib_path)
 
+# v5.10.448: no weak set of threads (thread_registry.py: Kodi 22 crash)
+from resources.lib.thread_registry import install as _no_dangling
+_no_dangling()
+
 from resources.lib.tvos_compat import install as install_tvos_compat
 install_tvos_compat()
 

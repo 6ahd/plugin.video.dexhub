@@ -5206,7 +5206,7 @@ class _QuietSearchLoader(object):
             pass
         self._report()
 
-    def add_results(self, n=0, provider_name='', unique_total=None):
+    def add_results(self, n=0, provider_name='', unique_total=None, rows=None):
         try:
             self.results = int(unique_total) if unique_total is not None else self.results + int(n or 0)
         except Exception:
@@ -16226,6 +16226,11 @@ def _show_stream_window(entries, meta, session_key=''):
             return
     else:
         _clear_tmdbh_transient()
+        try:
+            from . import page_guard            # v5.10.448: Back with no pick
+            page_guard.no_choice()
+        except Exception:
+            pass
         # TMDb Helper invokes this route through ResolvePath. Closing the
         # source picker without choosing a stream must complete that resolver
         # explicitly; otherwise Kodi waits for the Python invoker and reports
@@ -17559,8 +17564,11 @@ def _source_enough_wait_seconds():
     return max(1.5, min(raw, 4.0))
 
 
-def _source_progress_unique_count(entries):
-    """Return the post-dedup count without ranking or rebuilding UI rows."""
+def _source_progress_unique_count(entries, out=None):
+    """Return the post-dedup count without ranking or rebuilding UI rows.
+
+    v5.10.438: ``out`` (a list) receives the rows the count stands for, so
+    the search screen can show how many are 4K, 1080p, cached and so on."""
     rows = list(entries or [])
     try:
         rows, _removed = _collapse_repeated_provider_rows(rows)
@@ -17576,6 +17584,8 @@ def _source_progress_unique_count(entries):
             )
     except Exception:
         pass
+    if out is not None:
+        out[:] = rows
     return len(rows)
 
 
@@ -17680,12 +17690,16 @@ def _collect_stream_entries(targets, media_type, canonical_id, best_meta, art, b
                 resume_seconds=resume_seconds, resume_percent=resume_percent,
             )
             if len(entries) > before:
-                _unique_count = _source_progress_unique_count(entries)
+                _unique_rows = []
+                _unique_count = _source_progress_unique_count(entries, _unique_rows)
+            else:
+                _unique_rows = None
             if loader is not None:
                 loader.add_results(
                     len(entries) - before,
                     provider_name=provider.get('name') or (provider.get('manifest') or {}).get('name') or '',
                     unique_total=_unique_count,
+                    rows=_unique_rows,
                 )
         if scan_state is not None:
             scan_state['race'] = _source_race
@@ -18184,11 +18198,16 @@ def _warm_source_targets(targets, media_type):
     done = []
     lock = threading.Lock()
 
+    found = []
+
     def _one(target):
         try:
             payload = _engine.fetch(target, media_type, sys.modules[__name__])
         except Exception:
             return
+        if isinstance(payload, dict):
+            with lock:
+                found.append((target[0] or {}, payload.get('streams') or []))
         try:
             provider, request_id = target
             key = _results.key(provider, media_type, request_id)
@@ -18211,7 +18230,42 @@ def _warm_source_targets(targets, media_type):
         th.join(max(0.0, deadline - time.monotonic()))
     xbmc.log('[DexHub] sources warmed: %d of %d providers, %d streams' % (
         len(done), len(targets), sum(done)), xbmc.LOGINFO)
+    global _WARM_SUMMARY
+    with lock:
+        _WARM_SUMMARY = _warm_summary(found)
     return len(done)
+
+
+_WARM_SUMMARY = []
+_WARM_RANKS = ((re.compile(r'2160|\b4k\b|\buhd\b', re.I), '4K', 4), (re.compile(r'1080', re.I), '1080p', 3),
+               (re.compile(r'720', re.I), '720p', 2))
+_WARM_DV = re.compile(r'\bdv\b|dolby[ ._-]?vision|\bdovi\b', re.I)
+_WARM_HDR = re.compile(r'\bhdr(?:10\+?)?\b', re.I)
+
+
+def _warm_summary(found):
+    """v5.10.448: what the title page's "Available on" card shows: each
+    provider that answered, its best quality, Dolby Vision or HDR there,
+    and how many links; the best first."""
+    out = []
+    for provider, streams in found:
+        if not streams:
+            continue
+        best, rank, dv, hdr = 'SD', 1, False, False
+        for stream in streams:
+            text = ' '.join(str((stream or {}).get(k) or '') for k in ('name', 'title', 'description'))
+            for pattern, label, value in _WARM_RANKS:
+                if value > rank and pattern.search(text):
+                    best, rank = label, value
+                    break
+            dv = dv or bool(_WARM_DV.search(text))
+            hdr = hdr or bool(_WARM_HDR.search(text))
+        name = str(provider.get('name') or provider.get('id') or '').strip()
+        if name:
+            out.append({'name': name, 'q': best, 'rank': rank, 'hdr': 'DV' if dv else ('HDR' if hdr else ''),
+                        'n': len(streams)})
+    out.sort(key=lambda row: (-row['rank'], -row['n']))
+    return out
 
 
 def streams(media_type, canonical_id, title='', resume_seconds='0', resume_percent='', preferred_provider_name='', source_provider_id='', source_mode='', seed_ids=None, ui_seed=None):

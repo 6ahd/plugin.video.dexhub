@@ -5,7 +5,7 @@ import xbmcgui
 
 # key: (default, choices, Arabic label, English label)
 OPTIONS = {
-    'homeui_folder_view': ('rows', ('rows', 'catalogs'), 'طريقة فتح الكوليكشن', 'Open collections as'),
+    'homeui_folder_view': ('catalogs', ('rows', 'catalogs'), 'طريقة فتح الكوليكشن', 'Open collections as'),
     'homeui_follow_works': ('false', None, 'توصيات الأعمال في صف تابع', 'Dependent rows for title recommendations'),
     'homeui_follow_rows': ('false', None, 'الصفوف التابعة عند الوقوف', 'Dependent rows on focus'),
     'metadata_refresh': ('true', None, 'تحديث الميتاداتا تلقائيًا', 'Refresh metadata automatically'),
@@ -39,9 +39,10 @@ OPTIONS = {
     'player_badges_place': ('seekbar', ('seekbar', 'info'), 'مكان الرموز في المشغّل', 'Badges place in the player'),
     # v5.10.286 (issue #18): the badges at full opacity by default; 85 or 70 % on request
     'player_badges_opacity': ('100', ('100', '85', '70'), 'شفافية رموز الجودة', 'Badge opacity'),
-    # v5.10.301: the sources window's rows: the add-on's own lines as Nuvio
-    # shows them (full) or Dex Hub's compact rows
-    'sources_row_style': ('full', ('full', 'compact'), 'شكل صفوف المصادر', 'Source rows'),
+    # v5.10.301: the sources window's rows; v5.10.438: the Halo theme (its own
+    # search screen and sources page); v5.10.442: three themes: Prism (the
+    # page like Nuvio TV, key "full"), Compact and Halo
+    'sources_row_style': ('halo', ('full', 'compact', 'halo'), 'ثيم البحث والمصادر', 'Search and sources theme'),
     # v5.10.298: the player bar's look (osd_look.py): style, darkness, colour
     'player_osd_style': ('classic', ('classic', 'glass', 'cinematic', 'minimal'), 'نمط شريط المشغّل', 'Player bar style'),
     'player_osd_dim': ('70', ('0', '15', '30', '50', '60', '70', '80', '85', '95'), 'تعتيم خلفية المشغّل', 'Player background darkness'),
@@ -136,6 +137,8 @@ OPTIONS = {
     # v5.10.141: unfocused rows faded to 60 % and made the Home look grey;
     # light (85 %) by default
     'homeui_row_dim': ('light', ('light', 'off', 'strong'), 'تعتيم الصفوف غير المحددة', 'Dim unfocused rows'),
+    # v5.10.448: watched films on the Home's rows (skinui/rows.py _watched_mode)
+    'homeui_watched': ('normal', ('normal', 'dim', 'hide'), 'الأفلام اللي شفتها في الرئيسية', 'Watched films on Home'),
     'homeui_light_mode': ('true', None, 'الوضع الخفيف', 'Light mode'),
     'homeui_live_preview': ('true', None, 'معاينة القنوات', 'Channel previews'),
     'homeui_show_continue': ('true', None, 'صف متابعة المشاهدة', 'Continue Watching row'),
@@ -233,6 +236,8 @@ def value(key):
     if key == 'player_loading_art':
         _migrate_loading_art()
     result = _addon().getSetting(key) or default
+    if key == 'sources_row_style' and result not in choices:
+        return 'compact'
     if key == 'homeui_trailer_mode':
         from .trailer_preferences import display_mode
         return display_mode(result)
@@ -506,8 +511,9 @@ def edit(key, txt):
         'pop': txt('قفزة', 'Pop'),
         'glow': txt('إضاءة فقط', 'Glow only'),
         'stage': txt('خلف الصفحة، ثم ملء الشاشة', 'Behind the page, then full screen'),
-        'full': txt('مثل Nuvio TV', 'Like Nuvio TV'),
-        'compact': txt('مختصرة', 'Compact'),
+        'full': txt('Prism · سطور الإضافة كاملة بشاراتك', "Prism · the add-on's own lines, your badges"),
+        'compact': txt('مختصرة · بشاراتك الخاصة', 'Compact · your own badges'),
+        'halo': txt('Halo · جاهز بشاراته', 'Halo · ready-made, its own badges'),
     }
     shown = [labels.get(v, v + txt(' ثوانٍ', ' seconds') if key.endswith(('delay', 'interval')) else v) for v in choices]
     if key == 'player_badges_opacity':  # v5.10.286

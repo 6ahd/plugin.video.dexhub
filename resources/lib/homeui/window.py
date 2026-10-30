@@ -959,6 +959,12 @@ class _BaseWindow(xbmcgui.WindowXML):
                 self.app.log('tmdb text/logo failed:\n%s' % traceback.format_exc())
         if media == 'series' and not tile.get('seasons_count'):
             self._show_status(tile)
+        # v5.10.448: a backdrop that is only the poster again (a listing
+        # without one fills it so) is no backdrop: the pass looks for one
+        if tile.get('fanart') and tile.get('fanart') == tile.get('poster'):
+            tile['fanart'] = ''
+            if tile.get('landscape') == tile.get('poster'):
+                tile['landscape'] = ''
         if tile.get('fanart') and tile.get('clearlogo') and tile.get('imdb_id') and tile.get('poster'):
             return
         params = R.params_of(tile.get('path'))
@@ -3402,11 +3408,13 @@ class BrowseWindow(_BaseWindow):
 
     def _pick_row_shape(self, row):
         """Choose how one row draws its cards (v5.10.173); kept for that row everywhere."""
-        from .layout import pick_style, style_choices_for, is_progress_row
+        from .layout import pick_style, style_choices_for, is_progress_row, suggested_styles
         current = self.app.layout.shape(row.key)
         shelf = bool(row.meta.get('shelf'))
         key = pick_style(self.tr, self.app.media_path, current, row.title,
-                         only=style_choices_for(shelf=shelf, progress=is_progress_row(row)))
+                         only=style_choices_for(shelf=shelf, progress=is_progress_row(row)),
+                         suggested=suggested_styles(row.title, collection=getattr(row, 'kind', '') == 'collection',
+                                                    progress=is_progress_row(row)))
         if key is None or key == current:
             return
         self.app.layout.set_shape(row.key, key)
@@ -3734,6 +3742,22 @@ class BrowseWindow(_BaseWindow):
                 self.app.layout.hide_new(media, [r.key for r in rows if r.key.startswith('cat:')])
             except Exception:
                 pass
+        if has_nuvio:
+            # v5.10.448: Dex Hub's own collection rows join a Home that follows
+            # Nuvio's, after its first rows (Arrange Home rows moves or hides them)
+            ours = []
+            for set_id, entry in R.dex_collection_entries():
+                if any(r.key == 'col:%s' % entry.get('id') for r in rows):
+                    continue
+                tiles = R.folder_tiles(entry, set_id, wrap=wrap, gif_enabled=self.gif_on,
+                                       media_filter=media_filter)
+                if tiles:
+                    ours.append(R.Row('col:%s' % entry.get('id'), entry.get('name') or '',
+                                      shape=R.dominant_shape(tiles, 'landscape'),
+                                      kind='collection', tiles=tiles, meta={'set_id': set_id}))
+            catalogs = [i for i, r in enumerate(rows) if r.key.startswith(('cat:', 'col:'))]
+            at = catalogs[3] if len(catalogs) > 3 else len(rows)
+            rows[at:at] = ours
         if not has_nuvio and media == 'all':
             for set_id, entry in R.fallback_collection_entries():
                 tiles = R.folder_tiles(entry, set_id, wrap=wrap, gif_enabled=self.gif_on,

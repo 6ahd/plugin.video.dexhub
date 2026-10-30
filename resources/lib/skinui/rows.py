@@ -726,6 +726,77 @@ def _load(tab, spec, fresh=False, patience=0.0):
     return result
 
 
+def _watched_mode(tab, spec):
+    """v5.10.448: watched films on the Home's rows: '' as they are, 'dim'
+    or 'hide' (homeui_watched; Nuvio Arc's Show / Dim / Hide). Continue
+    Watching, the library and search are left as they are."""
+    if spec.get('own') or spec.get('progress') or spec.get('kind') == 'collection' \
+            or tab in ('library', 'search', 'fold', 'servers'):
+        return ''
+    try:
+        from ..ui_preferences import value
+        mode = value('homeui_watched')
+    except Exception:
+        return ''
+    return mode if mode in ('dim', 'hide') else ''
+
+
+_WATCHED = {}
+
+
+def rebuild(reason):
+    """The rows built again from the titles kept (an option that changes
+    which cards a row shows): no network read past the caches."""
+    folder = C.folder('rows')
+    for name in os.listdir(folder):
+        if name.endswith('.json'):
+            try:
+                os.remove(os.path.join(folder, name))
+            except OSError:
+                pass
+    _WATCHED.clear()
+    C.ask_republish(reason)
+
+
+def _watched_index():
+    """The films finished on this profile (the playback store: watched or
+    finished there, Trakt's and Simkl's included), by their ids; read again
+    after a minute."""
+    hit = _WATCHED.get(_scope.key())
+    if hit and time.time() - hit[0] < 60:
+        return hit[1]
+    seen = set()
+    try:
+        from .. import playback_store
+        for row in playback_store.list_finished_items(limit=5000):
+            if str(row.get('media_type') or '') != 'movie':
+                continue
+            for value in (row.get('tmdb_id'), row.get('imdb_id'), row.get('canonical_id')):
+                value = str(value or '').strip()
+                if value:
+                    seen.add(value)
+                    if value.isdigit():
+                        seen.add('tmdb:' + value)
+    except Exception:
+        C.log('watched index:\n%s' % traceback.format_exc(), xbmc.LOGDEBUG)
+    _WATCHED[_scope.key()] = (time.time(), seen)
+    return seen
+
+
+def _seen(tile, seen):
+    if tile.get('kind', 'work') != 'work' or str(tile.get('media_type') or '') not in ('movie', ''):
+        return False
+    if int(tile.get('progress') or 0):
+        return False
+    if tile.get('playcount'):
+        return True
+    for value in (tile.get('tmdb_id'), tile.get('imdb_id'), tile.get('canonical_id'), tile.get('id')):
+        value = str(value or '').strip()
+        if value and value in seen:
+            return True
+    return False
+
+
 ROW_ITEMS = 40          # titles a Home row holds (See all lists the rest)
 ENRICH_ITEMS = 200      # all stored titles, processed in interruptible batches of six
 
@@ -741,17 +812,35 @@ def _store(tab, spec, tiles, more, enriched=False, old=None, src=None):
     ctx.batch = True
     items = []
     limit = ROW_ITEMS if spec.get('kind') != 'collection' else 200
-    for index, tile in enumerate((tiles or [])[:limit]):
+    watched_mode = _watched_mode(tab, spec)
+    seen = _watched_index() if watched_mode else None
+    for tile in tiles or []:
+        if len(items) >= limit:
+            break
+        dim = bool(seen) and _seen(tile, seen)
+        if dim and watched_mode == 'hide':
+            continue
         try:
-            items.append(ctx.item(tile, spec))
+            item = ctx.item(tile, spec)
         except Exception:
             C.log('item failed:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
+            continue
+        if dim:
+            item.setdefault('props', {})['dhs.dim'] = '1'
+        items.append(item)
     ctx.flush_seeds()
     if spec.get('shape') in RANKED_SHAPES:
         # v5.10.175: Top 10 style; 5.10.177: the number stands beside the card
         for index, item in enumerate(items[:10]):
             if (item.get('props') or {}).get('kind') in ('work', 'folder'):
                 item.setdefault('props', {})['rank'] = str(index + 1)
+    if not spec.get('own') and not spec.get('progress') and spec.get('kind') != 'collection':
+        try:
+            from . import daily_art             # v5.10.448: a daily list's pictures, fetched again each day
+            if daily_art.is_daily(spec, ranked=spec.get('shape') in RANKED_SHAPES):
+                daily_art.refresh(tab, spec, items)
+        except Exception:
+            C.log('daily row pictures:\n%s' % traceback.format_exc(), xbmc.LOGDEBUG)
     # v5.10.173: Continue Watching and big banner rows show each title's
     # logo, so they get the TMDb pass too (with or without a TMDb language)
     # v5.10.297: a collection's page (fold) shows each title's logo too
@@ -1557,6 +1646,9 @@ class Context(object):
             'dhs.facts': tile.get('facts_line') or '',
             # v5.10.173: the line on a big banner card (row shape 'wide')
             'wide_meta': self.wide_meta(tile),
+            # v5.10.448: a collection whose cover carries its name: a big
+            # banner card shows that cover, alone
+            'dhs.cover': '1' if (kind == 'folder' and tile.get('hide_title') and landscape) else '',
             'dhs.lgmeta': self.lg_meta(tile) if kind == 'work' else '',
         }
         from ..catalog_follow import target_for
@@ -1823,7 +1915,7 @@ def enrich(tab, row_id, limit=ENRICH_ITEMS, stop=None, batch=6):
             if tile.get(key) and tile[key] != before[key]:
                 art[key] = tile[key]
                 changed = True
-        if tile.get('fanart') and not art.get('landscape'):
+        if tile.get('fanart') and (not art.get('landscape') or art.get('landscape') == art.get('poster')):
             art['landscape'] = tile['fanart']
         if tile.get('poster') and not before['poster']:
             art['poster'] = tile['poster']

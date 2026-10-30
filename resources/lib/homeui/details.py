@@ -571,6 +571,17 @@ class DetailsWindow(W._BaseWindow):
                     hero['ratings'] = dict((key, found[key]) for key in RB.ORDER if found.get(key))
             except Exception:
                 pass
+            # v5.10.448: the cinematic title page's details card
+            crew = (data.get('credits') or {}).get('crew') or []
+            makers = [str(m.get('name') or '').strip() for m in (data.get('created_by') or [])]
+            makers += [str(m.get('name') or '').strip() for m in crew if m.get('job') == 'Director']
+            hero['director'] = ', '.join(list(dict.fromkeys(n for n in makers if n))[:2])
+            date = str(data.get('release_date') or data.get('first_air_date') or '')
+            hero['released'] = '.'.join(reversed(date.split('-'))) if len(date) == 10 else date[:4]
+            companies = list(data.get('networks') or []) if self.series else []
+            companies += list(data.get('production_companies') or [])
+            hero['studio'] = ', '.join(list(dict.fromkeys(
+                str((c or {}).get('name') or '').strip() for c in companies if (c or {}).get('name')))[:2])
             cast = []
             for member in ((data.get('credits') or {}).get('cast') or [])[:24]:
                 name = str(member.get('name') or '').strip()

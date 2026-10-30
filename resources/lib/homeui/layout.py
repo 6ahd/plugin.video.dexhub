@@ -30,34 +30,63 @@ SHAPE_CHOICES = ('poster', 'landscape', 'wide', 'square', 'ranked', 'tall', 'tal
                  'collection_spotlight', 'collection_compact', 'collection_ranking', 'circle')
 
 
+# v5.10.448: the gallery shows the styles by kind, each card with its kind's
+# tag in its colour: cards, banners, numbers, collections
+STYLE_GROUPS = (
+    ('cards', 'بطاقات', 'FF6E8BFF'),
+    ('banners', 'بانر', 'FFE8A33D'),
+    ('numbers', 'أرقام', 'FFE50914'),
+    ('collections', 'كوليكشن', 'FF35BFA8'),
+)
+
+
 def style_choices(tr, media_path, only=None):
-    """The row styles for the gallery (v5.10.175): (key, name, line, preview).
+    """The row styles for the gallery (v5.10.175): (key, name, line, preview,
+    group key).
 
     v5.10.286: each line fits two lines under its tile; the previews are
     rowpreview_<key>.jpg, 896x504 miniatures of the Home row in that style
-    (a new name so Kodi's texture cache never shows the old drawings)."""
-    rows = (('', 'تلقائي', 'كل صف بالشكل المناسب لمحتواه'),
-            ('poster_large', 'بوستر كبير مع التفاصيل', 'بوستر أكبر بالثلث، والاسم والسنة تحته'),
-            ('feature', 'بانر سينمائي ضخم', 'صورة عريضة ضخمة مع الشعار وتقدم المشاهدة'),
-            ('landscape_info', 'بطاقات عريضة مع التفاصيل', 'بطاقات عريضة والاسم والمعلومات تحتها'),
-            ('collection_spotlight', 'مجموعة مع واجهة بارزة', 'صورة بارزة وثلاث معاينات من الكتالوج'),
-            ('collection_compact', 'مجموعة ببوسترات جانبية', 'رزمة بوسترات بجانب اسم المجموعة أو شعارها'),
-            ('collection_ranking', 'مجموعة بأول ثلاثة أعمال', 'أول ثلاثة أعمال بالترتيب مع صورها'),
-            ('wide', 'بانر كبير مع الشعار', 'خلفية كبيرة والشعار وكم باقي، مثل Apple TV'),
-            ('landscape', 'بانر', 'بطاقات عريضة أصغر، يبين صفوف أكثر'),
-            ('poster', 'بوستر', 'البوستر الطولي المعتاد'),
-            ('tall', 'بطاقات الوضع', 'بطاقات طويلة، المحددة تكبر وتتفتح بالعرض'),
-            ('tall_ranked', 'بطاقات الوضع بالأرقام', 'مثل توب 10 في Netflix، الرقم جنب كل بطاقة'),
-            ('ranked', 'توب 10 بالأرقام', 'بوسترات مرقمة، الرقم جنب البوستر'),
-            ('wide_ranked', 'بانر كبير بالأرقام', 'بانر بالشعار والرقم جنبه، للرائج'),
-            ('collage', 'كوليكشن جدار', 'الكتالوج كله ببانر واحد، بوستراته جدار مائل'),
-            ('mosaic', 'كوليكشن موزاييك', 'بانر فيه البوسترات مربعات مرتبة مثل ألبوم الصور'),
-            ('stack', 'كوليكشن مكدّس', 'بانر فيه البوسترات فوق بعض مثل رزمة صور'),
-            ('square', 'مربع', 'بطاقات مربعة، للقنوات والمجموعات'),
+    (a new name so Kodi's texture cache never shows the old drawings).
+    v5.10.448: in the order of their kinds (STYLE_GROUPS)."""
+    rows = (('', 'تلقائي', 'كل صف بالشكل المناسب لمحتواه', ''),
+            ('poster', 'بوستر', 'البوستر الطولي المعتاد', 'cards'),
+            ('poster_large', 'بوستر كبير مع التفاصيل', 'بوستر أكبر بالثلث، والاسم والسنة تحته', 'cards'),
+            ('tall', 'بطاقات الوضع', 'بطاقات طويلة، المحددة تكبر وتتفتح بالعرض', 'cards'),
+            ('landscape', 'بانر', 'بطاقات عريضة أصغر، يبين صفوف أكثر', 'cards'),
+            ('landscape_info', 'بطاقات عريضة مع التفاصيل', 'بطاقات عريضة والاسم والمعلومات تحتها', 'cards'),
+            ('square', 'مربع', 'بطاقات مربعة، للقنوات والمجموعات', 'cards'),
             # v5.10.429 (skin 3.28.159): the logo, or the picture, in a circle
-            ('circle', 'دوائر الشعارات', 'للمنصات والشبكات والممثلين، الشعار أو الصورة في دائرة'))
-    return [(key, tr(name), tr(line), media_path('rowpreview_%s.jpg' % (key or 'auto')))
-            for key, name, line in rows if only is None or key in only]
+            ('circle', 'دوائر الشعارات', 'للمنصات والشبكات والممثلين، الشعار أو الصورة في دائرة', 'cards'),
+            ('wide', 'بانر كبير مع الشعار', 'خلفية كبيرة والشعار وكم باقي، مثل Apple TV', 'banners'),
+            ('feature', 'بانر سينمائي ضخم', 'صورة عريضة ضخمة مع الشعار وتقدم المشاهدة', 'banners'),
+            ('ranked', 'توب 10 بالأرقام', 'بوسترات مرقمة، الرقم جنب البوستر', 'numbers'),
+            ('tall_ranked', 'بطاقات الوضع بالأرقام', 'مثل توب 10 في Netflix، الرقم جنب كل بطاقة', 'numbers'),
+            ('wide_ranked', 'بانر كبير بالأرقام', 'بانر بالشعار والرقم جنبه، للرائج', 'numbers'),
+            ('collection_spotlight', 'مجموعة مع واجهة بارزة', 'صورة بارزة وثلاث معاينات من الكتالوج', 'collections'),
+            ('collection_compact', 'مجموعة ببوسترات جانبية', 'رزمة بوسترات بجانب اسم المجموعة أو شعارها', 'collections'),
+            ('collection_ranking', 'مجموعة بأول ثلاثة أعمال', 'أول ثلاثة أعمال بالترتيب مع صورها', 'collections'),
+            ('collage', 'كوليكشن جدار', 'الكتالوج كله ببانر واحد، بوستراته جدار مائل', 'collections'),
+            ('mosaic', 'كوليكشن موزاييك', 'بانر فيه البوسترات مربعات مرتبة مثل ألبوم الصور', 'collections'),
+            ('stack', 'كوليكشن مكدّس', 'بانر فيه البوسترات فوق بعض مثل رزمة صور', 'collections'))
+    return [(key, tr(name), tr(line), media_path('rowpreview_%s.jpg' % (key or 'auto')), group)
+            for key, name, line, group in rows if only is None or key in only]
+
+
+def suggested_styles(title, collection=False, progress=False):
+    """The styles that suit a row, by its name and kind (v5.10.448): a Top 10
+    or trending row its numbered styles, a row of services or networks its
+    circles and banners, a progress row its big banners."""
+    import re
+    if progress:
+        return ('wide', 'feature')
+    if collection:
+        return ('circle', 'landscape', 'collection_spotlight')
+    name = str(title or '')
+    if re.search(r'\btop\s*(?:10|20|25|ten)\b|trend|popular|رائج|الأكثر|توب|أفضل', name, re.I):
+        return ('ranked', 'tall_ranked', 'wide_ranked')
+    if re.search(r'network|studio|service|provider|شبك|استوديو|منص', name, re.I):
+        return ('circle',)
+    return ()
 
 
 COLLECTION_STYLES = ('collage', 'mosaic', 'stack', 'collection_spotlight', 'collection_compact', 'collection_ranking')
@@ -82,13 +111,17 @@ def style_choices_for(shelf=False, progress=False):
     return None
 
 
-def pick_style(tr, media_path, current, title, only=None):
+def pick_style(tr, media_path, current, title, only=None, suggested=()):
     """The gallery; the chosen key ('' automatic), or None when Back.
-    ``only``: the keys offered (a collection row: its three looks)."""
+    ``only``: the keys offered (a collection row: its three looks);
+    ``suggested``: the keys tagged as suiting the row."""
     from .options import choose
     choices = style_choices(tr, media_path, only)
-    options = [(name, 'current' if key == current else '', preview, line)
-               for key, name, line, preview in choices]
+    groups = dict((key, (tr(name), tint)) for key, name, tint in STYLE_GROUPS)
+    options = [(name, 'current' if key == current else '', preview, line,
+                groups.get(group, ('', ''))[0], groups.get(group, ('', ''))[1],
+                tr('مقترح') if key in suggested else '')
+               for key, name, line, preview, group in choices]
     keys = [c[0] for c in choices]
     pick = choose(tr('شكل الصف'), options, preselect=keys.index(current) if current in keys else 0,
                   subtitle=title, layout='gallery')
@@ -191,6 +224,12 @@ def _skin_follows():
             xbmcgui.Window(10000).setProperty('dhs.republish', '%.3f layout' % time.time())
     except Exception:
         pass
+
+
+# v5.10.448: Dex Hub's own collection rows open as big banners (a user's
+# pick for a row still wins)
+DEFAULT_SHAPES = {'col:collection-DEXGENRES': 'wide', 'col:collection-DEXMOODS': 'wide',
+                  'col:collection-DEXKWAVE': 'wide', 'col:collection-DEXSHELF': 'wide'}
 
 
 class Layout(object):
@@ -325,7 +364,8 @@ class Layout(object):
     def shape(self, key):
         """The shape the user picked for a row ('' when the row keeps its own)."""
         with self._lock:
-            return self._load().get('shapes', {}).get(str(key or ''), '')
+            key = str(key or '')
+            return self._load().get('shapes', {}).get(key, '') or DEFAULT_SHAPES.get(key, '')
 
     def set_shape(self, key, shape=''):
         with self._lock:
@@ -353,7 +393,7 @@ class Layout(object):
     def shape_rows(self, rows):
         """Give each row the shape the user picked for it (v5.10.173)."""
         with self._lock:
-            shapes = dict(self._load().get('shapes') or {})
+            shapes = dict(DEFAULT_SHAPES, **(self._load().get('shapes') or {}))
         for row in rows or []:
             pick = shapes.get(getattr(row, 'key', ''))
             if pick in COLLECTION_STYLES and is_progress_row(row):

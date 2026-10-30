@@ -70,6 +70,34 @@ def run():
             shutdown_loaded_pools()
         except Exception:
             pass
+        _log_threads_left()
+
+
+def _log_threads_left():
+    """v5.10.435: name every thread still running when the call is over, and
+    the line it waits on. Kodi waits for each of them before the call ends,
+    and one that never ends froze Kodi on quit (\"script didn't stop in 5
+    seconds\" after a cancelled source search); this tells which one."""
+    try:
+        import sys
+        import threading
+        import xbmc
+        frames = sys._current_frames()
+        left = []
+        for thread in threading.enumerate():
+            if thread is threading.main_thread() or thread is threading.current_thread():
+                continue
+            frame = frames.get(thread.ident)
+            where = ''
+            while frame is not None and frame.f_back is not None and 'threading.py' in frame.f_code.co_filename:
+                frame = frame.f_back
+            if frame is not None:
+                where = '%s:%d %s' % (frame.f_code.co_filename.rsplit('/', 1)[-1], frame.f_lineno, frame.f_code.co_name)
+            left.append('%s @ %s' % (thread.name, where or '?'))
+        if left:
+            xbmc.log('[DexHub] threads still running at the end of the call: %s' % ' | '.join(left[:12]), xbmc.LOGINFO)
+    except Exception:
+        pass
 
 
 def _unquote(text):

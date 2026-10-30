@@ -16,6 +16,38 @@ import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+
+class _NoWaitPool(ThreadPoolExecutor):
+    """v5.10.436: leaving the block does not wait for a request still running
+    (a server that never answers kept the call, and Kodi's quit, waiting)."""
+
+    def __exit__(self, *exc):
+        try:
+            self.shutdown(wait=False, cancel_futures=True)
+        except TypeError:
+            self.shutdown(wait=False)
+        return False
+
+
+def _as_done(futures, limit=60.0):
+    """as_completed() that hands Kodi the turn every 0.2 s and stops when Kodi
+    quits or after `limit` seconds; what is still running is left behind."""
+    from concurrent.futures import wait as _wait, FIRST_COMPLETED as _FIRST
+    import time as _time
+    try:
+        import xbmc as _xbmc
+        monitor = _xbmc.Monitor()
+    except Exception:
+        monitor = None
+    pending = set(futures)
+    end = _time.monotonic() + float(limit)
+    while pending and _time.monotonic() < end:
+        done, pending = _wait(pending, timeout=0.2, return_when=_FIRST)
+        for future in done:
+            yield future
+        if monitor is not None and monitor.waitForAbort(0.001):
+            return
 from urllib.parse import urlencode, urlsplit, urlunsplit, parse_qsl, quote
 from urllib.request import Request, urlopen
 
@@ -960,9 +992,9 @@ def _resolve_details(server, found, limit):
     need = [r for r in rows if not (r.get('versions') or []) and r.get('rating_key')]
     detailed = {}
     if need:
-        with ThreadPoolExecutor(max_workers=min(6, len(need))) as pool:
+        with _NoWaitPool(max_workers=min(6, len(need))) as pool:
             futures = {pool.submit(metadata, server, r.get('rating_key')): r for r in need}
-            for future in as_completed(futures):
+            for future in _as_done(futures):
                 row = futures[future]
                 try:
                     detailed[str(row.get('rating_key'))] = future.result()

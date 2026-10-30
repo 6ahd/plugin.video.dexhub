@@ -337,6 +337,12 @@ def _publish_tab(tab, specs):
     # its dhs.<tab>.<n>.shape when the hub opens; Kodi rebuilds the hub the
     # next time it opens when one changed)
     C.set_prop('dhs.%s.shapes' % tab, '|'.join(shapes))
+    # v5.10.447: the Home rows take only the card styles they use (skin.dexhub 3.28.167)
+    try:
+        from . import home_layouts
+        home_layouts.sync()
+    except Exception as exc:
+        C.log('home rows: %s' % exc)
     try:
         update_spot(tab, shown_specs)
     except Exception as exc:

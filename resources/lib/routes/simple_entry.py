@@ -788,8 +788,8 @@ def playback_quality():
          folder=False)
     _add(_txt('إضافات البحث عن المصادر', 'Add-ons searched for sources'), 'source_addons',
          'root_sources.png',
-         _txt('اختر الإضافات اللي يسألها البحث، مثل AIOStreams وحدها.',
-              'Choose the add-ons the search asks, such as AIOStreams alone.'),
+         _txt('اختر الإضافات اللي يسألها البحث: AIOStreams وغيرها، وإضافات كودي مثل Fen Light و Umbrella و Red Light و POV.',
+              'Choose the add-ons the search asks: AIOStreams and others, and Kodi add-ons such as Fen Light, Umbrella, Red Light and POV.'),
          folder=False)
     _add(_txt('الجودة والفلاتر', 'Quality & Filters'), 'setup_quality',
          'cat_4k.png', folder=False)

@@ -16,6 +16,38 @@ import time
 import uuid
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+
+class _NoWaitPool(ThreadPoolExecutor):
+    """v5.10.436: leaving the block does not wait for a request still running
+    (a server that never answers kept the call, and Kodi's quit, waiting)."""
+
+    def __exit__(self, *exc):
+        try:
+            self.shutdown(wait=False, cancel_futures=True)
+        except TypeError:
+            self.shutdown(wait=False)
+        return False
+
+
+def _as_done(futures, limit=60.0):
+    """as_completed() that hands Kodi the turn every 0.2 s and stops when Kodi
+    quits or after `limit` seconds; what is still running is left behind."""
+    from concurrent.futures import wait as _wait, FIRST_COMPLETED as _FIRST
+    import time as _time
+    try:
+        import xbmc as _xbmc
+        monitor = _xbmc.Monitor()
+    except Exception:
+        monitor = None
+    pending = set(futures)
+    end = _time.monotonic() + float(limit)
+    while pending and _time.monotonic() < end:
+        done, pending = _wait(pending, timeout=0.2, return_when=_FIRST)
+        for future in done:
+            yield future
+        if monitor is not None and monitor.waitForAbort(0.001):
+            return
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 import ssl
 import os
@@ -997,11 +1029,11 @@ def _verified_uri(server, force=False):
     else:
         reachable = {}
         probe_timeout = max(1.0, min(3.0, left - 0.5))
-        with ThreadPoolExecutor(max_workers=min(4, len(conns))) as pool:
+        with _NoWaitPool(max_workers=min(4, len(conns))) as pool:
             token = server.get('token') or account().get('token') or ''
             futures = {pool.submit(_probe_server_uri, uri, token, probe_timeout): uri
                        for uri in conns}
-            for future in as_completed(futures):
+            for future in _as_done(futures):
                 try:
                     reachable[futures[future]] = bool(future.result())
                 except Exception:
@@ -1135,16 +1167,39 @@ def _slow_until(server):
     return until
 
 
+_SLOW_MAX = 3600.0
+
+
 def _mark_slow(server, spent):
-    until = time.time() + _SLOW_TTL
+    # v5.10.448: a server that stays down is left out longer each time (5, 10,
+    # 20, 40 min, then an hour): DexMedia gave no answer all day, and every
+    # five minutes a call spent 15 s on it, a search starting then among them
     prop = _slow_prop(server)
+    try:
+        strikes = int(xbmcgui.Window(10000).getProperty(prop + '.n') or 0) + 1
+    except Exception:
+        strikes = 1
+    ttl = min(_SLOW_MAX, _SLOW_TTL * (2 ** (strikes - 1)))
+    until = time.time() + ttl
     _SLOW[prop] = until
     try:
         xbmcgui.Window(10000).setProperty(prop, '%.0f' % until)
+        xbmcgui.Window(10000).setProperty(prop + '.n', str(strikes))
     except Exception:
         pass
     xbmc.log('[DexHub] Plex %s gave no answer in %.0fs: left out of source searches for %d min'
-             % (server.get('name') or '?', spent, int(_SLOW_TTL // 60)), xbmc.LOGINFO)
+             % (server.get('name') or '?', spent, int(ttl // 60)), xbmc.LOGINFO)
+
+
+def _answered(server):
+    """The server answered: the next slow spell starts again at five minutes."""
+    prop = _slow_prop(server) + '.n'
+    try:
+        win = xbmcgui.Window(10000)
+        if win.getProperty(prop):
+            win.clearProperty(prop)
+    except Exception:
+        pass
 
 
 def _timed_out(exc):
@@ -1164,7 +1219,9 @@ def _server_xml(server, path, params=None):
         raise PlexTimeout(tr('انتهت مهلة خادم Plex'))
     started = time.monotonic()
     try:
-        return _server_xml_inner(server, path, params)
+        answer = _server_xml_inner(server, path, params)
+        _answered(server)
+        return answer
     except PlexError as exc:
         spent = time.monotonic() - started
         if spent >= _SLOW_AFTER and _timed_out(exc) and not _refused(exc):
@@ -1827,9 +1884,9 @@ def search_server(server, query, media_type='', limit=40):
             return []
 
     matches = list(global_rows)
-    with ThreadPoolExecutor(max_workers=min(6, len(sections))) as pool:
+    with _NoWaitPool(max_workers=min(6, len(sections))) as pool:
         futures = [pool.submit(_one, lib) for lib in sections]
-        for future in as_completed(futures):
+        for future in _as_done(futures):
             try:
                 matches.extend(future.result() or [])
             except Exception:
@@ -1867,12 +1924,12 @@ def search_all(query, media_type='', limit_per_server=40):
             return []
     found = {}
     workers = min(4, len(server_rows))
-    with ThreadPoolExecutor(max_workers=workers) as pool:
+    with _NoWaitPool(max_workers=workers) as pool:
         futures = {
             pool.submit(search_server, server, query, media_type, limit_per_server): index
             for index, server in enumerate(server_rows)
         }
-        for future in as_completed(futures):
+        for future in _as_done(futures):
             index = futures[future]
             try:
                 found[index] = future.result()
@@ -2237,9 +2294,9 @@ def find_all_by_ids(server, ids, media_type='movie', title='', limit=10):
         return rows
 
     if guid_values:
-        with ThreadPoolExecutor(max_workers=min(6, len(guid_values))) as pool:
+        with _NoWaitPool(max_workers=min(6, len(guid_values))) as pool:
             futures = [pool.submit(_guid_rows, guid) for guid in guid_values]
-            for future in as_completed(futures):
+            for future in _as_done(futures):
                 try:
                     exact_rows = future.result() or []
                 except Exception:
@@ -2330,10 +2387,10 @@ def _resolve_details(server, found, limit):
     need_detail = [r for r in rows if not (r.get('versions') or [])]
     detailed = {}
     if need_detail:
-        with ThreadPoolExecutor(max_workers=min(6, len(need_detail))) as pool:
+        with _NoWaitPool(max_workers=min(6, len(need_detail))) as pool:
             futures = {pool.submit(metadata, server, r.get('rating_key')): r
                        for r in need_detail if r.get('rating_key')}
-            for future in as_completed(futures):
+            for future in _as_done(futures):
                 row = futures[future]
                 try:
                     detailed[str(row.get('rating_key'))] = future.result()
@@ -2421,9 +2478,9 @@ def find_by_ids(server, ids, media_type='movie', title='', limit=12):
         return rows
 
     if guid_values:
-        with ThreadPoolExecutor(max_workers=min(6, len(guid_values))) as pool:
+        with _NoWaitPool(max_workers=min(6, len(guid_values))) as pool:
             futures = [pool.submit(_guid_lookup, guid) for guid in guid_values]
-            for future in as_completed(futures):
+            for future in _as_done(futures):
                 try:
                     rows = future.result() or []
                 except Exception:

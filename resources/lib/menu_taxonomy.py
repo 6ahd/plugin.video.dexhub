@@ -54,7 +54,7 @@ def _controls(group, keys):
 _controls('player','audio_tracks player_element_capsule player_element_loading player_element_logo player_element_studio player_element_plot player_element_badges player osd_buttons osd_preset osd_style osd_dim osd_area osd_scrim osd_buttons_bg osd_shape osd_accent badges_visible badges_brightness badges episodes credits_panel')
 _controls('trailers','trailers trailer_sound trailer_volume trailer_place trailer_clean immersive_after')
 _controls('theme','glass_focus theme focus_colour focus_text kodi_focus amoled glow focus_glow clean_look focus_motion background_style')
-_controls('home','catalogs search layout new_rows group_recs community refresh home_layout_mode nav_position nav_icons nav_autohide nav_focus_open bg_settle nav_names card_style title_poster title_style spotlight spot_count spot_section row_dim row_source season_names rating_inline compact_hero kenburns focus_gif carousel plot_scroll hide_plot hero_shuffle')
+_controls('home','catalogs search layout new_rows group_recs community refresh home_layout_mode nav_position nav_icons nav_autohide nav_focus_open bg_settle nav_names card_style title_poster title_style spotlight spot_count spot_section row_dim watched_titles row_source season_names rating_inline compact_hero kenburns focus_gif carousel plot_scroll hide_plot hero_shuffle')
 _controls('metadata','image_quality meta_source meta_lang server_meta tmdb_key posters logos ratings ratings_pick meta_refresh')
 _controls('sources','sources_style playback source_behavior source_addons add_source')
 _controls('subtitles','subtitles')

@@ -83,7 +83,7 @@
 					<left>28</left>
 					<top>150</top>
 					<width>336</width>
-					<height>477</height>
+					<height>420</height>
 					<orientation>vertical</orientation>
 					<onleft>100</onleft>
 					<onright>200</onright>
@@ -99,17 +99,17 @@
 							<texture colordiffuse="14FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_circle.png</texture>
 						</control>
 						<control type="image">
-							<left>28</left>
-							<top>30</top>
-							<width>24</width>
-							<height>24</height>
+							<left>25</left>
+							<top>27</top>
+							<width>30</width>
+							<height>30</height>
 							<aspectratio>keep</aspectratio>
 							<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]">$INFO[ListItem.Icon]</texture>
 						</control>
 						<control type="label">
-							<left>82</left>
+							<left>78</left>
 							<top>0</top>
-							<width>240</width>
+							<width>246</width>
 							<height>84</height>
 							<font>font12</font>
 							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
@@ -152,29 +152,30 @@
 							<visible>!Control.HasFocus(100)</visible>
 						</control>
 						<control type="image">
-							<left>28</left>
-							<top>30</top>
-							<width>24</width>
-							<height>24</height>
+							<left>25</left>
+							<top>27</top>
+							<width>30</width>
+							<height>30</height>
 							<aspectratio>keep</aspectratio>
 							<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]">$INFO[ListItem.Icon]</texture>
 							<visible>Control.HasFocus(100)</visible>
 						</control>
 						<control type="image">
-							<left>28</left>
-							<top>30</top>
-							<width>24</width>
-							<height>24</height>
+							<left>25</left>
+							<top>27</top>
+							<width>30</width>
+							<height>30</height>
 							<aspectratio>keep</aspectratio>
 							<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.text)]">$INFO[ListItem.Icon]</texture>
 							<visible>!Control.HasFocus(100)</visible>
 						</control>
 						<control type="label">
-							<left>82</left>
+							<left>78</left>
 							<top>0</top>
-							<width>240</width>
+							<width>246</width>
 							<height>84</height>
 							<font>font25_title</font>
+						<scroll>true</scroll>
 							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]</textcolor>
 							<align>left</align>
 							<aligny>center</aligny>
@@ -182,11 +183,12 @@
 							<visible>Control.HasFocus(100)</visible>
 						</control>
 						<control type="label">
-							<left>82</left>
+							<left>78</left>
 							<top>0</top>
-							<width>240</width>
+							<width>246</width>
 							<height>84</height>
 							<font>font25_title</font>
+						<scroll>true</scroll>
 							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.text)]</textcolor>
 							<align>left</align>
 							<aligny>center</aligny>
@@ -254,18 +256,18 @@
 								<visible>true</visible>
 							</control>
 							<control type="image">
-								<left>22</left>
-								<top>34</top>
-								<width>56</width>
-								<height>56</height>
+								<left>20</left>
+								<top>32</top>
+								<width>60</width>
+								<height>60</height>
 								<texture colordiffuse="14FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_circle.png</texture>
 								<visible>true</visible>
 							</control>
 							<control type="image">
-								<left>36</left>
-								<top>48</top>
-								<width>28</width>
-								<height>28</height>
+								<left>33</left>
+								<top>45</top>
+								<width>34</width>
+								<height>34</height>
 								<aspectratio>keep</aspectratio>
 								<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.text)]">$INFO[ListItem.Icon]</texture>
 								<visible>true</visible>
@@ -457,35 +459,35 @@
 								<visible>Control.HasFocus(200)</visible>
 							</control>
 							<control type="image">
-								<left>22</left>
-								<top>34</top>
-								<width>56</width>
-								<height>56</height>
+								<left>20</left>
+								<top>32</top>
+								<width>60</width>
+								<height>60</height>
 								<texture colordiffuse="14FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_circle.png</texture>
 								<visible>!Control.HasFocus(200)</visible>
 							</control>
 							<control type="image">
-								<left>36</left>
-								<top>48</top>
-								<width>28</width>
-								<height>28</height>
+								<left>33</left>
+								<top>45</top>
+								<width>34</width>
+								<height>34</height>
 								<aspectratio>keep</aspectratio>
 								<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.text)]">$INFO[ListItem.Icon]</texture>
 								<visible>!Control.HasFocus(200)</visible>
 							</control>
 							<control type="image">
-								<left>22</left>
-								<top>34</top>
-								<width>56</width>
-								<height>56</height>
+								<left>20</left>
+								<top>32</top>
+								<width>60</width>
+								<height>60</height>
 								<texture colordiffuse="26000000">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_circle.png</texture>
 								<visible>Control.HasFocus(200)</visible>
 							</control>
 							<control type="image">
-								<left>36</left>
-								<top>48</top>
-								<width>28</width>
-								<height>28</height>
+								<left>33</left>
+								<top>45</top>
+								<width>34</width>
+								<height>34</height>
 								<aspectratio>keep</aspectratio>
 								<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]">$INFO[ListItem.Icon]</texture>
 								<visible>Control.HasFocus(200)</visible>

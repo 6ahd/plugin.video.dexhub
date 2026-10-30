@@ -19,6 +19,11 @@ _LOCK = threading.RLock()
 _CHANGED = threading.Condition(_LOCK)
 _SESSIONS = {}
 _CANCEL_CALLBACKS = {}
+# v5.10.447: late rows (Kodi source add-ons search for longer than the shared
+# race waits): kept per session and merged into every snapshot, so the live
+# refresh worker's own updates never drop them; while any is still searching
+# the session is not done
+_LATE = {}          # session key -> {'entries': [...], 'pending': {name: deadline}, 'done': bool}
 
 
 def _copy_payload(payload):
@@ -34,6 +39,7 @@ def _purge_locked(now=None):
     for key in stale:
         _SESSIONS.pop(key, None)
         _CANCEL_CALLBACKS.pop(key, None)
+        _LATE.pop(key, None)
     if len(_SESSIONS) <= _MAX_SESSIONS:
         return
     oldest = sorted(
@@ -61,6 +67,25 @@ def create(entries, done=False, version=1):
     return key
 
 
+def _merge_late_locked(session_key, value):
+    """The snapshot as the page sees it: the search's own rows, then the Kodi
+    add-ons' rows; not done while one of them is still searching."""
+    late = _LATE.get(session_key)
+    if not late:
+        return value
+    seen = {str(e.get('stream_key') or id(e)) for e in value['entries'] if isinstance(e, dict)}
+    value['entries'] = value['entries'] + [
+        e for e in late['entries'] if str(e.get('stream_key') or id(e)) not in seen]
+    now = time.monotonic()
+    pending = [name for name, deadline in late['pending'].items() if deadline > now]
+    if pending:
+        value['done'] = False
+        if not int(value.get('search_pending') or 0):
+            value['search_last'] = ', '.join(pending)
+        value['search_pending'] = int(value.get('search_pending') or 0) + len(pending)
+    return value
+
+
 def update(session_key, payload):
     if not session_key:
         return False
@@ -73,10 +98,63 @@ def update(session_key, payload):
         # and UI updates to continue after Back.
         if current is None or bool(current.get('_closed')):
             return False
+        if session_key in _LATE:
+            _LATE[session_key]['base'] = _copy_payload(value)
+            value = _merge_late_locked(session_key, value)
+            # one counter for both writers: every snapshot is new to the page
+            value['version'] = int(current.get('version') or 0) + 1
         _SESSIONS[session_key] = value
         _purge_locked(value['_touched'])
         _CHANGED.notify_all()
     return True
+
+
+def late_begin(session_key, names, seconds, base_done=False):
+    """Kodi add-ons that answer this session later (up to ``seconds``).
+    base_done: no other search is still running for this session."""
+    if not session_key:
+        return False
+    deadline = time.monotonic() + float(seconds)
+    with _CHANGED:
+        state = _SESSIONS.get(session_key)
+        if state is None:
+            return False
+        late = _LATE.setdefault(session_key, {'entries': [], 'pending': {}, 'base': _copy_payload(state)})
+        if base_done:
+            late['base']['done'] = True
+        for name in names:
+            late['pending'][name] = deadline
+        _republish_locked(session_key)
+    return True
+
+
+def late_add(session_key, name, entries, finished=True):
+    """One Kodi add-on's rows: into the open page at once."""
+    with _CHANGED:
+        state = _SESSIONS.get(session_key)
+        late = _LATE.get(session_key)
+        if state is None or late is None or bool(state.get('_closed')):
+            return False
+        late['entries'].extend(e for e in entries or [] if isinstance(e, dict))
+        if finished:
+            late['pending'].pop(name, None)
+        _republish_locked(session_key)
+    return True
+
+
+def _republish_locked(session_key):
+    state = _SESSIONS.get(session_key)
+    late = _LATE.get(session_key)
+    if state is None or late is None:
+        return
+    merged = _merge_late_locked(session_key, _copy_payload(late['base']))
+    merged['version'] = int(state.get('version') or 1) + 1
+    merged['_touched'] = time.monotonic()
+    if state.get('_closed'):
+        merged['_closed'] = True
+        merged['done'] = True
+    _SESSIONS[session_key] = merged
+    _CHANGED.notify_all()
 
 
 def get(session_key, default=None):

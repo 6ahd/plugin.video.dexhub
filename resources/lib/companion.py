@@ -1718,9 +1718,33 @@ class CompanionPlayer(xbmc.Player):
         self._start_progress_heartbeat()
 
     def _schedule_fallback(self, reason='', delay_ms=3200):
-        """Automatic source fallback is intentionally disabled in v5.3."""
-        self._fallback_pending = False
-        return False
+        """v5.10.448: a link that never played gives way to the next source of
+        its list (auto_next), once Kodi has had delay_ms to recover. v5.3 had
+        it off: the old chain also followed a stop by the user; this runs
+        only on Kodi's error with no progress at all (under 3 s)."""
+        if self._fallback_pending or self._progress_seen_ms >= 3000:
+            return False
+        from . import auto_next
+        if not auto_next.enabled():
+            return False
+        ctx = dict(self.ctx or {}) or dict(load_session() or {})
+        if not ctx.get('stream_key'):
+            return False
+        self._fallback_pending = True
+
+        def fire():
+            try:
+                if not xbmc.Player().isPlaying():           # it did not recover
+                    auto_next.try_next(ctx, reason)
+            except Exception as exc:
+                xbmc.log('[DexHub] auto next source failed: %s' % exc, xbmc.LOGWARNING)
+            finally:
+                self._fallback_pending = False
+
+        timer = threading.Timer(max(0.5, delay_ms / 1000.0), fire)
+        timer.daemon = True
+        timer.start()
+        return True
 
     def _report(self, method_name, position_ms=None):
         if not self.reporter:
@@ -2226,11 +2250,10 @@ class CompanionPlayer(xbmc.Player):
         _clear_tmdbh_handoff_flag()
         self._had_error = True
         _monitor('playback-error', level=xbmc.LOGWARNING, title=self.ctx.get('title') or '', canonical_id=self.ctx.get('canonical_id') or '', provider=self.ctx.get('provider_name') or self.ctx.get('provider_id') or '')
-        if self._fallback_chain:
-            xbmc.log('[DexHub] onPlayBackError — scheduling fallback grace', xbmc.LOGWARNING)
-            self._schedule_fallback('playback-error', delay_ms=3200)
+        if self._schedule_fallback('playback-error', delay_ms=3200):
+            xbmc.log('[DexHub] onPlayBackError — the next source in 3 s unless it recovers', xbmc.LOGWARNING)
         else:
-            xbmc.log('[DexHub] onPlayBackError — no fallback configured', xbmc.LOGWARNING)
+            xbmc.log('[DexHub] onPlayBackError — no automatic next source', xbmc.LOGWARNING)
 
 
     def onPlayBackStopped(self):
@@ -2324,10 +2347,11 @@ class CompanionPlayer(xbmc.Player):
             and elapsed < 60.0
             and self._progress_seen_ms < 30000
         )
-        if probably_failed and self._fallback_chain:
-            _monitor('stopped-probably-failed', level=xbmc.LOGWARNING, title=self.ctx.get('title') or '', elapsed='%.2f' % elapsed, position_ms=pos, duration_ms=dur, progress_seen_ms=self._progress_seen_ms, had_error=self._had_error, fallback_count=len(self._fallback_chain or []))
-            self._schedule_fallback('stopped-early', delay_ms=3200)
-            # Don't clear session yet — the fallback or recovered playback will reload it.
+        # v5.10.448: the error's next source (onPlayBackError) is on its way,
+        # or starts now for an error seen only here
+        if probably_failed and (self._fallback_pending or self._schedule_fallback('stopped-early', delay_ms=1500)):
+            _monitor('stopped-probably-failed', level=xbmc.LOGWARNING, title=self.ctx.get('title') or '', elapsed='%.2f' % elapsed, position_ms=pos, duration_ms=dur, progress_seen_ms=self._progress_seen_ms, had_error=self._had_error)
+            # Don't clear session yet — the next source or recovered playback will reload it.
             return
         try:
             # v5.10.185: a title stopped can be played again at once (the

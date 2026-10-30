@@ -251,6 +251,17 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
             for p, _rid in combined_targets[:8]), api.xbmc.LOGDEBUG)
     except Exception:
         pass
+    # v5.10.447: the Kodi add-ons the user switched on (kodi_sources) start
+    # first: they scrape for longer than any Stremio add-on answers
+    try:
+        from .kodi_sources import targets as _kodi_targets
+        _kodi = _kodi_targets(api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id)),
+                              canonical_id, media_type, meta=meta, season=season, episode=episode)
+        if _kodi:
+            combined_targets = list(_kodi) + list(combined_targets)
+            api.xbmc.log('[DexHub] Kodi add-on sources: %s' % ', '.join(p['name'] for p, _r in _kodi), api.xbmc.LOGINFO)
+    except Exception as _kodi_exc:
+        api.xbmc.log('[DexHub] Kodi add-on sources: %s' % _kodi_exc, api.xbmc.LOGWARNING)
     # v5.10.373: in a watch party whose host shares its own link, «Dex Hub+»
     # goes first (one quick call to the hub, no scan)
     try:

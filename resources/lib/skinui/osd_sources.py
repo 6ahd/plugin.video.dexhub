@@ -182,6 +182,49 @@ def cycle_sort(params=None):
         pass
 
 
+# v5.10.448: the sources page's quality and cached filters, as a row under
+# the sort row (OK steps to the next filter that has rows)
+_FILTER = 'dexhub.osd.sources.filter'
+_FILTER_COUNTS = 'dexhub.osd.sources.counts'
+_FILTERS = ('all', '4K', '1080p', '720p', 'SD', 'cached')
+_FILTER_LABEL = {'all': ('الكل', 'All'), '4K': ('4K', '4K'), '1080p': ('1080p', '1080p'), '720p': ('720p', '720p'),
+                 'SD': ('SD', 'SD'), 'cached': ('جاهز', 'Cached')}
+
+
+def filter_mode():
+    mode = C.home().getProperty(_FILTER) or 'all'
+    return mode if mode in _FILTERS else 'all'
+
+
+def _matches(props, mode):
+    if mode == 'all':
+        return True
+    if mode == 'cached':
+        return props.get('cache') == 'cached'
+    return (props.get('quality') or 'SD') == mode
+
+
+def cycle_filter(params=None):
+    """skin_osd_sources_filter: the next filter with rows (All always)."""
+    import time
+    try:
+        counts = json.loads(C.home().getProperty(_FILTER_COUNTS) or '{}')
+    except ValueError:
+        counts = {}
+    start = _FILTERS.index(filter_mode())
+    mode = 'all'
+    for step in range(1, len(_FILTERS)):
+        option = _FILTERS[(start + step) % len(_FILTERS)]
+        if option == 'all' or counts.get(option):
+            mode = option
+            break
+    C.home().setProperty(_FILTER, mode)
+    try:
+        xbmcgui.Window(11149).setProperty('UID', '%d' % (time.time() * 1000))
+    except Exception:
+        pass
+
+
 def _quality(text):
     from ..source_browser import _badge_quality
     return _badge_quality({}, text)
@@ -239,7 +282,8 @@ def sources(params, handle):
                                                               _quality(str(r.get('n') or r.get('l') or '')), 0),
                                                    -_bytes(r.get('s'))))
             listed = head + rest
-        for pos, row in enumerate(listed[:60]):
+        built = []
+        for pos, row in enumerate(listed):
             name = _TAGS.sub('', str(row.get('l') or '?')).replace('\n', ' ').strip()
             name = re.sub(r'\s{2,}', '  ', name)
             if row.get('n'):
@@ -300,6 +344,20 @@ def sources(params, handle):
                     props['cache'] = 'uncached'
                 elif 'cached' in low or '⚡' in name or 'ready' in low or 'in library' in low:
                     props['cache'] = 'cached'
+            built.append((row, name, line, props))
+        # v5.10.448: the filter row, with each filter's count
+        counts = dict((option, sum(1 for b in built if _matches(b[3], option))) for option in _FILTERS)
+        C.home().setProperty(_FILTER_COUNTS, json.dumps(counts))
+        shown_mode = filter_mode() if counts.get(filter_mode()) else 'all'
+        if built:
+            choices = [option for option in _FILTERS if option == 'all' or counts.get(option)]
+            li = xbmcgui.ListItem(
+                label=('الفلتر: %s' if arabic else 'Filter: %s') % _FILTER_LABEL[shown_mode][0 if arabic else 1],
+                label2=' / '.join('%s %d' % (_FILTER_LABEL[o][0 if arabic else 1], counts[o]) for o in choices),
+                offscreen=True)
+            li.setProperties({'pos': 'sort', 'filter': shown_mode, 'isfolder': 'false'})
+            entries.append((C.url('skin_osd_sources_filter'), li, False))
+        for row, name, line, props in [b for b in built if b[0].get('current') or _matches(b[3], shown_mode)][:60]:
             li = xbmcgui.ListItem(label=name, label2=line, offscreen=True)
             if row.get('current'):
                 props['iscurrent'] = 'true'

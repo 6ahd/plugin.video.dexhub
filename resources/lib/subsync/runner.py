@@ -14,9 +14,9 @@ OTHER = 'service.subtitles.dexworld'
 def other_enabled():
     """DexSubtitles is installed and enabled, and its service is there: it syncs.
 
-    v5.10.240: ABUKARIM TOOLS (3.1.15 and later) deletes DexSubtitles 5.7.3's
-    service_auto.py at every start (it takes it for its own retired
-    auto-download service): DexSubtitles was enabled but nothing synced, and
+    v5.10.240: a maintenance add-on can delete DexSubtitles 5.7.3's
+    service_auto.py at every start (taking it for a retired auto-download
+    service of its own): DexSubtitles was enabled but nothing synced, and
     Dex Hub waited for it. Without its service file Dex Hub syncs."""
     try:
         if not xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % OTHER):

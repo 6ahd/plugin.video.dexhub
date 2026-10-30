@@ -172,8 +172,11 @@ class Spotlight(threading.Thread):
         if (self._settings is None or now - self._settings_at > _SETTINGS_EVERY
                 or profile != getattr(self, '_settings_profile', None)):
             try:
-                import xbmcaddon
-                addon = xbmcaddon.Addon(C.ADDON_ID)
+                # v5.10.448: the add-on's shared settings cache, not a new
+                # Addon each time (crash report 30 Oct 05:39: this thread read a
+                # setting while Kodi was still loading them, at start)
+                from ..settings_cache import cached_addon
+                addon = cached_addon()
 
                 def flag(key, default):
                     value = (addon.getSetting(key) or '').strip().lower()
@@ -206,6 +209,11 @@ class Spotlight(threading.Thread):
     # -------------------------------------------------------------- loop
     def run(self):
         from ..trailer_preferences import publish_presentation, publish_status
+        # v5.10.448: a few seconds after the service starts, not with the
+        # dozen threads that read their settings at that moment (the trailer
+        # waits 3 s on a title anyway)
+        if self.monitor.waitForAbort(5.0) or self.halt.is_set():
+            return
         publish_presentation()
         while not self.halt.is_set() and not self.monitor.abortRequested():
             try:
@@ -462,13 +470,35 @@ class Spotlight(threading.Thread):
         self._target_cache = ((container, title_id), self.last, time.monotonic())
         return self.last
 
-    PREFETCH_DWELL = 1.2
+    PREFETCH_DWELL = 0.6         # v5.10.448: half the wait (1.2 s): a quick OK found it unread
+    WARM_DWELL = 2.5
+
+    def _warm_ahead(self, target, now, since):
+        """v5.10.448: a card the cursor rests on WARM_DWELL seconds gets its
+        sources searched (skin_warm_sources, in this service's own thread,
+        worker.take_warm), so Play opens a full list; Nuvio Arc's "search
+        sources before Play". Once per card; warm_sources keeps its own four
+        minutes per title and the sources_warm setting."""
+        q = target.get('q') or ''
+        if not q or getattr(self, '_warmed', None) == target['key'] or now - since < self.WARM_DWELL:
+            return
+        self._warmed = target['key']
+        try:
+            import json
+            from urllib.parse import parse_qsl
+            from .. import profile_scope
+            C.set_prop('dhs.warm.request', json.dumps({'params': dict(parse_qsl(q)), 'scope': profile_scope.key(),
+                                                       't': time.time()}))
+            C.log('sources searched ahead for "%s" (the cursor rests on its card)' % (target.get('title') or ''))
+        except Exception as exc:
+            C.log('search ahead failed: %s' % exc, xbmc.LOGDEBUG)
 
     def _prefetch_title(self, target, now, since):
         """v5.10.185: the title page of the card the cursor rests on is read
         ahead (its seasons, cast, related titles and TMDb text), one title at
         a time, so OK opens a complete page at once (it read TMDb on open:
         0.7 s on a Mac, several seconds on a box)."""
+        self._warm_ahead(target, now, since)
         q = target.get('q') or ''
         if not q or self._prefetched == target['key'] or now - since < self.PREFETCH_DWELL:
             return

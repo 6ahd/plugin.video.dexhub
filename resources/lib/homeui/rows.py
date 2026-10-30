@@ -1091,6 +1091,24 @@ def betterposters_tabs(api, media):
         return []
 
 
+DEX_GROUPS = ('collection-DEXGENRES', 'collection-DEXMOODS', 'collection-DEXKWAVE', 'collection-DEXSHELF')
+
+
+def dex_collection_entries():
+    """v5.10.448: Dex Hub's own rows (Genre Universe, Moods & Themes,
+    K-Wave) from the bundled collection, for a Home that follows Nuvio's
+    (fallback_collection_entries only fills a Home without it)."""
+    try:
+        from .. import collection_sets as cs
+        row = cs._builtin_kaptain_set()
+    except Exception:
+        return []
+    if not row:
+        return []
+    by_id = dict((_txt(e.get('id')), e) for e in row.get('entries') or [] if isinstance(e, dict))
+    return [(_txt(row.get('id')), by_id[g]) for g in DEX_GROUPS if g in by_id]
+
+
 def fallback_collection_entries():
     """Collections from the active local set (Kaptain built-in by default)."""
     try:

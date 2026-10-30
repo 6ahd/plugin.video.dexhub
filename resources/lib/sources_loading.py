@@ -72,7 +72,92 @@ def _addon_path():
     return ADDON.getAddonInfo('path')
 
 
+
+def _quality_bucket(text):
+    text = str(text or '').lower()
+    if '2160' in text or '4k' in text or 'uhd' in text:
+        return '4k'
+    if '1080' in text:
+        return '1080'
+    if '720' in text:
+        return '720'
+    return 'sd'
+
+
+def _skin_file():
+    """v5.10.438: the search screen of the chosen sources theme; v5.10.446:
+    each theme has its own, in its sources page's look."""
+    try:
+        from .ui_preferences import value
+        style = value('sources_row_style')
+    except Exception:
+        style = 'halo'
+    return {'full': 'sources_loading_prism.xml',
+            'compact': 'sources_loading_compact.xml'}.get(style, 'sources_loading_halo.xml')
+
+
+def _display_name(name):
+    """v5.10.434: an add-on's name without its bracketed note
+    ('Local Files (without catalog support)' shows as 'Local Files')."""
+    import re
+    short = re.sub(r'\s*\([^)]*\)\s*$', '', str(name or '')).strip()   # [RD] and the like stay
+    return short or str(name or '')
+
+def _no_choice():
+    try:
+        from . import page_guard
+        page_guard.no_choice()
+    except Exception:
+        pass
+
+
+_HANDOVER = {}
+_HANDOVER_SECONDS = 4.0
+
+
+def _hand_over(window):
+    """v5.10.448: the search screen stays until the sources page is up
+    (results_shown()), or something plays, or 4 s: closed at once, the title
+    page under it showed for a moment before the page opened."""
+    import threading
+    shown = threading.Event()
+    _HANDOVER['shown'] = shown
+
+    def run():
+        monitor = xbmc.Monitor()
+        end = time.monotonic() + _HANDOVER_SECONDS
+        while not shown.is_set() and time.monotonic() < end and not monitor.abortRequested():
+            if xbmc.getCondVisibility('Player.HasMedia'):
+                break
+            shown.wait(0.05)
+        try:
+            window.close()
+        except Exception:
+            pass
+        _trace('window closed (%s)' % ('page up' if shown.is_set() else 'handed over'))
+        if _HANDOVER.get('shown') is shown:
+            _HANDOVER.clear()
+
+    threading.Thread(target=run, name='DexHubLoaderHandover', daemon=True).start()
+
+
+def results_shown():
+    """The sources page is on screen: the search screen under it goes."""
+    shown = _HANDOVER.get('shown')
+    if shown is not None:
+        shown.set()
+
+
 class _LoadingWindow(xbmcgui.WindowXMLDialog):
+
+    def close(self):
+        try:
+            from . import page_guard
+            page_guard.unwatch(self)
+        except Exception:
+            pass
+        super().close()
+
     """Internal dialog. Prefer SourcesLoadingDialog context manager."""
 
     def __init__(self, *args, **kwargs):
@@ -147,6 +232,11 @@ class _LoadingWindow(xbmcgui.WindowXMLDialog):
             log.silent('LOADING_DLG', _silent_exc)
     def onInit(self):
         try:
+            from . import page_guard        # v5.10.448: closed by something else
+            page_guard.watch(self)
+        except Exception:
+            pass
+        try:
             from . import skin_theme
             skin_theme.publish_theme(self)
         except Exception:
@@ -210,6 +300,7 @@ class _LoadingWindow(xbmcgui.WindowXMLDialog):
             return
         if action_id in (10, 92, 216, 247, 257, 275):  # ACTION_PREVIOUS_MENU / BACK
             self._cancelled = True
+            _no_choice()
             self.close()
         else:
             super().onAction(action)
@@ -235,6 +326,7 @@ class _LoadingWindow(xbmcgui.WindowXMLDialog):
         elif control_id == 9000:
             # "Cancel" — abort the whole flow, drop results.
             self._cancelled = True
+            _no_choice()
             self.close()
 
     def is_cancelled(self):
@@ -324,12 +416,20 @@ class SourcesLoadingDialog(object):
         _TRACE_T0[0] = 0.0
         _trace('opening window')
         try:
+            from . import page_guard            # v5.10.448: the page it runs over
+            page_guard.note()
+        except Exception:
+            pass
+        try:
             from . import screensaver_hold      # v5.10.377: no screensaver over the search
             screensaver_hold.hold()
         except Exception:
             pass
         try:
-            self._win = _LoadingWindow(_SKIN_FILE, _addon_path(), _SKIN_RES, _SKIN_DIMS)
+            _file = _skin_file()
+            self._win = _LoadingWindow(_file, _addon_path(), _SKIN_RES, _SKIN_DIMS)
+            if _file.startswith('sources_loading_'):
+                self._BAR_WIDTH = 520     # v5.10.440: the theme cards are narrower
             # v3.9.52: feed the initial art values to the window so its
             # onInit() can clear and re-set the corresponding properties,
             # protecting against stale artwork from a previous instance.
@@ -356,8 +456,11 @@ class SourcesLoadingDialog(object):
         _trace('closing window (results=%d, exc=%s)' % (int(self._results_so_far or 0), exc_type.__name__ if exc_type else 'none'))
         try:
             if self._win is not None:
-                self._win.close()
-                _trace('window closed')
+                if exc_type is None and self._results_so_far > 0 and not self.is_cancelled():
+                    _hand_over(self._win)
+                else:
+                    self._win.close()
+                    _trace('window closed')
         except Exception as _silent_exc:
             log.silent('LOADING_DLG', _silent_exc)
         self._win = None
@@ -386,7 +489,7 @@ class SourcesLoadingDialog(object):
         self._set('counter_number', '0')
         self._set('counter_label', tr('نتيجة'))
         self._set('providers_short_label', tr('مصادر'))
-        self._set('results_line', tr('نتيجة صالحة بعد حذف المكرر'))
+        self._set('results_line', tr('نتيجة حتى الآن'))
         self._set('status', tr('جار البحث عن المصادر...'))
         self._set('sub_status', '')
         self._set('progress_pct', '0')
@@ -402,6 +505,28 @@ class SourcesLoadingDialog(object):
         self._set('completed_count', '0')
         self._set('progress_label', '0%')
         self._set('has_results', '')
+        self._set('btn_count', '')
+        # v5.10.439: the sources page (Halo) goes on counting from here
+        try:
+            home = xbmcgui.Window(10000)
+            home.setProperty('dexhub.search.total', str(self._provider_count or ''))
+            home.setProperty('dexhub.search.t0', '%.3f' % (time.time() - (time.monotonic() - self._started_at)))
+        except Exception:
+            pass
+        # v5.10.438: the Halo theme's words
+        try:
+            from .i18n import is_english
+            english = is_english()
+        except Exception:
+            english = False
+        for key, ar, en in (('lbl_cached', 'جاهز', 'Cached'), ('lbl_debrid', 'ديبرد', 'Debrid'),
+                            ('lbl_torrent', 'تورنت', 'Torrent'), ('lbl_usenet', 'يوزنت', 'Usenet'),
+                            ('lbl_server', 'سيرفرات', 'Servers'), ('lbl_direct', 'مباشر', 'Direct'),
+                            ('halo_head', 'البحث عن المصادر', 'Finding sources'),
+                            ('lbl_addons', 'إضافات', 'add-ons'), ('lbl_found', 'مصدر', 'found'),
+                            ('halo_addons_head', 'الإضافات', 'Add-ons'),
+                            ('halo_found_word', 'نتيجة', 'found')):
+            self._set(key, en if english else ar)
         for idx in range(1, 13):
             self._set('step%d_visible' % idx, '1' if idx <= self._provider_count else '')
             self._set('step%d_color' % idx, 'FF606673')
@@ -526,7 +651,7 @@ class SourcesLoadingDialog(object):
         if provider_name:
             _trace('provider done: %s (#%s, results so far %d)' % (provider_name, index, int(self._results_so_far or 0)))
             self._set('current_provider',
-                      '%s  %s' % (tr('يفحص الآن:'), provider_name))
+                      '%s  %s' % (tr('يفحص الآن:'), _display_name(provider_name)))
             # v4.6.0: iter_parallel yields a provider when it has finished
             # answering, so an update() naming a provider means that provider
             # is DONE — flip its dashboard card (count may still arrive via
@@ -598,7 +723,7 @@ class SourcesLoadingDialog(object):
                 name = shown[slot - 1]
                 count = int(self._provider_results.get(name) or 0)
                 state = self._card_state.get(name) or 'wait'
-                self._set('pv%d_name' % slot, name)
+                self._set('pv%d_name' % slot, _display_name(name))
                 self._set('pv%d_count' % slot, str(count) if (count or state != 'wait') else '')
                 self._set('pv%d_state' % slot, state)
                 self._set('pv%d_coloridx' % slot, str(_color_idx(name)))
@@ -624,7 +749,39 @@ class SourcesLoadingDialog(object):
             else:
                 self._set('provider_%d_label' % idx, '')
 
-    def add_results(self, n=0, provider_name='', unique_total=None):
+    def _tally(self, rows):
+        """v5.10.438: how many of the results so far are 4K, 1080p, 720p
+        or SD, and cached, torrent, Usenet, server or direct (Halo theme)."""
+        q = {'4k': 0, '1080': 0, '720': 0, 'sd': 0}
+        kinds = {'cached': 0, 'debrid': 0, 'torrent': 0, 'usenet': 0, 'server': 0, 'direct': 0}
+        for row in rows or ():
+            if not isinstance(row, dict):
+                continue
+            try:
+                from .source_browser import _halo_quality
+                bucket = _halo_quality(row)
+            except Exception:
+                bucket = _quality_bucket(row.get('quality'))
+            if bucket:
+                q[bucket] += 1
+            if row.get('cached') is True:
+                kinds['cached'] += 1
+            kind = str(row.get('source_type') or '')
+            if kind in ('plex', 'emby', 'jellyfin', 'silo', 'server', 'local'):
+                kind = 'server'
+            if kind in kinds and kind != 'cached':
+                kinds[kind] += 1
+        for key, count in q.items():
+            self._set('q_' + key, str(count) if count else '')
+        for key, count in kinds.items():
+            self._set('t_' + key, str(count) if count else '')
+
+    def add_results(self, n=0, provider_name='', unique_total=None, rows=None):
+        if rows is not None:
+            try:
+                self._tally(rows)
+            except Exception:
+                pass
         was_empty = self._results_so_far <= 0
         added = max(0, int(n or 0))
         self._results_so_far += added
@@ -648,6 +805,7 @@ class SourcesLoadingDialog(object):
             # big number, leave counter_label/results_line static so
             # they don't reflow on every result update.
             self._set('counter_number', str(self._results_so_far))
+            self._set('btn_count', str(self._results_so_far))
             self._set('has_results', '1')
             if was_empty and self._win is not None:
                 try:

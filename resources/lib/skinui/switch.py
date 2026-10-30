@@ -16,8 +16,8 @@ skin_back  switches back to the skin that was in use before (Estuary when
 
 Kodi asks questions on the way: "install this add-on?", and after the new
 skin loaded "keep this change?", going back to the old skin when nobody
-answers within ten seconds. As skin switchers do it (ABUKARIM TOOLS' Skin
-Switcher answers the same way), the answers are given here: Yes on Kodi's
+answers within ten seconds. As skin switchers do it, the answers are
+given here: Yes on Kodi's
 yes/no dialog (its control 11) while a step runs, so the user sees the new
 skin's Home and nothing else. One switch runs at a time (a Home property:
 it outlives the skin change, and a restart of Kodi clears it).

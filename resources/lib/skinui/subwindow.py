@@ -169,6 +169,32 @@ def _readable(name):
     return text
 
 
+SHIFT = 'subtitle_shift_steps'
+
+
+def _shift_steps():
+    try:
+        from ..settings_cache import cached_addon
+        return int(cached_addon().getSetting(SHIFT) or 0)
+    except Exception:
+        return 0
+
+
+def _shift_save(value):
+    try:
+        from ..settings_cache import cached_addon, invalidate
+        cached_addon().setSetting(SHIFT, str(int(value)))
+        invalidate()
+    except Exception:
+        pass
+
+
+def _shift_text(value):
+    """0 where it started, +3 three steps up, -2 two down (the row's own
+    arrows say Left and Right change it)."""
+    return '%+d' % value if value else '0'
+
+
 def _act(name):
     """A player action, to the application (Kodi's player controller listens
     there), waited for; its slider is closed again, the page shows the value."""
@@ -243,8 +269,6 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
                      'value': _t('مفعّلة', 'On') if enabled else _t('مطفأة', 'Off'), 'adjust': True})
         rows.append({'id': 'delay', 'label': _t('التأخير', 'Delay'),
                      'value': xbmc.getInfoLabel('Player.SubtitleDelay') or '0.000 s', 'adjust': True})
-        rows.append({'id': 'shift', 'label': _t('رفع وخفض الترجمة', 'Move up or down'),
-                     'value': '', 'adjust': True})
         rows.append({'id': 'sync', 'label': _t('مزامنة تلقائية', 'Auto sync'), 'value': '', 'opens': True})
         rows.extend(self._audio_rows())
         preset = xbmcgui.Window(10000).getProperty('dhs.substyle.preset')
@@ -271,6 +295,11 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
                 except Exception:
                     entry['pct'] = 1
             rows.append(entry)
+            if key == 'subtitles.align' and value == 0:
+                # v5.10.448: Manual: right under it, the height as a number
+                # (0 where it started, +1 a step up), changed with Left/Right
+                rows.append({'id': 'shift', 'label': _t('رفع وخفض الترجمة', 'Height'),
+                             'value': _shift_text(_shift_steps()), 'adjust': True})
         if S.fonts_waiting():
             rows.append({'id': 'note', 'label': _t('خطوط عربية جديدة', 'New Arabic fonts'),
                          'value': _t('بعد إعادة التشغيل', 'after a restart'), 'kick': _t('المزيد', 'MORE')})
@@ -833,7 +862,10 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
         elif key == 'delay':
             _act('SubtitleDelayPlus' if step > 0 else 'SubtitleDelayMinus')
         elif key == 'shift':
+            # v5.10.448: a number the user can read (0 where it started, +1
+            # a step up); Kodi moves a subtitle only in its Manual position
             _act('SubtitleShiftUp' if step > 0 else 'SubtitleShiftDown')
+            _shift_save(_shift_steps() + (1 if step > 0 else -1))
         elif key == 'astream':
             _rpc('Player.SetAudioStream', {'playerid': _player_id(), 'stream': 'next' if step > 0 else 'previous'})
         elif key == 'adelay':

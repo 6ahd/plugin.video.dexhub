@@ -1507,7 +1507,12 @@ def _meta_for_impl(tmdb_id='', imdb_id='', media_type='movie', title='', year=''
         # localized details response directly; only the logo is chosen from
         # the images response. This is the key to 1:1 poster parity.
         poster_path = str(detail.get('poster_path') or '').strip()
-        backdrop_path = str(detail.get('backdrop_path') or '').strip()
+        # v5.10.436: the backdrop without words when TMDb has one: the cards
+        # draw the clear logo over it, and a titled backdrop showed the name
+        # twice (Brothers); the poster stays Nuvio's own
+        _plain = [r for r in (images.get('backdrops') or []) if not str((r or {}).get('iso_639_1') or '').strip()]
+        backdrop_path = (str((_best_image(_plain, langs) or {}).get('file_path') or '') if _plain else '') \
+            or str(detail.get('backdrop_path') or '').strip()
         logo = _nuvio_logo_image(images.get('logos') or [], detail_lang)
     else:
         poster = _best_image(images.get('posters') or [], langs)

@@ -435,10 +435,12 @@ class LayoutWindow(xbmcgui.WindowXMLDialog):
 
     def _style(self, index):
         entry = self.entries[index]
-        from .layout import pick_style, style_choices_for
+        from .layout import pick_style, style_choices_for, suggested_styles
         current = self.app.layout.shape(entry['key'])
         only = style_choices_for(shelf=bool(entry.get('shelf')), progress=bool(entry.get('progress')))
-        key = pick_style(self.tr, self.app.media_path, current, entry['label'], only=only)
+        key = pick_style(self.tr, self.app.media_path, current, entry['label'], only=only,
+                         suggested=suggested_styles(entry['label'], collection=entry.get('kind') == 'collection',
+                                                    progress=bool(entry.get('progress'))))
         if key is None or key == current:
             return
         self.app.layout.set_shape(entry['key'], key)

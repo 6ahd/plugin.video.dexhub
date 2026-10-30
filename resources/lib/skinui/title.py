@@ -76,6 +76,16 @@ def _int(value, default=0):
         return default
 
 
+TOP_EPISODE = 9.2      # TMDb's scale (Nuvio's 9.7 is IMDb's; Ozymandias: 10 there, 9.4 here)
+
+
+def _top_rated(rating):
+    try:
+        return float(rating) >= TOP_EPISODE
+    except (TypeError, ValueError):
+        return False
+
+
 TMDB_SEASON_POSTER = 'https://image.tmdb.org/t/p/w342'
 
 
@@ -114,6 +124,7 @@ class HeadlessTitle(object):
         self.source_provider_id = q.get('src') or ''
         # v5.10.194: a server show's route (its episodes play from the server)
         self.server = dict(parse_qsl(q['srv'])) if q.get('srv') else None
+        self.q = dict(q)
         canonical = q.get('id') or q.get('imdb') or ''
         if not canonical and q.get('tmdb'):
             canonical = 'tmdb:%s' % q['tmdb']
@@ -219,7 +230,8 @@ class HeadlessTitle(object):
     # ------------------------------------------------------------ loading
     def _key(self):
         from .. import meta_source
-        return 'staged-v3|%s|%s|%s|%s|%s|%s' % (
+        # v5.10.448: v4 for the director, release date and studio (details card)
+        return 'staged-v4|%s|%s|%s|%s|%s|%s' % (
             self.media_type, self.canonical, self.source_provider_id, self._tmdb_lang(),
             meta_source.get_meta_source_for(self.source_provider_id),
             meta_source.ADDON.getSetting('metadata_generation') or '')
@@ -447,7 +459,12 @@ class HeadlessTitle(object):
                  'dhs.tp.fanart': self.hero.get('fanart') or self.hero.get('landscape') or '',
                  'dhs.tp.poster': self.hero.get('poster') or '',
                  'dhs.tp.studio_logo': self.hero.get('studio_logo') or '',
-                 'dhs.tp.studio_chip': '1' if self.hero.get('studio_logo_chip') else ''}
+                 'dhs.tp.studio_chip': '1' if self.hero.get('studio_logo_chip') else '',
+                 # v5.10.448: the cinematic layout's details card
+                 'dhs.tp.director': self.hero.get('director') or '',
+                 'dhs.tp.released': self.hero.get('released') or '',
+                 'dhs.tp.studio': self.hero.get('studio') or '',
+                 'dhs.tp.starring': ', '.join(c.get('name') for c in (self.cast or [])[:2] if c.get('name'))}
         numbers = [n for n, _label in self.seasons]
         season_idx, ep_idx, season = 0, 0, ''
         if numbers:
@@ -482,8 +499,27 @@ class HeadlessTitle(object):
             C.set_prop('dhs.tp.id', '')
         for key, value in props.items():
             C.set_prop(key, value)
+        # v5.10.448: the page's own query, for page_guard to open it again
+        C.set_prop('dhs.tp.q', urlencode([(k, v) for k, v in sorted(self.q.items()) if k != 'pid']))
         # the id last: the page takes the labels together, once they are all this title's
         C.set_prop('dhs.tp.id', self.title_id)
+        self._warm_on_open()
+
+    def _warm_on_open(self):
+        """v5.10.448: the sources search as the page opens ("Available on").
+        The Play button's onfocus starts it too, but Kodi runs no onfocus for
+        the control a page opens on, and the page's own onload comes before
+        its properties. Once per title, with the skin's dexhub.warm.page."""
+        home = C.home()
+        if not self.canonical or home.getProperty('dexhub.warm.page') == self.title_id:
+            return
+        # the classic page has no sources line any more: only the cinematic
+        # card shows what the search found (Play still warms it on focus)
+        if xbmc.getInfoLabel('Skin.String(dh.titlelayout)') != 'cinematic':
+            return
+        home.setProperty('dexhub.warm.page', self.title_id)
+        q = [(k, v) for k, v in sorted(self.q.items()) if k != 'pid'] + [('pid', self.title_id)]
+        xbmc.executebuiltin('RunPlugin(%s?%s)' % (C.BASE, urlencode([('action', 'skin_warm_sources')] + q)))
 
     def _imdb(self):
         for value in (self.hero.get('show_imdb_id'), self.hero.get('imdb_id'), self.canonical):
@@ -666,7 +702,10 @@ class HeadlessTitle(object):
                 'watched': watched,
                 'props': {'sub': '  •  '.join(sub), 'watched': '1' if watched else '',
                           'season': str(number), 'episode': str(row.get('episode')),
-                          'dhs.click': 'run' if target else '', 'dhs.target': target},
+                          'dhs.click': 'run' if target else '', 'dhs.target': target,
+                          # v5.10.448: an episode rated 9.2 or more (TMDb) stands out (Nuvio)
+                          'dhs.top': '1' if _top_rated(row.get('rating')) else '',
+                          'dhs.rating': ('%.1f' % float(row['rating'])) if _top_rated(row.get('rating')) else ''},
                 'menu': menu,
             })
         return items

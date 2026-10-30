@@ -27,7 +27,7 @@
         <top>0</top>
         <width>1728</width>
         <height>952</height>
-        <texture border="16" colordiffuse="FF101318">$INFO[Window.Property(wp.assets)]/resources/media/homeui/tile_bg.png</texture>
+        <texture border="16" colordiffuse="F2131C26">$INFO[Window.Property(wp.assets)]/resources/media/homeui/tile_bg.png</texture>
         <visible>String.IsEmpty(Window(Home).Property(dexhub.tvos.theme.surface))</visible>
       </control>
       <control type="image">
@@ -35,7 +35,7 @@
         <top>0</top>
         <width>1728</width>
         <height>952</height>
-        <texture border="24" colordiffuse="1AFFFFFF">$INFO[Window.Property(wp.assets)]/resources/media/homeui/ring.png</texture>
+        <texture border="24" colordiffuse="FF2A3A48">$INFO[Window.Property(wp.assets)]/resources/media/homeui/ring.png</texture>
       </control>
       <control type="image">
         <left>16</left>
@@ -285,7 +285,7 @@
             <top>0</top>
             <width>340</width>
             <height>200</height>
-            <texture border="24" colordiffuse="FFFFFFFF">$INFO[Window.Property(wp.assets)]/resources/media/homeui/ring.png</texture>
+            <texture border="30" colordiffuse="FFFFFFFF">$INFO[Window.Property(wp.assets)]/resources/media/halo/card_ring_grad.png</texture>
             <visible>Control.HasFocus(100)</visible>
           </control>
           <control type="image" description="style-focus-marker">
@@ -344,7 +344,7 @@
             <top>4</top>
             <width>1284</width>
             <height>76</height>
-            <texture border="16" colordiffuse="12FFFFFF">$INFO[Window.Property(wp.assets)]/resources/media/homeui/tile_bg.png</texture>
+            <texture border="16" colordiffuse="E62C3E4C">$INFO[Window.Property(wp.assets)]/resources/media/homeui/tile_bg.png</texture>
           </control>
           <control type="image">
             <left>24</left>
@@ -511,7 +511,7 @@
             <top>4</top>
             <width>1284</width>
             <height>76</height>
-            <texture border="16" colordiffuse="12FFFFFF">$INFO[Window.Property(wp.assets)]/resources/media/homeui/tile_bg.png</texture>
+            <texture border="16" colordiffuse="E62C3E4C">$INFO[Window.Property(wp.assets)]/resources/media/homeui/tile_bg.png</texture>
           </control>
           <control type="image">
             <left>8</left>
@@ -526,7 +526,7 @@
             <top>0</top>
             <width>1292</width>
             <height>84</height>
-            <texture border="24" colordiffuse="FFFFFFFF">$INFO[Window.Property(wp.assets)]/resources/media/homeui/ring.png</texture>
+            <texture border="30" colordiffuse="FFFFFFFF">$INFO[Window.Property(wp.assets)]/resources/media/halo/card_ring_grad.png</texture>
             <visible>Control.HasFocus(200) + String.IsEqual(Window.Property(wp.col),0)</visible>
           </control>
           <control type="image">
@@ -632,7 +632,7 @@
               <top>15</top>
               <width>144</width>
               <height>54</height>
-              <texture border="24" colordiffuse="FFFFFFFF">$INFO[Window.Property(wp.assets)]/resources/media/homeui/ring.png</texture>
+              <texture border="30" colordiffuse="FFFFFFFF">$INFO[Window.Property(wp.assets)]/resources/media/halo/card_ring_grad.png</texture>
               <visible>Control.HasFocus(200) + String.IsEqual(Window.Property(wp.col),1)</visible>
             </control>
           </control>
@@ -699,7 +699,7 @@
               <top>15</top>
               <width>160</width>
               <height>54</height>
-              <texture border="24" colordiffuse="FFFFFFFF">$INFO[Window.Property(wp.assets)]/resources/media/homeui/ring.png</texture>
+              <texture border="30" colordiffuse="FFFFFFFF">$INFO[Window.Property(wp.assets)]/resources/media/halo/card_ring_grad.png</texture>
               <visible>Control.HasFocus(200) + String.IsEqual(Window.Property(wp.col),2)</visible>
             </control>
           </control>
@@ -737,7 +737,7 @@
             <top>0</top>
             <width>248</width>
             <height>86</height>
-            <texture border="16" colordiffuse="12FFFFFF">$INFO[Window.Property(wp.assets)]/resources/media/homeui/tile_bg.png</texture>
+            <texture border="16" colordiffuse="E62C3E4C">$INFO[Window.Property(wp.assets)]/resources/media/homeui/tile_bg.png</texture>
           </control>
           <control type="label">
             <left>28</left>
@@ -768,7 +768,7 @@
             <top>0</top>
             <width>248</width>
             <height>86</height>
-            <texture border="16" colordiffuse="12FFFFFF">$INFO[Window.Property(wp.assets)]/resources/media/homeui/tile_bg.png</texture>
+            <texture border="16" colordiffuse="E62C3E4C">$INFO[Window.Property(wp.assets)]/resources/media/homeui/tile_bg.png</texture>
           </control>
           <control type="image">
             <left>6</left>

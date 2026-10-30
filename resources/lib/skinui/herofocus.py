@@ -78,11 +78,19 @@ class HeroFocus(threading.Thread):
         if guistate.video_info_up():
             prefix, page = 'ListItem.', True
         elif active == guistate.window_id(self.fold_window):
-            try:
-                row = int(C.prop('dhs.ffr') or 1)
-            except ValueError:
-                row = 1
-            prefix, page = 'Container(%d).ListItem.' % (_FOLD_BASE + row), False
+            if C.prop('dhs.fold.view') == 'catalogs':
+                # v5.10.448: the folder view's titles (7110 posters, 7111 ranked);
+                # its catalog tabs have no ratings
+                focus = info('System.CurrentControlId')
+                if focus not in ('7110', '7111'):
+                    return None
+                prefix, page = 'Container(%s).ListItem.' % focus, False
+            else:
+                try:
+                    row = int(C.prop('dhs.ffr') or 1)
+                except ValueError:
+                    row = 1
+                prefix, page = 'Container(%d).ListItem.' % (_FOLD_BASE + row), False
         elif not self.home:
             return None
         elif active == guistate.HOME:
@@ -180,8 +188,77 @@ class HeroFocus(threading.Thread):
                 C.set_prop('dhs.bg.on', '1')
                 self._bg_on = True
 
+    def _page_colour(self):
+        """v5.10.448: with the page colour "follows the title" the title page
+        and the collection page take the colour of the title on show, once
+        the cursor rests (art_colour.py works it out)."""
+        from .. import art_colour
+        now = time.monotonic()
+        if now - getattr(self, '_tone_checked', -1e9) > 2.0:
+            self._tone_checked = now
+            self._tone_wanted = xbmc.getInfoLabel('Skin.String(dh.pagetone)') == 'artwork'
+        if not self._tone_wanted:
+            art_colour.stop_following()
+            return
+        info = xbmc.getInfoLabel
+        if guistate.video_info_up():
+            prefix, extra = 'ListItem.', ''
+        elif guistate.active() == guistate.window_id(self.fold_window):
+            if C.prop('dhs.fold.view') == 'catalogs':
+                focus = info('System.CurrentControlId')
+                prefix = 'Container(%s).ListItem.' % (focus if focus in ('7110', '7111') else '7110')
+            else:
+                prefix = 'Container(%d).ListItem.' % (_FOLD_BASE + max(1, _count(C.prop('dhs.ffr'))))
+            extra = C.prop('dhs.fold.bg')
+        else:
+            return                          # other pages keep the last colour
+        # its backdrop, its poster, then the collection's own picture
+        value = (info(prefix + 'Art(fanart)'), info(prefix + 'Art(poster)'), extra)
+        if value != getattr(self, '_tone_seen', None):
+            self._tone_seen, self._tone_since = value, now
+            if art_colour.known(*value):
+                art_colour.follow(*value)   # known: at once
+            return
+        if now - self._tone_since >= 0.06:
+            art_colour.follow(*value)
+            self._row_ahead(art_colour, info, prefix)
+
+    def _row_ahead(self, art_colour, info, prefix):
+        """Every title of the row on show, nearest first, worked out ahead
+        so a step to any of them changes the colour at once (cached)."""
+        if prefix == 'ListItem.':
+            return
+        container = prefix[:-len('ListItem.')]
+        count = min(_count(info(container + 'NumItems')), 40)
+        key = (container, count, info(container + 'ListItemAbsolute(0).Art(fanart)'))
+        if not count or key == getattr(self, '_tone_row', None):
+            return
+        self._tone_row = key
+        here = max(0, _count(info(container + 'CurrentItem')) - 1)
+        order = sorted(range(count), key=lambda n: (abs(n - here), n < here))
+        urls = []
+        for n in order:
+            for art in ('fanart', 'poster'):
+                value = info('%sListItemAbsolute(%d).Art(%s)' % (container, n, art))
+                if value and value not in urls:
+                    urls.append(value)
+        art_colour.ahead(*urls)
+
+    def _colour_loop(self):
+        """The page colour on its own quick beat: the ratings loop waits on
+        lookups, and a colour change waited with it (0.5 to 0.8 s)."""
+        while not self.done():
+            try:
+                self._page_colour()
+            except Exception:
+                pass
+            self._halt.wait(0.05)
+
     def _run(self):
         from ..ui_preferences import enabled
+        colour = threading.Thread(target=self._colour_loop, name='DexHubPageColour')
+        colour.daemon = True
+        colour.start()
         since, current = 0.0, None
         try:
             self._loop_ratings(enabled, since, current)
@@ -290,7 +367,12 @@ class HeroFocus(threading.Thread):
                 home.setProperty(name, value)
         self.publish_badges(key)
         logo, chip = self.studios.get(key) or ('', False)
-        for name, value in (('studio_logo', logo), ('studio_chip', '1' if chip else '')):
+        try:
+            from ..studio_mark import slot
+            width = slot(logo, chip)
+        except Exception:
+            width = ''
+        for name, value in (('studio_logo', logo), ('studio_chip', '1' if chip else ''), ('studio_w', width)):
             if home.getProperty(PREFIX + name) != value:
                 home.setProperty(PREFIX + name, value)
         # last: the skin shows them once the id names its title

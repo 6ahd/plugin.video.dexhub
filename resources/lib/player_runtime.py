@@ -3714,6 +3714,38 @@ def _stream_provider_targets(media_type, canonical_id, meta=None, season=None, e
     from .source_targets import build_targets
     return build_targets(sys.modules[__name__], media_type=media_type, canonical_id=canonical_id, meta=meta, season=season, episode=episode)
 
+def _kodi_sources_lane(targets, media_type):
+    """v5.10.447: the Kodi source add-ons leave the shared race and search
+    in their own lane (kodi_sources.LateSearch), started now."""
+    try:
+        from .kodi_sources import split_late
+        return split_late(targets, lambda t: _fetch_stream_payload(t, media_type))
+    except Exception as exc:
+        xbmc.log('[DexHub] Kodi add-on sources lane: %s' % exc, xbmc.LOGWARNING)
+        return list(targets or []), None
+
+
+def _kodi_rows_converter(media_type, canonical_id, best_meta, art, bg, ids, **context):
+    """A Kodi add-on's answer as finished source rows, like any provider's."""
+    def convert(target, data):
+        provider, request_id = target
+        rows = []
+        _append_stream_entries_from_data(rows, data, provider, request_id, media_type, canonical_id,
+                                         best_meta, art, bg, ids, **context)
+        return _finalize_stream_entries(rows, media_type=media_type, canonical_id=canonical_id,
+                                        video_id=str(context.get('video_id') or ''))
+    return convert
+
+
+def _kodi_collect(late, convert):
+    """Nothing else found anything: wait for the Kodi add-ons (busy circle)."""
+    xbmc.executebuiltin('ActivateWindow(busydialognocancel)')
+    try:
+        return late.collect(convert)
+    finally:
+        xbmc.executebuiltin('Dialog.Close(busydialognocancel)')
+
+
 def _home_owns_click():
     """v5.10.105: the Dex Hub Home decides where its titles open.
 
@@ -7400,8 +7432,11 @@ def _source_enough_wait_seconds():
     # slow providers keep publishing into the open source window.
     return max(1.5, min(raw, 4.0))
 
-def _source_progress_unique_count(entries):
-    """Return the post-dedup count without ranking or rebuilding UI rows."""
+def _source_progress_unique_count(entries, out=None):
+    """Return the post-dedup count without ranking or rebuilding UI rows.
+
+    v5.10.438: ``out`` (a list) receives the rows the count stands for, so
+    the search screen can show how many are 4K, 1080p, cached and so on."""
     rows = list(entries or [])
     try:
         rows, _removed = _collapse_repeated_provider_rows(rows)
@@ -7417,6 +7452,8 @@ def _source_progress_unique_count(entries):
             )
     except Exception:
         pass
+    if out is not None:
+        out[:] = rows
     return len(rows)
 
 def _collect_stream_entries(targets, media_type, canonical_id, best_meta, art, bg, ids, title='',
@@ -7523,7 +7560,10 @@ def _collect_stream_entries(targets, media_type, canonical_id, best_meta, art, b
                 resume_seconds=resume_seconds, resume_percent=resume_percent,
             )
             if len(entries) > before:
-                _unique_count = _source_progress_unique_count(entries)
+                _unique_rows = []
+                _unique_count = _source_progress_unique_count(entries, _unique_rows)
+            else:
+                _unique_rows = None
             if progress is not None:
                 # v5.10.253: the player's Sources panel fills as each
                 # provider answers
@@ -7536,6 +7576,7 @@ def _collect_stream_entries(targets, media_type, canonical_id, best_meta, art, b
                     len(entries) - before,
                     provider_name=provider.get('name') or (provider.get('manifest') or {}).get('name') or '',
                     unique_total=_unique_count,
+                    rows=_unique_rows,
                 )
         if scan_state is not None:
             scan_state['race'] = _source_race
@@ -7658,6 +7699,7 @@ def _start_stream_session_refresh(session_key, initial_entries, remaining_target
         refresh_race = scan_race
         pending_count = len(remaining_targets)
         failed_count = 0
+        last_name = ''   # v5.10.439: the add-on that answered last (Halo)
 
         def _publish_status(done=False):
             nonlocal version
@@ -7666,6 +7708,7 @@ def _start_stream_session_refresh(session_key, initial_entries, remaining_target
                 'entries': list(entries), 'done': done, 'version': version,
                 'search_pending': pending_count,
                 'search_failed': failed_count,
+                'search_last': last_name,
             })
 
         _publish_status()
@@ -7719,6 +7762,7 @@ def _start_stream_session_refresh(session_key, initial_entries, remaining_target
                     continue
                 last_request_id = str(video_id or request_id or last_request_id or '')
                 pending_count = max(0, pending_count - 1)
+                last_name = str((provider or {}).get('name') or '')
                 if isinstance(data, Exception):
                     failed_count += 1
                 if isinstance(data, Exception) or not data:
@@ -7749,6 +7793,7 @@ def _start_stream_session_refresh(session_key, initial_entries, remaining_target
                     'version': version,
                     'search_pending': pending_count,
                     'search_failed': failed_count,
+                'search_last': last_name,
                 }):
                     break
 
@@ -7765,6 +7810,7 @@ def _start_stream_session_refresh(session_key, initial_entries, remaining_target
                     'version': version + 1,
                     'search_pending': pending_count,
                     'search_failed': failed_count,
+                'search_last': last_name,
                 })
             except Exception:
                 pass
@@ -8056,6 +8102,7 @@ def streams(media_type, canonical_id, title='', resume_seconds='0', resume_perce
     except Exception:
         resume_percent_val = 0.0
     targets_all = _prioritize_provider_targets(list(_stream_provider_targets(media_type, canonical_id, meta=stream_meta)), preferred_provider_name=preferred_provider_name)
+    targets_all, _kodi_late = _kodi_sources_lane(targets_all, media_type)
     targets, fallback_targets = _split_targets_by_source_mode(targets_all, source_provider_id=source_provider_id, source_mode=source_mode)
 
     xbmc.log('[DexHub timing] stage=source-prepare-total ms=%.1f' % ((time.monotonic() - _prepare_started) * 1000), xbmc.LOGINFO)
@@ -8103,6 +8150,11 @@ def streams(media_type, canonical_id, title='', resume_seconds='0', resume_perce
         else:
             processed_set = set((id(p), rid) for p, rid in processed_targets)
             remaining_targets = [t for t in fallback_targets if (id(t[0]), t[1]) not in processed_set]
+    if not entries and _kodi_late:
+        entries = _kodi_collect(_kodi_late, _kodi_rows_converter(
+            media_type, canonical_id, best_meta, art, bg, ids, title=title,
+            resume_seconds=resume_seconds, resume_percent=resume_percent_val))
+        _kodi_late = None
     if not entries:
         # Nothing matched anywhere — but if this item CAME from the user's own
         # server we do not need a match at all: play the file directly.
@@ -8171,13 +8223,19 @@ def streams(media_type, canonical_id, title='', resume_seconds='0', resume_perce
         'canonical_id': canonical_id,
     }
     session_key = ''
-    if remaining_targets:
+    if remaining_targets or _kodi_late:
         session_key = source_session.create(entries, done=False, version=1)
-        _start_stream_session_refresh(
-            session_key, entries, remaining_targets, media_type, canonical_id, best_meta, art, bg, ids,
-            title=title, resume_seconds=resume_seconds, resume_percent=resume_percent_val,
-            scan_race=_active_race,
-        )
+        if remaining_targets:
+            _start_stream_session_refresh(
+                session_key, entries, remaining_targets, media_type, canonical_id, best_meta, art, bg, ids,
+                title=title, resume_seconds=resume_seconds, resume_percent=resume_percent_val,
+                scan_race=_active_race,
+            )
+        if _kodi_late:
+            _kodi_late.attach(session_key, _kodi_rows_converter(
+                media_type, canonical_id, best_meta, art, bg, ids, title=title,
+                resume_seconds=resume_seconds, resume_percent=resume_percent_val),
+                base_done=not remaining_targets)
     return _show_stream_window(entries, meta, session_key=session_key)
 
 def _video_season_num(video):
@@ -8426,6 +8484,7 @@ def episode_streams(canonical_id, video_id, season, episode, title='', media_typ
     xbmc.log('[DexHub timing] stage=episode-source-preparation ms=%.1f' % (
         (time.monotonic() - _prep_started) * 1000), xbmc.LOGINFO)
     targets_all = _prioritize_provider_targets(targets_all, preferred_provider_name=preferred_provider_name)
+    targets_all, _kodi_late = _kodi_sources_lane(targets_all, media_type)
     targets, fallback_targets = _split_targets_by_source_mode(targets_all, source_provider_id=source_provider_id, source_mode=source_mode)
 
     # v3.9.65: same race strategy as movies — open the source picker
@@ -8498,6 +8557,12 @@ def episode_streams(canonical_id, video_id, season, episode, title='', media_typ
             else:
                 processed_set = set((id(p), rid) for p, rid in processed_targets)
                 remaining_targets = [t for t in fallback_targets if (id(t[0]), t[1]) not in processed_set]
+    if not entries and _kodi_late:
+        entries = _kodi_collect(_kodi_late, _kodi_rows_converter(
+            media_type, canonical_id, best_meta, art, bg, ids, title=title or video_id, video_id=video_id,
+            season=season, episode=episode, show_title=best_meta.get('name') or canonical_id,
+            resume_seconds=resume_seconds, resume_percent=resume_percent_val))
+        _kodi_late = None
     if not entries:
         try:
             if entries is None or _active_race is not None:
@@ -8554,14 +8619,20 @@ def episode_streams(canonical_id, video_id, season, episode, title='', media_typ
         'episode': episode,
     }
     session_key = ''
-    if remaining_targets:
+    if remaining_targets or _kodi_late:
         session_key = source_session.create(entries, done=False, version=1)
-        _start_stream_session_refresh(
-            session_key, entries, remaining_targets, media_type, canonical_id, best_meta, art, bg, ids,
-            title=title or video_id, video_id=video_id, season=season, episode=episode,
-            show_title=best_meta.get('name') or canonical_id, resume_seconds=resume_seconds, resume_percent=resume_percent_val,
-            scan_race=_active_race,
-        )
+        if remaining_targets:
+            _start_stream_session_refresh(
+                session_key, entries, remaining_targets, media_type, canonical_id, best_meta, art, bg, ids,
+                title=title or video_id, video_id=video_id, season=season, episode=episode,
+                show_title=best_meta.get('name') or canonical_id, resume_seconds=resume_seconds, resume_percent=resume_percent_val,
+                scan_race=_active_race,
+            )
+        if _kodi_late:
+            _kodi_late.attach(session_key, _kodi_rows_converter(
+            media_type, canonical_id, best_meta, art, bg, ids, title=title or video_id, video_id=video_id,
+            season=season, episode=episode, show_title=best_meta.get('name') or canonical_id,
+            resume_seconds=resume_seconds, resume_percent=resume_percent_val), base_done=not remaining_targets)
     return _show_stream_window(entries, meta, session_key=session_key)
 
 def _resolve_best_id(video_type, tmdb_id='', imdb_id='', tvdb_id='', title=''):

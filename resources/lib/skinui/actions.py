@@ -13,6 +13,8 @@
   skin_folder    a collection folder's catalogs, as cards
   skin_facet     Sort, Genre and Filter of a grid (homeui grid_filters)
 """
+import json
+import re
 import threading
 import time
 from .. import lazy_tb as traceback
@@ -566,6 +568,8 @@ def warm_sources(params, handle):
     stamp = 'dexhub.warm.%s' % (params.get('id') or params.get('canonical_id') or '')
     try:
         if time.time() - float(home.getProperty(stamp) or 0) < 240:
+            # warmed a moment ago: the card shows what that run found
+            _republish_available(home, params.get('pid'))
             return None
     except Exception:
         pass
@@ -592,11 +596,15 @@ def warm_sources(params, handle):
         command = next((m[1] for m in entries if m and len(m) > 1), '')
         path = _route_of(command) if command else ''
     if not path:
+        C.log('warm: no sources route for "%s"' % (t.hero.get('title') or t.canonical))
         return None
     from ..homeui import rows as R
     q = R.params_of(path)
     api = rows.api()
+    page = params.get('pid') or t.title_id
+    api._WARM_SUMMARY = []
     api._WARM_ONLY = True
+    home.setProperty('dhs.tp.avail.busy', page or '')
     try:
         if q.get('action') == 'episode_streams':
             api.episode_streams(q.get('canonical_id', ''), q.get('video_id', ''), q.get('season', ''),
@@ -609,7 +617,41 @@ def warm_sources(params, handle):
         C.log('warm failed:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
     finally:
         api._WARM_ONLY = False
+    _publish_available(home, page, getattr(api, '_WARM_SUMMARY', None) or [])
+    if home.getProperty('dhs.tp.avail.busy') == page:
+        home.setProperty('dhs.tp.avail.busy', '')
     return None
+
+
+def _publish_available(home, page, summary, rows=3):
+    """v5.10.448: the cinematic title page's "Available on" card
+    (dhs.tp.avail.*): the warmed providers, best first; shown while
+    dhs.tp.avail.id names the open page's title (dhs.id)."""
+    if not page:
+        return
+    home.setProperty('dhs.tp.avail.id', '')
+    for n in range(1, rows + 1):
+        row = summary[n - 1] if n <= len(summary) else {}
+        for field in ('name', 'q', 'hdr'):
+            home.setProperty('dhs.tp.avail.%d.%s' % (n, field), str(row.get(field) or ''))
+        home.setProperty('dhs.tp.avail.%d.n' % n, str(row.get('n') or ''))
+    home.setProperty('dhs.tp.avail.total', str(sum(r.get('n') or 0 for r in summary)) if summary else '')
+    home.setProperty('dhs.tp.avail.id', page if summary else '')
+    home.setProperty('dhs.tp.avail.last.%s' % page, json.dumps(summary[:rows]))
+
+
+def _republish_available(home, page):
+    """The page opened again inside the warm-up's four minutes (no new
+    run): the card gets that title's last summary back, even when another
+    title's sources were shown in between."""
+    if not page or home.getProperty('dhs.tp.avail.id') == page:
+        return
+    try:
+        summary = json.loads(home.getProperty('dhs.tp.avail.last.%s' % page) or '[]')
+    except ValueError:
+        summary = []
+    if summary:
+        _publish_available(home, page, summary)
 
 
 def trailer(params, handle):
@@ -1100,38 +1142,109 @@ def _facet_props(facets, state, app):
     }
 
 
-def _catalog_art(ref, specs):
-    """A backdrop for each catalog card from the titles its row already read
-    (folderpage's rows, cached under the same ids): a card whose catalog was
-    not read yet keeps the collection's cover. A picture another card took
-    is not used twice. A cover chosen for the catalog (cover_overrides) wins."""
+# v5.10.448: the folder view, after Nuvio's "tabs over a grid": the
+# collection's catalogs are tabs (this listing, part=tabs), the titles of the
+# tab the cursor rests on fill the row under them (folderpage.publish_pick
+# puts that catalog in the page's first row slot), and the focused title (or
+# catalog) fills the top of the page. A tab keeps what it shows in
+# fold_art.json once found (a listing no longer opens every catalog's cached
+# row), asked at the size it is shown (a 4K "original" backdrop was the
+# slowest part of the page on a TV box).
+KINDS = {
+    # kind: (tint, Font Awesome glyph)
+    'all': ('FF6E8BFF', '\uf5fd'),        # layer group
+    'movie': ('FFE8A33D', '\uf008'),      # film
+    'series': ('FF35BFA8', '\uf26c'),     # tv
+    '': ('FF8A94A6', '\uf03a'),           # list
+}
+_TOP = re.compile(r'\btop[ ._-]?(?:10|ten)\b|أفضل\s*10|توب\s*10', re.I)
+
+
+def _art_index():
+    import os
+    return os.path.join(C.folder(), 'fold_art.json')
+
+
+def _catalog_kinds(folder_data, specs):
+    """'all', 'movie', 'series' or '' for each catalog."""
+    sources = ((folder_data or {}).get('payload') or {}).get('sources') or []
+    out = []
+    for key, name, _sub, _route in specs:
+        index = str(key).rpartition(':')[2]
+        if index == 'all':
+            out.append('all')
+            continue
+        try:
+            source = sources[int(index)] or {}
+        except Exception:
+            source = {}
+        kind = str(source.get('mediaType') or source.get('catalogType') or source.get('type') or '').lower()
+        if kind in ('series', 'tv', 'show', 'shows', 'tvshow', 'anime'):
+            out.append('series')
+        elif kind in ('movie', 'movies', 'film'):
+            out.append('movie')
+        else:
+            low = str(name or '').lower()
+            out.append('series' if any(w in low for w in ('series', 'show', ' tv', 'مسلسل')) else
+                       'movie' if any(w in low for w in ('movie', 'film', 'فيلم', 'أفلام')) else '')
+    return out
+
+
+def _bare(url):
+    return str(url or '').split('?', 1)[0].rstrip('/')
+
+
+def _catalog_art(ref, specs, wanted=None, avoid=()):
+    """What each catalog's tab shows, {'a': backdrop, 'n': titles read}
+    (wanted: the indexes to look up; the others are {} unless known). The
+    backdrop: a cover chosen for the catalog (cover_overrides) first, then
+    the one kept for it, then the first picture its row read that no
+    catalog before it uses. avoid: the collection's own pictures (a Trakt
+    row's titles without a backdrop carry the collection's)."""
     from .folderpage import TAB, _specs
     try:
         from ..cover_overrides import catalog_cover
     except Exception:
         catalog_cover = None
-    used = set()
-    found = []
-    for spec in _specs(ref, specs):
-        # v5.10.426: a cover chosen for this catalog on the account page first
+    index_path = _art_index()
+    known = C.read_json(index_path, {}) or {}
+    avoid = set(_bare(u) for u in avoid if u)
+    for key, value in list(known.items()):
+        value = value if isinstance(value, dict) else {'a': value}      # 5.10.448 first kept the picture only
+        if _bare(value.get('a')) in avoid:
+            value = dict(value, a='')
+        known[key] = value
+    used = set(v.get('a') for v in known.values() if v.get('a'))
+    found, added = [], False
+    for n, spec in enumerate(_specs(ref, specs)):
         index = str(spec.get('key') or '').rpartition(':')[2]     # fold:src:<n> / fold:src:all
-        art = catalog_cover(ref.get('set_id'), ref.get('folder_id'), index) if catalog_cover else ''
-        if art:
-            found.append(art)
-            continue
-        try:
-            data = C.read_row(C.row_file(TAB, spec['id'])) or {}
-        except Exception:
-            data = {}
-        for item in (data.get('items') or [])[:12]:
-            pics = item.get('art') or {}
-            pic = str(pics.get('fanart') or pics.get('landscape') or '')
-            if pic and pic not in used:
-                art = pic
-                break
-        if art:
-            used.add(art)
-        found.append(art)
+        entry = dict(known.get(spec['id']) or {})
+        if (wanted is None or n in wanted) and 'n' not in entry:
+            try:
+                data = C.read_row(C.row_file(TAB, spec['id'])) or {}
+            except Exception:
+                data = {}
+            items = data.get('items') or []
+            if items:
+                if not entry.get('a'):
+                    for item in items[:12]:
+                        pics = item.get('art') or {}
+                        pic = str(pics.get('fanart') or pics.get('landscape') or '')
+                        if pic and pic not in used and _bare(pic) not in avoid:
+                            entry['a'] = pic
+                            used.add(pic)
+                            break
+                entry['n'] = len(items)
+                known[spec['id']] = entry
+                added = True
+        cover = catalog_cover(ref.get('set_id'), ref.get('folder_id'), index) if catalog_cover else ''
+        if cover:
+            entry = dict(entry, a=cover)
+        found.append(entry)
+    if added:
+        if len(known) > 600:
+            known = dict(list(known.items())[-400:])
+        C.write_json(index_path, known)
     return found
 
 
@@ -1156,8 +1269,13 @@ def folder(params, handle):
     logo = wrap(str((folder_data or {}).get('clearlogo') or ((folder_data or {}).get('poster') if (folder_data or {}).get('hide_title') else '') or ''))
     items = []
     inline = params.get('inline') == '1'
-    # skin.18: each card shows a backdrop of its own catalog (read titles only)
-    own_art = _catalog_art(ref, specs) if inline else [''] * len(specs)
+    part = (params.get('part') or '') if inline else ''
+    want = params.get('k') or ''                 # the tabs' kind filter (All / Movies / Series)
+    kinds = _catalog_kinds(folder_data, specs)
+    avoid = [(folder_data or {}).get(k) for k in ('background', 'poster')] + [cover, background]
+    shown = _catalog_art(ref, specs, None, avoid) if inline else [{}] * len(specs)
+    from ..image_policy import cap_url
+    kind_labels = {'all': app.tr('الكل'), 'movie': app.tr('أفلام'), 'series': app.tr('مسلسلات'), '': app.tr('كتالوج')}
     from ..cover_overrides import folder_key, catalog_key
     cover_menu = []
     if ref.get('folder_id'):
@@ -1166,31 +1284,36 @@ def folder(params, handle):
             # a top-level folder is the collection's entry itself (no group)
             key=folder_key(ref['set_id'], ref.get('group_id'), ref['folder_id']) if ref.get('group_id')
             else folder_key(ref['set_id'], ref['folder_id']))))
-    for (key, name, subtitle, route), art in zip(specs, own_art):
+    for n, ((key, name, subtitle, route), entry, kind) in enumerate(zip(specs, shown, kinds)):
+        if part == 'tabs' and want and kind != want:
+            continue
         target = rows.list_url(route, title='%s  •  %s' % (title, name) if title else name)
-        card = art or cover
+        art = entry.get('a') or ''
+        card = cap_url(art, 'w780') if art else cover
         index = str(key).rpartition(':')[2]
+        tint, glyph = KINDS.get(kind) or KINDS['']
         menu = [(app.tr('غلاف الكتالوج…'), 'RunPlugin(%s)' % C.url(
             'skin_cover_pick', kind='catalog', name=name,
             key=catalog_key(ref['set_id'], ref['folder_id'], index)))] + cover_menu
+        count = (app.tr('%d عنوان') % entry['n']) if entry.get('n') else ''
         items.append({
             'menu': menu,
             'label': name, 'label2': subtitle, 'path': target, 'folder': True,
-            'art': {'poster': cover, 'landscape': card, 'thumb': card, 'fanart': art or background, 'clearlogo': logo},
-            'info': {'title': name, 'mediatype': 'video', 'plot': subtitle},
+            'art': {'poster': cover, 'landscape': card, 'thumb': card,
+                    'fanart': cap_url(art, 'w1280') if art else background, 'clearlogo': ''},
+            'info': {'title': name, 'mediatype': 'video', 'plot': ''},
             'props': {'kind': 'nav', 'subtitle': subtitle, 'dhs.click': 'grid', 'dhs.target': target,
-                      'dhs.badge': app.tr('كتالوج'), 'dhs.meta': subtitle},
+                      'dhs.badge': app.tr('كتالوج'), 'dhs.spec': str(n),
+                      'dhs.meta': '  ·  '.join(p for p in (subtitle, count) if p),
+                      'dhs.top10': '1' if _TOP.search(name or '') else '',
+                      'dhs.ckind': kind or 'other', 'dhs.ckind_label': kind_labels.get(kind, ''),
+                      'dhs.tint': tint, 'dhs.glyph': glyph},
         })
     row = params.get('row') or ''
     if inline:
-        # the folder view's mosaic: a large card, two beside it, the rest below
-        part = params.get('part') or ''
-        if part == 'hero':
-            items = items[:1]
-        elif part == 'side':
-            items = items[1:3]
-        elif part == 'rest':
-            items = items[3:]
+        # the folder view's tabs (an older skin's card lists get nothing)
+        if part != 'tabs':
+            items = []
         I.directory(handle, items, content='videos')
         return None
     if row:
@@ -1314,10 +1437,12 @@ def row_shape(params, handle):
         return
     a = rows.app()
     current = a.layout.shape(spec['key'])
-    from ..homeui.layout import pick_style, style_choices_for
+    from ..homeui.layout import pick_style, style_choices_for, suggested_styles
+    progress = bool(spec.get('own') or spec.get('progress'))
     key = pick_style(a.tr, a.media_path, current, spec.get('title') or '',
-                     only=style_choices_for(shelf=bool(spec.get('shelf')),
-                                            progress=bool(spec.get('own') or spec.get('progress'))))
+                     only=style_choices_for(shelf=bool(spec.get('shelf')), progress=progress),
+                     suggested=suggested_styles(spec.get('title') or '', collection=spec.get('kind') == 'collection',
+                                                progress=progress))
     if key is None or key == current:
         return
     a.layout.set_shape(spec['key'], key)

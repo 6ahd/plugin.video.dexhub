@@ -19,6 +19,7 @@ again from its fresh cache; a row whose content did not change is left alone.
 Nothing is read while a video plays, except the progress rows after it.
 """
 import bisect
+import threading
 import os
 import time
 from .. import lazy_tb as traceback
@@ -398,6 +399,7 @@ class Worker(object):
                 self.read_ahead()
                 continue
             self.dispatch_requests(rows)
+            self.take_warm()
             self.read_rows_ahead()
             self.focus_gif(rows)
             self.publish_later()
@@ -659,6 +661,44 @@ class Worker(object):
             if kind != 'r' or slot > center + SHOW_AHEAD or os.path.exists(C.row_file(tab, row_id)):
                 return None
         return (kind == 'e', slot != center, abs(slot - center))
+
+    def take_warm(self):
+        """v5.10.448: a title's sources searched ahead (skin_warm_sources),
+        handed over by the plugin call (serve.py): run here, one at a time,
+        the newest waiting, so no short-lived interpreter is torn down after
+        a search's threads (Kodi 22 crashed there now and then)."""
+        raw = C.prop('dhs.warm.request')
+        if not raw:
+            return
+        C.set_prop('dhs.warm.request', '')
+        try:
+            import json
+            request = json.loads(raw)
+        except Exception:
+            return
+        if time.time() - float(request.get('t') or 0) > 60:
+            return
+        self._warm_next = request
+        thread = getattr(self, '_warm_thread', None)
+        if thread is not None and thread.is_alive():
+            return
+        thread = threading.Thread(target=self._warm_run, name='DexHubWarmService')
+        thread.daemon = True
+        self._warm_thread = thread
+        thread.start()
+
+    def _warm_run(self):
+        from .. import profile_scope
+        from . import actions
+        while not self.stopped():
+            request, self._warm_next = getattr(self, '_warm_next', None), None
+            if not request:
+                return
+            try:
+                with profile_scope.bind(request.get('scope')):
+                    actions.warm_sources(dict(request.get('params') or {}), -1)
+            except Exception:
+                C.log('warm (service):\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
 
     def dispatch_requests(self, rows):
         if self.busy() or self.preview_transition():

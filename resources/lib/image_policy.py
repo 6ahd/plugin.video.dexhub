@@ -27,6 +27,12 @@ LOGO_KEYS = frozenset(('clearlogo', 'logo', 'tvshow.clearlogo', 'clearart',
                        'tvshow.clearart', 'discart', 'characterart'))
 BANNER_KEYS = frozenset(('banner', 'tvshow.banner', 'season.banner'))
 _CACHE = {'at': 0.0, 'poster': 'w500', 'fanart': 'w1280'}
+# v5.10.448: a row's wide card (landscape) is a third of the screen wide: it
+# stays at w780 whatever the backdrop cap. With Image quality on High every
+# card asked TMDb's original backdrop (several MB each, eight on a folder
+# page), and the rows showed empty cards for seconds on every page.
+CARD_KEYS = frozenset(('landscape', 'tvshow.landscape'))
+CARD = 'w780'
 
 
 _PAIR = re.compile(r'^w(\d+)_and_h\d+')
@@ -97,7 +103,9 @@ def bound_art(art):
         if not isinstance(value, str) or 'image.tmdb.org/t/p/' not in value:
             continue
         lowered = str(key).lower()
-        if lowered in FANART_KEYS:
+        if lowered in CARD_KEYS:
+            new = cap_url(value, CARD)
+        elif lowered in FANART_KEYS:
             new = sharp_fanart(cap_url(value, fanart))
         elif lowered in LOGO_KEYS:
             new = cap_url(value, 'w500')
@@ -111,4 +119,10 @@ def bound_art(art):
             if out is None:
                 out = dict(art)
             out[key] = new
+    # a card with only a backdrop draws a light copy of it, not the original
+    fan = art.get('fanart')
+    if not art.get('landscape') and isinstance(fan, str) and 'image.tmdb.org/t/p/' in fan:
+        if out is None:
+            out = dict(art)
+        out['landscape'] = cap_url(fan, CARD)
     return out if out is not None else art

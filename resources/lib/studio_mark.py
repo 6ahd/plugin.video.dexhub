@@ -7,11 +7,16 @@ individual image bytes. Pillow is optional; installed white packs remain usable.
 import hashlib
 import io
 import os
+import struct
 
 import xbmcvfs
 
 _CACHE = {}
 WIDTH, HEIGHT = 144, 40
+# v5.10.448: the widths the Home hero keeps for a mark (skin: hero_studio_slot.py)
+SLOTS = (48, 72, 96, 120, 144, 168, 192, 216, 240, 272)
+_SLOT_CACHE = {}
+_XBT_SIZES = {}
 
 
 def render(image):
@@ -95,3 +100,65 @@ def prepare(texture):
         result=texture if bundled else ''
         _CACHE[texture]=result
         return result
+
+
+def slot(texture, chip=False):
+    """v5.10.448: how wide the Home hero's line keeps the mark (one of SLOTS,
+    as text), from the PNG's own size: the skin draws it 48 px high, so a
+    short mark no longer leaves a wide gap before the server and ratings
+    after it. '' when the size cannot be read (the skin keeps 272)."""
+    texture = str(texture or '').strip()
+    if not texture:
+        return ''
+    if '/platforms/' in texture:
+        return '48'                       # a square app tile
+    if chip:
+        return '120'                      # the white plate is 104 wide
+    if texture in _SLOT_CACHE:
+        return _SLOT_CACHE[texture]
+    result = ''
+    try:
+        size = _xbt_size(texture) if texture.startswith('resource://') else None
+        if size is None:
+            handle = xbmcvfs.File(texture)
+            try:
+                head = bytes(handle.readBytes(24))
+            finally:
+                handle.close()
+            if head[:8] == b'\x89PNG\r\n\x1a\n' and head[12:16] == b'IHDR':
+                size = struct.unpack('>II', head[16:24])
+        if size and size[0] and size[1]:
+            need = min(260.0, 48.0 * size[0] / size[1]) + 12
+            result = str(next((n for n in SLOTS if n >= need), SLOTS[-1]))
+    except Exception:
+        result = ''
+    _SLOT_CACHE[texture] = result
+    return result
+
+
+def _xbt_size(texture):
+    """The (width, height) of a picture in an image pack, from its
+    Textures.xbt index (the white studio pack is packed: its files cannot be
+    read one by one). None when the pack is not packed or the name unknown."""
+    rest = texture[len('resource://'):]
+    addon, _, name = rest.partition('/')
+    if addon not in _XBT_SIZES:
+        sizes = {}
+        for root in ('special://home/addons/', 'special://xbmc/addons/'):
+            path = xbmcvfs.translatePath('%s%s/resources/Textures.xbt' % (root, addon))
+            if not os.path.isfile(path):
+                continue
+            with open(path, 'rb') as handle:
+                if handle.read(5) != b'XBTF2':
+                    break
+                for _ in range(struct.unpack('<I', handle.read(4))[0]):
+                    key = handle.read(256).split(b'\0', 1)[0].decode('utf-8', 'replace').lower()
+                    frames = struct.unpack('<II', handle.read(8))[1]
+                    for frame in range(frames):
+                        width, height = struct.unpack('<II', handle.read(8))
+                        handle.read(32)               # format, sizes, duration, offset
+                        if frame == 0:
+                            sizes[key] = (width, height)
+            break
+        _XBT_SIZES[addon] = sizes
+    return _XBT_SIZES[addon].get(name.lower())

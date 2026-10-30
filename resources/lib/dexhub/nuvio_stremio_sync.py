@@ -855,6 +855,9 @@ class Nuvio:
                 if stamp > 100000000000:
                     stamp /= 1000
                 kind = 'series' if entry.get('content_type') in ('series', 'tv', 'show', 'anime') else 'movie'
+                # v5.10.436: an episode's own IMDb id as content_id: the show is in video_id
+                from .playback_store import show_id as _show_id
+                cid = str(_show_id(kind, cid, entry.get('video_id')) or cid)
                 # Nuvio stores completed progress at position == duration.
                 # Zero is a valid unstarted resume point; Stremio's watched
                 # counters do not exist in this RPC's flat entry contract.

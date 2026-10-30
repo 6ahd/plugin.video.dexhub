@@ -857,7 +857,7 @@ STRINGS = {
     'وضع التشغيل': 'Playback mode',
     'الحلقة التالية': 'Next episode',
     'تشغيل الحلقة التالية تلقائيًا': 'Auto-play next episode',
-    'جار البحث عن المصادر...': 'Searching for add-ons...',
+    'جار البحث عن المصادر...': 'Searching for sources...',
     'جار جلب نتائج إضافية...': 'Fetching more results...',
     'لا توجد مصادر متاحة': 'No add-ons available',
     'لا توجد مصادر': 'No add-ons',
@@ -1067,6 +1067,14 @@ STRINGS = {
     'بدون ترجمة': 'No subtitles',
     'لا توجد ترجمات متاحة لهذا المصدر': 'No subtitles available for this add-on',
     'لا يوجد رابط تشغيل': 'No playback URL',
+    'الأفلام اللي شفتها': 'Watched films',
+    'عادية أو باهتة أو مخفية في صفوف الرئيسية؛ متابعة المشاهدة والمكتبة والبحث ما تتأثر': 'As they are, dimmed or hidden in the Home rows; Continue Watching, the library and search stay as they are',
+    'عادية': 'As they are',
+    'باهتة': 'Dimmed',
+    'مخفية': 'Hidden',
+    'ما اشتغل ولا مصدر من المصادر اللي جربناها': 'None of the sources tried would play',
+    'الرابط ما اشتغل، وما فيه مصدر ثاني بالقائمة': 'The link did not play, and the list has no other source',
+    'الرابط ما اشتغل، نجرب المصدر اللي بعده (%d/%d)': 'The link did not play: trying the next source (%d/%d)',
     'لم يتم العثور على ترجمة مطابقة لهذا المصدر': 'No matching subtitle was found for this add-on',
     'الموسم': 'Season',
     'استكمال مباشر': 'Resume directly',
@@ -1714,6 +1722,7 @@ STRINGS = {
     'عرض النتائج تلقائياً خلال %d ثانية': 'Showing results automatically in %d seconds',
     'متابعة البحث': 'Keep searching',
     'نتيجة صالحة بعد حذف المكرر': 'valid result after deduplication',
+    'نتيجة حتى الآن': 'results so far',
     'تم الوصول إلى نتائج كافية': 'Enough results found',
     'سيستمر البحث حتى اكتمال المصادر أو انتهاء المهلة': 'Search will continue until add-ons finish or the time limit is reached',
     'اضغط رجوع لإلغاء البحث': 'Press Back to cancel the search',
@@ -1885,6 +1894,7 @@ STRINGS = {
     'الترتيب \u2022 الجودة': 'Sort \u2022 Quality',
     'الترتيب \u2022 المصدر': 'Sort \u2022 Source',
     'الترتيب \u2022 الاسم': 'Sort \u2022 Name',
+    'الترتيب \u2022 الإضافة': 'Sort \u2022 Add-on',
     'النوع • %s': 'Type • %s',
     'المزود • %s': 'Provider • %s',
     'المفهرس • %s': 'Indexer • %s',
@@ -3320,7 +3330,7 @@ _TR_MEMO_LIMIT = 4096
 # Folder display choices added in skin.12.
 STRINGS.update({'العرض داخل الفولدرات': 'View inside folders',
                    'صفوف بوسترات الكتالوجات': 'Catalog poster rows',
-                   'بطاقات الكتالوجات': 'Catalog cards',
+                   'بطاقات الكتالوجات': 'Catalog cards', 'تبويبات الكتالوجات وصف واحد': 'Catalog tabs over one row', 'تبويبات (الكل، Top 10…) وصف واحد مثل المنصات، أو صفوف بوسترات': 'Tabs (All, Top 10…) over one row like the services, or poster rows',
                    'صفوف بوسترات الكتالوجات أو بطاقات الكتالوجات': 'Catalog poster rows or catalog cards'})
 
 def tr(text):
@@ -3604,6 +3614,9 @@ STRINGS.update({
     'الظل اللي فوق وتحت الشريط': 'The shade above and below the bar',
     'مثل Nuvio TV': 'Like Nuvio TV',
     'مثل Nuvio TV أو صفوف مختصرة': 'Like Nuvio TV or compact rows',
+    'مثل Nuvio TV أو صفوف مختصرة أو Halo': 'Like Nuvio TV, compact rows or Halo',
+    'ثيم البحث والمصادر': 'Search and sources theme',
+    'Halo · زجاج وعدّاد الجودة': 'Halo · glass and quality counts',
 })
 
 # v5.10.304: a Nuvio sign in waits for its profile before the sync
@@ -3651,3 +3664,24 @@ STRINGS.update({'الصوت والفيديو': 'Audio & video', 'مسارات ا
 STRINGS.update({'اختر كتالوجًا': 'Choose a catalog'})
 
 STRINGS.update({'الخط غير متاح؛ اختر خطًا آخر': 'Font unavailable; choose another font'})
+STRINGS.update({'إضافات': 'add-ons'})  # v5.10.439: the Halo search card
+STRINGS.update({'سينما أو سبوتلايت أو قائمتك أو أخبار السينما، مع معاينة': 'Cinema, Spotlight, Your List or Film news, with a preview'})  # v5.10.439
+STRINGS.update({'من إعدادات كودي، أو خط من ملفاتك': "From Kodi's settings, or a font from your files"})  # v5.10.440
+STRINGS.update({'مختصرة · بشاراتك الخاصة': 'Compact · your own badges', 'Halo · جاهز بشاراته': 'Halo · ready-made, its own badges',
+                'مختصرة تعرض شاراتك الخاصة، أو Halo الجاهز': 'Compact shows your own badges, or the ready-made Halo'})  # v5.10.441
+STRINGS.update({'Prism · سطور الإضافة كاملة بشاراتك': "Prism · the add-on's own lines, your badges", 'Prism أو مختصرة بشاراتك، أو Halo الجاهز': 'Prism or Compact with your badges, or the ready-made Halo'})  # v5.10.442
+STRINGS.update({'لا توجد نتائج بهذا الفلتر': 'No results with this filter'})  # v5.10.442
+STRINGS.update({'إضافة كودي': 'Kodi add-on', 'ما تقدر تعطي نتائجها': 'cannot share its results',
+                'ما قدرت أربط هذي الإضافة: نسختها تغيّرت عن اللي يعرفها Dex Hub.':
+                    'Dex Hub could not link this add-on: its version differs from the one Dex Hub knows.',
+                'الإضافات اللي يسألها البحث، ومنها Fen Light وUmbrella': 'The add-ons the search asks, Fen Light and Umbrella too'})  # v5.10.447
+STRINGS.update({'الترتيب • TRaSH': 'Sort • TRaSH', 'أعلى درجة في TRaSH Guides': 'Highest TRaSH Guides score'})  # v5.10.447
+STRINGS.update({'◀  الفلاتر': '◀  Filters'})  # v5.10.447
+STRINGS.update({'الترتيب • TRaSH · WEB أول': 'Sort • TRaSH · WEB first'})  # v5.10.447
+STRINGS.update({'%d عنوان': '%d titles'})  # v5.10.448
+STRINGS.update({'بطاقات': 'Cards', 'بانر': 'Banner', 'أرقام': 'Numbers', 'كوليكشن': 'Collection', 'مقترح': 'Suggested'})  # v5.10.448
+STRINGS.update({'لون خلفية الصفحات': 'Page background colour', 'كحلي أو أسود أو لون ثيمك أو بنفسجي أو أخضر أو غيرها، لصفحة الكوليكشن وصفحة العمل': 'Navy, black, your theme, plum, green and more, for the collection and title pages'})  # v5.10.448
+STRINGS.update({'شكل صفحة العمل': 'Title page layout', 'كلاسيكي، أو سينمائي: الخلفية كاملة وبطاقة زجاج فيها المصادر المتاحة والمخرج والأبطال': 'Classic, or cinematic: the full backdrop with a glass card of where it is available, the director and the cast', 'متاح على': 'Available on', 'التفاصيل': 'Details', 'الإخراج': 'Director', 'الإصدار': 'Released', 'الاستديو': 'Studio', 'بطولة': 'Starring', 'روابط': 'links'})  # v5.10.448
+
+# v5.10.448: page colour follows the title
+STRINGS.update({'يتبع لون العمل': 'Follows the title', 'يتبع لون العمل، أو كحلي أو أسود أو لون ثيمك أو غيرها، لصفحة الكوليكشن وصفحة العمل': "The title's own colour, or navy, black, your theme or others, for the collection and title pages"})

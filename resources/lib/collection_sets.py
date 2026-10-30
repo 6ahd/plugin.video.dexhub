@@ -173,6 +173,26 @@ def _builtin_kaptain_set():
     return _dressed([row])[0]
 
 
+def _with_dex_collections(entries):
+    """v5.10.448: Dex Hub's own rows in the bundled collection, after Moods &
+    Vibes: Genre Universe, Moods & Themes and K-Wave (resources/data/
+    dex_collections.json, built by tools/collections). Without the file, or
+    with a broken one, the bundled collection stays as it is."""
+    try:
+        from . import bundled_data as _bundled_data
+        root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        text = _bundled_data.read_text(os.path.join(root, 'resources', 'data', 'dex_collections.json'))
+        ours = parse_collection_json(text) if text else []
+    except Exception:
+        ours = []
+    if not ours:
+        return entries
+    known = set(str(e.get('id') or '') for e in entries)
+    ours = [e for e in ours if str(e.get('id') or '') not in known]
+    after = next((i for i, e in enumerate(entries) if str(e.get('name') or '') == 'Moods & Vibes'), len(entries) - 1)
+    return list(entries[:after + 1]) + ours + list(entries[after + 1:])
+
+
 def _builtin_kaptain_set_raw():
     global _BUILTIN_SET_CACHE
     if _BUILTIN_SET_CACHE is not None:
@@ -186,6 +206,7 @@ def _builtin_kaptain_set_raw():
         return None
     if not entries:
         return None
+    entries = _with_dex_collections(entries)
     _BUILTIN_SET_CACHE = {
         'id': BUILTIN_KAPTAIN_ID,
         'name': 'Dex Collection',

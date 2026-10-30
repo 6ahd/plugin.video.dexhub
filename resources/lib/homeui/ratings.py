@@ -85,7 +85,7 @@ def collect(tmdb_id='', imdb_id='', media_type='movie', network=False):
                 found[key] = value
     except Exception:
         pass
-    if network and len([k for k in ORDER if found.get(k)]) < 4:
+    if network and (len([k for k in ORDER if found.get(k)]) < 4 or not found.get('trakt')):
         try:
             for key, value in free_ratings(tmdb_id=tmdb_id, imdb_id=imdb_id, media_type=media_type,
                                            have=found).items():
@@ -159,6 +159,52 @@ def _json(url, timeout=4):
         return _j.loads(response.read(512 * 1024).decode('utf-8', 'replace'))
 
 
+def _trakt_rating(imdb_id, series):
+    """v5.10.448: Trakt's own score, with Dex Hub's app id (no account)."""
+    import json as _j
+    import urllib.request
+    from .. import trakt
+    req = urllib.request.Request('https://api.trakt.tv/%s/%s/ratings' % ('shows' if series else 'movies', imdb_id),
+                                 headers={'User-Agent': 'DexHub (Kodi)', 'Content-Type': 'application/json',
+                                          'trakt-api-version': '2', 'trakt-api-key': trakt.client_id()})
+    with urllib.request.urlopen(req, timeout=4) as response:
+        data = _j.loads(response.read(64 * 1024).decode('utf-8', 'replace'))
+    score, votes = float(data.get('rating') or 0), int(data.get('votes') or 0)
+    return '%.1f' % score if score > 0 and votes >= 10 else ''
+
+
+_JIKAN = {'down': 0.0}
+
+
+def _mal_rating(details, series):
+    """v5.10.448: MyAnimeList's score for Japanese animation, from Jikan (MAL's
+    free API), the same title and year (a year apart at most)."""
+    import urllib.parse
+    genres = [g.get('id') for g in details.get('genres') or []]
+    japanese = details.get('original_language') == 'ja' or 'JP' in (details.get('origin_country') or [])
+    if 16 not in genres or not japanese:
+        return ''
+    name = details.get('original_name') or details.get('original_title') or details.get('name') or details.get('title') or ''
+    year = str(details.get('first_air_date') or details.get('release_date') or '')[:4]
+    if not name or not year.isdigit():
+        return ''
+    import time
+    if time.time() - _JIKAN['down'] < 600:
+        return ''                         # it did not answer lately: not asked for 10 minutes
+    try:
+        data = _json('https://api.jikan.moe/v4/anime?' + urllib.parse.urlencode(
+            {'q': name, 'limit': 8, 'type': 'tv' if series else 'movie'}), timeout=5) or {}
+    except Exception:
+        _JIKAN['down'] = time.time()
+        return ''
+    for row in data.get('data') or []:
+        aired = ((row.get('aired') or {}).get('prop') or {}).get('from') or {}
+        first = row.get('year') or aired.get('year')
+        if first and abs(int(first) - int(year)) <= 1 and row.get('score'):
+            return '%.1f' % float(row['score'])
+    return ''
+
+
 def _helper_key(name):
     try:
         import xbmcaddon
@@ -181,14 +227,29 @@ def free_ratings(tmdb_id='', imdb_id='', media_type='movie', have=None):
             imdb_id = tmdb_direct.imdb_id_for(tmdb_id, 'tv' if series else 'movie', timeout=4) or ''
         except Exception:
             imdb_id = ''
-    if not have.get('tmdb') and tmdb_id:
+    details = {}
+    if (not have.get('tmdb') or not have.get('mal')) and tmdb_id:
         try:
             from .. import tmdb_direct
-            data = tmdb_direct._request('/%s/%s' % ('tv' if series else 'movie', tmdb_id), timeout=4,
-                                        max_attempts=1) or {}
-            score = float(data.get('vote_average') or 0)
-            if score > 0 and int(data.get('vote_count') or 0) >= 5:
+            details = tmdb_direct._request('/%s/%s' % ('tv' if series else 'movie', tmdb_id), timeout=4,
+                                           max_attempts=1) or {}
+            score = float(details.get('vote_average') or 0)
+            if not have.get('tmdb') and score > 0 and int(details.get('vote_count') or 0) >= 5:
                 out['tmdb'] = '%.1f' % score
+        except Exception:
+            details = {}
+    if not have.get('trakt') and str(imdb_id).startswith('tt'):
+        try:
+            value = _trakt_rating(imdb_id, series)
+            if value:
+                out['trakt'] = value
+        except Exception:
+            pass
+    if not have.get('mal') and details:
+        try:
+            value = _mal_rating(details, series)
+            if value:
+                out['mal'] = value
         except Exception:
             pass
     if not have.get('imdb') and str(imdb_id).startswith('tt'):

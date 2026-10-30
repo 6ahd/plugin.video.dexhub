@@ -118,6 +118,15 @@ def _switch_marked(api):
         return False
 
 
+def _next_source(ctx, stream_key, reason):
+    """v5.10.448: a source with no link gives way to the next one (auto_next)."""
+    try:
+        from . import auto_next
+        return auto_next.try_next(dict(ctx or {}, stream_key=stream_key or (ctx or {}).get('stream_key') or ''), reason)
+    except Exception:
+        return False
+
+
 def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta=None, use_resolved_url=None):
     """Play a stream via xbmc.Player().play() — matches the original behavior
     that reliably starts playback without leaving an empty folder behind.
@@ -130,6 +139,24 @@ def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta
     # this call reuses that same keyed job and never starts a duplicate.
     ctx = dict(ctx or {})
     fallback_keys = []
+    # v5.10.447: a Kodi add-on's row: that add-on resolves and plays it.
+    # v5.10.448: one that can (POV) only resolves it, and Dex Hub plays the
+    # link here like any other source (one waiting screen, one player)
+    try:
+        from . import kodi_sources as _kodi
+        if _kodi.is_kodi_row(ctx):
+            link = _kodi.resolve(ctx)
+            if link:
+                ctx['stream_url'] = link
+            elif link is None and _kodi.play(ctx):
+                return
+            elif link == '':
+                if not api.xbmc.Player().isPlaying() and not _next_source(ctx, stream_key, 'no link'):
+                    api.xbmcgui.Dialog().notification('Dex Hub', api.tr('لا يوجد رابط تشغيل'),
+                                                      api.xbmcgui.NOTIFICATION_WARNING, 4000)
+                return
+    except Exception as _kodi_exc:
+        api.xbmc.log('[DexHub] Kodi add-on playback: %s' % _kodi_exc, api.xbmc.LOGWARNING)
     if _same_play_starting(api, ctx, stream_key):
         return
     # v5.10.94: direct library routes (plex_play, emby_play, silo_play, the
@@ -269,7 +296,8 @@ def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta
                 api.xbmcplugin.setResolvedUrl(api.HANDLE, False, api.xbmcgui.ListItem())
             except Exception:
                 pass
-        api.error(api.tr('لا يوجد رابط تشغيل'))
+        if not _next_source(ctx, stream_key, 'no link'):
+            api.error(api.tr('لا يوجد رابط تشغيل'))
         return
 
     try:

@@ -209,6 +209,8 @@ def _nuvio_text(text, lines=3):
     out = []
     for line in str(text or '').replace('\r', '').split('\n'):
         line = _NUVIO_EMOJI.sub('', line)
+        # v5.10.434: an add-on's empty numbers ('NaN Mbps • NaN fps') leave the line
+        line = _PLOT_SEP_RE.sub('  •  ', _PLOT_NAN_RE.sub('', line))
         line = _re.sub(r'\s{2,}', ' ', line).strip(' \t|·•-')
         if line:
             out.append(_kodi_safe_text(line))
@@ -1175,10 +1177,12 @@ def _elite_badge_images(row, tags=None, max_items=10, skip_resolution=False):
 # Sort modes for the results drawer. Kept separate from QUALITY_FILTERS so a
 # filter and a sort can be active at the same time.
 SORT_MODES = [
-    ('S:DEFAULT',  'الترتيب \u2022 المصدر'),
+    ('S:TRASH',    'الترتيب \u2022 TRaSH'),
+    ('S:TRASHWEB', 'الترتيب \u2022 TRaSH \u00b7 WEB أول'),
+    ('S:DEFAULT',  'الترتيب \u2022 المقترح'),
     ('S:SIZE',     'الترتيب \u2022 الحجم'),
     ('S:QUALITY',  'الترتيب \u2022 الجودة'),
-    ('S:PROVIDER', 'الترتيب \u2022 المصدر'),
+    ('S:PROVIDER', 'الترتيب \u2022 الإضافة'),
     ('S:NAME',     'الترتيب \u2022 الاسم'),
 ]
 
@@ -1348,6 +1352,7 @@ def _recommendation_reason(factor):
         'provider': 'أولوية المصدر في إعداداتك',
         'resolution': 'دقة أعلى',
         'hdr': 'تفضيل HDR في إعداداتك',
+        'trash': 'أعلى درجة في TRaSH Guides',
         'access': 'نوع الوصول المباشر أو المخزن',
         'release': 'نوع الإصدار',
         'debrid': 'تفضيل Debrid في إعداداتك',
@@ -1387,7 +1392,7 @@ def _sort_quality_rank(row):
     return 0
 
 
-def _sorted_rows(rows, mode):
+def _sorted_rows(rows, mode, anime=False):
     """Reorder rows for the chosen mode. S:DEFAULT preserves the source/add-on order."""
     rows = list(rows or [])
     mode = str(mode or 'S:DEFAULT')
@@ -1401,6 +1406,14 @@ def _sorted_rows(rows, mode):
                                            -_sort_size_bytes(r)))
     if mode == 'S:NAME':
         return sorted(rows, key=lambda r: str(r.get('name') or '').upper())
+    if mode in ('S:TRASH', 'S:TRASHWEB'):
+        # v5.10.447: as Radarr and Sonarr choose: the resolution, then the
+        # TRaSH Guides score (trash_guides; its anime scores for an anime
+        # title; WEB first drops Remux and Blu-ray below WEB), then the size
+        from .trash_guides import entry_score
+        prefer = 'web' if mode == 'S:TRASHWEB' else ''
+        return sorted(rows, key=lambda r: (-_sort_quality_rank(r), -entry_score(r, anime=anime, prefer=prefer),
+                                           -_sort_size_bytes(r)))
     return rows
 
 
@@ -1693,12 +1706,13 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         self.selected = None
         self.active_filter = 'ALL'
         # --- dexhub-407-patch ---
+        # v5.10.447: TRaSH Guides' order unless the user picked another
         try:
-            self.active_sort = str(ADDON.getSetting('source_sort_mode') or 'S:DEFAULT') or 'S:DEFAULT'
+            self.active_sort = str(ADDON.getSetting('source_sort_mode') or 'S:TRASH') or 'S:TRASH'
         except Exception:
-            self.active_sort = 'S:DEFAULT'
+            self.active_sort = 'S:TRASH'
         if self.active_sort not in [k for k, _l in SORT_MODES]:
-            self.active_sort = 'S:DEFAULT'
+            self.active_sort = 'S:TRASH'
         self.filters = []
         self.play_mode = _normalize_mode(kwargs.get('play_mode') or MODE_ASK)
         self.play_with_subtitles = False
@@ -1774,8 +1788,21 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         except Exception:
             pass
 
+    def close(self):
+        try:
+            from . import page_guard
+            page_guard.unwatch(self)
+        except Exception:
+            pass
+        super().close()
+
     def onInit(self):
         self._touch_interactive()
+        try:
+            from . import page_guard        # v5.10.448: closed by something else
+            page_guard.watch(self)
+        except Exception:
+            pass
         try:
             xbmc.log('[DexHub] scan-ui results window: onInit (inited=%s)' % bool(getattr(self, '_inited', False)), xbmc.LOGINFO)
         except Exception:
@@ -1796,6 +1823,11 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             self._update_loading_state()
             return
         self._inited = True
+        try:
+            from .sources_loading import results_shown     # v5.10.448: the search screen goes now
+            results_shown()
+        except Exception:
+            pass
         # v4.5.1: classic composition only — the search stopwatch stays for
         # the live summary strip.
         if not hasattr(self, '_search_t0'):
@@ -2113,6 +2145,130 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             self.setProperty('dexhub.search.done', '1' if done else '')
         except Exception:
             pass
+        if getattr(self, '_halo', False):
+            self._update_halo_search(done)
+
+    _HALO_BAR = 560
+
+    def _update_halo_search(self, done):
+        """v5.10.439: the Halo page's search card: add-ons answered of all,
+        seconds, the add-on that answered last and the progress line."""
+        try:
+            home = xbmcgui.Window(10000)
+            try:
+                total = int(home.getProperty('dexhub.search.total') or 0)
+            except ValueError:
+                total = 0
+            try:
+                t0 = float(home.getProperty('dexhub.search.t0') or 0) or getattr(self, '_search_t0', time.time())
+            except ValueError:
+                t0 = getattr(self, '_search_t0', time.time())
+            pending = getattr(self, '_search_pending', None)
+            pending = max(0, int(pending or 0)) if pending is not None else 0
+            total = max(total, pending)
+            answered = total - pending if total else 0
+            if done:
+                answered = total
+            pct = int(round(100.0 * answered / total)) if total else (100 if done else 0)
+            end = getattr(self, '_search_finished_at', None) if done else None
+            props = {
+                'halo_searching': '' if done else '1',
+                'halo_pct': '%d%%' % pct,
+                'halo_addons': ('%d / %d %s' % (answered, total, tr('إضافات'))) if total else '',
+                'halo_elapsed': '%.1f %s' % (max(0.0, (end or time.time()) - t0), tr('ث')),
+                'halo_checking': ('%s  %s' % (tr('يفحص الآن:'), self._search_last))
+                                 if (not done and getattr(self, '_search_last', '')) else '',
+                'halo_found': str(len(getattr(self, '_visible_rows', None) or self.results or [])),
+            }
+            for key, value in props.items():
+                if self.getProperty(key) != value:
+                    self.setProperty(key, value)
+            try:
+                self.getControl(2450).setWidth(max(8, int(self._HALO_BAR * pct / 100.0)))
+            except Exception:
+                pass
+        except Exception as _silent_exc:
+            log.silent('RESULTS_WIN', _silent_exc)
+
+    _PRISM_BAR = 660
+
+    def _prism_bar(self, counts):
+        """v5.10.447: Prism's share bar: one part each for 4K, 1080p, 720p
+        and SD as wide as its share of the results (controls 2461-2464,
+        only on the Prism page)."""
+        if not getattr(self, '_prism', False):
+            return
+        parts = [(2461 + i, counts.get(k, 0)) for i, k in enumerate(('4k', '1080', '720', 'sd'))]
+        total = sum(c for _cid, c in parts)
+        shown = [(cid, c) for cid, c in parts if c]
+        room = self._PRISM_BAR - 4 * max(0, len(shown) - 1)
+        x = 24
+        try:
+            for cid, count in parts:
+                ctl = self.getControl(cid)
+                if not count:
+                    ctl.setVisible(False)
+                    continue
+                width = max(6, int(round(room * count / float(total))))
+                if (cid, count) == shown[-1]:
+                    width = max(6, 24 + self._PRISM_BAR - x)
+                ctl.setPosition(x, 120)
+                ctl.setWidth(width)
+                ctl.setVisible(True)
+                x += width + 4
+        except Exception as _silent_exc:
+            log.silent('RESULTS_WIN', _silent_exc)
+
+    def _halo_stop_search(self):
+        """Keep what was found and stop asking the add-ons still searching."""
+        if self.session_key:
+            try:
+                source_session.close(self.session_key)
+            except Exception as _silent_exc:
+                log.silent('RESULTS_WIN', _silent_exc)
+        self.setProperty('loading_more', 'false')
+        self._update_loading_state()
+        try:
+            self.setFocusId(2000)
+        except Exception:
+            pass
+
+    def _halo_quality_tile(self, control_id):
+        value = {2411: 'Q:2160P', 2412: 'Q:1080P', 2413: 'Q:720P', 2414: 'Q:480P'}.get(control_id)
+        if not value:
+            return
+        if self.active_filter == value:
+            value = 'ALL'
+        self._apply_filter(value)
+
+    def _halo_settings(self):
+        """The gear: the search and sources theme, from the page itself."""
+        from .ui_preferences import OPTIONS, value as pref_value, set_value
+        try:
+            from .i18n import is_english
+            en = is_english()
+        except Exception:
+            en = False
+        choices = OPTIONS['sources_row_style'][1]
+        names = {'full': (('Prism', 'Prism'), ('سطور الإضافة نفسها كاملة مثل Nuvio TV، مع شاراتك الخاصة',
+                                               "The add-on's own lines in full, like Nuvio TV, with your own badges")),
+                 'compact': (('مختصرة', 'Compact'), ('تعرض شاراتك الخاصة: حزمة الشارات اللي اخترتها',
+                                                      'Shows your own badges: the badge pack you picked')),
+                 'halo': (('Halo', 'Halo'), ('جاهز: تصميمه وشاراته الملونة، والبحث ونتايجه في صفحة وحدة',
+                                             'Ready-made: its own design and coloured badges, the search and results on one page'))}
+        current = pref_value('sources_row_style')
+        items = []
+        for c in choices:
+            (ar, enl), (ard, end) = names.get(c, ((c, c), ('', '')))
+            item = xbmcgui.ListItem(label=(enl if en else ar) + ('  ✓' if c == current else ''), label2=end if en else ard)
+            items.append(item)
+        pick = xbmcgui.Dialog().select(OPTIONS['sources_row_style'][3 if en else 2], items, useDetails=True,
+                                       preselect=choices.index(current) if current in choices else 0)
+        if pick < 0 or choices[pick] == current:
+            return
+        set_value('sources_row_style', choices[pick])
+        xbmcgui.Dialog().notification('Dex Hub', 'Next time you open the sources' if en else 'يتغيّر من المرة الجاية',
+                                      time=3000, sound=False)
 
     def _update_subtitle_status(self, force=False):
         """Publish the shared source-scan subtitle job without blocking UI."""
@@ -2175,6 +2331,7 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         done = bool(payload.get('done'))
         self._search_pending = payload.get('search_pending')
         self._search_failed = payload.get('search_failed', 0)
+        self._search_last = payload.get('search_last') or getattr(self, '_search_last', '')
         self.setProperty('loading_more', 'false' if done else 'true')
         # v3.9.263: live provider tally (Fen Light-style) — "AIOStreams: 12 |
         # Torrentio: 8". Updates as each provider's results stream in, so a
@@ -2406,19 +2563,57 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             item_specs.append((sort_key, label))
         for name in values:
             item_specs.append((name, _filter_label(name)))
-        signature = tuple(item_specs)
+        signature = tuple(item_specs) + (getattr(self, 'active_filter', 'ALL'),)
         # Live providers frequently publish a new payload with the same filter
         # vocabulary. Do not reset the Kodi control (and its cursor) then.
         if signature == getattr(self, '_filter_signature', None):
             return
         self._filter_signature = signature
         restore_idx = -1
+        # v5.10.438: the Halo drawer shows sections, the chosen entry and counts
+        try:
+            from .i18n import is_english
+            _en = is_english()
+        except Exception:
+            _en = False
+        _sections = {'S': ('الترتيب', 'Sort'), 'A': ('عرض', 'Show'), 'Q': ('الجودة', 'Quality'),
+                     'T': ('النوع', 'Type'), 'V': ('الإضافة', 'Add-on'), 'P': ('المزود', 'Provider'),
+                     'I': ('المفهرس', 'Indexer')}
+        _last_section = None
+        item_values = []
         for idx, (filter_value, label) in enumerate(item_specs):
             # v5.10.165: fresh items, filled before the list gets them: offscreen
-            li = _offscreen_item(label, {'label': label, 'filter_value': filter_value})
+            _v = str(filter_value or '')
+            if idx < len(SORT_MODES):
+                _sec, _active, _plain = 'S', _v == self.active_sort, _sort_mode_label(_v)
+            else:
+                _sec = 'A' if _v == 'ALL' else (_v[:1] if _v[1:2] == ':' and _v[:1] in 'TVPI' else 'Q')
+                _active = _v == getattr(self, 'active_filter', 'ALL')
+                _plain = _v[2:] if _sec in ('T', 'V', 'P', 'I') else label
+            _count = len(facets.get(_v) or ()) if _sec != 'S' else 0
+            _props = {'label': label, 'filter_value': filter_value,
+                      'halo_label': _plain, 'halo_active': '1' if _active else '',
+                      'halo_count': str(_count) if _count else '',
+                      'halo_section': (_sections[_sec][1 if _en else 0]
+                                       if _sec != _last_section else '')}
+            if getattr(self, '_halo', False):
+                # Halo: the section is a row of its own (Kodi lays a list row
+                # out by the focused row's properties, so a heading inside an
+                # entry could not show); the plain name drops "Sort •"
+                if _props['halo_section']:
+                    items.append(_offscreen_item(_props['halo_section'], {
+                        'label': '', 'filter_value': '', 'halo_header': '1',
+                        'halo_label': _props['halo_section']}))
+                    item_values.append(None)
+                if _sec in ('S', 'Q') and u' \u2022 ' in _plain:
+                    _props['halo_label'] = _plain.split(u' \u2022 ', 1)[1]
+            _last_section = _sec
+            li = _offscreen_item(label, _props)
             items.append(li)
+            item_values.append(filter_value)
             if previous_value and filter_value == previous_value:
-                restore_idx = idx
+                restore_idx = len(items) - 1
+        self._drawer_values = list(item_values)     # v5.10.447: _open_filters starts on what is on
         try:
             control = control or self.getControl(2100)
             control.reset()
@@ -2426,12 +2621,15 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             if items:
                 if restore_idx < 0:
                     restore_idx = min(max(previous_pos, 0), len(items) - 1)
+                while restore_idx < len(items) - 1 and item_values[restore_idx] is None:
+                    restore_idx += 1
                 control.selectItem(restore_idx)
         except Exception as _silent_exc:
             log.silent('RESULTS_WIN', _silent_exc)
     def _results_for_filter(self, filter_value):
         # --- dexhub-407-patch --- filter first, then apply the active sort
-        return _sorted_rows(self._filtered_rows(filter_value), getattr(self, 'active_sort', 'S:DEFAULT'))
+        return _sorted_rows(self._filtered_rows(filter_value), getattr(self, 'active_sort', 'S:DEFAULT'),
+                            anime=getattr(self, '_anime', False))
 
     def _filtered_rows(self, filter_value):
         cached = getattr(self, '_facet_rows', {}).get(str(filter_value or 'ALL'))
@@ -2492,6 +2690,8 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             types = sorted(
                 [key for key in order if key[2] == 'type'],
                 key=lambda key: (type_priority.get(key[0], 99), order.index(key)))
+            if getattr(self, '_halo', False):
+                types = []   # v5.10.439: Halo's tabs are add-ons; kinds are in the filters
             providers = sorted(
                 [key for key in order if key[2] == 'provider'],
                 key=lambda key: (-counts[key], order.index(key)))
@@ -2525,8 +2725,11 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             restore_idx = -1
             for idx, (label, count, filter_value, coloridx, is_active) in enumerate(entries):
                 # v5.10.165: fresh items, filled before the list gets them: offscreen
+                _parts = [p.strip() for p in str(label).split('\u2022')]
+                _short = _parts[0] if len(_parts) == 2 and _parts[0].casefold() == _parts[1].casefold() else label
                 li = _offscreen_item(label, {
                     'label': '%s  %d' % (_kodi_safe_text(label), count),
+                    'halo_name': _kodi_safe_text(_short), 'halo_count': str(count),
                     'filter_value': filter_value,
                     'vfilter': filter_value,  # compatibility with old skins
                     'coloridx': str(coloridx) if coloridx else '',
@@ -2785,6 +2988,8 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             _h = (58 if _nv_name_lines < 2 else 94) + 29 * min(14, _nv_desc_lines) + 52
             li.setProperty('nv_fh', str(max(0, min(7, -(-(_h - 140) // 58)))))
             li.setProperty('nv_desc', _nuvio_lines(_nv_desc))
+            # v5.10.438: Halo's focused card grows one line (29 px) at a time
+            li.setProperty('halo_fh', str(max(0, min(13, _nuvio_line_count(_nv_desc, 60) - 1))))
             # single line forms for the resting card (v5.10.303)
             li.setProperty('nv_name1', _bidi_anchor('  ·  '.join(x for x in _nv_name.split('\n') if x)))
             li.setProperty('nv_desc1', _bidi_anchor((_nv_desc.split('\n') or [''])[0]))
@@ -2873,6 +3078,55 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             li.setProperty('fmt%d_label' % n, _label)
             if _label:
                 compact_labels.append(_label)
+        # v5.10.438: the Halo theme's row: one quality pill on every row and
+        # up to five calm badges without the resolution the pill already shows
+        # (the add-on's own lines, size and add-on are the nv_ properties)
+        try:
+            _hq = _halo_quality(row, all_bits_up)
+            li.setProperty('halo_q', {'4k': '4K', '1080': '1080p', '720': '720p', 'sd': 'SD'}.get(_hq, '–'))
+            li.setProperty('halo_qk', _hq)
+            # v5.10.447: why TRaSH ranks it where it is
+            try:
+                from .trash_guides import reason as _trash_reason
+                li.setProperty('trash_line', _kodi_safe_text(_trash_reason(row, anime=getattr(self, '_anime', False))))
+            except Exception as _silent_exc:
+                log.silent('RESULTS_WIN', _silent_exc)
+            # v5.10.447: Prism's line under the quality: the picture (DV,
+            # HDR10+), else the kind of copy (Remux, WEB, Blu-ray)
+            _up = [str(tag.get('text') or '').strip().upper() for tag in tags]
+            _dr = []
+            for _u in _up:
+                _n = 'DV' if _u in ('DV', 'DOLBY VISION', 'DOVI') else (_u if (_u.startswith('HDR') or _u == 'HLG') else '')
+                if _n and _n not in _dr:
+                    _dr.append(_n)
+            if 'HDR' in _dr and any(x.startswith('HDR') and x != 'HDR' for x in _dr):
+                _dr.remove('HDR')
+            if not _dr:
+                for _u in _up:
+                    if _halo_tone(_u) == 'remux' or _u in ('WEB', 'WEB-DL', 'WEBDL', 'WEBRIP', 'BLURAY', 'BLU-RAY', 'BDRIP', 'HDTV', 'DVD', 'DVDRIP'):
+                        _dr.append(_HALO_NAMES.get(_u, _u))
+                        break
+            li.setProperty('prism_dr', _kodi_safe_text(' · '.join(_dr[:2])))
+            # v5.10.439: no badge for what the add-on's own name line says already
+            _said = ' %s ' % re.sub(r'[^A-Z0-9+.]+', ' ', str(row.get('stream_name_raw') or '').upper())
+            _hb = []
+            for tag in tags:
+                _t = str(tag.get('text') or '').strip()
+                _u = _t.upper()
+                if not _t or _u in ('2160P', '4K', '1080P', '720P', '480P', 'UHD', 'SD') or _u in _hb:
+                    continue
+                if (' %s ' % _u) in _said or (_u == 'DV' and ' DOLBY VISION ' in _said):
+                    continue
+                # one HDR badge (HDR, HDR10, HDR10+), none when the name says HDR
+                if _u.startswith('HDR') and (' HDR' in _said or any(x.startswith('HDR') for x in _hb)):
+                    continue
+                _hb.append(_u)
+            for _i in range(5):
+                _t = _hb[_i] if _i < len(_hb) else ''
+                li.setProperty('halo_b%d' % (_i + 1), _kodi_safe_text(_HALO_NAMES.get(_t, _t)))
+                li.setProperty('halo_t%d' % (_i + 1), _halo_tone(_t))
+        except Exception as _silent_exc:
+            log.silent('RESULTS_WIN', _silent_exc)
         # v5.4.24: the Quality Badges setting owns badge visibility. Earlier
         # builds tied image badges to Lightweight Mode, so a user could enable
         # badges and select a BetterFormatter/Sterzeck JSON set yet NEVER see
@@ -2898,7 +3152,8 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
 
         elite_images = []
         if badges_enabled:
-            layout = _source_badge_layout(_elite_badge_images(row, tags=tags, max_items=10))
+            # v5.10.434: the row already writes its quality ("4K"), so no second 4K badge
+            layout = _source_badge_layout(_elite_badge_images(row, tags=tags, max_items=10, skip_resolution=True))
             elite_images = [image for image, shape in layout]
             moves = _source_badge_moves(layout)
             for badge_idx, (image, shape) in enumerate(layout, 1):
@@ -2939,11 +3194,29 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             except Exception as _silent_exc:
                 log.silent('RESULTS_WIN', _silent_exc)
             filter_value = self.active_filter or 'ALL'
+        _filter_changed = self.active_filter != (filter_value or 'ALL')
         self.active_filter = filter_value or 'ALL'
+        if _filter_changed:
+            self.setProperty('halo_qf', self.active_filter)
+            try:
+                self._build_filters()   # v5.10.438: the drawer marks the chosen filter
+            except Exception as _silent_exc:
+                log.silent('RESULTS_WIN', _silent_exc)
         visible_all = self._results_for_filter(self.active_filter)
+        # v5.10.442: an empty list says it is the filter, not the search
+        _empty = (tr('لا توجد نتائج بهذا الفلتر') if not visible_all and self.active_filter != 'ALL' else '')
+        if self.getProperty('halo_empty') != _empty:
+            self.setProperty('halo_empty', _empty)
         from .stream_ranking import recommendation
+        if self.active_sort in ('S:TRASH', 'S:TRASHWEB') and (getattr(self, '_anime', False) or self.active_sort == 'S:TRASHWEB'):
+            from .trash_guides import entry_score
+            for _row in visible_all:
+                _rank = _row.get('_dh_rank')
+                if isinstance(_rank, list) and len(_rank) == 9:
+                    _rank[2] = entry_score(_row, anime=getattr(self, '_anime', False),
+                                           prefer='web' if self.active_sort == 'S:TRASHWEB' else '')
         winner, factor = (recommendation(visible_all, self._ranking_settings)
-                          if self.active_sort == 'S:DEFAULT' else (None, ''))
+                          if self.active_sort in ('S:DEFAULT', 'S:TRASH', 'S:TRASHWEB') else (None, ''))
         self._best_identity = _result_identity(visible_all[winner]) if winner is not None else ''
         self._best_reason = _recommendation_reason(factor) if winner is not None else ''
         # v5.10.165: the rows mark the suggestion by comparing their own
@@ -2952,6 +3225,23 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         if self.getProperty('best_identity') != self._best_identity:
             self.setProperty('best_identity', self._best_identity)
         self._visible_rows = visible_all
+        # v5.10.438: how many 4K, 1080p, 720p and SD rows (Halo theme)
+        try:
+            _q = {'4k': 0, '1080': 0, '720': 0, 'sd': 0, '': 0}
+            # v5.10.443: every result, so the tiles keep their counts while
+            # one of them (or any filter) is on
+            _all = getattr(self, '_facet_rows', {}).get('ALL')
+            for _row in (_all if _all is not None else (self.results or [])):
+                if isinstance(_row, dict):
+                    _q[_halo_quality(_row)] += 1
+            _q.pop('')
+            for _key, _count in _q.items():
+                _value = str(_count) if _count else ''
+                if self.getProperty('halo_q_' + _key) != _value:
+                    self.setProperty('halo_q_' + _key, _value)
+            self._prism_bar(_q)
+        except Exception as _silent_exc:
+            log.silent('RESULTS_WIN', _silent_exc)
         loading = self.getProperty('loading_more') == 'true'
         total_label = str(len(visible_all))
         if loading:
@@ -2964,6 +3254,17 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         if getattr(self, 'active_sort', 'S:DEFAULT') != 'S:DEFAULT':
             _info_bits.append(_sort_mode_label(self.active_sort))
         self.setProperty('filter_info', (u'| %s' % u'  \u00b7  '.join(_info_bits)) if _info_bits else '')
+        # v5.10.447: the tab track's end names the filter that is on, or
+        # says Left opens the filters; the drawer says what is on
+        _on = str(self.active_filter or 'ALL') != 'ALL'
+        # the value alone fits the track's end ("4K / 2160P", not "Quality • 4K / 2160P")
+        _hint = _filter_label(self.active_filter).split(u' \u2022 ')[-1] if _on else tr('\u25c0  الفلاتر')
+        for _key, _value in (('halo_filter_hint', _hint), ('halo_filter_on', '1' if _on else ''),
+                             ('halo_drawer_on', u'  \u00b7  '.join(
+                                 [_sort_mode_label(getattr(self, 'active_sort', 'S:DEFAULT'))] +
+                                 ([_filter_label(self.active_filter)] if _on else [])))):
+            if self.getProperty(_key) != _value:
+                self.setProperty(_key, _value)
         self._build_provider_chips()
         previous_key = ''
         previous_pos = 0
@@ -3224,7 +3525,28 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             item = self.getControl(2100).getSelectedItem()
         except Exception:
             item = None
+        if item and item.getProperty('halo_header'):
+            return None
         return item.getProperty('filter_value') if item else 'ALL'
+
+    def _skip_drawer_heading(self, action_id):
+        """v5.10.438: the Halo drawer's headings are rows the cursor steps over."""
+        try:
+            control = self.getControl(2100)
+            pos = int(control.getSelectedPosition())
+            size = int(control.size())
+            step = -1 if action_id in (3, 5) else 1
+            nxt = pos
+            while 0 <= nxt < size and control.getListItem(nxt).getProperty('halo_header'):
+                nxt += step
+            if not 0 <= nxt < size:
+                nxt = pos
+                while 0 <= nxt < size and control.getListItem(nxt).getProperty('halo_header'):
+                    nxt -= step
+            if nxt != pos and 0 <= nxt < size:
+                control.selectItem(nxt)
+        except Exception as _silent_exc:
+            log.silent('RESULTS_WIN', _silent_exc)
 
     def _filters_open(self):
         try:
@@ -3238,6 +3560,15 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         self.setProperty('filters_visible', 'true')
         try:
             self.setFocusId(2100)
+        except Exception as _silent_exc:
+            log.silent('RESULTS_WIN', _silent_exc)
+        # v5.10.447: the cursor starts on the filter that is on (else the order)
+        try:
+            want = (self.active_filter if str(self.active_filter or 'ALL') != 'ALL'
+                    else getattr(self, 'active_sort', ''))
+            values = getattr(self, '_drawer_values', None) or []
+            if want in values:
+                self.getControl(2100).selectItem(values.index(want))
         except Exception as _silent_exc:
             log.silent('RESULTS_WIN', _silent_exc)
         return True
@@ -3255,6 +3586,8 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         # list 2100 to its first row, so OK visibly selected one filter but
         # silently applied another.
         filter_value = filter_value or self._selected_filter_value()
+        if filter_value is None:
+            return
         self._apply_filter(filter_value)
         self._close_filters()
         self._drain_pending_updates()
@@ -3297,11 +3630,26 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                 self._choose()
         elif controlId == 2100:
             filter_value = self._selected_filter_value()
+            if filter_value is None:
+                return
             if not self._guard_action('filter'):
                 self._apply_selected_filter(filter_value)
         elif controlId == 2200:
             if not self._guard_action('mode'):
                 self._pick_play_mode()
+        elif controlId == 2201:
+            self._open_filters()               # v5.10.439: Halo's Filters button
+        elif controlId == 2202:
+            self._halo_settings()
+        elif controlId == 2401:
+            self._halo_stop_search()
+        elif controlId == 2402:
+            self.selected = None
+            self._closing = True
+            self._shutdown()
+            self.close()
+        elif controlId in (2411, 2412, 2413, 2414):
+            self._halo_quality_tile(controlId)
         elif controlId == 2300:
             # v4.6.1: provider chip — apply / toggle the top-level V: filter.
             if not self._guard_action('chip'):
@@ -3378,8 +3726,12 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             # RIGHT closes without changing the selected filter; OK applies.
             self._close_filters()
             return
+        if drawer_open and focus_id == 2100 and action_id in ACTION_MOVE and getattr(self, '_halo', False):
+            self._skip_drawer_heading(action_id)
         if drawer_open and focus_id == 2100 and action_id in ACTION_SELECT:
             filter_value = self._selected_filter_value()
+            if filter_value is None:
+                return
             if not self._guard_action('filter'):
                 self._apply_selected_filter(filter_value)
             return
@@ -3407,6 +3759,8 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             # sort drawer, as before.
             if not self._guard_action('group', 0.12):
                 if not self._step_group(-1):
+                    # v5.10.447: the far left opens the filters (no button);
+                    # the quality tiles are Left from the first tab
                     self._open_filters()
             return
         if not drawer_open and action_id in ACTION_LEFT and focus_id == 2100:
@@ -3486,21 +3840,99 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         }
 
 
+def _halo_quality(row, bits=()):
+    """v5.10.438: '4k', '1080', '720', 'sd' or '' (unknown) from the row's
+    quality, else its name, file and lines; SD only when something says so."""
+    from .sources_loading import _quality_bucket
+    blob = ' '.join(str(x or '') for x in (
+        row.get('quality'), ' '.join(bits or ()), ' '.join(row.get('video_bits') or ()),
+        row.get('filename'), row.get('stream_name_raw'), row.get('stream_desc_raw'))).lower()
+    bucket = _quality_bucket(blob)
+    if bucket == 'sd' and not _HALO_SD_RE.search(blob):
+        return ''
+    return bucket
+
+
+_HALO_SD_RE = re.compile(r'\b(480p?|576p?|sd|dvd(rip)?|xvid|cam|ts|hdtv)\b')
+
+
+def _halo_tone(text):
+    """v5.10.443: the Halo badge style for a badge word. Gradients for what
+    makes a copy special (Dolby Vision, HDR, Atmos, DTS:X, Hybrid), light for
+    lossless (Remux, TrueHD, DTS-HD MA), red for low quality, an outline for
+    where it comes from and plain audio, grey for the rest."""
+    t = str(text or '').upper().replace(' ', '')
+    if t in ('DV', 'DOLBYVISION', 'DOVI'):
+        return 'dv'
+    if t.startswith('HDR') or t == 'HLG':
+        return 'hdr'
+    if t == 'ATMOS':
+        return 'atmos'
+    if t in ('DTS-X', 'DTS:X', 'DTSX'):
+        return 'dtsx'
+    if t == 'HYBRID':
+        return 'hybrid'
+    if t == 'REMUX':
+        return 'remux'
+    if t in ('TRUEHD', 'DTS-HDMA', 'DTS-HD.MA', 'DTS-HDMA'):
+        return 'lossless'
+    if t in ('CAM', 'TS', 'TC', 'SCR', 'HDCAM', 'TELESYNC', 'HC', 'HCSUBS'):
+        return 'low'
+    if t in ('WEB', 'WEB-DL', 'WEBDL', 'WEBRIP', 'BLURAY', 'BLU-RAY', 'BDRIP', 'HDTV', 'DVD', 'DVDRIP',
+             'DD', 'DD+', 'DDP', 'AC3', 'EAC3', 'DTS', 'DTS-HD', 'SDR', '3D', 'IMAX'):
+        return 'outline'
+    return ''
+
+
+_HALO_NAMES = {'DTS-X': 'DTS:X', 'DTSX': 'DTS:X', 'BLURAY': 'BLU-RAY', 'TRUEHD': 'TrueHD', 'H264': 'H.264',
+               'H265': 'H.265', 'WEB-DL': 'WEB', 'WEBDL': 'WEB', 'DTS-HDMA': 'DTS-HD MA', 'DDP': 'DD+'}
+
+def _is_anime_title(meta):
+    """An anime title: in the anime id mapping (anime_ids), or Anime among
+    its genres."""
+    meta = meta or {}
+    if 'anime' in str(meta.get('genre') or '').lower():
+        return True
+    try:
+        from . import anime_ids
+        return bool(anime_ids.lookup({'tmdb_id': meta.get('tmdb_id'), 'imdb_id': meta.get('imdb_id'),
+                                      'tvdb_id': meta.get('tvdb_id')}))
+    except Exception:
+        return False
+
+
 def open_sources_window(results, meta, play_mode=MODE_ASK, session_key='', retry_source=None):
+    # v5.10.442: three themes: Prism (sources_nuvio.xml, the add-on's own
+    # lines like Nuvio TV, key "full"), Compact (sources_results.xml) and
+    # Halo (sources_halo.xml, ready-made)
     skin_xml = 'sources_results.xml'
-    # v5.10.302: Nuvio TV's sources page unless the compact rows are chosen
     try:
         from .ui_preferences import value as _pref
-        if _pref('sources_row_style') != 'compact':
-            skin_xml = 'sources_nuvio.xml'
+        skin_xml = {'halo': 'sources_halo.xml', 'full': 'sources_nuvio.xml'}.get(
+            _pref('sources_row_style'), 'sources_results.xml')
     except Exception:
-        skin_xml = 'sources_nuvio.xml'
-    SOURCE_BADGE_LIMIT[0] = 610 if skin_xml == 'sources_nuvio.xml' else 1170
+        pass
+    # v5.10.444: the three pages share one layout; your badges fit the text
+    # column (1.3 times larger, so 470 px is about 610 on screen)
+    SOURCE_BADGE_LIMIT[0] = 470
     try:
         xbmc.log('[DexHub] scan-ui results window: opening with %d row(s)' % len(results or []), xbmc.LOGINFO)
     except Exception:
         pass
     win = SourcesWindow(skin_xml, ADDON_PATH, 'Default', '1080i', results=results, meta=meta, play_mode=play_mode, session_key=session_key, retry_source=retry_source)
+    win._halo = True     # v5.10.444: every theme has Halo's layout and behaviour
+    win._prism = skin_xml == 'sources_nuvio.xml'     # v5.10.447: its quality share bar
+    win._anime = _is_anime_title(meta)                # v5.10.447: TRaSH's anime scores
+    try:
+        from .i18n import is_english
+        _en = is_english()
+        for _key, _ar, _enw in (('halo_streams', 'المصادر', 'Streams'),        # v5.10.438
+                                ('halo_stop', 'وقّف البحث', 'Stop searching'),  # v5.10.439
+                                ('halo_cancel', 'إلغاء', 'Cancel'),
+                                ('halo_filters', 'الفلتر', 'Filters')):
+            win.setProperty(_key, _enw if _en else _ar)
+    except Exception:
+        pass
     try:
         return win.run()
     finally:
