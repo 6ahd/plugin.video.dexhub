@@ -6,8 +6,8 @@
 
 Any Stremio & Nuvio add-on · Plex, Emby, Jellyfin & Silo · Live TV · Native Trakt, Simkl & MDBList · With or without its own skin · Arabic-first UI
 
-[![Version](https://img.shields.io/badge/version-5.10.433-7c3aed)](../../releases/latest)
-[![Skin](https://img.shields.io/badge/skin-3.28.164-ffd23f)](../../releases/latest)
+[![Version](https://img.shields.io/badge/version-5.10.448-7c3aed)](../../releases/latest)
+[![Skin](https://img.shields.io/badge/skin-3.28.168-ffd23f)](../../releases/latest)
 [![Kodi](https://img.shields.io/badge/Kodi-21%20Omega%20%7C%2022%20Piers-33d8f7)]()
 [![License](https://img.shields.io/badge/license-all%20rights%20reserved-ef4444)](LICENSE.txt)
 [![Ko-fi](https://img.shields.io/badge/support-Ko--fi-ff5e5b)](https://ko-fi.com/dexworld)
@@ -59,27 +59,32 @@ Any Stremio & Nuvio add-on · Plex, Emby, Jellyfin & Silo · Live TV · Native T
 
 ## What's new
 
-**Dex Hub 5.10.433 · Dex Hub skin 3.28.164 · DexCloud 2.16**
+**Dex Hub 5.10.448 · Dex Hub skin 3.28.168**
 
-* **Telegram alerts, redone:** new episodes, new seasons and films come with a designed picture (the best textless backdrop, the title's logo and the Dex Hub mark) and buttons: **Play on Kodi**, the trailer, TMDb, IMDb and TVDB.
-* **Play on Kodi:** tap it in Telegram, pick a TV, and Dex Hub opens that film's or episode's sources on it (and wakes the screen saver).
-* **Ready library on DexCloud:** 436 ready folders (services, studios, genres, decades, actors, directors, sagas, awards, lists). Choose each one's cover, name, type and source, review your list, then send it to the TV.
-* **Collections and covers from the DexCloud site** work again (it used to ask you to update Dex Hub).
-* **Skin 3.28.164:** the skin's texts and font names show on Kodi 22, and 42 icons are sharper on 4K TVs.
-* **Logo circles:** a new row style for platforms, networks and people, in the Home row style gallery and on the phone page.
-* **Languages by name:** pick your subtitle languages (up to three) and audio language from a list, as in Nuvio, instead of typing codes.
-* **Subtitles and audio on one page** in the player, with their look and Kodi's own settings beside them.
-* **The rating card:** as a film starts, the age rating large, why it got it (from IMDb's Parents Guide), the video, audio and rating, then it slides away.
-* **The playback capsule:** a glass pill with the video's badges (4K, Dolby Vision, IMAX), the audio's (Atmos, 7.1.4), codec, bitrate and ratings.
-* **Your fonts:** the interface font and its size apart from the subtitles, your own TTF fonts, and font names in Arabic in Kodi's font setting.
-* **Cover studio:** choose a cover for any collection, folder or catalog; it stays through refreshes and syncs with your profile.
-* **Title page:** Reviews and Pictures rows under the cast, OK on a season opens its episodes, studio logos in white.
-* **Next episode:** a finished episode's next one joins Continue Watching, watched episodes no longer come back, and *Remove from Next episode* stays removed.
-* **Sync:** Stremio add-ons and progress both ways, and each setting syncs across your TVs on its own (latest change wins, or one TV leads).
-* **The Home comes whole:** Dex Hub's screen stays at start until the spotlight and first rows are in, then fades.
-* **Kodi 22 fixes:** no more "waiting on thread" hangs from the screensaver, and picking artwork works on CoreELEC.
+<table>
+  <tr>
+    <td align="center" colspan="2"><img src=".github/screenshots/collection-top10.jpg" alt="A collection's tabs: Netflix Top 10 Movies with large rank numbers" /><br><sub>Collections like Nuvio: each catalog is a tab, and a Top 10 tab shows its titles with large numbers</sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="50%"><img src=".github/screenshots/collection-title.jpg" alt="The focused title fills the top of a collection page" /><br><sub>The focused title fills the top: logo, facts, ratings and plot, in the colours of its artwork</sub></td>
+    <td align="center" width="50%"><img src=".github/screenshots/sources-kodi-addons.jpg" alt="Red Light's sources inside Dex Hub's search, ordered by TRaSH Guides" /><br><sub>Kodi add-ons (Red Light, POV, Fen Light) search inside Dex Hub, sorted by TRaSH Guides</sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="50%"><img src=".github/screenshots/home-shelf.jpg" alt="Collector's Shelf on the Home: Remux 4K, Dolby Vision, Dolby Vision FEL, Atmos" /><br><sub>Collector's Shelf: Remux, Dolby Vision, FEL, Atmos and more, as big banners</sub></td>
+    <td align="center" width="50%"><img src=".github/screenshots/series-episodes.jpg" alt="Breaking Bad season 5 with gold stars on its best episodes" /><br><sub>Series pages: the focused episode's plot above, and a gold star on standout episodes</sub></td>
+  </tr>
+</table>
 
-Version numbers are plain numbers again (5.10.431), as Kodi repositories need. Full history in [changelog.txt](changelog.txt).
+* **A dead link gives way on its own:** a source that never shows a frame (or has no link) is followed by the next one of the same list, from the same point, up to 3 times. Stopping a video yourself never does this.
+* **Sources ready before you press Play:** resting on a card for a moment searches its sources in the background.
+* **Kodi add-on sources inside Dex Hub:** Fen Light, Red Light, POV, Umbrella-style add-ons and Otaku search with their own scrapers and debrid account, and their rows join the same list with their own tab.
+* **TRaSH Guides order** by default, three looks for the sources page (**Prism**, **Compact**, **Halo**), and a **filter row in the player's Sources panel** (All, 4K, 1080p, 720p, SD, Cached).
+* **Collections like Nuvio:** tabs instead of cards, Top 10 numbers, catalog pictures 20 times lighter, and a new **Collector's Shelf**.
+* **Watched films on Home:** as they are, dimmed or hidden. The backdrops beside the focused card load ahead, and daily lists (Top 10, Trending) fetch their pictures again each day.
+* **Pages follow the title's colours**, and the audio and subtitle panes have their flags with a numeric subtitle height.
+* **Kodi 22 stability:** fixes for the crash after source searches on Kodi 22 beta (Python 3.14).
+
+Earlier: [5.10.433](../../releases/tag/V5.10.433) brought Telegram alerts with Play on Kodi and the ready library on DexCloud. Full history in [changelog.txt](changelog.txt).
 
 ## DexCloud: your phone and Telegram
 
@@ -113,6 +118,10 @@ Install it from the Dex Hub repository (Look and feel → Skin), or turn it on f
 ## Screenshots
 
 <table>
+  <tr>
+    <td align="center"><img src=".github/screenshots/home-genre-universe.jpg" alt="Genre Universe banners on the Home" /><br><sub>Dex Hub's own collections as big banners</sub></td>
+    <td align="center"><img src=".github/screenshots/collection-tabs.jpg" alt="A collection page with its catalogs as tabs" /><br><sub>A collection's catalogs as tabs, its titles right under them</sub></td>
+  </tr>
   <tr>
     <td align="center"><img src=".github/screenshots/title.jpg" alt="Title page" /><br><sub>Title page with episodes, progress and ratings</sub></td>
     <td align="center"><img src=".github/screenshots/sources.jpg" alt="Source picker" /><br><sub>Source picker with Cached status and badges</sub></td>
