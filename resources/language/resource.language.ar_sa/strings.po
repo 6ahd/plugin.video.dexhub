@@ -1767,3 +1767,7 @@ msgstr "كتالوجات"
 msgctxt "#33969"
 msgid "مجلدات"
 msgstr "مجلدات"
+
+msgctxt "#33970"
+msgid "Quick setup"
+msgstr "الإعداد السريع"

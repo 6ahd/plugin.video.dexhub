@@ -14,6 +14,10 @@ titles that have a backdrop (board.update_spot). Now, per tab:
 and how many titles (homeui_spot_count: 5 to 20, 8 before). Kept in
 homeui_spot_source as JSON {tab: choice} (a hidden text setting: DexCloud's
 profile carries it like the other Home settings).
+
+v5.10.452: a tab with no choice of its own has no spotlight (the Home
+opens on its rows, under a header that stays); Automatic is kept as a
+choice like the others.
 """
 import json
 
@@ -26,6 +30,7 @@ SETTING = 'homeui_spot_source'
 COUNT = 'homeui_spot_count'
 COUNTS = (5, 8, 10, 12, 15, 20)
 AUTO, OFF = 'auto', 'off'
+DEFAULT = OFF                               # v5.10.452 (AUTO before)
 SPOT_TABS = ('all', 'movie', 'series')      # the Library and Servers have no spotlight
 TAB_NAMES = {'all': ('الرئيسية', 'Home'), 'movie': ('الأفلام', 'Movies'), 'series': ('المسلسلات', 'Series')}
 
@@ -44,8 +49,7 @@ def _all():
 
 
 def choice(tab):
-    value = str(_all().get(tab) or AUTO)
-    return value or AUTO
+    return str(_all().get(tab) or DEFAULT)
 
 
 def count():
@@ -58,7 +62,7 @@ def count():
 
 def save(tab, value):
     data = _all()
-    if value in ('', AUTO):
+    if value in ('', DEFAULT):
         data.pop(tab, None)
     else:
         data[tab] = value

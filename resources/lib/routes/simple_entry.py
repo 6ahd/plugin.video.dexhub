@@ -1587,47 +1587,6 @@ def maintenance():
     return _end('files', cache=False)
 
 
-def quick_setup():
-    try:
-        if xbmc.getCondVisibility('Window.IsVisible(addonsettings)'):
-            xbmc.executebuiltin('Dialog.Close(addonsettings)')
-            xbmc.sleep(180)
-    except Exception:
-        pass
-    if not xbmcgui.Dialog().yesno(
-        'Dex Hub',
-        _txt('تطبيق الإعداد البسيط والسريع؟\n\nلن تتغير حساباتك أو الكوليكشن أو إعدادات البادجز.',
-             'Apply the simple and fast profile?\n\nAccounts, Collections and badge choices will not be changed.'),
-    ):
-        return True
-    values = {
-        'lightweight_mode': 'true',
-        'search_style': '1',
-        'quality_profile': 'Balanced (recommended)',
-        'playback_open_mode': 'Choose from sources',
-        'source_resolution_mode': 'DexHub picker',
-        'show_playback_waiter': 'false',
-        'pre_cache_next_episode': 'false',
-        'streams_full_parallel_scan': 'false',
-        'streams_quick_to_results': 'true',
-        'kodi22_minimal_item': 'false',
-        'deep_meta_enrich': 'false',
-        'fanarttv_enrich': 'true',
-        'verbose_logging': 'false',
-        'cloud_sync_continuous': 'false',
-        'large_section_limit': '24',
-        'default_meta_source': 'Auto (smart)',
-        'subtitle_timeout': '15',
-    }
-    for key, value in values.items():
-        try:
-            _ADDON.setSetting(key, value)
-        except Exception:
-            pass
-    _notify(_txt('تم تطبيق الإعداد السريع ✓', 'Fast profile applied ✓'))
-    return True
-
-
 def source_behavior_dialog():
     """Expose useful source behavior without leaking implementation knobs."""
     _close_native_settings_dialog()
@@ -2372,8 +2331,13 @@ def dispatch():
         return open_page_from_native_settings(str(params.get('target') or ''))
     if action == 'setup_performance':
         return maintenance()
-    if action == 'simple_quick_setup':
-        return quick_setup()
+    if action in ('quick_setup', 'simple_quick_setup'):
+        # v5.10.452: the quick setup's steps (the old one-press profile is its
+        # Your device step now)
+        _close_native_settings_dialog()
+        from resources.lib.homeui import wizard
+        wizard.open_wizard()
+        return True
     if action == 'setup_quality':
         return quality_dialog()
     if action == 'av_settings':

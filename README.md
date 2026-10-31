@@ -8,15 +8,31 @@
 
 Any Stremio & Nuvio add-on · Plex, Emby, Jellyfin & Silo · Live TV · Native Trakt, Simkl & MDBList · With or without its own skin · Arabic-first UI
 
-[![Version](https://img.shields.io/badge/version-5.10.451-7c3aed)](../../releases/latest)
-[![Skin](https://img.shields.io/badge/skin-3.28.170-ffd23f)](../../releases/latest)
+[![Version](https://img.shields.io/badge/version-5.10.452-7c3aed)](../../releases/latest)
+[![Skin](https://img.shields.io/badge/skin-3.28.171-ffd23f)](../../releases/latest)
 [![Kodi](https://img.shields.io/badge/Kodi-21%20Omega%20%7C%2022%20Piers-33d8f7)]()
 [![License](https://img.shields.io/badge/license-all%20rights%20reserved-ef4444)](LICENSE.txt)
 [![Ko-fi](https://img.shields.io/badge/support-Ko--fi-ff5e5b)](https://ko-fi.com/dexworld)
 
-[What's new](#whats-new-in-510451) · [Pick your look](#pick-your-look) · [Why Dex Hub](#why-dex-hub) · [Works with](#works-with) · [DexCloud](#dexcloud-your-phone-and-telegram) · [Screenshots](#screenshots) · [Install](#installation) · [Support](#support-the-project)
+[What's new](#whats-new-in-510452) · [Pick your look](#pick-your-look) · [Why Dex Hub](#why-dex-hub) · [Works with](#works-with) · [DexCloud](#dexcloud-your-phone-and-telegram) · [Screenshots](#screenshots) · [Install](#installation) · [Support](#support-the-project)
 
 </div>
+
+## What's new in 5.10.452
+
+**Dex Hub 5.10.452 · Dex Hub skin 3.28.171** · fewer settings to face, a Home that opens on your rows, and a watched mark like Trakt's.
+
+**Quick setup**
+* **Four steps in one screen**, like Apple's own apps: link your accounts (with Kaptain's collection for the Home), choose how titles play (pick the source yourself, or the best one at once), pick your look from pictures (the Home's layout and the title page, with every Home layout in a gallery), and say what your device is (light, balanced or strong, with a suggestion for yours).
+* **Customize** on the last step opens every setting. Subtitles and audio stay in the player's settings, since everyone picks their own language.
+* It shows on Dex Hub's first run, as the first card of the Control centre and the first line of the add-on's settings, and the same questions sit in a **Quick setup** card at the top of the phone setup page.
+
+**A simpler Control centre**
+* **Basic mode is four sections:** Start (Quick setup, accounts, the phone), Look (theme, Home layout, title page, size), Playback (how titles play, audio and subtitles, trailers) and System (cache, diagnostics, Kodi and leaving). Its last card, **All settings**, opens all 13 sections.
+
+**Home**
+* **No spotlight by default:** the Home opens on your rows. Turn it on in Control centre → All settings → Home & rows → Spotlight titles.
+* **Watched films carry a check mark like Trakt's** (a white check in a red disc) on the Home's cards, the collection page and the title page, and the Home's hero says "Watched". A film counts as watched when you finished it here or when it is in Recently watched (your Trakt or Nuvio history). **Dimmed** is softer too.
 
 ## What's new in 5.10.451
 
@@ -54,7 +70,7 @@ Any Stremio & Nuvio add-on · Plex, Emby, Jellyfin & Silo · Live TV · Native T
 * **Silo, the way its team asked:** `/api/v2` only, the client named on every request, sessions renewed with their refresh token (one sign-in per device, never copied between TVs), `429` and `Retry-After` honoured, lighter searches and genres.
 * **Silo alerts on Telegram** by a personal Silo webhook to DexCloud 2.17, with no sign-in (your Silo server's admin must allow personal webhooks).
 
-Full history in [changelog.txt](changelog.txt). Earlier: [5.10.449](../../releases/tag/V5.10.449), [5.10.448](../../releases/tag/V5.10.448).
+Full history in [changelog.txt](changelog.txt). Earlier: [5.10.451](../../releases/tag/V5.10.451), [5.10.449](../../releases/tag/V5.10.449), [5.10.448](../../releases/tag/V5.10.448).
 
 ## Pick your look
 
@@ -194,11 +210,11 @@ Dex Hub supports Kodi 21 (Omega) and 22 (Piers) on Android, Linux, Windows, macO
 
 Download both zips from the [latest release](../../releases/latest) and install them with **Add-ons → Install from zip file**: first `plugin.video.dexhub`, then `skin.dexhub`. Zip installs don't update themselves, so the repository is the better choice.
 
-On first launch, Quick Start offers three ways in: connect Nuvio, add Stremio add-ons (Cinemeta and Torrentio are good starters), or set things up by hand.
+On first launch, the Quick setup walks you through your accounts, playback, your look and your device in four short steps (or scan its QR code and do it from your phone).
 
 ## Quick start
 
-In Dex Hub's Control centre (Basic mode shows these first; **All options** at the end of a section shows the rest):
+In Dex Hub's Control centre: **Start → Quick setup** covers the basics. Below are the paths under **All settings** (the last card of any Basic section):
 
 * **Add a source:** Stream sources → Add a source → paste a Stremio or Nuvio add-on link
 * **Connect Nuvio:** Accounts & sync → Nuvio sync

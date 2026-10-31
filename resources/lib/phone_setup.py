@@ -23,6 +23,8 @@ Routes (all under /<token>/):
   POST api/sync        {service: stremio, op: configure|run|status, direction}
   POST api/logout      {service}
   POST api/home        {page, op, ...}         rows, styles, collections (every page)
+  POST api/quick       {key, value}            v5.10.452: a quick setup answer
+                       (quick_setup.py); state() carries the questions as 'quick'
   POST api/pref        {key, value}            v5.10.286: a Home/display preference
                        (ui_preferences.OPTIONS key, through set_value) or a
                        control centre entry (homeui.control PICKS/TOGGLES,
@@ -608,6 +610,12 @@ class Session(object):
             if key in data['prefs']:
                 data[key] = data['prefs'][key]
         try:
+            from . import quick_setup
+            data['quick'] = quick_setup.state()      # v5.10.452: the quick setup card
+        except Exception:
+            _log('quick setup: %s' % traceback.format_exc(), xbmc.LOGWARNING)
+            data['quick'] = []
+        try:
             data['home'] = _home('all')
         except Exception:
             _log('home rows: %s' % traceback.format_exc(), xbmc.LOGWARNING)
@@ -740,6 +748,14 @@ class Session(object):
                     self.refresh_after = True
             return {'ok': True, 'key': key, 'value': control.phone_values().get(key)}
         raise ValueError('unknown setting')
+
+    def quick(self, body):
+        """v5.10.452: an answer of the quick setup card (quick_setup.py, the
+        same writes as the TV's quick setup)."""
+        from . import quick_setup
+        key = str(body.get('key') or '')
+        quick_setup.apply(key, body.get('value'))
+        return {'ok': True, 'key': key, 'value': quick_setup.current(key), 'quick': quick_setup.state()}
 
     def _badge_choice(self, value):
         """v5.10.410: a style (Framed, Minimal, Compact, None) or one of the
@@ -1539,7 +1555,7 @@ class _Handler(BaseHTTPRequestHandler):
                     'api/tv': 'tv', 'api/logout': 'logout', 'api/home': 'home', 'api/done': 'finish',
                     'api/silo': 'silo', 'api/transfer': 'transfer', 'api/files': 'files',
                     'api/pref': 'pref', 'api/sync':'sync', 'api/collection': 'collection', 'api/cloud': 'cloud',
-                    'api/covers': 'covers'}  # v5.10.286; covers v5.10.426
+                    'api/covers': 'covers', 'api/quick': 'quick'}  # v5.10.286; covers v5.10.426; quick v5.10.452
         name = handlers.get(route)
         if not name:
             return self._send(404, {'ok': False})

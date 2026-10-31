@@ -1767,3 +1767,7 @@ msgstr "Catalogs"
 msgctxt "#33969"
 msgid "Folders"
 msgstr "Folders"
+
+msgctxt "#33970"
+msgid "Quick setup"
+msgstr ""

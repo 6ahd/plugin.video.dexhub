@@ -758,14 +758,60 @@ def rebuild(reason):
     C.ask_republish(reason)
 
 
+# v5.10.452: the films of Recently watched, by id (not a .json: the rows'
+# own files are walked as rows)
+_HISTORY = 'watched_history.ids'
+
+
+def _history_row(spec):
+    """Recently watched (films): the account's watch history (Trakt, Nuvio)."""
+    params = spec.get('params') or {}
+    return spec.get('key') == 'recent_movies' or (params.get('action') == 'recently_watched'
+                                                    and params.get('media') == 'movie')
+
+
+def _tile_ids(tile):
+    out = set()
+    for value in (tile.get('tmdb_id'), tile.get('imdb_id'), tile.get('canonical_id')):
+        value = str(value or '').strip()
+        if value:
+            out.add(value)
+            if value.isdigit():
+                out.add('tmdb:' + value)
+    return out
+
+
+def _keep_history(tiles):
+    """The history row's films kept for the other rows' marks (a small file
+    in this profile's rows, read with the index)."""
+    ids = set()
+    for tile in tiles or []:
+        if str(tile.get('media_type') or 'movie') == 'movie':
+            ids |= _tile_ids(tile)
+    try:
+        path = os.path.join(C.folder('rows'), _HISTORY)
+        with open(path + '.tmp', 'w', encoding='utf-8') as fh:
+            json.dump(sorted(ids), fh)
+        os.replace(path + '.tmp', path)
+    except Exception:
+        C.log('watched history:\n%s' % traceback.format_exc(), xbmc.LOGDEBUG)
+    _WATCHED.pop(_scope.key(), None)
+
+
 def _watched_index():
     """The films finished on this profile (the playback store: watched or
     finished there, Trakt's and Simkl's included), by their ids; read again
-    after a minute."""
+    after a minute. v5.10.452: and the films of Recently watched (the
+    account's history: a film watched elsewhere is watched here too)."""
     hit = _WATCHED.get(_scope.key())
     if hit and time.time() - hit[0] < 60:
         return hit[1]
     seen = set()
+    try:
+        with open(os.path.join(C.folder('rows'), _HISTORY), encoding='utf-8') as fh:
+            seen.update(str(v) for v in json.load(fh) or [])
+    except Exception:
+        pass
     try:
         from .. import playback_store
         for row in playback_store.list_finished_items(limit=5000):
@@ -813,19 +859,30 @@ def _store(tab, spec, tiles, more, enriched=False, old=None, src=None):
     items = []
     limit = ROW_ITEMS if spec.get('kind') != 'collection' else 200
     watched_mode = _watched_mode(tab, spec)
-    seen = _watched_index() if watched_mode else None
+    # v5.10.452: a film finished on this profile carries the skin's watched
+    # mark (its play count) on every row but Continue Watching, whatever the
+    # mode; Dim and Hide still apply where they do
+    marks = not spec.get('progress')
+    history = _history_row(spec)
+    if history:
+        _keep_history(tiles)
+    seen = _watched_index() if (watched_mode or marks) else None
     for tile in tiles or []:
         if len(items) >= limit:
             break
-        dim = bool(seen) and _seen(tile, seen)
-        if dim and watched_mode == 'hide':
+        done = bool(seen) and _seen(tile, seen)
+        if history and not int(tile.get('progress') or 0) and str(tile.get('media_type') or 'movie') == 'movie':
+            done = True                      # every film of the history is watched
+        if done and watched_mode == 'hide':
             continue
         try:
             item = ctx.item(tile, spec)
         except Exception:
             C.log('item failed:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
             continue
-        if dim:
+        if done and marks:
+            item['watched'] = True
+        if done and watched_mode == 'dim':
             item.setdefault('props', {})['dhs.dim'] = '1'
         items.append(item)
     ctx.flush_seeds()

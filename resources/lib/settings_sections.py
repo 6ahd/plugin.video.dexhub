@@ -20,4 +20,4 @@ SETTING_ACTIONS = frozenset(row[3] for row in all_sections()) | frozenset((
     'setup_playback', 'setup_quality', 'simple_episode_controls', 'player_appearance', 'osd_buttons',
     'player_badges', 'player_badge', 'player_badge_packs', 'badges_url',
     'simple_metadata_language', 'meta_source_picker', 'simple_tmdb_api_key',
-    'setup_stability', 'simple_watching', 'simple_trakt'))
+    'setup_stability', 'simple_watching', 'simple_trakt', 'quick_setup'))

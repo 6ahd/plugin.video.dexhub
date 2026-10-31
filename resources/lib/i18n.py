@@ -3353,6 +3353,17 @@ STRINGS.update({'مقدار الصوت': 'Volume', 'صامت': 'Muted'})
 # v5.10.451: Silo alerts on Telegram
 STRINGS.update({'توصلني على تيليجرام أيضًا': 'Also on my Telegram', 'تنبيهات Silo على تيليجرام': 'Silo alerts on Telegram'})
 
+# v5.10.452: the quick setup and Basic's four sections (control centre)
+STRINGS.update({'الإعداد السريع': 'Quick setup',
+                'أربع خطوات: الحسابات والتشغيل والشكل وجهازك':
+                    'Four steps: accounts, playback, look and your device',
+                'البداية': 'Start', 'الإعداد السريع والحسابات': 'Quick setup and accounts',
+                'الشكل': 'Look', 'الثيم وشكل الرئيسية وصفحة العمل والحجم': 'The theme, the Home, the title page and the size',
+                'التشغيل': 'Playback', 'طريقة التشغيل والصوت والترجمة والتريلر': 'How titles play, audio and subtitles, trailers',
+                'الكاش والتشخيص وكودي والخروج': 'Cache, diagnostics, Kodi and leaving',
+                'كل الإعدادات': 'All settings', '%d خيار في كل الأقسام': '%d options in every section',
+                'الإعدادات الأساسية': 'Basic settings', 'أهم الخيارات في أربعة أقسام': 'The main options in four sections'})
+
 def tr(text):
     if text is None:
         return text
