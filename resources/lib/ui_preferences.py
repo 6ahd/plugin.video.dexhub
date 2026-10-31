@@ -133,7 +133,12 @@ OPTIONS = {
     'homeui_hide_plot': ('false', None, 'إخفاء الحبكة في الواجهة الرئيسية', 'Hide the plot on the Home'),
     # v5.10.189: the top bar's tabs are icons; names only on request
     'homeui_nav_names': ('false', None, 'أسماء الأقسام في الشريط العلوي', 'Tab names in the top bar'),
-    'homeui_focus_motion': ('zoom', ('zoom', 'lift', 'pop', 'glow'), 'حركة التحديد', 'Focus motion'),
+    # v5.10.450: 'tvos' (the default) is Apple TV's focus as Nuvio measured it:
+    # the card grows 9% (posters 14%), rises 8 px and casts a shadow
+    'homeui_focus_motion': ('tvos', ('tvos', 'zoom', 'lift', 'pop', 'glow'), 'حركة التحديد', 'Focus motion'),
+    # v5.10.451: no focus growth, card skeleton pulse, page
+    # transitions or moving backdrops (skin.dexhub 3.28.170, dhs.pref.homeui_calm_motion)
+    'homeui_calm_motion': ('false', None, 'حركة أقل', 'Reduce motion'),
     # v5.10.141: unfocused rows faded to 60 % and made the Home look grey;
     # light (85 %) by default
     'homeui_row_dim': ('light', ('light', 'off', 'strong'), 'تعتيم الصفوف غير المحددة', 'Dim unfocused rows'),

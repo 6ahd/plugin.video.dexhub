@@ -28,6 +28,33 @@ from . import common as C
 from . import rows as RW
 from ..homeui import rows as R
 
+# v5.10.451: the page's live labels a new title must not show from the last
+# one: cleared as another title's page opens (common.show_info), so the page
+# shows its own facts or nothing until its labels come (publish)
+LIVE_KEYS = ('dhs.tp.play', 'dhs.tp.status', 'dhs.tp.fav', 'dhs.tp.track', 'dhs.tp.plot', 'dhs.tp.meta',
+             'dhs.tp.seasons', 'dhs.tp.tvstatus', 'dhs.tp.tvstatus_bg', 'dhs.tp.rating', 'dhs.tp.clearlogo',
+             'dhs.tp.fanart', 'dhs.tp.poster', 'dhs.tp.studio_logo', 'dhs.tp.studio_chip', 'dhs.tp.director',
+             'dhs.tp.released', 'dhs.tp.studio', 'dhs.tp.starring', 'dhs.tp.season', 'dhs.tp.season_idx',
+             'dhs.tp.ep_idx', 'dhs.tp.pstep', 'dhs.tp.art.fanart', 'dhs.tp.art.clearlogo', 'dhs.tp.pg',
+             'dhs.tp.pg1', 'dhs.tp.pg2', 'dhs.tp.pg3', 'dhs.tp.pg4', 'dhs.tp.pg5')
+
+
+def clear_page(title_id):
+    """Another title's page opens: the last one's labels go at once."""
+    home = C.home()
+    if not title_id or home.getProperty('dhs.tp.id') == title_id:
+        return
+    home.clearProperty('dhs.tp.id')
+    for key in LIVE_KEYS:
+        home.clearProperty(key)
+    try:
+        from ..homeui import ratings as RB
+        for key in RB.props({}, prefix='dhs.tp.ratings.', limit=len(RB.ORDER)):
+            home.clearProperty(key)
+    except Exception:
+        pass
+
+
 SERIES_TYPES = ('series', 'episode', 'tv', 'show', 'anime', 'tvshow')
 _MEM = {}
 

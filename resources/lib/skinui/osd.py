@@ -476,7 +476,13 @@ def episodes(params, handle):
             rows = page.episode_items(season) if season >= 0 else []
             for row in rows:
                 item = I.kodi_click(row)
-                entries.append((item.get('path') or '', I.listitem(item), bool(item.get('folder'))))
+                li = I.listitem(item)
+                props = row.get('props') or {}
+                # v5.10.451: the episode playing says so on its card (skin 3.28.170)
+                if (season == playing.get('season') and _int(props.get('season'), -1) == season
+                        and _int(props.get('episode'), -1) == playing.get('episode')):
+                    li.setProperty('dhs.now', '1')
+                entries.append((item.get('path') or '', li, bool(item.get('folder'))))
             # v5.10.221: the seasons for the chips over the panel, with no call
             # of their own; v5.10.288: published after the episodes, which may
             # have read the seasons the page did not know yet

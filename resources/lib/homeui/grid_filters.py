@@ -749,7 +749,8 @@ def server_genres(facets, app, language=''):
             return []
         return jellyfin_provider.genres(servers[0], base.get('key') or '', 'Series' if show else 'Movie')
     if kind == 'silo':
-        return api.silo_client.genres(api._silo_server(), base.get('library_id') or '')
+        kind_of = 'series' if show else ('movie' if base.get('library_type') == 'movie' else '')
+        return api.silo_client.genres(api._silo_server(), base.get('library_id') or '', kind_of)
     return []
 
 

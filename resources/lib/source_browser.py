@@ -2995,12 +2995,16 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             # 46 characters a line (measured on the Mac: 'Inception (2010) -
             # [Movies' then 'Anywhere][WEBDL-2160p][DV HDR10][EAC3 5'); its
             # name is one scrolling line, so only the description adds lines.
-            # Prism's steps hold 1 + 2n lines, Halo's 1 + n.
-            _nv_desc_lines = _nuvio_line_count(_nv_desc, 46)
-            li.setProperty('nv_fh', str(max(0, min(7, _nv_desc_lines // 2))))
+            # v5.10.450: the Apple TV draws the same font 31 px a line (its
+            # photo of 30 Oct: the fifth line cut under 'EAC3 • 5.1'), the
+            # layouts' steps are 29 px: sized for 32 px lines and 44
+            # characters, a little room to spare on the Mac.
+            # Prism's text box is 29 + 58n px, Halo's 29 + 29n.
+            _nv_desc_px = 32 * _nuvio_line_count(_nv_desc, 44)
+            li.setProperty('nv_fh', str(max(0, min(7, -(-(_nv_desc_px - 29) // 58)))))
             li.setProperty('nv_desc', _nuvio_lines(_nv_desc))
             # v5.10.438: Halo's focused card grows one line (29 px) at a time
-            li.setProperty('halo_fh', str(max(0, min(13, _nv_desc_lines - 1))))
+            li.setProperty('halo_fh', str(max(0, min(13, -(-(_nv_desc_px - 29) // 29)))))
             # single line forms for the resting card (v5.10.303)
             li.setProperty('nv_name1', _bidi_anchor('  ·  '.join(x for x in _nv_name.split('\n') if x)))
             li.setProperty('nv_desc1', _bidi_anchor((_nv_desc.split('\n') or [''])[0]))

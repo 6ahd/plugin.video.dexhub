@@ -3333,6 +3333,26 @@ STRINGS.update({'العرض داخل الفولدرات': 'View inside folders',
                    'بطاقات الكتالوجات': 'Catalog cards', 'تبويبات الكتالوجات وصف واحد': 'Catalog tabs over one row', 'تبويبات (الكل، Top 10…) وصف واحد مثل المنصات، أو صفوف بوسترات': 'Tabs (All, Top 10…) over one row like the services, or poster rows',
                    'صفوف بوسترات الكتالوجات أو بطاقات الكتالوجات': 'Catalog poster rows or catalog cards'})
 
+# v5.10.451: the control centre's Basic and All options
+STRINGS.update({'أساسي': 'Basic', 'كل الخيارات': 'All options',
+                'الإعدادات الأساسية فقط': 'Basic settings only',
+                'أهم الخيارات في كل قسم': 'The main options of every section',
+                '%d خيار متقدم في هذا القسم': '%d more options in this section'})
+
+# v5.10.451: the pictures of the choices (control centre)
+STRINGS.update({'البوستر جنب المعلومات، والمواسم والحلقات تحتها': 'The poster beside the details, seasons and episodes under them',
+                'الخلفية بملء الصفحة، أزرار زجاج، والمعلومات يسار': 'The backdrop over the page, glass buttons, the details on the left',
+                'تبويبات الكتالوجات، وعناوين التبويب في صف واحد تحتها': 'Catalogue tabs, the tab\'s titles in one row under them',
+                'كل كتالوج صف بوسترات': 'Every catalogue a row of posters',
+                'سطور الإضافة كاملة، والسطر المحدد يكبر، بشاراتك': "The add-on's lines in full, the focused row grows, your badges",
+                'صفوف قصيرة بتحديد أبيض، بشاراتك': 'Short rows with a white focus, your badges',
+                'شارات ملونة جاهزة وإطار متدرج': 'Ready coloured badges and a gradient ring'})
+
+STRINGS.update({'مقدار الصوت': 'Volume', 'صامت': 'Muted'})
+
+# v5.10.451: Silo alerts on Telegram
+STRINGS.update({'توصلني على تيليجرام أيضًا': 'Also on my Telegram', 'تنبيهات Silo على تيليجرام': 'Silo alerts on Telegram'})
+
 def tr(text):
     if text is None:
         return text
@@ -3681,7 +3701,7 @@ STRINGS.update({'الترتيب • TRaSH · WEB أول': 'Sort • TRaSH · WEB
 STRINGS.update({'%d عنوان': '%d titles'})  # v5.10.448
 STRINGS.update({'بطاقات': 'Cards', 'بانر': 'Banner', 'أرقام': 'Numbers', 'كوليكشن': 'Collection', 'مقترح': 'Suggested'})  # v5.10.448
 STRINGS.update({'لون خلفية الصفحات': 'Page background colour', 'كحلي أو أسود أو لون ثيمك أو بنفسجي أو أخضر أو غيرها، لصفحة الكوليكشن وصفحة العمل': 'Navy, black, your theme, plum, green and more, for the collection and title pages'})  # v5.10.448
-STRINGS.update({'شكل صفحة العمل': 'Title page layout', 'كلاسيكي، أو سينمائي: الخلفية كاملة وبطاقة زجاج فيها المصادر المتاحة والمخرج والأبطال': 'Classic, or cinematic: the full backdrop with a glass card of where it is available, the director and the cast', 'متاح على': 'Available on', 'التفاصيل': 'Details', 'الإخراج': 'Director', 'الإصدار': 'Released', 'الاستديو': 'Studio', 'بطولة': 'Starring', 'روابط': 'links'})  # v5.10.448
+STRINGS.update({'شكل صفحة العمل': 'Title page layout', 'كلاسيكي، أو سينمائي: الخلفية بملء الصفحة وأزرار ومواسم زجاجية': 'Classic, or cinematic: the backdrop over the page, glass buttons and seasons', 'متاح على': 'Available on', 'التفاصيل': 'Details', 'الإخراج': 'Director', 'الإصدار': 'Released', 'الاستديو': 'Studio', 'بطولة': 'Starring', 'روابط': 'links'})  # v5.10.448
 
 # v5.10.448: page colour follows the title
 STRINGS.update({'يتبع لون العمل': 'Follows the title', 'يتبع لون العمل، أو كحلي أو أسود أو لون ثيمك أو غيرها، لصفحة الكوليكشن وصفحة العمل': "The title's own colour, or navy, black, your theme or others, for the collection and title pages"})

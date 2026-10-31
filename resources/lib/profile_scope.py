@@ -58,24 +58,67 @@ def token_key(token):
     return 'nuvio-' + hashlib.sha256(identity.encode()).hexdigest()[:32]
 
 
+# v5.10.451: the key of the token file as last read, with the file's stamp
+# (mtime, size, inode). Every Home property the skin worker sets asks
+# is_current(), and each ask read and parsed nuvio_token.json twice: 1,800
+# reads for the rows shown as Kodi starts (2.2 s of the 3 s before the Home
+# had rows on the Mac, more on an Apple TV). A changed or replaced file has
+# another stamp, so a profile switch is seen at once.
+_ACTIVE = {}
+
+
+def _stamp(path):
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return (path, st.st_mtime_ns, st.st_size, st.st_ino)
+
+
 def active_key():
     token_path = os.path.join(root(), 'nuvio_token.json')
+    stamp = _stamp(token_path)
+    hit = _ACTIVE.get('last')
+    if stamp is not None and hit and hit[0] == stamp:
+        return hit[1]
     token = _read(token_path, {})
     if not token:
         # Restore before binding a job to its profile. Restoring later in
         # Nuvio.token() used to bind the job to 'local', then reject its RPCs.
         from . import token_keep
         token = token_keep.restore('nuvio', lambda data: _write(token_path, data))
-    return token_key(token)
+        stamp = None
+    value = token_key(token)
+    if stamp is not None:
+        _ACTIVE['last'] = (stamp, value)
+    return value
 
 
 def key():
     return getattr(_local, 'scope', None) or active_key()
 
 
+# v5.10.451: is_current's answer for a tenth of a second (per pinned scope).
+# Even a stat took 0.4 ms while Kodi started its services: the 850 checks of
+# the rows shown at start cost 0.8 s with the token file read once. A switch
+# can be seen up to 0.1 s late, as a check made just before it always could.
+_CURRENT = {}
+_CURRENT_TTL = 0.1
+
+
 def is_current():
+    scope = getattr(_local, 'scope', None)
+    now = time.monotonic()
+    hit = _CURRENT.get(scope)
+    if hit and now - hit[0] < _CURRENT_TTL:
+        return hit[1]
     try:
-        return key() == active_key() and not os.path.exists(os.path.join(root(), 'profile_transition.json'))
+        # no pinned scope: key() is active_key() itself (read once, not twice)
+        current = active_key()
+        answer = (scope is None or scope == current) and \
+            not os.path.exists(os.path.join(root(), 'profile_transition.json'))
+        _CURRENT[scope] = (now, answer)
+        return answer
     except RuntimeError:
         # Kodi temporarily unregisters an add-on while replacing its ZIP. Old
         # workers must stop publishing; never fall back to another profile.

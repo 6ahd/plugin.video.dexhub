@@ -1398,6 +1398,14 @@ msgctxt "#31161"
 msgid "Glow only"
 msgstr "Glow only"
 
+msgctxt "#31162"
+msgid "Apple TV: grow, rise and shadow"
+msgstr "Apple TV: grow, rise and shadow"
+
+msgctxt "#31163"
+msgid "Reduce motion"
+msgstr "Reduce motion"
+
 msgctxt "#31165"
 msgid "Tab names in the top bar"
 msgstr "Tab names in the top bar"

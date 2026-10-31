@@ -590,6 +590,12 @@ def show_info(li):
     if 0 <= now - last < 2.0:
         return False
     home.setProperty('dexhub.info.opening', '%.3f' % now)
+    try:
+        # v5.10.451: the last title's labels never show on this one's page
+        from .title import clear_page
+        clear_page(li.getProperty('dhs.id'))
+    except Exception:
+        pass
     _gui.Dialog().info(li)
     return True
 

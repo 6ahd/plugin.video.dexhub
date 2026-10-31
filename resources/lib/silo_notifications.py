@@ -240,13 +240,19 @@ def settings():
                   ('notify_favorites', _t('المفضلة', 'Favorites')),
                   ('notify_continue_watching', _t('متابعة المشاهدة', 'Continue watching')),
                   ('notify_next_up', _t('الحلقة التالية', 'Next up'))]
+        from . import silo_telegram
         while True:
             prefs = client.api('notifications/preferences')
+            # v5.10.451: first, Silo's alerts on Telegram (a Silo webhook to DexCloud)
+            telegram = ('✓ ' if silo_telegram.is_on() else '○ ') + _t('توصلني على تيليجرام أيضًا', 'Also on my Telegram')
             pick = xbmcgui.Dialog().select(_t('تنبيهات Silo لهذا البروفايل', 'Silo notifications for this profile'),
-                                           [('✓ ' if prefs.get(k) else '○ ') + label for k, label in fields])
+                                           [telegram] + [('✓ ' if prefs.get(k) else '○ ') + label for k, label in fields])
             if pick < 0:
                 return
-            field = fields[pick][0]
+            if pick == 0:
+                silo_telegram.toggle()
+                continue
+            field = fields[pick - 1][0]
             client.api('notifications/preferences', method='PUT', data={field: not bool(prefs.get(field))})
             key = owner(client.auth)
             _update(key, lambda state: state.update(refresh_after=0))

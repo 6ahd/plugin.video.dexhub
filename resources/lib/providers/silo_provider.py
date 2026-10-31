@@ -125,9 +125,31 @@ def sign_out():
         return _shared.sign_out('silo')
 
 
+_CLIENT_VERSION = []
+
+
+def client_version():
+    if not _CLIENT_VERSION:
+        try:
+            import xbmcaddon
+            _CLIENT_VERSION.append(xbmcaddon.Addon('plugin.video.dexhub').getAddonInfo('version') or '0')
+        except Exception:
+            _CLIENT_VERSION.append('0')
+    return _CLIENT_VERSION[0]
+
+
+def client_headers():
+    """v5.10.451, asked by Silo's maintainers: every request names the
+    client and its version, with a real User-Agent (never a browser's)."""
+    version = client_version()
+    return {'X-Silo-Client': 'Dex Hub', 'X-Silo-Client-Version': version,
+            'User-Agent': 'DexHub/%s (Kodi)' % version}
+
+
 def _headers(auth=None, profile=True):
     auth = auth or account()
     headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
+    headers.update(client_headers())
     token = str(auth.get('token') or auth.get('access_token') or '')
     if token:
         headers['Authorization'] = 'Bearer ' + token
@@ -150,15 +172,15 @@ def _decode(raw):
 
 
 def _pooled_get(url, auth=None, profile=True):
-    """Return (available, status, body) using the shared keep-alive pool."""
+    """Return (available, status, body, headers) using the shared keep-alive pool."""
     try:
         from ..dexhub import client as _http
         pool = _http._ensure_pool()
         if pool is None:
-            return False, 0, b''
+            return False, 0, b'', {}
         urllib3 = _http._URLLIB3
     except Exception:
-        return False, 0, b''
+        return False, 0, b'', {}
 
     timeout = float(_shared._timeout())
     last_exc = None
@@ -174,7 +196,7 @@ def _pooled_get(url, auth=None, profile=True):
             if 500 <= status < 600 and attempt == 0:
                 time.sleep(0.15)
                 continue
-            return True, status, bytes(getattr(resp, 'data', b'') or b'')
+            return True, status, bytes(getattr(resp, 'data', b'') or b''), dict(getattr(resp, 'headers', {}) or {})
         except Exception as exc:
             last_exc = exc
             if attempt == 0:
@@ -183,7 +205,7 @@ def _pooled_get(url, auth=None, profile=True):
             raise SiloError('%s' % exc)
     if last_exc is not None:
         raise SiloError('%s' % last_exc)
-    return True, 0, b''
+    return True, 0, b'', {}
 
 
 def _verify_key(url, auth):
@@ -223,8 +245,60 @@ def _verify_remember(key, message):
         pass
 
 
+BUSY_WAIT_MAX = 5          # seconds a request waits out a 429 itself; longer, it gives up
+
+
+def _busy_key(url):
+    try:
+        from urllib.parse import urlsplit
+        return 'dexhub.silo.busy.' + urlsplit(url).netloc
+    except Exception:
+        return 'dexhub.silo.busy'
+
+
+def _retry_after(headers):
+    """Seconds from a Retry-After header (seconds or an HTTP date), 30 without one."""
+    value = next((str(v) for k, v in (headers or {}).items() if str(k).lower() == 'retry-after'), '').strip()
+    if not value:
+        return 30.0
+    try:
+        return max(0.0, float(value))
+    except ValueError:
+        pass
+    try:
+        from email.utils import parsedate_to_datetime
+        return max(0.0, parsedate_to_datetime(value).timestamp() - time.time())
+    except Exception:
+        return 30.0
+
+
+def _busy_until(url):
+    try:
+        import xbmcgui
+        return float(xbmcgui.Window(10000).getProperty(_busy_key(url)) or 0)
+    except Exception:
+        return 0.0
+
+
+def _busy_hold(url, seconds):
+    """v5.10.451: a 429 holds every request to that server (all of Kodi's
+    add-on calls share the Home window) until the time Silo asked for."""
+    try:
+        import xbmcgui
+        xbmcgui.Window(10000).setProperty(_busy_key(url), '%.1f' % (time.time() + seconds))
+    except Exception:
+        pass
+
+
+def _busy_check(url):
+    left = _busy_until(url) - time.time()
+    if left > 0:
+        raise SiloError('Silo مشغول؛ حاول بعد %d ثانية' % max(1, int(left + 0.99)), 429)
+
+
 def _raw(url, method='GET', data=None, auth=None, profile=True, retry=True,
          headers_extra=None, return_headers=False):
+    _busy_check(url)
     auth = dict(auth or account())
     body = json.dumps(data).encode('utf-8') if data is not None else None
     verify_key = _verify_key(url, auth) if profile else ''
@@ -237,8 +311,16 @@ def _raw(url, method='GET', data=None, auth=None, profile=True, retry=True,
     # keep-alive pool as Stremio/Emby instead of paying a fresh TCP/TLS
     # handshake per row. Mutating/auth POSTs deliberately stay on urllib.
     if str(method or 'GET').upper() == 'GET' and body is None and not headers_extra and not return_headers:
-        available, status, payload_raw = _pooled_get(url, auth=auth, profile=profile)
+        available, status, payload_raw, reply_headers = _pooled_get(url, auth=auth, profile=profile)
         if available:
+            if status == 429:
+                wait = _retry_after(reply_headers)
+                _busy_hold(url, wait)
+                if retry and wait <= BUSY_WAIT_MAX:
+                    time.sleep(wait)
+                    _busy_hold(url, 0)
+                    return _raw(url, method, data, auth, profile, retry=False)
+                raise SiloError('Silo مشغول؛ حاول بعد %d ثانية' % max(1, int(wait + 0.99)), 429)
             if (status == 401 and retry and (auth is None or auth.get('profile_id'))
                     and account().get('refresh_token')):
                 renewed = refresh(auth)
@@ -262,6 +344,15 @@ def _raw(url, method='GET', data=None, auth=None, profile=True, retry=True,
             payload = response.read()
             return (payload, dict(response.headers)) if return_headers else payload
     except HTTPError as exc:
+        if exc.code == 429:
+            wait = _retry_after(dict(exc.headers or {}))
+            _busy_hold(url, wait)
+            if retry and wait <= BUSY_WAIT_MAX:
+                time.sleep(wait)
+                _busy_hold(url, 0)
+                return _raw(url, method, data, auth, profile, retry=False,
+                            headers_extra=headers_extra, return_headers=return_headers)
+            raise SiloError('Silo مشغول؛ حاول بعد %d ثانية' % max(1, int(wait + 0.99)), 429)
         # Normal media calls carry a small server-scoped copy of the selected
         # account, so ``auth`` is not literally None. It is still safe to
         # refresh when that copy has a selected profile; pending login/QR
@@ -287,14 +378,10 @@ def _raw(url, method='GET', data=None, auth=None, profile=True, retry=True,
 
 
 def api_major(auth=None):
-    from . import silo_contract
-    auth = dict(auth or account())
-    root = _base(auth.get('url'))
-    def probe(url, **_ignored):
-        req = Request(url, headers={'Accept': 'application/json'})
-        with urlopen(req, timeout=_shared._timeout()) as response:
-            return response.read()
-    return silo_contract.version(root, probe)
+    """v5.10.451: Silo's /api/v1 is frozen and its maintainers asked clients
+    to use /api/v2 only; there is no probe (each add-on call is a fresh
+    interpreter, so the probe ran before nearly every request)."""
+    return 2
 
 
 def _api(path, method='GET', data=None, params=None, auth=None, profile=True, retry=True, major=None):
@@ -308,20 +395,12 @@ def _api(path, method='GET', data=None, params=None, auth=None, profile=True, re
             if not _same_account(auth, current) or str(auth['profile_id']) != str(current.get('profile_id') or ''):
                 raise SiloError('تغير بروفايل Silo؛ أعد فتح الصفحة')
     read_owner()
-    selected_major = major or api_major(auth)
-    if selected_major == 2:
-        from . import silo_contract
-        def send(url, **kwargs):
-            kwargs.setdefault('auth', auth)
-            return _raw(url, profile=profile, retry=retry, **kwargs)
-        result = silo_contract.request(root, str(path or ''), method, data, params, auth, send, _decode)
-        read_owner()
-        return result
-    url = root + '/api/v1/' + str(path or '').lstrip('/')
-    pairs = [(str(k), str(v)) for k, v in (params or {}).items() if v not in (None, '')]
-    if pairs:
-        url += '?' + urlencode(pairs)
-    result = _decode(_raw(url, method=method, data=data, auth=auth, profile=profile, retry=retry))
+    # /api/v2 only (``major`` is kept for callers; it is always 2)
+    from . import silo_contract
+    def send(url, **kwargs):
+        kwargs.setdefault('auth', auth)
+        return _raw(url, profile=profile, retry=retry, **kwargs)
+    result = silo_contract.request(root, str(path or ''), method, data, params, auth, send, _decode)
     read_owner()
     return result
 
@@ -382,8 +461,61 @@ def _renewed_auth(requested, current):
     return value
 
 
+class _RenewLock(object):
+    """v5.10.451: one renewal at a time across Kodi's add-on interpreters
+    (each plugin call, the service, the skin's widgets run their own Python,
+    so the thread lock alone let two of them spend the same refresh token).
+    A lock file next to the settings; one older than STALE seconds is left
+    over from a crash and taken over."""
+    STALE = 30
+
+    def __init__(self):
+        try:
+            import xbmcvfs
+            folder = xbmcvfs.translatePath('special://profile/addon_data/plugin.video.dexhub')
+        except Exception:
+            folder = ''
+        import os
+        self.path = os.path.join(folder or '.', 'silo_renew.lock')
+        self.held = False
+
+    def __enter__(self):
+        import os
+        deadline = time.time() + 20
+        while True:
+            try:
+                fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                os.write(fd, str(os.getpid()).encode())
+                os.close(fd)
+                self.held = True
+                return self
+            except FileExistsError:
+                try:
+                    if time.time() - os.path.getmtime(self.path) > self.STALE:
+                        os.remove(self.path)
+                        continue
+                except OSError:
+                    continue
+            except OSError:
+                return self          # no folder to lock in: the thread lock still holds
+            if time.time() > deadline:
+                return self
+            time.sleep(0.1)
+
+    def __exit__(self, *exc):
+        if self.held:
+            import os
+            try:
+                os.remove(self.path)
+            except OSError:
+                pass
+
+
 def refresh(auth=None):
-    with _refresh_lock:
+    """Renews the session with its refresh token (POST /auth/refresh); never
+    signs in again with a password. A renewal another interpreter made while
+    this one waited for the lock is used as it is."""
+    with _refresh_lock, _RenewLock():
         current = dict(account())
         requested = dict(auth or current)
         if not _same_account(requested, current):
@@ -870,10 +1002,18 @@ def catalog_filters(genre='', unwatched='', decade='', rating=''):
     return params
 
 
-def genres(server=None, library_id=''):
-    params = {'library_id': str(library_id)} if library_id else {}
-    data = _api('catalog/filters', params=params, auth=_native_auth(_server(server)))
-    rows = data.get('genres') or [] if isinstance(data, dict) else []
+def genres(server=None, library_id='', media_type=''):
+    """v5.10.451: the genre facet alone (/catalog/filters built every list,
+    the costly file-based ones too, for the genres only; Silo's maintainers
+    asked for this)."""
+    params = {'facet': 'genre', 'limit': 100, 'skip_technical': 'true'}
+    if library_id:
+        params['library_id'] = str(library_id)
+    native_type = {'show': 'series', 'tvshow': 'series'}.get(str(media_type or '').lower(), str(media_type or '').lower())
+    if native_type in ('movie', 'series'):
+        params['type'] = native_type
+    data = _api('catalog/filters/search', params=params, auth=_native_auth(_server(server)))
+    rows = [(row or {}).get('value') for row in (data.get('values') or [])] if isinstance(data, dict) else []
     return [(str(g), str(g)) for g in rows if isinstance(g, str) and g.strip()]
 
 
@@ -964,9 +1104,11 @@ def metadata(server, item_id, include_versions=True):
 def search_server(server, query, media_type='', limit=40):
     native_type = {'movie': 'movie', 'show': 'series', 'series': 'series',
                    'episode': 'episode'}.get(str(media_type or '').lower(), '')
+    # v5.10.451: no detail call per result (Silo's maintainers asked clients
+    # not to fetch every item's detail): the catalog rows carry the title,
+    # year, art and plot; the detail is read when a title is opened
     rows, _total, _more = catalog_page(server, media_type=native_type,
-                                       query=query, limit=limit,
-                                       enrich_details=True)
+                                       query=query, limit=limit)
     return rows
 
 
@@ -1011,7 +1153,10 @@ def find_all_by_ids(server, ids, media_type='movie', title='', limit=10):
     # v5.10.26: the per-row detail fallback below is serial and each call
     # pays the full request timeout; bound it so one cold server cannot
     # turn a search into a 10-20s stall.
-    detail_budget = 4
+    detail_budget = 3
+
+    def _plain(text):
+        return re.sub(r'[\W_]+', ' ', str(text or '').casefold()).strip()
     for probe in probes:
         if not str(probe or '').strip():
             continue
@@ -1028,6 +1173,11 @@ def find_all_by_ids(server, ids, media_type='movie', title='', limit=10):
             # always verified before the candidate becomes a playable source.
             detailed = row
             if not (any((row.get('ids') or {}).values()) or row.get('versions')):
+                # v5.10.451: a detail only for a row whose title is the one
+                # asked for (catalog rows carry no external ids): a search
+                # used to read the detail of up to 16 rows
+                if _plain(row.get('title')) != _plain(probe):
+                    continue
                 if detail_budget <= 0:
                     continue
                 detail_budget -= 1
@@ -1078,6 +1228,7 @@ def _stream_headers(auth):
     if auth.get('profile_token'):
         values['X-Profile-Token'] = str(auth.get('profile_token'))
     values['X-Device-Id'] = _shared._device_id('silo')
+    values.update(client_headers())        # Kodi's player sends these too
     return urlencode(values)
 
 
@@ -1089,7 +1240,7 @@ def playback_url(server, item_id, media_source_id=''):
         file_id = str((versions[0] if versions else {}).get('file_id') or '')
     if not file_id:
         raise SiloError('لا توجد نسخة قابلة للتشغيل في Silo')
-    url = '%s/api/v1/direct-download?%s' % (
+    url = '%s/api/v2/direct-download?%s' % (
         _base(auth.get('url')), urlencode({'file_id': file_id, 'format': 'original'}))
     return url + '|' + _stream_headers(auth)
 
@@ -1110,7 +1261,7 @@ def _subtitle_absolute_url(auth, value):
         # Jellyfin compatibility layer emits /Videos/... routes. Prefix only
         # native routes; Jellyfin routes must stay rooted at the server origin.
         if not relative.startswith(('/api/v1/', '/api/v2/', '/Videos/')):
-            relative = '/api/v1' + relative
+            relative = '/api/v2' + relative
         value = _base(auth.get('url')) + relative
     return value + '|' + _stream_headers(auth)
 

@@ -280,7 +280,7 @@ class _BaseWindow(xbmcgui.WindowXML):
         self.prop('dh.gif.enabled', '1' if self.s.flag('homeui_focus_gif', True) else '')
         self.prop('dh.plot.scroll', '1' if self.s.flag('homeui_plot_scroll', True) else '')
         self.prop('dh.plot.off', '1' if self.s.flag('homeui_hide_plot', False) else '')
-        self.prop('dh.motion', (self.s.text('homeui_focus_motion', 'zoom') or 'zoom').strip().lower())
+        self.prop('dh.motion', (self.s.text('homeui_focus_motion', 'tvos') or 'tvos').strip().lower())
         # v5.10.172: the cards' titles under the picture (setting Card titles)
         # (Below: '1'; None: 'none', no title on or under the picture, the
         # hero above names the focused title with its logo)
@@ -741,7 +741,7 @@ class _BaseWindow(xbmcgui.WindowXML):
         self.prop('dh.plot.scroll', '1' if self.s.flag('homeui_plot_scroll', True) else '')
         self.prop('dh.plot.off', '1' if self.s.flag('homeui_hide_plot', False) else '')
         self._refresh_row_sources()     # v5.10.286
-        self.prop('dh.motion', (self.s.text('homeui_focus_motion', 'zoom') or 'zoom').strip().lower())
+        self.prop('dh.motion', (self.s.text('homeui_focus_motion', 'tvos') or 'tvos').strip().lower())
         self.prop('dh.kenburns', '1' if self.s.flag('homeui_kenburns', True) else '')
         self.kenburns = self.s.flag('homeui_kenburns', True)
         self.trailers_on = self.s.flag('homeui_trailers', True)

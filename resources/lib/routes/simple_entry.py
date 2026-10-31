@@ -608,7 +608,8 @@ def home_options_dialog():
         ('homeui_hide_plot', 'false', 'إخفاء الحبكة في الواجهة الرئيسية', 'Hide the plot on the Home', None),
         ('homeui_show_row_source', 'true', 'إظهار مصدر الصف', 'Show row source', None),     # v5.10.286
         ('homeui_nav_names', 'false', 'أسماء الأقسام في الشريط العلوي', 'Tab names in the top bar', None),
-        ('homeui_focus_motion', 'zoom', 'حركة التحديد', 'Focus motion', ('zoom', 'lift', 'pop', 'glow')),
+        ('homeui_focus_motion', 'tvos', 'حركة التحديد', 'Focus motion', ('tvos', 'zoom', 'lift', 'pop', 'glow')),
+        ('homeui_calm_motion', 'false', 'حركة أقل', 'Reduce motion', None),    # v5.10.451
         ('homeui_live_preview', 'true', 'معاينة القنوات', 'Channel previews', None),
         ('homeui_light_mode', 'true', 'الوضع الخفيف', 'Light mode', None),
         ('homeui_show_continue', 'true', 'صف متابعة المشاهدة', 'Continue Watching row', None),

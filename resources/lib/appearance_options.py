@@ -20,8 +20,9 @@ def open_settings():
     glass = not xbmc.getCondVisibility('Skin.HasSetting(dh.noglass)')
     colour = 'accent' if xbmc.getCondVisibility('String.IsEqual(Skin.String(dh.kodifocus),accent)') else 'white'
     motion = value('homeui_focus_motion')
-    motions = ('zoom', 'lift', 'pop', 'glow')
-    motion_names = (text('تكبير', 'Zoom'), text('ارتفاع', 'Lift'), text('نبضة', 'Pop'), text('توهّج', 'Glow'))
+    calm = value('homeui_calm_motion') == 'true'      # v5.10.451
+    motions = ('tvos', 'zoom', 'lift', 'pop', 'glow')
+    motion_names = ('Apple TV', text('تكبير', 'Zoom'), text('ارتفاع', 'Lift'), text('نبضة', 'Pop'), text('توهّج', 'Glow'))
     cursor = 0
     while True:
         motion_index = motions.index(motion) if motion in motions else 0
@@ -29,7 +30,8 @@ def open_settings():
             _row(text('الوضع الزجاجي', 'Glass mode'), text('مفعّل', 'On') if glass else text('مطفأ', 'Off')),
             _row(text('لون التحديد', 'Focus colour'), text('لون الثيم', 'Theme colour') if colour == 'accent' else text('أبيض', 'White')),
             _row(text('حركة التحديد', 'Focus motion'), motion_names[motion_index]),
-            _row(text('إعادة ضبط الزجاج والتحديد', 'Reset glass & focus'), text('زجاج مفعّل، تحديد أبيض، حركة تكبير', 'Glass on, white focus, zoom motion')),
+            _row(text('حركة أقل', 'Reduce motion'), text('مفعّل', 'On') if calm else text('مطفأ', 'Off')),
+            _row(text('إعادة ضبط الزجاج والتحديد', 'Reset glass & focus'), text('زجاج مفعّل، تحديد أبيض، حركة Apple TV', 'Glass on, white focus, Apple TV motion')),
         ], preselect=cursor)
         if pick < 0:
             return True
@@ -49,8 +51,15 @@ def open_settings():
             if selected in range(len(motions)) and set_value('homeui_focus_motion', motions[selected]):
                 motion = motions[selected]
         elif pick == 3:
+            if set_value('homeui_calm_motion', 'false' if calm else 'true'):
+                calm = not calm
+                from .skinui import strings as _skin_strings
+                _skin_strings.publish_options()
+        elif pick == 4:
             xbmc.executebuiltin('Skin.Reset(dh.noglass)', wait=True)
             xbmc.executebuiltin('Skin.SetString(dh.kodifocus,white)', wait=True)
             glass, colour = True, 'white'
-            if set_value('homeui_focus_motion', 'zoom'):
-                motion = 'zoom'
+            if set_value('homeui_focus_motion', 'tvos'):
+                motion = 'tvos'
+            if set_value('homeui_calm_motion', 'false'):
+                calm = False

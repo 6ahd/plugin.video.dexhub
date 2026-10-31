@@ -112,12 +112,14 @@ def _no_choice():
 
 
 _HANDOVER = {}
-_HANDOVER_SECONDS = 4.0
+# v5.10.451: 15 s (4 s ran out on the Apple TV, where the sources page takes
+# longer to build: the title page showed, then the results)
+_HANDOVER_SECONDS = 15.0
 
 
 def _hand_over(window):
     """v5.10.448: the search screen stays until the sources page is up
-    (results_shown()), or something plays, or 4 s: closed at once, the title
+    (results_shown()), or something plays, or 15 s: closed at once, the title
     page under it showed for a moment before the page opened."""
     import threading
     shown = threading.Event()

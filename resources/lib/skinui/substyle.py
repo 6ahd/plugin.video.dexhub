@@ -64,15 +64,86 @@ def _all():
     for setting in ((answer.get('result') or {}).get('settings') or []):
         if isinstance(setting, dict) and setting.get('id'):
             out[setting['id']] = setting
+    # v5.10.451: Kodi leaves its colour buttons out of that list (so the
+    # colour rows never showed); each is read on its own
+    for key, _ar, _en, kind, _extra in ROWS:
+        if kind == 'colour' and key not in out:
+            value = _get(key)
+            if value is not None:
+                out[key] = {'id': key, 'value': value}
     return out
 
 
-# colours (ARGB, as Kodi's colour buttons keep them)
-TEXT = (('FFFFFFFF', 'أبيض', 'White'), ('FFFFE680', 'أصفر فاتح', 'Soft yellow'), ('FFFFD60A', 'أصفر', 'Yellow'),
-        ('FF8CEBFF', 'سماوي', 'Cyan'), ('FFB9F6A8', 'أخضر فاتح', 'Light green'), ('FFD6D6D6', 'رمادي فاتح', 'Light grey'),
-        ('FFFFB3C7', 'وردي', 'Pink'), ('FF000000', 'أسود', 'Black'))
+# colours (ARGB, as Kodi's colour buttons keep them); v5.10.451: the text
+# and border colours are Nuvio Arc's ready ones, shown as a row of swatches
+TEXT = (('FFFFFFFF', 'أبيض', 'White'), ('FFD9D9D9', 'رمادي فاتح', 'Light grey'), ('FFFFD700', 'ذهبي', 'Gold'),
+        ('FF00E5FF', 'سماوي', 'Cyan'), ('FFFF5C5C', 'مرجاني', 'Coral'), ('FF00FF88', 'أخضر', 'Green'),
+        ('FFFFAD42', 'برتقالي', 'Orange'), ('FFFFF59D', 'أصفر فاتح', 'Soft yellow'), ('FFB3E5FC', 'أزرق فاتح', 'Pale blue'),
+        ('FFE1BEE7', 'بنفسجي فاتح', 'Lavender'))
+OUTLINE = (('FF000000', 'أسود', 'Black'), ('FFFFFFFF', 'أبيض', 'White'), ('FF00E5FF', 'سماوي', 'Cyan'),
+           ('FFFF5C5C', 'مرجاني', 'Coral'), ('FF212121', 'فحمي', 'Charcoal'), ('FF8E44AD', 'بنفسجي', 'Purple'))
 DARK = (('FF000000', 'أسود', 'Black'), ('FF1C1C1E', 'رمادي داكن', 'Dark grey'), ('FF0B1A33', 'كحلي', 'Navy'),
         ('FF2B1B3F', 'بنفسجي داكن', 'Deep purple'), ('FFFFFFFF', 'أبيض', 'White'))
+
+# v5.10.451: the text colour's shades, under the ready colours: three darker
+# (mixed with black), the colour itself, three lighter (mixed with white)
+SHADE_STEPS = (-0.45, -0.30, -0.15, 0.0, 0.25, 0.45, 0.65)
+SHADE_NAMES = (('أغمق جدًا', 'Much darker'), ('أغمق', 'Darker'), ('أغمق قليلًا', 'A little darker'),
+               ('الأصلي', 'As it is'), ('أفتح قليلًا', 'A little lighter'), ('أفتح', 'Lighter'),
+               ('أفتح جدًا', 'Much lighter'))
+BASE = 'dhs.substyle.base'
+
+
+def _rgb(argb):
+    value = str(argb or 'FFFFFFFF').upper()[-6:]
+    try:
+        return tuple(int(value[i:i + 2], 16) for i in (0, 2, 4))
+    except ValueError:
+        return (255, 255, 255)
+
+
+def shades(base):
+    out = []
+    r, g, b = _rgb(base)
+    for step in SHADE_STEPS:
+        target = 255 if step > 0 else 0
+        mix = abs(step)
+        out.append('FF%02X%02X%02X' % tuple(int(round(c + (target - c) * mix)) for c in (r, g, b)))
+    return out
+
+
+def base_of(value):
+    """The ready colour a text colour is a shade of: itself when it is one,
+    the one remembered when it is among its shades, else the nearest."""
+    value = str(value or 'FFFFFFFF').upper()
+    ready = [c for c, _a, _e in TEXT]
+    if value in ready:
+        return value
+    kept = xbmcgui.Window(10000).getProperty(BASE).upper()
+    if kept in ready and value in shades(kept):
+        return kept
+    r, g, b = _rgb(value)
+    return min(ready, key=lambda c: sum((x - y) ** 2 for x, y in zip(_rgb(c), (r, g, b))))
+
+
+def shade_index(value):
+    value = str(value or '').upper()
+    found = shades(base_of(value))
+    return found.index(value) if value in found else -1
+
+
+def set_shade(step):
+    """Left/Right on the shade row: a step darker or lighter of the same colour."""
+    value = str(_get('subtitles.colorpick') or 'FFFFFFFF').upper()
+    base = base_of(value)
+    found = shades(base)
+    at = found.index(value) if value in found else 3
+    to = max(0, min(len(found) - 1, at + (1 if step > 0 else -1)))
+    xbmcgui.Window(10000).setProperty(BASE, base)
+    if to != at or value not in found:
+        _set('subtitles.colorpick', found[to])
+        _refresh()
+
 
 # id, Arabic, English, kind, extra
 ROWS = (
@@ -83,7 +154,7 @@ ROWS = (
     ('subtitles.colorpick', 'اللون', 'Colour', 'colour', TEXT),
     ('subtitles.opacity', 'الشفافية', 'Opacity', 'pct', (0, 100, 5)),
     ('subtitles.bordersize', 'الحدود', 'Border', 'pct', (0, 100, 4)),
-    ('subtitles.bordercolorpick', 'لون الحدود', 'Border colour', 'colour', DARK),
+    ('subtitles.bordercolorpick', 'لون الحدود', 'Border colour', 'colour', OUTLINE),
     ('subtitles.backgroundtype', 'الخلفية', 'Background', 'choice', ((0, 'بدون', 'None'), (1, 'ظل', 'Shadow'),
                                                                      (2, 'صندوق', 'Box'), (3, 'صندوق مربع', 'Square box'))),
     ('subtitles.bgcolorpick', 'لون الصندوق', 'Box colour', 'colour', DARK),
@@ -112,7 +183,7 @@ PRESETS = {
                'subtitles.opacity': 100, 'subtitles.bordersize': 24, 'subtitles.bordercolorpick': 'FF000000',
                'subtitles.backgroundtype': 1, 'subtitles.shadowcolor': 'FF000000', 'subtitles.shadowopacity': 60,
                'subtitles.shadowsize': 10, 'subtitles.blur': 0, 'subtitles.linespacing': 12},
-    'cinema': {'subtitles.fontsize': 44, 'subtitles.style': 0, 'subtitles.colorpick': 'FFFFE680',
+    'cinema': {'subtitles.fontsize': 44, 'subtitles.style': 0, 'subtitles.colorpick': 'FFFFF59D',
                'subtitles.opacity': 100, 'subtitles.bordersize': 20, 'subtitles.bordercolorpick': 'FF000000',
                'subtitles.backgroundtype': 1, 'subtitles.shadowcolor': 'FF000000', 'subtitles.shadowopacity': 70,
                'subtitles.shadowsize': 12, 'subtitles.blur': 0, 'subtitles.linespacing': 12},
@@ -267,8 +338,12 @@ def step(params):
         values = [v for v, _a, _e in extra]
         current = str(_get(key) or '').upper()
         upper = [v.upper() for v in values]
+        if key == 'subtitles.colorpick' and current not in upper:
+            current = base_of(current)          # a shade moves on from its colour
         index = upper.index(current) if current in upper else -1
         value = values[(index + direction) % len(values)]
+        if key == 'subtitles.colorpick':
+            xbmcgui.Window(10000).setProperty(BASE, value)
     _set(key, value)
     _refresh()
 
