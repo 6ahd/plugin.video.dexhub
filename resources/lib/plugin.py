@@ -25235,10 +25235,10 @@ def trakt_hub():
              art=root_art('movie_collections'),
              info={'title': tr('لستاتي في Trakt'),
                    'plot': tr('كل القوائم التي أنشأتها في حسابك')})
-    add_item(tr('التقويم'), build_url(action='calendar', scope='my', days='14'),
-             art=root_art('calendar'),
-             info={'title': tr('تقويم Trakt'),
-                   'plot': tr('حلقات الأسبوعين القادمين لمسلسلاتك')})
+    add_item(tr('التقويم'), build_url(action='home_calendar'),
+             art=root_art('calendar'), is_folder=False,
+             info={'title': tr('التقويم'),
+                   'plot': tr('أسبوع وقائمة وشهر لكل اللي تتابعه')})
     add_item(tr('مجموعتي • أفلام'),
              build_url(action='trakt_collection', media_type='movies'),
              art=root_art('movie_collections'),

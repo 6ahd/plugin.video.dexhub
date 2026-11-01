@@ -701,6 +701,26 @@ class _Header(object):
         self.win.setProperty(key, value)
 
 
+def _trakt_numbers():
+    """[(value, label)] of the last 30 days in the My page's history copy (my_feed)."""
+    import datetime
+    from .. import my_feed
+    buckets = my_feed.days()
+    today = datetime.date.today()
+    minutes = eps = films = 0
+    for back in range(30):
+        bucket = buckets.get(today - datetime.timedelta(days=back))
+        if bucket:
+            minutes += bucket['tv'] + bucket['film']
+            eps += bucket['eps']
+            films += bucket['films']
+    if not minutes:
+        return []
+    hours, rest = divmod(minutes, 60)
+    return [(('%dh %02dm' % (hours, rest)) if is_english() else (u'%d س %d د' % (hours, rest)), _t('آخر 30 يوم', 'last 30 days')),
+            (str(eps), _t('حلقة', 'episodes')), (str(films), _t('فيلم', 'movies'))]
+
+
 def _publish_header(linked):
     """The header of the tab (skin.dexhub 3.21.1): synced line, this month in
     Floppy (or what the Library holds without it) and the source chips."""
@@ -731,6 +751,13 @@ def _publish_header(linked):
     except Exception:
         counts, total = {}, 0
     blocks = []
+    if not numbers and not float((stats or {}).get('hours') or 0):
+        # v5.10.468: the last 30 days from Trakt's history (the My page's
+        # copy), when Floppy has nothing for this month
+        try:
+            numbers = _trakt_numbers()
+        except Exception:
+            numbers = []
     if numbers:
         blocks = list(numbers)
     elif stats:

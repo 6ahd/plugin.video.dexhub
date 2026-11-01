@@ -632,6 +632,13 @@ def is_empty_note(tile):
 
 
 def capture_tiles(params, api, shape='poster', works_only=False, limit=60, patience=0.0):
+    action = (params or {}).get('action')
+    if action == 'skin_discover':
+        from ..routes import discover_tab      # v5.10.466: Discover's rows on the Home
+        return discover_tab.tiles(params), None
+    if action == 'skin_live':
+        from ..routes import live_tab          # v5.10.466: Live TV's rows on the Home
+        return live_tab.tiles(params), None
     from ..catalog_navigation import unwrap
     params = unwrap(params)
     if not params:

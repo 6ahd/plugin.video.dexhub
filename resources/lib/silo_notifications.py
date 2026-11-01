@@ -223,7 +223,7 @@ def _segment(value):
 
 def _caption(kind):
     from .i18n import is_english
-    labels = {'episode.available': ('Silo · حلقة جديدة متوفرة', 'Silo · New episode available'),
+    labels = {'episode.available': ('Silo · حلقة جديدة', 'Silo · New episode'),     # v5.10.473: short enough for the bell
               'request.fulfilled': ('Silo · أصبح العمل متوفرًا', 'Silo · Title now available'),
               'request.approved': ('Silo · تمت الموافقة على الطلب', 'Silo · Request approved'),
               'request.declined': ('Silo · رُفض الطلب', 'Silo · Request declined')}

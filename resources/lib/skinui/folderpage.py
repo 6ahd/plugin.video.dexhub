@@ -346,3 +346,42 @@ def watch_open_requests(monitor):
         C.set_prop('dhs.fold.opener', '')
         C.set_prop(OPEN_REQUEST, '')
         C.set_prop('dhs.fold.loading', '')
+
+
+def read_ahead(url, stop=None, readers=4):
+    """v5.10.476: the catalogs of a collection page (its skin_fold address)
+    read and saved before it opens (the service, worker.take_fold): the
+    ones with no fresh copy, the single catalogs first and "All" (every
+    catalog together, the slowest) last, four at a time."""
+    import time
+    from urllib.parse import parse_qsl, urlsplit
+    from . import rows
+    from ..homeui import window as W
+    params = dict(parse_qsl(urlsplit(url).query))
+    ref = dict((k, params.get(k) or '') for k in ('set_id', 'group_id', 'folder_id', 'media_filter'))
+    if not ref['folder_id']:
+        return 0
+    started = time.monotonic()
+    home = rows.HeadlessHome(rows.app(), 'all')
+    _folder, sources = W.BrowseWindow.__dict__['_folder_sources'](home, ref)
+    todo = []
+    for spec in _specs(ref, sources)[:12]:
+        data = C.read_json(C.row_file(TAB, spec['id']))
+        if not data or not data.get('items') or not C.fresh_copy(data, rows.ttl_of(spec)):
+            todo.append(spec)
+    if not todo:
+        return 0
+    todo.sort(key=lambda spec: 1 if (spec.get('params') or {}).get('action') == 'collection_nuvio_sources_open' else 0)
+
+    def read(spec):
+        if stop is not None and stop():
+            return
+        try:
+            rows.fetch(TAB, spec['id'], spec, wait_other=False)
+        except Exception as exc:
+            C.log('collection read ahead: %s: %s' % (spec.get('title'), exc.__class__.__name__))
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=readers, thread_name_prefix='DexHub-fold-ahead') as pool:
+        list(pool.map(read, todo))
+    C.log('collection read ahead: %d catalog(s) in %.0f ms' % (len(todo), (time.monotonic() - started) * 1000))
+    return len(todo)

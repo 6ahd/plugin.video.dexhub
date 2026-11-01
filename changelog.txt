@@ -1,3 +1,101 @@
+5.10.476
+الكوليكشن تنفتح مليانة من أول مرة: لما توقف على كرت الكوليكشن لحظة، الإضافة تحمّل كتالوجاتها بالخلفية قبل ما تضغط (كانت كل صف ياخذ ١ إلى ٨ ثواني من Trakt عند الفتح). وصفحة الكوليكشن تقرأ أربعة صفوف مع بعض و«الكل» (أبطأها) آخر شي.
+Collections open full the first time: when the cursor rests on a collection card a moment, its catalogs are read in the background before you press it (each row took 1 to 8 s from Trakt on opening). The collection page reads four rows at a time, "All" (the slowest) last.
+
+5.10.475
+لوحة القناة في المشغل: زر «الدليل» يرجعك للدليل والقناة شغالة، وزر جديد «إيقاف»، وزر الإيقاف المؤقت يطلع بس للقنوات اللي تقبل الإيقاف، ودايم فيه زر محدد (كانت اللوحة أحياناً تنفتح بدون تحديد فما يشتغل OK). شعار DexWorld في Live TV بحواف دائرية. وDiscover و My ما تقفل بالسهم فوق (Back بس).
+The channel panel in the player: TV guide takes you back to the guide with the channel playing, a new Stop button, pause only for channels that can pause, and a button always focused (the panel sometimes opened with none, so OK did nothing). The DexWorld logo in Live TV has round corners. Discover and My no longer close on Up (Back only).
+
+5.10.474
+مفاتيح التنبيهات صارت في لوحة الجرس نفسها: زر «إعدادات التنبيهات» في تبويب التنبيهات يفتحها، واللوحة تحترمها (إيقاف مباريات فرقك يشيلها من الجدول بعد، وإيقاف Silo أو الحلقات الجديدة أو المشاهدة الجماعية يشيلها من التنبيهات).
+The alert switches live in the bell's panel itself: the Alerts tab's "Alert settings" button opens them, and the panel follows them (your teams' games off leaves them out of Schedule too; Silo, new episodes or the watch party off leaves them out of Alerts).
+
+5.10.473
+مركز التنبيهات بتصميم جديد (لوحة جانبية بطول الشاشة، ألوان حسب النوع) وتبويب «الإعدادات» فيه مفتاح لكل نوع: مباريات فرقك، تنبيهات Silo، الحلقات الجديدة، كمّل اللي وقفته، المشاهدة الجماعية، والبانر المنبثق، وزر لإعدادات شاشة التوقف. وشاشة التوقف ما تكرر نفس الحلقة باسمين، والعداد يقول «متوفر الحين» للي نزل.
+The alerts page redrawn (a full-height side sheet, colours by kind) with a Settings tab: a switch for each kind (your teams' games, Silo notices, new episodes, pick up where you stopped, watch party, the pop-up banner) and a way to the screensaver's settings. The screensaver no longer lists one episode twice under two names, and its countdown says "Out now" for what is out.
+
+5.10.472
+Discover و Live TV رجعوا صفحات تنفتح بالضغط، والخدمة ما عاد تجهّز لهم صفوف في الرئيسية (شغل أقل بالخلفية).
+Discover and Live TV are pages opened on press again, and the service no longer builds Home rows for them (less work in the background).
+
+5.10.471
+Discover و Live TV و My تفتح أسرع من الشريط (حوالي ثانية بدل ثانية ونص): الصفحة تبدأ تنفتح أول ما توصل لتبويبها وتطلع لو بقيت عليه لحظة، والمرور عليه بسرعة ما يفتح شي.
+Discover, Live TV and My open sooner from the bar (about a second instead of a second and a half): the page starts as the cursor reaches its tab and shows if the cursor stays a moment; passing over the tab opens nothing.
+
+5.10.470
+صفحة My: تلميح المفضلة أقصر وما ينقص.
+The My page: a shorter Favorites hint that is never cut.
+
+5.10.469
+«متابعتي» بتصميم جديد يملأ الشاشة كاملة مثل Discover و My: أرقام آخر 30 يوم من Trakt بدل الصفر، بطاقات بحواف دائرية وتحديد أبيض، شريط التقدم تحت وقت المشاهدة، اسم الخدمة تحت البوستر بدل ما يغطيه، وبدون سطر التلميحات اللي كان يغطي العناوين، والخلفية تتبع العمل المحدد. والمسلسل ما يتكرر في «تابع من حيث وقفت» لو جاء باسمين (عربي وإنجليزي). وصفحات Discover و Live TV و My تفتح بمجرد ما توقف على تبويبها ثانية.
+My watching drawn anew to fill the screen like Discover and My: the last 30 days from Trakt instead of zero, round cards with the white focus, the progress bar under the time watched, the service's name under the poster instead of over it, no hint line over the titles, and the backdrop follows the focused title. A show no longer shows twice in Pick up where you left off under two names. Discover, Live TV and My open as soon as the cursor rests a second on their tab.
+
+5.10.468
+صفحة «My» جديدة تجمع المكتبة والتقويم: أيام الأسبوع وحلقات كل يوم (واليوم بالأحمر) وزر للتقويم الكامل، وبطاقات اليوم (ساعات وأفلام وحلقات ورسم لكل ساعة) وهالشهر مقارنة بالشهر اللي قبله (أعمدة يومية للمسلسلات والأفلام) وأنواعك، وسجل آخر 13 أسبوع كمربعات، وأكثر المسلسلات اللي تابعتها آخر 30 يوم، والمفضلة واللي تتابعها وقائمة المشاهدة ببوسترات مروحة، وقائمة المشاهدة كتذاكر. الأرقام من سجل Trakt (محفوظ ويتحدث بالخلفية). وأرقام هيدر المكتبة صارت من Trakt بدل الصفر.
+A new My page brings the Library and the Calendar together: the week's days with each day's episodes (today in red) and the full calendar a chip away; cards for today (hours, films, episodes, an hour-by-hour chart), this month against the last (daily bars for series and films) and your genres; the last 13 weeks as a heatmap; your top shows of the last 30 days; Favorites, Watching and Watchlist over fanned posters; the watchlist as tickets. The numbers come from your Trakt history (saved, read again in the background). The Library header's numbers come from Trakt now instead of zero.
+
+5.10.467
+صفحة Discover رجعت بشكلها الأصلي وتفتح بمجرد ما تنزل من تبويبها (بدون OK)، والسهم فوق من أعلى الصفحة يرجعك للشريط. والبوستر المحدد في Discover والكوليكشن ما ينكتب عليه اسمه فوق اسمه.
+The Discover page in its own design opens as soon as you go down from its tab (no OK), and Up from its top takes you back to the bar. A focused poster in Discover and collections no longer has its name written over its own title.
+
+5.10.466
+Discover و Live TV صاروا تبويبات في الرئيسية مثل الأفلام والمسلسلات: تمر عليهم بالشريط وتطلع أقسامهم تحته مباشرة بدون ما تدخل صفحة. Discover: الرائج، مختارة لك، الأكثر مشاهدة (أرقام)، الأكثر انتظاراً، الأعلى تقييماً، وقتك قصير، المزاج، والقادم (Trakt إذا مربوط وإلا TMDb). Live TV: آخر القنوات، المفضلة، ومجموعات المصدر. OK على قناة يفتح Live TV عليها ويشغلها مع لوحة القناة، و OK على زر التبويب يفتح الصفحة الكاملة.
+Discover and Live TV are Home tabs like Movies and Series: hover them on the bar and their sections show right under it without opening a page. Discover: trending, picked for you, most watched (numbered), most anticipated, top rated, short on time, moods and what is coming (Trakt when linked, else TMDb). Live TV: recent channels, favourites and the source's groups. OK on a channel opens Live TV on it and starts it with the channel panel; OK on the tab's button opens the full page.
+
+5.10.465
+صفحة أفلام ومسلسلات IPTV (VOD): التحديد صار أبيض مثل باقي Live TV، وبطاقة المعاينة فوق فيها نسخة خفيفة من البوستر تملأها بدل الفراغ الأسود.
+The IPTV films and series page (VOD): the focus is lit white as the rest of Live TV, and the preview card above is filled by a faint copy of the poster instead of empty black.
+
+5.10.464
+بوستر العمل اللي بديت تشوفه يطلع عليه شريط تقدمه ونسبته في أي صف (مو بس «تابع المشاهدة»)، والعمل المنتهي يبقى بعلامة ✓.
+A poster of a title you began shows its progress bar and percentage in any row (not only Continue Watching); a finished one keeps its check mark.
+
+5.10.463
+التقويم أبسط: شعار العمل (clear logo) بدل اسمه، والاسم يطلع لو ما له شعار، والتفاصيل والبطاقات طلعت تحت الأيام مباشرة بدل الفراغ اللي كان بينهم.
+A simpler Calendar: the title's clear logo in place of its name (the name when it has none), and the details and cards sit right under the days instead of below an empty band.
+
+5.10.462
+البوسترات أكبر: الحجم الافتراضي 120٪ («كبير»)، واللي كان على 100٪ الافتراضي ينتقل له مرة وحدة، والحجم اللي اخترته بنفسك يبقى. وفي الرئيسية بطاقة الحلقة تبدأ برمزها (S1:E7) واسم الحلقة في سطر تحت التفاصيل لما يكون معروف.
+Bigger posters: the default size is 120 % (Large); a Home still at the old default of 100 % moves up once, a size you chose stays. On the Home an episode starts with its code (S1:E7) and its name has a line under the facts when it is known.
+
+5.10.461
+شعارات القنوات صارت مربعات بزوايا دائرية في Live TV ولوحة المشغل، ورقم القناة يطلع (رقمها من المصدر، أو ترتيبها في المجموعة): جنب كل قناة في الدليل، «قناة 3» في لوحة المشغل، وعلى كل شعار في صف القنوات. وفي الرئيسية بطاقة الحلقة تقول «مسلسل» بدل «حلقة».
+Channel logos are rounded squares in Live TV and the player panel, and the channel number shows (its own, or its place in the group): beside each channel on the guide, "CH 3" on the player panel and on every logo in the channel row. On the Home an episode's card says Series instead of Episode.
+
+5.10.460
+Live TV بألوان «اكتشف»: كحلي وزجاج بدل الألوان المسطحة، والبرنامج المعروض الحين ملوّن خفيف بلون ثيمك. ولوحة القناة في المشغل صارت حديثة: بدون صندوق، القناة فوق تدرج عميق، العنوان كبير، شريط وقت أعرض، أزرار دائرية وزر «الدليل»، اللي بعده في بطاقة زجاج، وقنوات المجموعة كشعارات تنقلك لها بضغطة (اللي تعرض الحين عليها نقطة حمراء).
+Live TV in Discover's colours: navy and glass instead of flat surfaces, the programme on now lightly tinted with your theme. The channel panel in the player is modern: no box, the channel over a deep fade, a big title, a thicker time bar, round buttons and a TV guide button, what is next in a glass card, and the group's channels as logo tiles one press away (a red dot on the one playing).
+
+5.10.459
+الكوليكشن صار صفحة وحدة مثل «اكتشف»: شعار المنصة فوق (Netflix وApple TV+ وDisney+ وغيرها) مع خلفيتها، وكل كتالوج قسم بشكل مختلف: بطاقة عريضة كبيرة فيها القصة، بوسترات طويلة، بوسترات، صور عريضة، والكتالوجات اللي اسمها Top بأرقام كبيرة. وآخر قسم «كل الكتالوجات» لما تكون أكثر من 12. والكل/أفلام/مسلسلات فوق.
+A collection is one page like Discover: the service's logo on top (Netflix, Apple TV+, Disney+ and the rest) over its backdrop, and each catalog a section of its own shape: a big wide card with the story, tall posters, posters, wide pictures, and big numbers for the Top catalogs. With more than 12 catalogs a last section has every catalog. All, Movies, Series on top.
+
+5.10.458
+«اكتشف» صار صفحة وحدة مرتبة بأقسام مختلفة الشكل: رائج الآن (Trakt)، مقترح لك (توصيات Trakt لحسابك)، Top 10 الأسبوع بأرقام كبيرة، خطة الويكند (الخميس والجمعة والسبت)، كم عندك وقت، صُنع للشاشة الكبيرة (الأعلى تقييمًا على TMDb)، وش مزاجك، المترقَّب (Trakt)، الكوليكشن والجديد والقادم. لما Trakt ما يرد يطلع بديل من TMDb، والخلفية تتبع العمل المحدد، والإطار الأبيض موازي لزاوية البطاقة. وفي Live TV مشغل مثل Lucent للقنوات: القناة وشعارها، «مباشر»، البرنامج الحالي ووقته والباقي منه، اللي بعده، الساعة، وآخر القنوات تنتقل لها بضغطة. مشغل الأفلام والمسلسلات ما تغيّر.
+Discover is one tidy page of sections, each with its own card shape: Trending now (Trakt), For you (Trakt recommendations for your account), this week's Top 10 with big numbers, a weekend plan (Thursday, Friday, Saturday), How much time, Made for the big screen (TMDb top rated), Your mood, Most anticipated (Trakt), Collections and New and coming. TMDb stands in when Trakt does not answer, the backdrop follows the focused title and the white ring follows the card's corner. Live TV channels get a Lucent-style player panel: the channel and its logo, LIVE, the programme on now with its times and what is left, what comes next, the clock, and the channels watched last, one press away. The film and series player is unchanged.
+
+5.10.457
+Live TV أهدأ وأجمل: المؤشر أبيض بدل التعبئة البنفسجية (المجموعات والأزرار والبرنامج والقناة)، وخلفية بتدرج لوني ناعم، وشعار القناة بزوايا دائرية، وشارة «مباشر» حمراء. القنوات اللي ما لها دليل تعرض اسمها بس بدل «لا يوجد دليل برامج» في كل صف. ورياضة صارت داخل Live TV: أول سطر في المجموعات «رياضة · مباريات اليوم» وزر كأس في الشريط الجانبي. ونتايج الرياضة في الخلفية (الجزيرة) ترجع تتحمّل: كانت تفشل كل 10 دقايق.
+A calmer Live TV: the cursor is lit white instead of a purple fill (groups, buttons, programme, channel), a soft colour backdrop, channel logos with round corners and a red LIVE chip. Channels with no guide show their name alone instead of "No programme guide" on every row. Sport is inside Live TV: "Sport · today's games" heads the groups and a trophy sits on the side rail. Sport results in the background (the island) load again: they failed every 10 minutes.
+
+5.10.456
+شكل أنضج لاكتشف والتقويم والرياضة: زجاج بحافة رفيعة وظلال ناعمة، وإطار أبيض على المؤشر، وخلفية بتدرج ولون من العمل المعروض. التقويم بشكل جديد: الأسبوع بوسترات كبيرة والتفاصيل جنبها، والقائمة صفوف مسطحة بالتاريخ مرة وحدة لكل يوم، والشهر خلايا خفيفة بالأرقام والنقاط. وأسبوع وقائمة وشهر، وأقسام الرياضة، والفلاتر السريعة تتغير بالتمرير بدون ضغط. وما عادت الرئيسية تطلع تحت الصفحات على شاشات 16:10.
+A more finished look for Discover, Calendar and Sport: glass with a hairline edge, soft shadows, a white ring on the cursor, and a graded ground in the colour of the title on show. The Calendar is redrawn: Week as big posters with the details beside them, List as flat rows with each day once, Month as light cells with numbers and dots. Week, List, Month, Sport's sections and the quick filters change as you move, with no press. The Home no longer shows under the pages on 16:10 screens.
+
+5.10.455
+رياضة صارت زر في الشريط وتفتح بدون أي مصدر قنوات، ونتايج اليوم للسعودي والإنجليزي والإسباني والإيطالي تطلع في الجزيرة تحت «الجدول» حتى لو ما تتابع فريق. وصفحة «اكتشف» أرتب: التفاصيل والأزرار مع بعض، وبوسترات أكبر.
+Sport is a button on the bar and opens with no channel source; today's Saudi, English, Spanish and Italian results show in the island under Schedule even with no team followed. Discover is tidier: details and buttons together, bigger posters.
+
+5.10.454
+اكتشف: صفحة جديدة، كل قسم صفحة بشكل بوستر واحد: الليلة (الرف)، كوليكشن (بطاقات ببوسترات مروحة)، وقتك، مزاجك، والتقويم (تذاكر)، مع نوع وترتيب وفلتر بسيطة. مكانها في الشريط بعد «مسلسلات» ومعها «التقويم»، و«الإضافات» صارت في القائمة.
+Discover: a new page, each section one page with one poster shape: Tonight (the shelf), Collections (cards with fanned posters), Your time, Your mood and Calendar (tickets), with a simple kind, order and filter. It sits on the bar after Series with Calendar; Add-ons moved to the menu.
+
+5.10.453
+التقويم: صفحة جديدة فيها أسبوع وقائمة وشهر لكل اللي تتابعه من مسلسلات وأفلام، بالوقت بتوقيتك لما يكون معروف، وتفتح العمل أو تشغّله أو توقف تنبيهه منها. تلقاها في الجزيرة تحت «الجدول» وفي مكتبتي وصفحة Trakt. و«الجدول» صار نفس بيانات التقويم ومقسم باليوم.
+رياضة: تبويب جديد في Live TV فيه مباريات اليوم والأيام الجاية من الدوري السعودي وكأس الملك وأبطال آسيا وأوروبا والدوريات الكبيرة، بالنتائج المباشرة والترتيب ومتابعة الفرق وتذكير قبل المباراة، ويوريك القناة من دليل قنوات DexWorld وIPTV اللي في Dex Hub (بدون PVR). وفرقك في الجزيرة: مباشر ونتايج في «الجدول» وتنبيه في الجرس.
+Calendar: a new page with Week, List and Month for the series and films you follow, with air times in your time zone when known; open a title, play it or switch its alert from there. Find it in the island under Schedule, in My Library and on the Trakt page. Schedule now shows the same data, by day.
+Sport: a new tab on Live TV with games from the Saudi league, the King's Cup, the AFC and UEFA competitions and the big leagues, live scores, tables, followed teams, a reminder before kick-off, and the channel from the guide of DexWorld and IPTV in Dex Hub (no PVR). Your teams in the island: live and results under Schedule, a notice on the bell.
+
 5.10.452
 الإعداد السريع: أربع خطوات بشاشة وحدة مثل تطبيقات Apple: اربط حساباتك (ومعها مجموعة Kaptain للرئيسية)، طريقة التشغيل (تختار المصدر بنفسك أو أفضل جودة على طول)، الشكل بالصور (شكل الرئيسية وصفحة العمل، وكل أشكال الرئيسية بصورها)، وجهازك (خفيف أو متوازن أو قوي، مع اقتراح لجهازك). آخر خطوة فيها «تخصيص» يفتح كل الإعدادات (الترجمة والصوت وغيرها في المشغّل، لأن كل واحد يختار لغته). تلقاه أول مرة تفتح Dex Hub، وأول بطاقة في مركز التحكم، وأول سطر في إعدادات الإضافة، ونفس الأسئلة صارت كرت «الإعداد السريع» فوق صفحة الإعداد من الجوال. ووضع «أساسي» في مركز التحكم صار أربع أقسام بس: البداية (الإعداد السريع والحسابات والجوال)، الشكل (الثيم وشكل الرئيسية وصفحة العمل والحجم)، التشغيل (طريقة التشغيل والصوت والترجمة والتريلر)، والنظام (الكاش والتشخيص وكودي والخروج)، وآخر بطاقة «كل الإعدادات» تفتح الأقسام الـ13 كاملة. والرئيسية بدون سبوت لايت من الأساس (تفتح على الصفوف، وتشغّله من مركز التحكم ← الرئيسية ← أعمال السبوت لايت). والأفلام اللي شفتها عليها علامة ✓ مثل Trakt في صفوف الرئيسية والكوليكشن (غير متابعة المشاهدة): اللي خلصتها هنا، وكل أفلام «شاهدتها مؤخراً» من سجل حسابك (Trakt وNuvio)، مع خيار باهتة أو مخفية مثل قبل. يمشي مع سكن 3.28.171.
 Quick setup: four steps in one screen, like Apple's apps: link your accounts (with Kaptain's collection for the Home), how titles play (choose the source yourself or the best one at once), the look as pictures (the Home's layout and the title page, every Home layout in a gallery), and your device (light, balanced or strong, with a suggestion for yours). The last step's Customize opens every setting (subtitles and audio stay in the player's settings, since everyone picks their own language). It shows on Dex Hub's first run, as the Control centre's first card and the first line of the add-on's settings, and the same questions are a Quick setup card at the top of the phone setup page. Basic in the Control centre is now four sections: Start (Quick setup, accounts, the phone), Look (theme, Home layout, title page, size), Playback (how titles play, audio and subtitles, trailers) and System (cache, diagnostics, Kodi and leaving); its last card, All settings, opens all 13 sections. The Home has no spotlight by default (it opens on the rows; turn it on in Control centre, Home, Spotlight titles). Films you have watched carry a Trakt-style check mark on the Home's rows and collections (not Continue Watching): the ones finished here, and every film of Recently watched from your account's history (Trakt, Nuvio), and Dim or Hide still work as before. Goes with skin 3.28.171.

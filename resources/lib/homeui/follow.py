@@ -35,8 +35,8 @@ CHIPS, KINDS = 100, 110
 UP, WATCH, SOON, MORE = 201, 301, 401, 501
 SECTIONS = (UP, WATCH, SOON, MORE)
 # the sections' heights in dexhub_follow.xml (gen_follow_xml.py), where they start, the gap
-HEIGHTS = {UP: 402, WATCH: 462, SOON: 371, MORE: 462}
-TOP, GAP = 272, 22
+HEIGHTS = {UP: 404, WATCH: 446, SOON: 404, MORE: 446}   # v5.10.469: tools/s469/make_follow.py
+TOP, GAP = 300, 22
 A_UP, A_DOWN, A_PGUP, A_PGDN = 3, 4, 5, 6
 A_CONTEXT, A_MENU = 117, 163
 A_BACK = {9, 10, 92, 216, 247, 257, 275, 61448, 61467}
@@ -152,9 +152,17 @@ def up_next(app):
             if name.lower().startswith('tt') or _CODE_RE.match(name):
                 continue
             key = (tile.get('tmdb_id') or tile.get('imdb_id') or name).lower()
-            if not name or key in seen:
+            # v5.10.469: one card per show, whatever the language of its name
+            # or the episode (the show's own ids)
+            show_keys = set(str(v).lower() for v in (params.get('canonical_id') if episode else '', tile.get('show_tmdb_id'),
+                                                    tile.get('show_imdb_id')) if v)
+            art = R.card_landscape(tile) if episode else ''
+            if art:
+                show_keys.add(art)      # the same show under two names has the same picture
+            if not name or key in seen or (show_keys & seen):
                 continue
             seen.add(key)
+            seen.update(show_keys)
             provider = params.get('provider_name') or tile.get('provider') or ''
             if not _service(provider):
                 for value in (params.get('canonical_id'), tile.get('imdb_id'), tile.get('tmdb_id')):
@@ -412,11 +420,19 @@ def stats():
     from .. import floppy_api
     if floppy_api.configured():
         month = floppy_api.month_stats(cache_only=True)
-        if month:
+        if month and float(month.get('hours') or 0):
             hours = float(month.get('hours') or 0)
             return [(_t('%d س', '%dh') % int(round(hours)), _t('مشاهدة هالشهر', 'watched this month')),
                     (str(month.get('movies') or 0), _t('فيلم', 'movies')),
                     (str(month.get('episodes') or 0), _t('حلقة', 'episodes'))]
+    try:
+        # v5.10.469: the last 30 days of Trakt's history (the My page's copy)
+        from ..routes.library import _trakt_numbers
+        numbers = _trakt_numbers()
+        if numbers:
+            return numbers
+    except Exception:
+        pass
     from .. import playback_store
     since = time.time() - 30 * 86400
     seconds, movies, episodes = 0.0, 0, 0
@@ -475,6 +491,7 @@ class FollowWindow(xbmcgui.WindowXMLDialog):
         self._pool = ThreadPoolExecutor(max_workers=4)
         self._because_gen = 0
         self._moved = False         # the user moved: the focus stays where they put it
+        self.tone = None
 
     # ---------------------------------------------------------- lifecycle
     def onInit(self):
@@ -489,8 +506,6 @@ class FollowWindow(xbmcgui.WindowXMLDialog):
         self._place(None)
         self.setProperty('fw.crumb', 'Dex Hub  ›  ' + _t('المكتبة', 'Library'))
         self.setProperty('fw.title', _t('متابعتي', 'My watching'))
-        self.setProperty('fw.hint', _t('موافق: تشغيل أو فتح العمل   •   القائمة: خيارات العمل   •   رجوع: إغلاق',
-                                       'OK plays or opens   •   Menu: title options   •   Back: close'))
         self.setProperty('fw.%d.title' % UP, _t('تابع من حيث وقفت', 'Pick up where you left off'))
         self.setProperty('fw.%d.title' % WATCH, _t('قائمة المشاهدة', 'Watchlist'))
         self.setProperty('fw.%d.title' % SOON, _t('القادم', 'Coming up'))
@@ -540,6 +555,11 @@ class FollowWindow(xbmcgui.WindowXMLDialog):
         self._closing = True
         try:
             self._pool.shutdown(wait=False)
+        except Exception:
+            pass
+        try:
+            if self.tone is not None:
+                self.tone.stop()
         except Exception:
             pass
 
@@ -752,6 +772,7 @@ class FollowWindow(xbmcgui.WindowXMLDialog):
                 li.setProperty('hot', '1')
             if entry.get('prog'):
                 li.setProperty('prog', str(int(entry['prog'])))
+                li.setProperty('progstep', str(max(1, min(20, int(round(float(entry['prog']) / 5.0))))))
             if entry.get('left'):
                 li.setProperty('left', entry['left'])
             entry['_li'] = li
@@ -851,6 +872,24 @@ class FollowWindow(xbmcgui.WindowXMLDialog):
         else:
             self.open_title(entry)
 
+    def onFocus(self, cid):
+        self._describe()
+
+    def _describe(self):
+        """v5.10.469: the focused card's picture behind the page, its colour round it."""
+        cid = self.getFocusId()
+        entry = self._entry(cid) if cid in SECTIONS else None
+        if entry is None:
+            return
+        self.setProperty('fw.fanart', entry.get('thumb') or entry.get('poster') or '')
+        try:
+            if self.tone is None:
+                from ..art_tone import Tone
+                self.tone = Tone(self)
+            self.tone.follow(entry.get('poster') or entry.get('thumb') or '')
+        except Exception:
+            pass
+
     def onAction(self, action):
         aid = action.getId()
         if aid in A_BACK:
@@ -858,6 +897,7 @@ class FollowWindow(xbmcgui.WindowXMLDialog):
             return
         if aid in (1, 2, 3, 4, 5, 6, 7, 100, 107):
             self._moved = True
+            self._describe()
         if aid in (A_UP, A_DOWN, A_PGUP, A_PGDN):
             self._move(-1 if aid in (A_UP, A_PGUP) else 1)
             return

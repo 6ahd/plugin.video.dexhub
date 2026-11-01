@@ -453,6 +453,8 @@ class Spotlight(threading.Thread):
             return self.last
         self._target_cache = None
         video = info(prefix + 'Property(dhs.hero_video)')
+        if info(prefix + 'Property(kind)') == 'folder':
+            self._note_fold(info(prefix + 'Property(dhs.fold)'), info(prefix + 'Label'))
         if info(prefix + 'Property(kind)') == 'folder' and video:
             if not C.prop('dhs.opt.kenburns'):
                 return None
@@ -469,6 +471,33 @@ class Spotlight(threading.Thread):
                      'q': info(prefix + 'Property(dhs.q)')}
         self._target_cache = ((container, title_id), self.last, time.monotonic())
         return self.last
+
+    FOLD_DWELL = 0.7
+
+    def _note_fold(self, fold, title):
+        """v5.10.476: a collection card the cursor rests on FOLD_DWELL seconds
+        has its catalogs read ahead in the service (worker.take_fold), so its
+        page opens full the first time (each catalog took 1 to 8 s from Trakt
+        when the page opened). Once per card a session; read rows are kept."""
+        if not fold:
+            return
+        now = time.monotonic()
+        if fold != getattr(self, '_fold_key', None):
+            self._fold_key, self._fold_since = fold, now
+            return
+        warmed = getattr(self, '_folds_warmed', None)
+        if warmed is None:
+            warmed = self._folds_warmed = set()
+        if fold in warmed or now - self._fold_since < self.FOLD_DWELL:
+            return
+        warmed.add(fold)
+        try:
+            import json
+            from .. import profile_scope
+            C.set_prop('dhs.fold.warm', json.dumps({'u': fold, 'scope': profile_scope.key(), 't': time.time()}))
+            C.log('collection read ahead: "%s" (the cursor rests on its card)' % (title or ''))
+        except Exception as exc:
+            C.log('collection read ahead failed: %s' % exc, xbmc.LOGDEBUG)
 
     PREFETCH_DWELL = 0.6         # v5.10.448: half the wait (1.2 s): a quick OK found it unread
     WARM_DWELL = 2.5
@@ -771,6 +800,8 @@ class AF3Spotlight(Spotlight):
         info = xbmc.getInfoLabel
         prefix = 'Container(%d).ListItem.' % container
         video = info(prefix + 'Property(dhs.hero_video)')
+        if info(prefix + 'Property(kind)') == 'folder':
+            self._note_fold(info(prefix + 'Property(dhs.fold)'), info(prefix + 'Label'))
         if info(prefix + 'Property(kind)') == 'folder' and video:
             if not C.prop('dhs.opt.kenburns'):
                 return None

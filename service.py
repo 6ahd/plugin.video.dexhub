@@ -1265,6 +1265,13 @@ if __name__ == '__main__':
         except Exception as exc:
             xbmc.log('[DexHub] episode reminders not started: %s' % exc, xbmc.LOGWARNING)
 
+    def _sport_worker():
+        try:
+            from resources.lib import sport_feed as _sport
+            _sport.run(monitor)
+        except Exception as exc:
+            xbmc.log('[DexHub] sport reminders not started: %s' % exc, xbmc.LOGWARNING)
+
     def _collection_opener_worker():
         try:
             from resources.lib.skinui.folderpage import watch_open_requests
@@ -1300,6 +1307,7 @@ if __name__ == '__main__':
     try:
         import threading as _thr
         _thr.Thread(target=_reminders_worker, name='DexHub-reminders', daemon=True).start()
+        _thr.Thread(target=_sport_worker, name='DexHub-sport', daemon=True).start()
     except Exception as exc:
         xbmc.log('[DexHub] episode reminders thread failed: %s' % exc, xbmc.LOGWARNING)
 

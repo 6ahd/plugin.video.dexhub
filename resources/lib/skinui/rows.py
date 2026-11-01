@@ -216,6 +216,14 @@ def compute_rows(tab):
         # v5.10.157: the Servers tab, built like the Library (its chips are the servers)
         from ..routes import servers_tab
         return app().layout.apply(servers_tab.skin_rows(), 'servers')
+    if tab == 'discover':
+        # v5.10.466: Discover's sections on the Home (routes/discover_tab.py)
+        from ..routes import discover_tab
+        return discover_tab.skin_rows()
+    if tab == 'live':
+        # v5.10.466: Live TV's channels on the Home (routes/live_tab.py)
+        from ..routes import live_tab
+        return live_tab.skin_rows()
     a = app()
     home = HeadlessHome(a, tab)
     rows = a.layout.apply(home.layout_rows(tab), tab)
@@ -829,6 +837,52 @@ def _watched_index():
     return seen
 
 
+_PROGRESS = {}
+
+
+def _progress_index():
+    """v5.10.464: how far each title begun on this profile was watched
+    (playback store, newest first), by its ids: a poster of it in any row gets
+    its progress bar and percentage. Read again after a minute."""
+    hit = _PROGRESS.get(_scope.key())
+    if hit and time.time() - hit[0] < 60:
+        return hit[1]
+    index = {}
+    try:
+        from ..dexhub import playback_store
+        for row in playback_store.list_recent_items(limit=400, include_watched=False) or []:
+            try:
+                pct = float(row.get('percent') or 0)
+            except (TypeError, ValueError):
+                pct = 0.0
+            if not 1.0 <= pct < 95.0:
+                continue
+            series = str(row.get('media_type') or '') in ('series', 'episode', 'tv', 'show', 'anime')
+            ids = (row.get('show_tmdb_id'), row.get('canonical_id')) if series else \
+                (row.get('tmdb_id'), row.get('imdb_id'), row.get('canonical_id'))
+            for value in ids:
+                value = str(value or '').strip()
+                if not value or value.startswith(('plex:', 'emby:', 'jellyfin:', 'silo:', 'iptv|')):
+                    continue
+                for key in ((value, 'tmdb:' + value) if value.isdigit() else (value,)):
+                    index.setdefault(key, int(round(pct)))
+    except Exception:
+        C.log('progress index:\n%s' % traceback.format_exc(), xbmc.LOGDEBUG)
+    _PROGRESS[_scope.key()] = (time.time(), index)
+    return index
+
+
+def _begun(tile, index):
+    """The percentage watched of a title begun here (0 when not)."""
+    if not index or tile.get('kind', 'work') != 'work' or int(tile.get('progress') or 0):
+        return 0
+    for value in (tile.get('tmdb_id'), tile.get('imdb_id'), tile.get('canonical_id'), tile.get('id')):
+        value = str(value or '').strip()
+        if value and value in index:
+            return index[value]
+    return 0
+
+
 def _seen(tile, seen):
     if tile.get('kind', 'work') != 'work' or str(tile.get('media_type') or '') not in ('movie', ''):
         return False
@@ -867,6 +921,7 @@ def _store(tab, spec, tiles, more, enriched=False, old=None, src=None):
     if history:
         _keep_history(tiles)
     seen = _watched_index() if (watched_mode or marks) else None
+    begun = _progress_index() if marks else None
     for tile in tiles or []:
         if len(items) >= limit:
             break
@@ -882,6 +937,10 @@ def _store(tab, spec, tiles, more, enriched=False, old=None, src=None):
             continue
         if done and marks:
             item['watched'] = True
+        elif marks and not done and not item.get('progress'):
+            pct = _begun(tile, begun)
+            if pct:
+                item['progress'] = pct
         if done and watched_mode == 'dim':
             item.setdefault('props', {})['dhs.dim'] = '1'
         items.append(item)
@@ -1380,7 +1439,13 @@ class Context(object):
             if tile.get('server'):
                 title = '%s  •  %s' % (tile.get('server'), title)
             return 'grid', list_url(tile.get('params') or {}, title=title, shape='poster')
+        if kind == 'channel':
+            # v5.10.466: Live TV opens on the channel's category and starts it
+            return 'run', C.url('home_live', src=tile.get('src') or '', cat=tile.get('live_cat') or '',
+                                ch=tile.get('path') or '')
         if kind == 'action':
+            if tile.get('command') == 'live_setup':
+                return 'run', C.url('home_live')
             if tile.get('command') == 'catalog_filter':
                 return 'run', C.url('skin_row_facet', m=self.tab, id=spec.get('id') or '')
             if (tile.get('command') or '') == 'setup':
@@ -1499,7 +1564,29 @@ class Context(object):
         if isinstance(genres, str):
             genres = [g.strip() for g in re.split(r'\s*[/,|]\s*', genres) if g.strip()]
         compact['genres'] = list(genres)[:2]
-        return compact_meta(self.meta(compact), tile.get('mpaa') or '', episode_code(tile))
+        code = episode_code(tile)
+        line = compact_meta(self.meta(compact), tile.get('mpaa') or '', code)
+        if code and (tile.get('media_type') or '') == 'episode':
+            # v5.10.462: the code is the episode's pill now
+            line = '   •   '.join(p for p in line.split('   •   ') if p.strip() != code)
+        return line
+
+    @staticmethod
+    def episode_name(tile):
+        """v5.10.462: the hero's line under the facts: the episode's own name,
+        or one TMDb gave before (never a request while the row is built)."""
+        if (tile.get('media_type') or '') != 'episode' or not tile.get('episode'):
+            return ''
+        name = R.card_episode_name(tile)
+        if name:
+            return name
+        try:
+            from .. import episode_titles
+            tmdb, imdb = episode_titles.show_ids(tile)
+            return episode_titles.pick('', True, tmdb, imdb, int(tile.get('season') or 0),
+                                       int(tile.get('episode') or 0), cached_only=True)
+        except Exception:
+            return ''
 
     _MONTHS = (('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'),
                ('يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'))
@@ -1546,6 +1633,10 @@ class Context(object):
             return self.tr('مجموعة')
         if tile.get('season_card'):
             return self.tr('موسم')
+        if media == 'episode':
+            # v5.10.462: an episode's pill is its code (S1:E7); the hero's
+            # facts line leaves the code out and its name has a line of its own
+            return episode_code(tile) or self.tr('مسلسل')
         if media in _WORK_TYPES:
             return self.tr(_WORK_TYPES[media])
         return ''
@@ -1697,6 +1788,7 @@ class Context(object):
             # v5.10.223: the name alone (the logos came with their tile and border)
             'dhs.server_logo': '',
             'dhs.sub': hero_sub,
+            'dhs.epname': self.episode_name(tile),
             'dhs.remaining': self.remaining(tile),
             'dhs.long': '1' if len(hero_title) > 26 else '',
             # v5.10.144: a server copy's facts, drawn as badges by the hero

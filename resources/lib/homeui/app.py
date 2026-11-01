@@ -262,6 +262,9 @@ class App(object):
         # the live channel (with its own address) the user watches from the
         # Live TV page, for the now-playing card
         self.live_watching = None
+        # v5.10.458: that channel's panel in the player (live_osd.py)
+        from .live_osd import LiveOSD
+        self.live_osd = LiveOSD(self)
         from .trailers import TrailerResolver
         from .media_cache import MediaCache, LogoCheck
         from .director import TrailerDirector
@@ -557,6 +560,10 @@ class App(object):
                 pass
 
     def shutdown(self):
+        try:
+            self.live_osd.clear()
+        except Exception:
+            pass
         root_id = str(getattr(self._root(), '_window_id', '') or '')
         self._windows = []
         self._publish_windows()
@@ -653,6 +660,21 @@ class App(object):
         and picks from the last title, on one page (follow.py)."""
         from .follow import open_follow
         open_follow(self, media=media)
+
+    def open_calendar(self):
+        """The calendar (v5.10.453): Week, List and Month (calendar_page.py)."""
+        from .calendar_page import open_calendar
+        open_calendar(self)
+
+    def open_discover(self):
+        """Discover (v5.10.454): a page per shape (discover_page.py)."""
+        from .discover_page import open_discover
+        open_discover(self)
+
+    def open_sport(self):
+        """Sport on Live TV (v5.10.453): games, tables, channels (sport_page.py)."""
+        from .sport_page import open_sport
+        open_sport(self)
 
     def open_details(self, tile):
         """The title page (v5.10.103): a movie or series inside the Home UI."""
@@ -777,9 +799,38 @@ def _skin_native():
 _SKIN_PAGES = {'home_servers': 'servers', 'home_live': 'live', 'home_search': 'search', 'home_library': 'library'}
 
 
+_BAR_BUTTONS = {'discover': (9017, 9027, 9127), 'live': (9014, 9024, 9124), 'library': (9015, 9025, 9125)}
+
+
+def _cursor_stays(buttons, wait=0.4):
+    """True when the Home's bar still has the cursor on one of ``buttons`` after ``wait`` seconds."""
+    if not buttons:
+        return True
+    xbmc.sleep(int(wait * 1000))
+    try:
+        return any(xbmc.getCondVisibility('Control.HasFocus(%d)' % cid) for cid in buttons)
+    except Exception:
+        return False
+
+
 def run(params):
     params = dict(params or {})
     action = params.get('action') or 'home_ui'
+    hold = {'home_discover': 'discover', 'home_live': 'live', 'home_my': 'library'}.get(action)
+    if hold and params.get('auto'):
+        # v5.10.471: started as the bar's cursor reached the tab; opened only
+        # when it stays there a moment (passing over the tab opens nothing)
+        started = time.time()
+        if not _cursor_stays(_BAR_BUTTONS.get(hold, ())):
+            return None
+        _log('%s opens from the bar (%.0f ms to check)' % (hold, (time.time() - started) * 1000))
+    if hold:
+        # v5.10.469: the bar opens these pages when its cursor rests on them;
+        # back on the bar the page stays shut until another button is chosen
+        try:
+            xbmcgui.Window(HOME_WINDOW).setProperty('dhs.hold', hold)
+        except Exception:
+            pass
     if action == 'home_live':
         from ..ui_preferences import iptv_available
         if not iptv_available():
@@ -800,6 +851,19 @@ def run(params):
     if action == 'home_follow':
         # v5.10.207: My watching, on its own over any Home
         return _run_page('follow', params)
+    if action == 'home_calendar':
+        # v5.10.453: the calendar, on its own over any Home
+        return _run_page('calendar', params)
+    if action == 'home_sport':
+        return _run_page('sport', params)
+    if action == 'home_discover':
+        return _run_page('discover', params)
+    if action == 'home_my':
+        # v5.10.468: the Library and the Calendar on one page (my_page.py)
+        return _run_page('my', params)
+    if action == 'home_collection':
+        # v5.10.459: a collection as one page of sections (collection_page.py)
+        return _run_page('collection', params)
     if action == 'home_details':
         # v5.10.114: a title's page on its own, over any skin's Home (a Dex
         # Hub title clicked in Arctic Fuse 3's widgets, the player's Info)
@@ -969,11 +1033,31 @@ def _run_page(page, params):
         elif page == 'servers':
             app.open_servers()
         elif page == 'live':
+            if params.get('src'):
+                # v5.10.466: a channel on the Home's Live TV tab: its source and
+                # category open, and the channel starts (guide._show_channels)
+                from . import live_sources as LS
+                LS.remember_tab(app.profile, 'live', params['src'])
+                if params.get('cat'):
+                    LS.remember_tab(app.profile, 'live_cat:%s' % params['src'], params['cat'])
+                app.live_want = params.get('ch') or ''
             app.open_live()
         elif page == 'details':
             app.open_details(_details_tile(params))
         elif page == 'follow':
             app.open_follow(params.get('media') or '')
+        elif page == 'calendar':
+            app.open_calendar()
+        elif page == 'sport':
+            app.open_sport()
+        elif page == 'my':
+            from .my_page import open_my
+            open_my(app)
+        elif page == 'discover':
+            app.open_discover()
+        elif page == 'collection':
+            from .collection_page import open_collection
+            open_collection(app, params)
         elif page == 'vod':
             grid = dict((k, v) for k, v in params.items() if k != 'action')
             grid['action'] = 'home_vod_list'

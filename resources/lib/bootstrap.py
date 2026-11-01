@@ -202,6 +202,10 @@ def _run_inner():
         # v5.10.229: set Dex Hub up from a phone (QR on the TV, page on the phone)
         from .phone_setup import run as _phone
         return _phone(section=_home_params.get('section', ''))
+    if _home_params.get('action') == 'alerts_settings':
+        # v5.10.474: the alert switches (the panel's Alert settings button)
+        from .island import inbox as _inbox
+        return _inbox(settings=True)
     if _home_params.get('action') == 'island_inbox':
         # v5.10.218: the bell on skin.dexhub's Home
         from .island import inbox as _inbox
@@ -209,7 +213,7 @@ def _run_inner():
     if _home_params.get('action') in ('home_ui', 'home_folder', 'home_grid', 'home_layout', 'home_setup',
                                        'home_live', 'home_screensaver', 'home_servers', 'home_search',
                                        'home_details', 'home_vod_play', 'home_library', 'home_community',
-                                       'home_menu', 'home_follow', 'home_vod_series'):
+                                       'home_menu', 'home_follow', 'home_calendar', 'home_sport', 'home_discover', 'home_vod_series', 'home_my'):
         from .homeui.app import run as _home_run
         return _home_run(_home_params)
     # v5.10.101: Kodi's subtitle dialog (Dex Hub is a subtitle service too).

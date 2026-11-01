@@ -277,16 +277,25 @@ def _calendar():
             return
         if (media == 'movie' and kind != 'movie') or (media == 'series' and kind == 'movie'):
             return
-        key = (day.isoformat(), title)
-        if key in seen:
-            old = seen[key]
+        # v5.10.473: the same episode under two names (Arabic and English,
+        # two sources) is one entry: matched by its id and code, or its poster
+        keys = [(day.isoformat(), title)]
+        if tmdb_id:
+            keys.append((day.isoformat(), 'tmdb', str(tmdb_id), detail))
+        if poster:
+            keys.append((day.isoformat(), 'poster', poster))
+        old = next((seen[k] for k in keys if k in seen), None)
+        if old is not None:
             old['poster'] = old.get('poster') or poster
             old['tmdb_id'] = old.get('tmdb_id') or str(tmdb_id or '')
+            for k in keys:
+                seen.setdefault(k, old)
             return
         entry = {'date': day.isoformat(), 'title': title, 'detail': detail, 'poster': poster, 'kind': kind,
                         'tmdb_id': str(tmdb_id or ''), 'media': 'movie' if kind == 'movie' else 'series'}
         entries.append(entry)
-        seen[key] = entry
+        for k in keys:
+            seen[k] = entry
     from .. import watch_sources as W
     try:
         personal_events = W.calendar_events()
@@ -1004,7 +1013,9 @@ class Saver(xbmcgui.WindowXMLDialog):
         start = datetime.datetime.combine(day, datetime.time(0, 0))
         left = int((start - datetime.datetime.now()).total_seconds())
         if left <= 0:
-            self.setProperty('ss.count', _tr('اليوم'))
+            # v5.10.473: out already: says so, with its name (not "Until ...")
+            self.setProperty('ss.count', 'Out now' if _english() else 'متوفر الحين')
+            self.setProperty('ss.count.until', entry.get('title') or '')
             return
         days, rest = divmod(left, 86400)
         clock = '%02d:%02d:%02d' % (rest // 3600, rest % 3600 // 60, rest % 60)

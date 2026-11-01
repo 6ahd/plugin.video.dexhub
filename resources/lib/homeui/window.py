@@ -1564,6 +1564,13 @@ class _BaseWindow(xbmcgui.WindowXML):
         if self._closing:
             return
         active = self.is_active()
+        # v5.10.458: the live channel's panel in the player, the page covered or not
+        live_osd = getattr(self.app, 'live_osd', None)
+        if live_osd is not None:
+            try:
+                live_osd.tick(self)
+            except Exception:
+                pass
         director = self.app.director
         foreign = director.foreign_playback() and self._video_playing()
         if active and not getattr(self, '_was_active', False) and foreign:
@@ -3896,6 +3903,11 @@ class BrowseWindow(_BaseWindow):
         """Show another server or live source; the rows follow."""
         if not key:
             return
+        if self.mode == 'live' and key == 'sport':
+            self.stop_trailer(wait=False)
+            self.app.open_sport()
+            self._mark_tabs()
+            return
         if key == self._tab:
             if rows_after:
                 self.go('rows')
@@ -3952,6 +3964,8 @@ class BrowseWindow(_BaseWindow):
         from .options import choose
         labels, commands = [], []
         if self.mode == 'live':
+            labels.append(self.tr('رياضة'))
+            commands.append('sport')
             labels += [self.tr('المجموعات والقنوات'), self.tr('تحديث المصدر'), self.tr('إدارة المصادر')]
             commands += ['groups', 'refresh_live', 'setup_live']
             for media, label in (('channels', 'القنوات'), ('movie', 'أفلام VOD'), ('series', 'مسلسلات VOD')):
@@ -3959,8 +3973,8 @@ class BrowseWindow(_BaseWindow):
                     labels.append(self.tr(label))
                     commands.append('section:' + media)
         elif self.mode == 'library':
-            labels += [self.tr('انتقل إلى'), self.tr('الحسابات والمصادر')]
-            commands += ['groups', 'accounts']
+            labels += [self.tr('التقويم'), self.tr('انتقل إلى'), self.tr('الحسابات والمصادر')]
+            commands += ['calendar', 'groups', 'accounts']
         elif self.mode == 'servers':
             labels += [self.tr('المكتبات والصفوف'), self.tr('تحديث السيرفر'), self.tr('الحسابات والمصادر')]
             commands += ['groups', 'refresh_server', 'accounts']
@@ -3970,7 +3984,13 @@ class BrowseWindow(_BaseWindow):
         if picked < 0 or picked >= len(commands):
             return
         command = commands[picked]
-        if command.startswith('section:'):
+        if command == 'sport':
+            self.stop_trailer(wait=False)
+            self.app.open_sport()
+        elif command == 'calendar':
+            self.stop_trailer(wait=False)
+            self.app.open_calendar()
+        elif command.startswith('section:'):
             self.select_live_section(command.split(':', 1)[1])
         elif command == 'groups':
             available = [(i, row) for i, row in enumerate(self.rows) if row.state not in ('empty', 'error')]
@@ -4309,7 +4329,10 @@ class BrowseWindow(_BaseWindow):
         self._live_sources = sources
         tabs = [{'key': s['key'], 'label': s['label'], 'hint': s.get('hint') or '',
                  'icon': s.get('icon') or '', 'plot': s.get('description') or ''} for s in sources]
-        selected = self._pick_tab('live', tabs, avoid='setup')
+        # v5.10.453: Sport opens its own page from the tab bar, over this one
+        if any(s['kind'] not in ('setup', 'pvr') for s in sources):
+            tabs.insert(len(tabs) - 1, {'key': 'sport', 'label': self.tr('رياضة'), 'hint': '', 'icon': '', 'plot': ''})
+        selected = self._pick_tab('live', [t for t in tabs if t['key'] != 'sport'], avoid='setup')
         self._show_tabs(tabs, selected)
         source = [s for s in sources if s['key'] == selected][0]
         from . import vod

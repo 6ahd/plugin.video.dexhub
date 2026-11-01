@@ -400,6 +400,7 @@ class Worker(object):
                 continue
             self.dispatch_requests(rows)
             self.take_warm()
+            self.take_fold()
             self.read_rows_ahead()
             self.focus_gif(rows)
             self.publish_later()
@@ -686,6 +687,42 @@ class Worker(object):
         thread.daemon = True
         self._warm_thread = thread
         thread.start()
+
+    def take_fold(self):
+        """v5.10.476: a collection's catalogs read ahead (spotlight._note_fold),
+        in a thread of this service, the newest card waiting."""
+        raw = C.prop('dhs.fold.warm')
+        if not raw:
+            return
+        C.set_prop('dhs.fold.warm', '')
+        try:
+            import json
+            request = json.loads(raw)
+        except Exception:
+            return
+        if time.time() - float(request.get('t') or 0) > 60:
+            return
+        self._fold_next = request
+        thread = getattr(self, '_fold_thread', None)
+        if thread is not None and thread.is_alive():
+            return
+        thread = threading.Thread(target=self._fold_run, name='DexHubFoldAhead')
+        thread.daemon = True
+        self._fold_thread = thread
+        thread.start()
+
+    def _fold_run(self):
+        from .. import profile_scope
+        from . import folderpage
+        while not self.stopped():
+            request, self._fold_next = getattr(self, '_fold_next', None), None
+            if not request:
+                return
+            try:
+                with profile_scope.bind(request.get('scope')):
+                    folderpage.read_ahead(request.get('u') or '', stop=self.stopped)
+            except Exception:
+                C.log('collection read ahead (service):\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
 
     def _warm_run(self):
         from .. import profile_scope

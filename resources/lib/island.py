@@ -215,6 +215,13 @@ def notices(soon=False, party=False):
         out.extend(silo_notifications.notices())
     except Exception:
         pass
+    try:
+        # v5.10.453: a followed team's game live or just ended
+        from . import sport_feed
+        gone = set((home.getProperty('dhs.island.dismissed') or '').split('\n'))
+        out.extend(row for row in sport_feed.island_notices(_json(sport_feed.ISLAND_PROP), now) if row['key'] not in gone)
+    except Exception:
+        pass
     today = datetime.date.today().isoformat()
     if home.getProperty('dhs.newep.day') == today:
         gone = set((home.getProperty('dhs.island.dismissed') or '').split('\n'))
@@ -231,6 +238,12 @@ def notices(soon=False, party=False):
                 if isinstance(ev, dict) and ev.get('title'):
                     kicker = _tr('فيلم جاي') if ev.get('kind') == 'movie' else _tr('حلقة جاية')
                     out.append(dict(ev, kind='soon', kicker=kicker, key='soon|%s' % ev.get('key')))
+    try:
+        # v5.10.473: the kinds of alert the user switched off (alerts_prefs)
+        from . import alerts_prefs
+        out = [row for row in out if alerts_prefs.notice_on(row.get('kind') or '')]
+    except Exception:
+        pass
     return out
 
 
@@ -262,6 +275,10 @@ def refresh(force=False):
     count = str(len(items)) if items else ''
     if home.getProperty('dhs.island.count') != count:
         home.setProperty('dhs.island.count', count)
+    # v5.10.473: what the bell's badge writes (two digits at most)
+    badge = (count if len(items) < 10 else '9+') if items else ''
+    if home.getProperty('dhs.island.badge') != badge:
+        home.setProperty('dhs.island.badge', badge)
     if items:
         first = items[0]
         _set(first['kind'], first.get('title') or '', first.get('sub') or '', first.get('poster') or '',
@@ -284,6 +301,15 @@ def refresh(force=False):
         return
     seen = set((home.getProperty('dhs.island.seen') or '').split('\n'))
     fresh = [i for i in items if i['key'] not in seen]
+    try:
+        from . import alerts_prefs
+        banner = alerts_prefs.on('banner')
+    except Exception:
+        banner = True
+    if not banner:
+        # v5.10.473: no pop-up banner: the bell's badge alone says something came
+        home.setProperty('dhs.island.seen', '\n'.join(sorted(seen | set(i['key'] for i in items)))[-4000:])
+        fresh = []
     if fresh and not until and _on_home():
         item = fresh[0]
         more = len(fresh) - 1
@@ -304,33 +330,86 @@ def refresh(force=False):
 
 # ------------------------------------------------------------------ the inbox
 class Inbox(xbmcgui.WindowXMLDialog):
+    """v5.10.473 (dexhub_inbox.xml by tools/s471/make_inbox.py): the notices
+    in four tabs, and a fifth, Settings, with a switch for each kind of alert."""
+
+    SETTINGS = 4
 
     def __init__(self, *args, **kwargs):
         super(Inbox, self).__init__(*args, **kwargs)
         self.items = kwargs.get('items') or []
+        self.extra = kwargs.get('extra') or []
+        self.start_settings = bool(kwargs.get('settings'))
         self.chosen = None
+        self.switches = []
 
     def onInit(self):
-        self.tab = 0
-        self.setProperty('ib.head', _t('مركز التنبيهات', 'Notification center'))
-        self.setProperty('ib.count', str(len([i for i in self.items if i.get('kind') in ('newep', 'silo')])))
-        self.setProperty('ib.empty', _t('لا توجد عناصر في هذا القسم', 'Nothing in this section'))
-        self.setProperty('ib.hint', _t('موافق: فتح العمل  ·  رجوع: إغلاق', 'OK: open title  ·  Back: close'))
-        tabs = self.getControl(200)
-        tabs.reset()
-        for text in (_t('الكل', 'All'), _t('الجديد', 'New'), _t('متابعة', 'Continue'), _t('القادم', 'Upcoming')):
-            tabs.addItem(xbmcgui.ListItem(text))
+        self.tab = self.SETTINGS if self.start_settings else 0
+        self.setProperty('ib.head', _t('التنبيهات', 'Alerts'))
+        self.setProperty('ib.empty', _t('ما فيه شي هنا', 'Nothing here'))
+        self.setProperty('ib.hint', _t('موافق: فتح  ·  رجوع: إغلاق', 'OK: open  ·  Back: close'))
         buttons = self.getControl(BUTTONS)
         buttons.reset()
-        for text in (_t('قراءة الكل', 'Read all'), _t('إدارة المراقبة', 'Manage monitoring'),
+        for text in (_t('قراءة الكل', 'Read all'), _t('المصادر', 'Sources'),
                      _t('مشاهدة جماعية', 'Watch party'), _t('إغلاق', 'Close')):
             buttons.addItem(xbmcgui.ListItem(text))
+        self._tabs()
         self._paint()
-        self.setFocusId(LIST if self.shown else 200)
+        self.setFocusId(LIST if self.getControl(LIST).size() else 200)
+
+    def _tabs(self):
+        tabs = self.getControl(200)
+        pos = tabs.getSelectedPosition()
+        tabs.reset()
+        for n, text in enumerate((_t('الكل', 'All'), _t('الجديد', 'New'), _t('كمّل', 'Continue'), _t('القادم', 'Upcoming'),
+                                  _t('الإعدادات', 'Settings'))):
+            li = xbmcgui.ListItem(text)
+            li.setProperty('sel', '1' if n == self.tab else '')
+            tabs.addItem(li)
+        if pos >= 0:
+            tabs.selectItem(pos)
+
+    def _counts(self):
+        waiting = [i for i in self.items if i.get('kind') in ('newep', 'silo', 'sport')]
+        self.setProperty('ib.count', str(len(waiting)) if waiting else '')
+        try:
+            from . import alerts_prefs
+            off = [title for _key, title, _line, on in alerts_prefs.rows() if not on]
+        except Exception:
+            off = []
+        sub = _t('%d تنبيه جديد', '%d new') % len(waiting) if waiting else _t('ما فيه جديد', 'Nothing new')
+        if off:
+            sub += '  ·  ' + _t('موقّف: %s', 'Off: %s') % u'، '.join(off) if not _english() else '  ·  Off: ' + ', '.join(off)
+        self.setProperty('ib.sub', sub)
 
     def _paint(self):
         from .watch_timing import stamp, local_time
-        kinds = (None, ('newep', 'silo'), ('resume', 'playing'), ('soon',))
+        self._counts()
+        listing = self.getControl(LIST)
+        if self.tab == self.SETTINGS:
+            from . import alerts_prefs
+            self.shown = []
+            self.switches = alerts_prefs.rows()
+            rows = []
+            for key, title, line, on in self.switches:
+                li = xbmcgui.ListItem(title, line)
+                li.setProperty('setting', '1')
+                li.setProperty('switch', '1' if on else '0')
+                rows.append(li)
+            # the screensaver's own choices, from here too
+            li = xbmcgui.ListItem(_t('شاشة التوقف', 'Screensaver'), _t('شكلها ومحتواها ومتى تشتغل', 'Its look, what it shows and when'))
+            li.setProperty('setting', '1')
+            li.setProperty('more', '1')
+            rows.append(li)
+            pos = listing.getSelectedPosition()
+            listing.reset()
+            listing.addItems(rows)
+            if 0 <= pos < len(rows):
+                listing.selectItem(pos)
+            self.setProperty('ib.hint', _t('موافق: تشغيل أو إيقاف', 'OK: switch on or off'))
+            return
+        self.setProperty('ib.hint', _t('موافق: فتح  ·  رجوع: إغلاق', 'OK: open  ·  Back: close'))
+        kinds = (None, ('newep', 'silo', 'sport'), ('resume', 'playing'), ('soon',))
         self.shown = [i for i in self.items if kinds[self.tab] is None or i.get('kind') in kinds[self.tab]]
         self.shown.sort(key=lambda i: (i.get('kind') == 'soon', i.get('day') or ''))
         rows = []
@@ -348,16 +427,30 @@ class Inbox(xbmcgui.WindowXMLDialog):
             li.setProperty('has_progress', '1' if item.get('has_progress') else '')
             li.setArt({'poster': item.get('poster') or '', 'fanart': item.get('fanart') or item.get('poster') or ''})
             rows.append(li)
-        listing = self.getControl(LIST)
         listing.reset()
         listing.addItems(rows)
 
     def onClick(self, control_id):
         if control_id == 200:
-            self.tab = max(0, min(3, self.getControl(200).getSelectedPosition()))
+            self.tab = max(0, min(self.SETTINGS, self.getControl(200).getSelectedPosition()))
+            self._tabs()
             self._paint()
-            if self.shown:
+            if self.getControl(LIST).size():
                 self.setFocusId(LIST)
+        elif control_id == LIST and self.tab == self.SETTINGS:
+            pos = self.getControl(LIST).getSelectedPosition()
+            if pos == len(self.switches):
+                self.chosen = {'kind': 'screensaver'}
+                self.close()
+                return
+            if 0 <= pos < len(self.switches):
+                from . import alerts_prefs
+                alerts_prefs.toggle(self.switches[pos][0])
+                # the notices again, without the kinds now off (and the bell's badge)
+                self.items = self.extra + notices(soon=True, party=True)
+                changed()
+                refresh(force=True)
+                self._paint()
         elif control_id == LIST:
             pos = self.getControl(LIST).getSelectedPosition()
             if 0 <= pos < len(self.shown):
@@ -386,8 +479,8 @@ def dismiss():
     refresh(force=True)
 
 
-def inbox():
-    """The bell, pressed: every notice as a banner."""
+def inbox(settings=False):
+    """The bell, pressed: every notice as a banner (``settings``: open on the alert switches, v5.10.474)."""
     items = []
     if xbmc.getCondVisibility('Player.HasVideo'):
         title = xbmc.getInfoLabel('VideoPlayer.TVShowTitle') or xbmc.getInfoLabel('VideoPlayer.Title')
@@ -403,11 +496,12 @@ def inbox():
                       'sub': code + timeline,
                       'poster': xbmc.getInfoLabel('Player.Art(poster)') or xbmc.getInfoLabel('Player.Art(tvshow.poster)'),
                       'fanart': xbmc.getInfoLabel('Player.Art(fanart)') or xbmc.getInfoLabel('Player.Art(tvshow.fanart)')})
+    playing = list(items)
     items += notices(soon=True, party=True)
     _home().clearProperty('dhs.island.toast')
     import xbmcaddon
     path = xbmcaddon.Addon('plugin.video.dexhub').getAddonInfo('path')
-    window = Inbox('dexhub_inbox.xml', path, 'Default', '1080i', items=items)
+    window = Inbox('dexhub_inbox.xml', path, 'Default', '1080i', items=items, extra=playing, settings=settings)
     window.doModal()
     chosen = window.chosen
     del window
@@ -419,6 +513,8 @@ def inbox():
         watch_sources.mark_read([i.get('alert_key') for i in items if i.get('kind') == 'newep' and i.get('alert_key')])
         watch_sources.sync_alerts()
         dismiss()
+    elif kind == 'screensaver':
+        xbmc.executebuiltin('RunPlugin(plugin://plugin.video.dexhub/?action=home_screensaver)')
     elif kind == 'party' and not chosen.get('action'):
         from . import watch_party
         watch_party.menu()

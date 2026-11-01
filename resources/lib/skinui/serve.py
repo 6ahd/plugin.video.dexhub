@@ -56,6 +56,13 @@ def run(params):
         from ..folder_view import native_options
         return native_options(params, _handle())
     if action == 'skin_fold':
+        # v5.10.459: skin.dexhub opens a collection as one page of sections,
+        # like Discover (homeui/collection_page.py); the classic page stays
+        # for the setting collection_look=classic and for other skins
+        from ..settings_cache import cached_addon
+        if xbmc.getSkinDir() == 'skin.dexhub' and (cached_addon().getSetting('collection_look') or 'sections') != 'classic':
+            from ..homeui.app import run as home_run
+            return home_run(dict(params, action='home_collection'))
         from ..folder_view import rows_enabled
         if rows_enabled() or C.served() == 'dexhub':
             from .folderpage import request_open

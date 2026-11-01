@@ -15,6 +15,17 @@ def publish():
     addon = xbmcaddon.Addon('plugin.video.dexhub')
     home = xbmcgui.Window(10000)
     scale = poster_scale(addon.getSetting('homeui_poster_scale'))
+    if addon.getSetting('poster_scale_v462') != 'true':
+        # v5.10.462: bigger posters by default (120 %, Large); a Home still at
+        # the old default of 100 % moves up once, a size the user chose stays
+        from .trailer_preferences import write_setting as save
+        try:
+            if scale == 100:
+                scale = 120
+                save('homeui_poster_scale', '120')
+            save('poster_scale_v462', 'true')
+        except Exception:
+            pass
     # Old skin zoom must not stack on top of the percentage geometry. Preserve
     # the legacy choice once, in the active profile's numeric preference.
     legacy = xbmc.getInfoLabel('Skin.String(DexHub.CardSize)')
