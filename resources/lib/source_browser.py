@@ -2048,7 +2048,8 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
     def _start_remote_meta_enrich(self):
         if self.meta.get('_dexhub_meta_source_id') not in (None, '', 'auto'):
             return
-        if self.meta.get('_dexhub_helper_cache_only'):
+        if self.meta.get('_dexhub_helper_cache_only') and not getattr(self, '_want_ratings', False):
+            # v5.10.479: Compact's ratings under the picture are read even then, in the background
             return
         if self._meta_enrich_started:
             return
@@ -2060,6 +2061,11 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             year = str(self.meta.get('year') or '').strip()
             media_type = str(self.meta.get('media_type') or self.meta.get('type') or 'movie').strip().lower()
             needs = not (self.meta.get('studio') or self.meta.get('studios')) or not (self.meta.get('clearlogo') or self.meta.get('logo'))
+            # v5.10.479: the Classic theme's ratings row: a title that came
+            # without ratings (a server's Continue Watching) has them looked up
+            want_ratings = getattr(self, '_want_ratings', False) and not self.getProperty('dexhub.rating.any') \
+                and not xbmcgui.Window(10000).getProperty('dexhub.rating.any')
+            needs = needs or not self.meta.get('year') or want_ratings
             if not needs or not (tmdb_id or imdb_id or title):
                 return
         except Exception:
@@ -2091,11 +2097,23 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                     if value not in (None, '', [], {}):
                         update[key] = value
                 genres = remote.get('genre') or remote.get('genres') or ''
+                if isinstance(genres, (list, tuple)):
+                    genres = ' / '.join(str(g) for g in genres[:3] if g)       # v5.10.479: not ['Family', ...]
                 if genres:
                     update['genre'] = genres
                 window = window_ref()
                 if update and window is not None:
                     window._queue_art_update(update)
+                if want_ratings and window is not None:
+                    from .homeui import ratings as _ratings
+                    from . import tmdbh_context
+                    found = _ratings.collect(tmdb_id=tmdb_id or str(remote.get('tmdb_id') or ''),
+                                             imdb_id=imdb_id or str(remote.get('imdb_id') or ''),
+                                             media_type='series' if media_type in ('series', 'tv', 'show', 'episode') else 'movie',
+                                             network=True)
+                    window = window_ref()
+                    if found and window is not None:
+                        tmdbh_context.publish_ratings(window, {'ratings': found})
             except Exception as exc:
                 try:
                     xbmc.log('[DexHub] async TMDb header enrich skipped: %s' % exc, xbmc.LOGDEBUG)
@@ -3937,6 +3955,7 @@ def open_sources_window(results, meta, play_mode=MODE_ASK, session_key='', retry
     win = SourcesWindow(skin_xml, ADDON_PATH, 'Default', '1080i', results=results, meta=meta, play_mode=play_mode, session_key=session_key, retry_source=retry_source)
     win._halo = True     # v5.10.444: every theme has Halo's layout and behaviour
     win._prism = skin_xml == 'sources_nuvio.xml'     # v5.10.447: its quality share bar
+    win._want_ratings = skin_xml == 'sources_results.xml'     # v5.10.479: Compact shows them under the picture
     win._anime = _is_anime_title(meta)                # v5.10.447: TRaSH's anime scores
     try:
         from .i18n import is_english

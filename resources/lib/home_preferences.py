@@ -15,14 +15,16 @@ def publish():
     addon = xbmcaddon.Addon('plugin.video.dexhub')
     home = xbmcgui.Window(10000)
     scale = poster_scale(addon.getSetting('homeui_poster_scale'))
-    if addon.getSetting('poster_scale_v462') != 'true':
-        # v5.10.462: bigger posters by default (120 %, Large); a Home still at
-        # the old default of 100 % moves up once, a size the user chose stays
+    if addon.getSetting('poster_scale_v477') != 'true':
+        # v5.10.477: the Home at 100 % by default again (the user's choice);
+        # a Home left at 120 %, the default of 5.10.462 to 5.10.476 that a
+        # one-time step forced on every device, comes back to 100 % once
         from .trailer_preferences import write_setting as save
         try:
-            if scale == 100:
-                scale = 120
-                save('homeui_poster_scale', '120')
+            if scale == 120:
+                scale = 100
+                save('homeui_poster_scale', '100')
+            save('poster_scale_v477', 'true')
             save('poster_scale_v462', 'true')
         except Exception:
             pass
@@ -40,6 +42,12 @@ def publish():
     if addon.getSetting('homeui_layout_mode') == 'two_rows':
         scale = min(scale, 100)
     home.setProperty('dhs.home.poster_scale', str(scale))
+    try:
+        # v5.10.479: the bar's sections (hidden ones, your own)
+        from . import bar_sections
+        bar_sections.publish()
+    except Exception:
+        pass
     for key, prop, choices in (
         ('homeui_layout_mode', 'dhs.home.layout', MODES),
         ('homeui_nav_position', 'dhs.home.nav', NAV_POSITIONS),
@@ -128,7 +136,7 @@ def size_label(tr, addon=None):
         current = (addon.getSetting('homeui_size') or 'Large').strip().lower()
     except Exception:
         current = 'large'
-    return scale_label(tr, UI_SIZE_PERCENT.get(current, 120))
+    return scale_label(tr, UI_SIZE_PERCENT.get(current, 100))
 
 
 def set_poster_scale(value):

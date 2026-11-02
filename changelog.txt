@@ -1,3 +1,19 @@
+5.10.480
+أقسامك الخاصة: تختار لها أيقونة (أفلام، مسلسلات، رياضة، بث مباشر وغيرها)، وكتالوجاتها من أي إضافة فيديو في كودي (POV و TMDb Helper و Fen Light وغيرها: تختار الإضافة ثم المجلد) مو بس من صفوف Dex Hub. و«أقسام الشريط» مترجمة.
+Sections of your own: pick an icon (films, series, sport, live and more), and their catalogs from any Kodi video add-on (POV, TMDb Helper, Fen Light and others: pick the add-on, then the folder), not only from Dex Hub's rows. "Bar sections" is translated.
+
+5.10.479
+«أقسام الشريط» (مركز التحكم ← الشكل، أو الرئيسية والصفوف): تخفي أي قسم من الشريط (الأفلام، المسلسلات، السيرفرات، Discover، Live TV، مكتبتي)، وتضيف لين ثلاث أقسام باسمك وتختار كتالوجاتها من صفوف الرئيسية والأفلام والمسلسلات، وتطلع في الشريط وصفوفها في الرئيسية مثل الأفلام. وثيم المصادر «مختصرة» صار فيه التقييمات تحت الصورة (IMDb و TMDb و Rotten Tomatoes و Metacritic و Trakt وغيرها) بكبسولات زجاجية.
+"Bar sections" (Control centre, Look or Home and rows): hide any section of the bar (Movies, Series, Servers, Discover, Live TV, My Library) and add up to three sections of your own with a name and the catalogs you pick from the Home, Movies and Series rows; they show on the bar and their rows on the Home like Movies. The Compact sources theme shows the ratings under the picture (IMDb, TMDb, Rotten Tomatoes, Metacritic, Trakt and more) as glass chips.
+
+5.10.478
+«زجاج البوسترات» في صفحة «الزجاج والتحديد»: الحد الزجاجي حول البطاقات واللمعة على المحددة شغالة مثل ما هي، واللي ما يبيها يطفيها من هنا.
+"Poster glass" on the Glass & focus page: the glass rim round the cards and the sheen on the focused one stay on as they are; switch them off here if you do not want them.
+
+5.10.477
+الشكل ١٠٠٪ من الأساس: حجم الرئيسية والصفحات «عادي» (١٠٠٪) بدل ١٢٠٪، والجهاز اللي تحوّل لـ ١٢٠٪ تلقائياً من 5.10.462 يرجع ١٠٠٪ مرة وحدة (الحجم اللي تختاره بعدها يبقى).
+The look at 100 % by default: the Home and the pages at Normal (100 %) instead of 120 %, and a device moved to 120 % by 5.10.462 comes back to 100 % once (a size chosen afterwards stays).
+
 5.10.476
 الكوليكشن تنفتح مليانة من أول مرة: لما توقف على كرت الكوليكشن لحظة، الإضافة تحمّل كتالوجاتها بالخلفية قبل ما تضغط (كانت كل صف ياخذ ١ إلى ٨ ثواني من Trakt عند الفتح). وصفحة الكوليكشن تقرأ أربعة صفوف مع بعض و«الكل» (أبطأها) آخر شي.
 Collections open full the first time: when the cursor rests on a collection card a moment, its catalogs are read in the background before you press it (each row took 1 to 8 s from Trakt on opening). The collection page reads four rows at a time, "All" (the slowest) last.

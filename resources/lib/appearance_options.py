@@ -18,6 +18,7 @@ def open_settings():
     from .ui_preferences import value, set_value
     _close_native_settings_dialog()
     glass = not xbmc.getCondVisibility('Skin.HasSetting(dh.noglass)')
+    card_glass = not xbmc.getCondVisibility('Skin.HasSetting(dh.nocardglass)')     # v5.10.478
     colour = 'accent' if xbmc.getCondVisibility('String.IsEqual(Skin.String(dh.kodifocus),accent)') else 'white'
     motion = value('homeui_focus_motion')
     calm = value('homeui_calm_motion') == 'true'      # v5.10.451
@@ -28,6 +29,8 @@ def open_settings():
         motion_index = motions.index(motion) if motion in motions else 0
         pick = _select_dialog(text('الزجاج والتحديد', 'Glass & focus'), [
             _row(text('الوضع الزجاجي', 'Glass mode'), text('مفعّل', 'On') if glass else text('مطفأ', 'Off')),
+            _row(text('زجاج البوسترات', 'Poster glass'), (text('مفعّل', 'On') if card_glass else text('مطفأ', 'Off')) + '  ·  ' +
+                 text('حد ولمعة على البطاقات', 'Rim and sheen on cards')),
             _row(text('لون التحديد', 'Focus colour'), text('لون الثيم', 'Theme colour') if colour == 'accent' else text('أبيض', 'White')),
             _row(text('حركة التحديد', 'Focus motion'), motion_names[motion_index]),
             _row(text('حركة أقل', 'Reduce motion'), text('مفعّل', 'On') if calm else text('مطفأ', 'Off')),
@@ -40,23 +43,28 @@ def open_settings():
             glass = not glass
             xbmc.executebuiltin('Skin.Reset(dh.noglass)' if glass else 'Skin.SetBool(dh.noglass)', wait=True)
         elif pick == 1:
+            card_glass = not card_glass
+            xbmc.executebuiltin('Skin.Reset(dh.nocardglass)' if card_glass else 'Skin.SetBool(dh.nocardglass)', wait=True)
+        elif pick == 2:
             selected = _select_dialog(text('لون التحديد', 'Focus colour'), [
                 _row(text('أبيض', 'White')), _row(text('لون الثيم', 'Theme colour')),
             ], preselect=1 if colour == 'accent' else 0)
             if selected in (0, 1):
                 colour = ('white', 'accent')[selected]
                 xbmc.executebuiltin('Skin.SetString(dh.kodifocus,%s)' % colour, wait=True)
-        elif pick == 2:
+        elif pick == 3:
             selected = _select_dialog(text('حركة التحديد', 'Focus motion'), [_row(name) for name in motion_names], preselect=motion_index)
             if selected in range(len(motions)) and set_value('homeui_focus_motion', motions[selected]):
                 motion = motions[selected]
-        elif pick == 3:
+        elif pick == 4:
             if set_value('homeui_calm_motion', 'false' if calm else 'true'):
                 calm = not calm
                 from .skinui import strings as _skin_strings
                 _skin_strings.publish_options()
-        elif pick == 4:
+        elif pick == 5:
             xbmc.executebuiltin('Skin.Reset(dh.noglass)', wait=True)
+            xbmc.executebuiltin('Skin.Reset(dh.nocardglass)', wait=True)
+            card_glass = True
             xbmc.executebuiltin('Skin.SetString(dh.kodifocus,white)', wait=True)
             glass, colour = True, 'white'
             if set_value('homeui_focus_motion', 'tvos'):

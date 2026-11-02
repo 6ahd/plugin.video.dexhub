@@ -17,7 +17,7 @@ import xbmcgui
 ADDON_ID = 'plugin.video.dexhub'
 BASE = 'plugin://%s/' % ADDON_ID
 SKIN_ID = 'skin.dexhub'
-TABS = ('all', 'movie', 'series', 'library', 'servers')   # v5.10.153: the Library tab; v5.10.157: Servers (v5.10.472: Discover and Live TV are pages again, opened on press)
+TABS = ('all', 'movie', 'series', 'library', 'servers', 'c1', 'c2', 'c3')   # v5.10.153: the Library tab; v5.10.157: Servers (v5.10.472: Discover and Live TV are pages again, opened on press; v5.10.479: c1-c3 the sections of your own, bar_sections.py)
 ROWS = 20                   # row slots of the skin's Home
 HOME = 10000
 

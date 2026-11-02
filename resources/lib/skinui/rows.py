@@ -216,6 +216,10 @@ def compute_rows(tab):
         # v5.10.157: the Servers tab, built like the Library (its chips are the servers)
         from ..routes import servers_tab
         return app().layout.apply(servers_tab.skin_rows(), 'servers')
+    if tab in ('c1', 'c2', 'c3'):
+        # v5.10.479: a section of your own on the bar (bar_sections.py)
+        from .. import bar_sections
+        return bar_sections.rows(tab)
     if tab == 'discover':
         # v5.10.466: Discover's sections on the Home (routes/discover_tab.py)
         from ..routes import discover_tab

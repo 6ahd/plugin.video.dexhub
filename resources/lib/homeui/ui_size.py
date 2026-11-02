@@ -13,7 +13,7 @@ ADDON_ID = 'plugin.video.dexhub'
 SETTING = 'homeui_size'
 # the setting's stored values (labelenum values) and their files
 SUFFIX = {'normal': '', 'large': '_l', 'extra large': '_xl'}
-DEFAULT = 'large'
+DEFAULT = 'normal'       # v5.10.477 (large before)
 ORDER = ('Normal', 'Large', 'Extra large')
 
 

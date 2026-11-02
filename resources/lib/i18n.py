@@ -3322,6 +3322,7 @@ STRINGS.update({
     'توصيات لك': 'Recommended for you',
 })
 
+STRINGS.update({'أقسام الشريط': 'Bar sections', 'إخفاء أي قسم، أو قسم جديد باسمك وكتالوجاتك': 'Hide any section, or add one of your own with your catalogs', 'الثيم وشكل الرئيسية وأقسام الشريط وصفحة العمل والحجم': 'Theme, Home layout, bar sections, title page and size', 'صفوف قصيرة بتحديد أبيض، بشاراتك، والتقييمات تحت الصورة': 'Short rows with a white focus, your badges, and the ratings under the picture', 'مختصرة · بشاراتك والتقييمات تحت الصورة': 'Compact · your badges and the ratings under the picture', 'Apple TV · تكبير ورفع وظل': 'Apple TV · zoom, lift and shadow'})  # v5.10.480: bar sections, Compact ratings
 _TR_MEMO = {}
 _TR_MEMO_LIMIT = 4096
 
