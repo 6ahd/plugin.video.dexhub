@@ -3323,6 +3323,9 @@ STRINGS.update({
 })
 
 STRINGS.update({'أقسام الشريط': 'Bar sections', 'إخفاء أي قسم، أو قسم جديد باسمك وكتالوجاتك': 'Hide any section, or add one of your own with your catalogs', 'الثيم وشكل الرئيسية وأقسام الشريط وصفحة العمل والحجم': 'Theme, Home layout, bar sections, title page and size', 'صفوف قصيرة بتحديد أبيض، بشاراتك، والتقييمات تحت الصورة': 'Short rows with a white focus, your badges, and the ratings under the picture', 'مختصرة · بشاراتك والتقييمات تحت الصورة': 'Compact · your badges and the ratings under the picture', 'Apple TV · تكبير ورفع وظل': 'Apple TV · zoom, lift and shadow'})  # v5.10.480: bar sections, Compact ratings
+STRINGS.update({'للأنمي بس': 'anime only', 'يحتاج مفتاح MDBList': 'needs an MDBList key'})
+STRINGS.update({'كلاسيكي · كل التقييمات فوق': 'Classic · every rating on top', 'التصميم السابق: البوستر يسار، الشعار وكل التقييمات فوق بكبسولات زجاج، ومجموعات المصادر': 'The earlier page: the poster on the left, the logo and every rating on top as glass chips, the source groups', 'Prism أو مختصرة أو Halo أو الكلاسيكي': 'Prism, Compact, Halo or Classic'})
+STRINGS.update({'دوائر الشعارات': 'Logo circles', 'للمنصات والشبكات والممثلين، الشعار أو الصورة في دائرة': 'For services, networks and cast: the logo or the picture in a circle'})  # v5.10.481: the circle style
 _TR_MEMO = {}
 _TR_MEMO_LIMIT = 4096
 

@@ -64,6 +64,19 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
             _prov = dict(provider)
             _prov['_candidate_request_ids'] = list(provider_ids[:4])
             item_id = _prov['_candidate_request_ids'][0]
+            # v5.10.482: an add-on with ids of its own is also asked by name (dexhub.title_bridge)
+            try:
+                from .dexhub.title_bridge import eligible as _bridgeable, own_prefixes as _own
+                if _bridgeable(_prov, api._stremio_provider.normalized_media_type(media_type)) and not any(
+                        str(canonical_id).lower().startswith(_p) for _p in _own(_prov)):
+                    from .search.native_titles import candidates as _names
+                    _prov['_bridge'] = {
+                        'titles': _names(meta or {}, media_type) + [(meta or {}).get('name') or '', (meta or {}).get('title') or ''],
+                        'year': (meta or {}).get('year') or str((meta or {}).get('first_air_date') or (meta or {}).get('release_date') or '')[:4],
+                        'season': season, 'episode': episode,
+                        'ids': api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id))}
+            except Exception:
+                pass
             key = (_prov.get('id') or _prov.get('base_url') or _prov.get('name') or '', '__provider__')
             if key not in seen:
                 seen.add(key)

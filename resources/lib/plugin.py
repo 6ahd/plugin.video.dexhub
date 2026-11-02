@@ -5983,7 +5983,26 @@ def _hub_search_unified_render(query, providers_list, include_tmdb=False, collec
                 if _catalog_supports_search(cat):
                     jobs.append((provider, cat, media_type))
 
-    jobs = _fair_search_job_order(jobs)
+    # v5.10.482: an add-on with ids of its own has titles nobody else lists: its
+    # site's search is one (each catalog only filters it), so two catalogs a
+    # type are asked, first in the queue, and the search waits for its answer
+    # (it came after the settle and the title was missing: 15 catalogs queued).
+    _own_jobs = []
+    try:
+        from .dexhub import title_bridge as _bridge
+        _kept = []
+        for _job in jobs:
+            _p, _c, _mt = _job
+            if isinstance(_p, dict) and _p.get('manifest') and _bridge.own_prefixes(_p):
+                if (_c or {}).get('id') not in [c.get('id') for c in _bridge.search_catalogs(_p, _mt)]:
+                    continue
+                _own_jobs.append(_job)
+                continue
+            _kept.append(_job)
+        jobs = _kept
+    except Exception:
+        _own_jobs = []
+    jobs = _own_jobs + _fair_search_job_order(jobs)
     # A manifest can expose the same searchable catalog through both its
     # ``types`` declaration and catalog list (or repeat the catalog verbatim).
     # Collapse identical requests before they consume a worker/network slot.
@@ -6278,9 +6297,12 @@ def _hub_search_unified_render(query, providers_list, include_tmdb=False, collec
         # Search owns a small lane that cannot block source discovery after the
         # user clicks a result. Polling (rather than a fixed sleep) also lets us
         # render as soon as the useful responses settle.
+        _own_waiting = set(id(_job) for _job in jobs if any(_job is _o for _o in _own_jobs))
+        if _own_jobs:
+            _ceiling = max(_ceiling, 6)     # it answers in 2 to 4 s: a 4 s ceiling cut it off
         _search_race = start_parallel_race(
             _run_one, jobs,
-            workers=max(2, min(4, parallel_workers(), len(jobs))),
+            workers=max(2, min(4, parallel_workers(), len(jobs))) + len(_own_waiting),
             timeout=float(_ceiling), lane='search',
         )
 
@@ -6299,10 +6321,12 @@ def _hub_search_unified_render(query, providers_list, include_tmdb=False, collec
                     real_goal=max(48, 12 * len(jobs)),
                     quiet_seconds=1.5,
                     fallback_seconds=float(_ceiling),
+                    hold=lambda: bool(_own_waiting),
                 ), start=1):
             if loader.is_stopped():
                 break
             provider, cat, media_type = job
+            _own_waiting.discard(id(job))
             loader.update(
                 provider_name=provider.get('name') or '',
                 index=idx,
@@ -6344,10 +6368,15 @@ def _hub_search_unified_render(query, providers_list, include_tmdb=False, collec
                 if _t_key and _y_key and len(_t_key) >= 3:
                     identity.add('title:%s:%s' % (_t_key, _y_key))
                 identity = {'%s|%s' % (_norm_type, k) for k in identity}
-                if meta.get('_backend') in SERVER_BACKENDS or meta.get('_backend') == 'dwiptv':
+                if meta.get('_backend') in SERVER_BACKENDS or meta.get('_backend') == 'dwiptv' or any(job is _o for _o in _own_jobs):
                     # A copy on the user's OWN server is a different class of
                     # result — it always renders, and it never suppresses the
                     # addon rows for the same title (those still carry streams).
+                    # v5.10.482: so does an add-on with ids of its own: it
+                    # answers first now and took the place of TMDb's row.
+                    if any(job is _o for _o in _own_jobs) and ('%s|own|%s' % (_norm_type, meta.get('id'))) in seen_ids:
+                        continue      # the same entry from its other catalog
+                    seen_ids.add('%s|own|%s' % (_norm_type, meta.get('id')))
                     kept_count[0] += 1
                     metas_by_type.setdefault(actual_type, []).append(meta)
                     continue
@@ -15084,6 +15113,10 @@ def _quality_badge(video_bits):
         return '720P', 'FF059669'
     if '480P' in bits:
         return '480P', 'FFD97706'
+    # v5.10.482: what a small site's copies come in
+    for low in ('360P', '320P', '240P'):
+        if low in bits:
+            return low, 'FF92400E'
     return '--', 'FF475569'
 
 

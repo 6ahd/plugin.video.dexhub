@@ -93,7 +93,8 @@ def _skin_file():
     except Exception:
         style = 'halo'
     return {'full': 'sources_loading_prism.xml',
-            'compact': 'sources_loading_compact.xml'}.get(style, 'sources_loading_halo.xml')
+            'compact': 'sources_loading_compact.xml',
+            'classic': _SKIN_FILE}.get(style, 'sources_loading_halo.xml')      # v5.10.481: the Classic theme's own
 
 
 def _display_name(name):

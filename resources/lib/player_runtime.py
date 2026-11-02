@@ -5109,6 +5109,10 @@ def _quality_badge(video_bits):
         return '720P', 'FF059669'
     if '480P' in bits:
         return '480P', 'FFD97706'
+    # v5.10.482: what a small site's copies come in
+    for low in ('360P', '320P', '240P'):
+        if low in bits:
+            return low, 'FF92400E'
     return '--', 'FF475569'
 
 PLEX_COLOR = 'FFE5A00D'   # Plex brand gold

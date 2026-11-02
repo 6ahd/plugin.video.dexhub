@@ -61,7 +61,7 @@ QUALITY_FILTERS = [
     ('Q:2160P', 'الجودة • 4K / 2160P', ('2160P', '2160', '4K', 'UHD')),
     ('Q:1080P', 'الجودة • 1080P', ('1080P', '1080', 'FHD')),
     ('Q:720P',  'الجودة • 720P',  ('720P', '720', 'HD')),
-    ('Q:480P',  'الجودة • 480P / SD', ('480P', '480', 'SD')),
+    ('Q:480P',  'الجودة • 480P / SD', ('480P', '480', '360', '320', '240', 'SD')),
     ('Q:HDR',   'الجودة • HDR', ('HDR', 'HDR10', 'HDR10+')),
     ('Q:DV',    'الجودة • Dolby Vision', ('DV', 'DOVI', 'DOLBY VISION')),
     ('Q:REMUX', 'الجودة • REMUX', ('REMUX', 'BDREMUX')),
@@ -1080,7 +1080,7 @@ def _pack_name_tokens(text):
 
 _BADGE_RESOLUTION = re.compile(
     r'(?<![a-z0-9])(?:4320[pi]?|8k|2160[pi]?|4k|uhd|ultra[ ._-]*hd|'
-    r'1080[pi]?|fhd|full[ ._-]*hd|720[pi]?|576[pi]?|540[pi]?|480[pi]?|360[pi]?|sd)(?![a-z0-9])', re.I)
+    r'1080[pi]?|fhd|full[ ._-]*hd|720[pi]?|576[pi]?|540[pi]?|480[pi]?|360[pi]?|320[pi]?|240[pi]?|sd)(?![a-z0-9])', re.I)
 
 
 def _badge_quality(row, text=''):
@@ -1089,7 +1089,7 @@ def _badge_quality(row, text=''):
         matches = [m.group().lower() for m in _BADGE_RESOLUTION.finditer(str(value or ''))]
         for label, hints in (('8K', ('4320', '8k')), ('4K', ('2160', '4k', 'uhd', 'ultra')),
                              ('1080p', ('1080', 'fhd', 'full')), ('720p', ('720',)),
-                             ('SD', ('576', '540', '480', '360', 'sd'))):
+                             ('SD', ('576', '540', '480', '360', '320', '240', 'sd'))):
             if any(any(m.startswith(h) for h in hints) for m in matches):
                 return label
     return ''
@@ -1206,6 +1206,7 @@ _SORT_QUALITY_RANK = (
     (('1080', 'FHD'), 4),
     (('720', 'HD'), 3),
     (('480', 'SD'), 2),
+    (('360', '320', '240'), 1),
 )
 
 
@@ -1225,7 +1226,7 @@ def _quality_group(row):
         return '1080p'
     if '720' in text:
         return '720p'
-    if any(t in text for t in ('480', '576', 'SD')):
+    if any(t in text for t in ('480', '576', '360', '320', '240', 'SD')):
         return 'SD'
     return text.strip() or tr('أخرى')
 
@@ -2061,10 +2062,18 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             year = str(self.meta.get('year') or '').strip()
             media_type = str(self.meta.get('media_type') or self.meta.get('type') or 'movie').strip().lower()
             needs = not (self.meta.get('studio') or self.meta.get('studios')) or not (self.meta.get('clearlogo') or self.meta.get('logo'))
-            # v5.10.479: the Classic theme's ratings row: a title that came
-            # without ratings (a server's Continue Watching) has them looked up
-            want_ratings = getattr(self, '_want_ratings', False) and not self.getProperty('dexhub.rating.any') \
-                and not xbmcgui.Window(10000).getProperty('dexhub.rating.any')
+            # v5.10.479: the ratings of Compact (under the picture) and
+            # Classic (on top) are looked up for a title that came without
+            # them; v5.10.481: or with only a few (TMDb's own score alone
+            # left Classic's row with one chip): every source is asked
+            want_ratings = False
+            if getattr(self, '_want_ratings', False):
+                from .homeui import ratings as _ratings
+                home = xbmcgui.Window(10000)
+                shown = [k for k in _ratings.ORDER if home.getProperty('dexhub.rating.%s' % k)]
+                # v5.10.482: of the ratings the user shows (three chosen: three is all)
+                picked = _ratings.chosen()
+                want_ratings = len(shown) < min(4, len(picked)) or ('imdb' in picked and 'imdb' not in shown)
             needs = needs or not self.meta.get('year') or want_ratings
             if not needs or not (tmdb_id or imdb_id or title):
                 return
@@ -2110,7 +2119,7 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                     found = _ratings.collect(tmdb_id=tmdb_id or str(remote.get('tmdb_id') or ''),
                                              imdb_id=imdb_id or str(remote.get('imdb_id') or ''),
                                              media_type='series' if media_type in ('series', 'tv', 'show', 'episode') else 'movie',
-                                             network=True)
+                                             network=True, full=True)
                     window = window_ref()
                     if found and window is not None:
                         tmdbh_context.publish_ratings(window, {'ratings': found})
@@ -2280,7 +2289,9 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                  'compact': (('مختصرة', 'Compact'), ('تعرض شاراتك الخاصة: حزمة الشارات اللي اخترتها',
                                                       'Shows your own badges: the badge pack you picked')),
                  'halo': (('Halo', 'Halo'), ('جاهز: تصميمه وشاراته الملونة، والبحث ونتايجه في صفحة وحدة',
-                                             'Ready-made: its own design and coloured badges, the search and results on one page'))}
+                                             'Ready-made: its own design and coloured badges, the search and results on one page')),
+                 'classic': (('كلاسيكي', 'Classic'), ('التصميم السابق: البوستر يسار، وكل التقييمات فوق بكبسولات زجاج',
+                                                      'The earlier page: the poster on the left, every rating on top as glass chips'))}
         current = pref_value('sources_row_style')
         items = []
         for c in choices:
@@ -3941,21 +3952,26 @@ def open_sources_window(results, meta, play_mode=MODE_ASK, session_key='', retry
     skin_xml = 'sources_results.xml'
     try:
         from .ui_preferences import value as _pref
-        skin_xml = {'halo': 'sources_halo.xml', 'full': 'sources_nuvio.xml'}.get(
-            _pref('sources_row_style'), 'sources_results.xml')
+        # v5.10.481: and Classic (sources_classic.xml, 5.10.441's page: the
+        # poster on the left, the logo and every rating on top, the groups as tabs)
+        skin_xml = {'halo': 'sources_halo.xml', 'full': 'sources_nuvio.xml',
+                    'classic': 'sources_classic.xml'}.get(_pref('sources_row_style'), 'sources_results.xml')
     except Exception:
         pass
     # v5.10.444: the three pages share one layout; your badges fit the text
     # column (1.3 times larger, so 470 px is about 610 on screen)
-    SOURCE_BADGE_LIMIT[0] = 470
+    SOURCE_BADGE_LIMIT[0] = 1170 if skin_xml == 'sources_classic.xml' else 470
     try:
         xbmc.log('[DexHub] scan-ui results window: opening with %d row(s)' % len(results or []), xbmc.LOGINFO)
     except Exception:
         pass
     win = SourcesWindow(skin_xml, ADDON_PATH, 'Default', '1080i', results=results, meta=meta, play_mode=play_mode, session_key=session_key, retry_source=retry_source)
-    win._halo = True     # v5.10.444: every theme has Halo's layout and behaviour
+    # v5.10.444: every theme has Halo's layout and behaviour; v5.10.481: but
+    # the Classic theme, the page of 5.10.441 with its own
+    win._halo = skin_xml != 'sources_classic.xml'
     win._prism = skin_xml == 'sources_nuvio.xml'     # v5.10.447: its quality share bar
-    win._want_ratings = skin_xml == 'sources_results.xml'     # v5.10.479: Compact shows them under the picture
+    # v5.10.479: Compact shows them under the picture; v5.10.481: Classic on top
+    win._want_ratings = skin_xml in ('sources_results.xml', 'sources_classic.xml')
     win._anime = _is_anime_title(meta)                # v5.10.447: TRaSH's anime scores
     try:
         from .i18n import is_english

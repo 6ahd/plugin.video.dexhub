@@ -42,7 +42,7 @@ OPTIONS = {
     # v5.10.301: the sources window's rows; v5.10.438: the Halo theme (its own
     # search screen and sources page); v5.10.442: three themes: Prism (the
     # page like Nuvio TV, key "full"), Compact and Halo
-    'sources_row_style': ('halo', ('full', 'compact', 'halo'), 'ثيم البحث والمصادر', 'Search and sources theme'),
+    'sources_row_style': ('halo', ('full', 'compact', 'halo', 'classic'), 'ثيم البحث والمصادر', 'Search and sources theme'),
     # v5.10.298: the player bar's look (osd_look.py): style, darkness, colour
     'player_osd_style': ('classic', ('classic', 'glass', 'cinematic', 'minimal'), 'نمط شريط المشغّل', 'Player bar style'),
     'player_osd_dim': ('70', ('0', '15', '30', '50', '60', '70', '80', '85', '95'), 'تعتيم خلفية المشغّل', 'Player background darkness'),
@@ -519,6 +519,7 @@ def edit(key, txt):
         'full': txt('Prism · سطور الإضافة كاملة بشاراتك', "Prism · the add-on's own lines, your badges"),
         'compact': txt('مختصرة · بشاراتك الخاصة', 'Compact · your own badges'),
         'halo': txt('Halo · جاهز بشاراته', 'Halo · ready-made, its own badges'),
+        'classic': txt('كلاسيكي · كل التقييمات فوق', 'Classic · every rating on top'),
     }
     shown = [labels.get(v, v + txt(' ثوانٍ', ' seconds') if key.endswith(('delay', 'interval')) else v) for v in choices]
     if key == 'player_badges_opacity':  # v5.10.286

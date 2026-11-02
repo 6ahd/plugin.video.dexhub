@@ -36,12 +36,34 @@ def chosen(saved=None):
     return keys or list(ORDER)
 
 
+# v5.10.481: where each rating comes from. Without a key Dex Hub reaches IMDb,
+# TMDb, Trakt and MyAnimeList; the rest come from MDBList (its API key, Dex
+# Hub's or TMDb Helper's), Rotten Tomatoes and Metacritic also from OMDb (TMDb
+# Helper's key). The picker says so, or every source looks promised.
+NEEDS_MDBLIST = ('rt_crit', 'rt_aud', 'metacritic', 'letterboxd', 'mdblist')
+OMDB_TOO = ('rt_crit', 'metacritic')
+
+
+def _needs(key, tr):
+    if key == 'mal':
+        return '  ·  ' + tr('للأنمي بس')
+    if key not in NEEDS_MDBLIST:
+        return ''
+    try:
+        from .. import mdblist
+        if mdblist.ratings_key() or (key in OMDB_TOO and _helper_key('omdb_apikey')):
+            return ''
+    except Exception:
+        return ''
+    return '  ·  ' + tr('يحتاج مفتاح MDBList')
+
+
 def pick(tr=None):
     """The picker (the Control Centre): any of the nine, at least one."""
     import xbmcgui
     tr = tr or (lambda text: text)
     current = chosen()
-    picked = xbmcgui.Dialog().multiselect(tr('التقييمات الظاهرة'), [NAMES[k] for k in ORDER],
+    picked = xbmcgui.Dialog().multiselect(tr('التقييمات الظاهرة'), [NAMES[k] + _needs(k, tr) for k in ORDER],
                                           preselect=[i for i, k in enumerate(ORDER) if k in current])
     if picked is None:
         return False
@@ -58,8 +80,10 @@ FRESH = 60
 MC_COLORS = ((61, 'FF66CC33'), (40, 'FFFFCC33'), (0, 'FFFF3B30'))
 
 
-def collect(tmdb_id='', imdb_id='', media_type='movie', network=False):
-    """{key: value} for the title, in ORDER, from the sources above."""
+def collect(tmdb_id='', imdb_id='', media_type='movie', network=False, full=False):
+    """{key: value} for the title, in ORDER, from the sources above.
+    ``full`` (v5.10.481, the sources page): MDBList is asked even when three
+    ratings are known already, for Rotten Tomatoes, Metacritic and the rest."""
     from ..ui_preferences import enabled
     if not enabled('metadata_badges'):
         return {}
@@ -77,7 +101,7 @@ def collect(tmdb_id='', imdb_id='', media_type='movie', network=False):
     try:
         from .. import mdblist
         extra = mdblist.cached_ratings(imdb_id=imdb_id, media_type=media_type, tmdb_id=tmdb_id) or {}
-        if not extra and network and len(found) < 3 and mdblist.ratings_key():
+        if not extra and network and (len(found) < 3 or full) and mdblist.ratings_key():
             extra = mdblist.fetch_ratings(imdb_id=imdb_id, media_type=media_type,
                                           tmdb_id=tmdb_id, timeout=6) or {}
         for key, value in extra.items():

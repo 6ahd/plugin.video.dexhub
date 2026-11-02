@@ -125,7 +125,8 @@ def _fetch_uncached(target, media_type, api):
                 return payload
         except Exception as exc:
             _last_exc = exc
-        if len(_request_ids) > 1:
+        # v5.10.482: not the other id shapes for an add-on that lists its own ids
+        if len(_request_ids) > 1 and not (provider or {}).get('_bridge'):
             _alt, _alt_id, _alt_exc = api._fetch_alternate_ids_parallel(provider, media_type, _request_ids[1:], _timeout)
             if _alt is not None:
                 try:
@@ -135,6 +136,22 @@ def _fetch_uncached(target, media_type, api):
                 payload = _alt
                 return payload
             _last_exc = _alt_exc or _last_exc
+        # v5.10.482: an add-on with ids of its own may have the title by name
+        if (provider or {}).get('_bridge'):
+            try:
+                from ..dexhub import title_bridge as _bridge
+                _found, _own_id = _bridge.payload(
+                    provider, media_type,
+                    lambda rid: api._stremio_provider.fetch(provider, media_type, rid, timeout_override=_timeout),
+                    _timeout)
+                if _found is not None:
+                    provider['_resolved_request_id'] = str(_own_id)
+                    api.xbmc.log('[DexHub] title bridge: provider=%s id=%s streams=%d' % (
+                        provider.get('name') or '?', _own_id, len(_found['streams'])), api.xbmc.LOGINFO)
+                    payload = _found
+                    return payload
+            except Exception as _bridge_exc:
+                api.xbmc.log('[DexHub] title bridge: %s' % _bridge_exc, api.xbmc.LOGWARNING)
         if _last_exc is not None:
             failed = True
             return _last_exc

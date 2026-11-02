@@ -333,6 +333,8 @@ def spec_of(row, tab):
         'progress': progress,
         'auto_shape': bool(meta.get('auto_shape')),
         'own': row.key in R.OWN_KEYS,
+        # v5.10.481: a bar section's catalog in the order picked for it
+        'sort': meta.get('sort') or '',
     }
 
 
@@ -591,6 +593,9 @@ def _fetch_marked(tab, row_id, spec, old, fresh, patience, started):
     try:
         tiles, more = _load(tab, spec, fresh=fresh, patience=patience)
         tiles = [t for t in tiles or [] if not is_note(t)]
+        if spec.get('sort'):
+            from .. import bar_sections
+            tiles = bar_sections.sort_tiles(tiles, spec['sort'])
     except Exception as exc:
         C.log('row "%s" failed: %s' % (spec.get('title'), exc), xbmc.LOGWARNING)
         gone = _gone(exc)
