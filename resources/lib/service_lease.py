@@ -57,6 +57,11 @@ def claim():
     except OSError:
         handle.close()
         return False
+    except (ImportError, AttributeError):
+        # v5.10.495: no file lock on this Python (Kodi on Xbox, the Windows
+        # Store build, lacks parts of os/msvcrt): one Kodi runs one service,
+        # so it carries on as the owner instead of never starting
+        pass
     _handle, _owner = handle, uuid.uuid4().hex
     pulse()
     atexit.register(release)

@@ -177,7 +177,7 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         for n, c in enumerate(self.data['custom']):
             add('c%d' % (n + 1), B._icon_preview(c.get('icon') or ''), c['name'][:1].upper())
         items.append(_li('', div='1'))
-        for key in ('discover', 'live', 'library'):
+        for key in ('discover', 'live', 'library', 'dexworld'):
             if key not in hidden:
                 add(key, B.ICON_PATH % key)
         self.fill(BAR, items)

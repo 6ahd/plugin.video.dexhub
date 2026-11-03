@@ -25158,6 +25158,54 @@ def _content_type_from_plugin_rows(rows):
     return 'movies'
 
 
+def dexworld_row_browse(row_id='', title='', page='1'):
+    """v5.10.496: a DexWorld block (blocks.dexworld.cc) as a folder of titles,
+    40 a page; the Home rows, the bar sections and the grid read it."""
+    from . import dexworld as _dw
+    try:
+        number = max(1, int(page or 1))
+    except (TypeError, ValueError):
+        number = 1
+    data = _dw.row_page(str(row_id or ''), number)
+    items = data.get('items') or []
+    if not items:
+        error(tr('القائمة فارغة أو غير متاحة'))
+        return end_dir()
+    any_series = any_movie = False
+    for entry in items:
+        tmdb = str(entry.get('tmdb') or '').strip()
+        imdb = str(entry.get('imdb') or '').strip()
+        if not (tmdb or imdb):
+            continue
+        is_series = entry.get('type') == 'tv'
+        media_type = 'series' if is_series else 'movie'
+        any_series = any_series or is_series
+        any_movie = any_movie or not is_series
+        canonical = imdb if imdb.startswith('tt') else 'tmdb:%s' % tmdb
+        name = str(entry.get('title') or '').strip()
+        poster = entry.get('poster') or ''
+        fanart = entry.get('backdrop') or poster
+        art = {'thumb': poster, 'poster': poster, 'fanart': fanart, 'landscape': entry.get('backdrop') or ''}
+        info = {'title': name, 'sorttitle': name, 'mediatype': 'tvshow' if is_series else 'movie'}
+        try:
+            info['year'] = int(str(entry.get('year') or '')[:4])
+        except ValueError:
+            pass
+        if entry.get('rating'):
+            info['rating'] = float(entry['rating'])
+        ids_out = {'imdb_id': imdb if imdb.startswith('tt') else '', 'tmdb_id': tmdb, 'tvdb_id': ''}
+        path, path_is_folder = _content_click_path(media_type=media_type, canonical_id=canonical, title=name, tmdb_id=tmdb,
+                                                   imdb_id=ids_out['imdb_id'], ui_seed=art)
+        props = {'dexhub.tile_shape': 'poster', 'dexhub.work_item': '1', 'dexhub.clearlogo_as_title': '1'}
+        if entry.get('rank'):
+            props['dexhub.rank'] = str(entry['rank'])
+        add_item(name, path, is_folder=path_is_folder, info=info, art=art, ids=ids_out, properties=props)
+    if number < int(data.get('pages') or 1):
+        add_item(tr('المزيد'), build_url(action='dexworld_row', id=row_id, title=title, page=str(number + 1)),
+                 info={'title': tr('المزيد'), 'plot': tr('تحميل عناصر إضافية من هذا المسار')}, art=root_art('catalogs'))
+    end_dir(content=('tvshows' if any_series and not any_movie else ('movies' if any_movie and not any_series else 'videos')))
+
+
 def kodi_route_browse(route='', title='', background='', page='0'):
     route_url = str(route or '').strip()
     if not route_url.startswith('plugin://'):
@@ -28226,6 +28274,8 @@ def _dispatch(params=None):
         return trakt_list_browse(username=params.get('username', ''), slug=params.get('slug', ''), title=params.get('title', ''), background=params.get('background', ''), media_filter=params.get('media_filter', 'auto'), page=params.get('page', '0'), force_remote=params.get('force_remote', ''))
     if action == 'mdblist_list_browse':
         return mdblist_list_browse(username=params.get('username', ''), slug=params.get('slug', ''), title=params.get('title', ''), background=params.get('background', ''), media_filter=params.get('media_filter', 'auto'), cursor=params.get('cursor', ''), force_remote=params.get('force_remote', ''))
+    if action == 'dexworld_row':
+        return dexworld_row_browse(row_id=params.get('id', ''), title=params.get('title', ''), page=params.get('page', '1'))
     if action == 'kodi_route_browse':
         return kodi_route_browse(route=params.get('route', ''), title=params.get('title', ''), background=params.get('background', ''), page=params.get('page', '0'))
     if action == 'trakt_hub':

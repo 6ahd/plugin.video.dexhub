@@ -40,7 +40,13 @@ def _write(path, value):
         with open(temp, 'w', encoding='utf-8') as handle:
             json.dump(value, handle, ensure_ascii=False)
             handle.flush()
-            os.fsync(handle.fileno())
+            try:
+                os.fsync(handle.fileno())
+            except Exception:
+                # v5.10.495: Kodi on Xbox (the Windows Store build) has no
+                # os.fsync, and Dex Hub stopped at its first step there; the
+                # atomic replace below is what keeps the file whole
+                pass
         os.replace(temp, path)
     finally:
         if os.path.exists(temp):

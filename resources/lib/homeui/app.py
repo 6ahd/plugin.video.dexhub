@@ -858,6 +858,9 @@ def run(params):
         return _run_page('sport', params)
     if action == 'home_discover':
         return _run_page('discover', params)
+    if action == 'home_dexworld':
+        # v5.10.496: the sections of blocks.dexworld.cc (dexworld_page.py)
+        return _run_page('dexworld', params)
     if action == 'home_my':
         # v5.10.468: the Library and the Calendar on one page (my_page.py)
         return _run_page('my', params)
@@ -1055,6 +1058,9 @@ def _run_page(page, params):
             open_my(app)
         elif page == 'discover':
             app.open_discover()
+        elif page == 'dexworld':
+            from .dexworld_page import open_dexworld
+            open_dexworld(app)
         elif page == 'collection':
             from .collection_page import open_collection
             open_collection(app, params)

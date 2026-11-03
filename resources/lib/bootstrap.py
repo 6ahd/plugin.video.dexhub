@@ -217,7 +217,8 @@ def _run_inner():
     if _home_params.get('action') in ('home_ui', 'home_folder', 'home_grid', 'home_layout', 'home_setup',
                                        'home_live', 'home_screensaver', 'home_servers', 'home_search',
                                        'home_details', 'home_vod_play', 'home_library', 'home_community',
-                                       'home_menu', 'home_follow', 'home_calendar', 'home_sport', 'home_discover', 'home_vod_series', 'home_my'):
+                                       'home_menu', 'home_follow', 'home_calendar', 'home_sport', 'home_discover', 'home_vod_series', 'home_my',
+                                       'home_dexworld'):
         from .homeui.app import run as _home_run
         return _home_run(_home_params)
     # v5.10.101: Kodi's subtitle dialog (Dex Hub is a subtitle service too).
