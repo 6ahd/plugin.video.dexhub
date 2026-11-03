@@ -100,3 +100,40 @@ def _elect_default_subtitle(prepared_first, subs):
             except ValueError:
                 selected_subtitle_index = 0
     return selected_subtitle_path, selected_subtitle_index
+
+
+def demote_wrong_text(rows):
+    """v5.10.491: a file tagged Arabic whose text is another language (English,
+    Russian...) is not elected as the Arabic subtitle: its tag becomes unknown,
+    so a real Arabic one (or the next language) wins and English no longer
+    plays while Arabic is there. Only files already on disk are read.
+    Returns how many were demoted."""
+    import os
+    try:
+        from .subsync.dexpick import looks_arabic
+    except Exception:
+        return 0
+    count = 0
+    for row in rows or []:
+        lang = str((row or {}).get('lang_key') or (row or {}).get('lang') or '').lower().split('-')[0]
+        path = str((row or {}).get('path') or '')
+        if lang not in ('ar', 'ara') or not path or '://' in path or not os.path.isfile(path):
+            continue
+        try:
+            with open(path, 'rb') as handle:
+                raw = handle.read(60000)
+        except Exception:
+            continue
+        if raw and not looks_arabic(raw):
+            row['lang_key'] = 'und'
+            row['text_not_arabic'] = True
+            count += 1
+    return count
+
+
+def has_lang(rows, want='ar'):
+    for row in rows or []:
+        lang = str((row or {}).get('lang_key') or (row or {}).get('lang') or (row or {}).get('language') or '').lower()
+        if lang.split('-')[0] in (want, {'ar': 'ara', 'en': 'eng'}.get(want, want)):
+            return True
+    return False

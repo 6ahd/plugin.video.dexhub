@@ -581,7 +581,18 @@ class Watcher(object):
         if pick['where'] == 'temp' and abs(pick['mtime'] - self.autosync.last_live_pick_at()) < 8:
             return  # كودي نسخ ترجمة AI المباشرة من DexSubtitles للتو (ملفها يكبر فبصمته تتغير)
         snap, h = snapshot(pick, self.autosync.WATCH_DIR)
-        if not snap or h in self.done:
+        if not snap:
+            return
+        if h in self.done:
+            # back to a subtitle synced earlier in this playback: Kodi shows its
+            # original file again, so the synced copy goes back on (from the
+            # cache, nothing is analysed again); one that wasn't synced stays
+            if self.autosync.synced_copy(h, media):
+                _log('again: %s (synced copy)' % pick['name'])
+                self.autosync.enqueue(snap, media_url=media, display_name=os.path.splitext(pick['name'])[0],
+                                      provider='kodi:' + pick['where'], origin='watch', quiet=True,
+                                      expect={'index': cur['index'], 'name': cur['raw_name']},
+                                      source={'path': pick['path'], 'stat': list(self.watch['stat'] or [])})
             return
         self.done.add(h)
         info = self.autosync.handled_info(h)

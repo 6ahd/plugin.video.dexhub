@@ -619,6 +619,12 @@ def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta
         prepared_first, _silo_left = api._prepare_subtitle_files_bounded(
             _silo_rows, stream_key or 'play', budget_seconds=(3.5 if _before else 1.0))
         other_subs = list(_silo_left) + ([] if _before else list(other_subs))
+        if str(ctx.get('server_type') or '').lower() == 'silo':
+            try:
+                from .silo_subsync import leave_to_server
+                leave_to_server([row.get('path') for row in prepared_first if row.get('path')])
+            except Exception:
+                pass
     else:
         prepared_first = api._prepare_subtitle_files(
             selected_first,
@@ -635,6 +641,30 @@ def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta
             defer_download=True)
         prepared_first.extend(prepared_other)
         other_subs = []
+    # v5.10.491: an "Arabic" file with English text inside is not the Arabic
+    # subtitle; when the one prepared was such a file, up to two more Arabic
+    # candidates are fetched (two seconds at most) before the election
+    try:
+        from .subtitle_logic import demote_wrong_text, has_lang
+        if demote_wrong_text(prepared_first) and not has_lang(prepared_first, 'ar'):
+            spare = [r for r in other_subs if has_lang([r], 'ar')][:2]
+            if spare:
+                more, _left = api._prepare_subtitle_files_bounded(spare, stream_key or 'play', budget_seconds=2.0)
+                demote_wrong_text(more)
+                prepared_first.extend(more)
+                # v5.10.494: the leftovers are copies (the bounded prepare
+                # copies each row), so they are told apart by their link: a
+                # spare not prepared in time stays for the post-start attach
+                def _sub_key(r):
+                    return (str(r.get('url') or r.get('path') or r.get('file') or ''), str(r.get('lang') or r.get('language') or ''))
+                left_keys = set(_sub_key(r) for r in _left)
+                done = set(_sub_key(r) for r in spare if _sub_key(r) not in left_keys)
+                other_subs = [r for r in other_subs if _sub_key(r) not in done]
+                if str(ctx.get('server_type') or '').lower() == 'silo':
+                    from .silo_subsync import leave_to_server
+                    leave_to_server([row.get('path') for row in more if row.get('path')])
+    except Exception as exc:
+        api.xbmc.log('[DexHub] subtitle text check: %s' % exc, api.xbmc.LOGDEBUG)
     subs = [row.get('path') for row in prepared_first if row.get('path')]
     if force_subtitles and not subs and not other_subs:
         try:

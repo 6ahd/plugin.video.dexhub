@@ -1238,6 +1238,19 @@ if __name__ == '__main__':
         except Exception as exc:
             xbmc.log('[DexHub] subtitle AutoSync not started: %s' % exc, xbmc.LOGWARNING)
 
+    def _silo_subsync_worker():
+        try:
+            from resources.lib import silo_subsync as _silo_subsync
+            _silo_subsync.run(monitor)
+        except Exception as exc:
+            xbmc.log('[DexHub] silo subtitle sync not started: %s' % exc, xbmc.LOGWARNING)
+
+    try:
+        import threading as _thr
+        _thr.Thread(target=_silo_subsync_worker, name='DexHub-silo-subsync', daemon=True).start()
+    except Exception as exc:
+        xbmc.log('[DexHub] silo subtitle sync thread: %s' % exc, xbmc.LOGWARNING)
+
     try:
         import threading as _thr
         _thr.Thread(target=_subsync_worker, name='DexHub-subsync', daemon=True).start()

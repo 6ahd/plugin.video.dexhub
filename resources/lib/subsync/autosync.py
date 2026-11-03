@@ -343,7 +343,32 @@ def _reference(media_url):
 _FPS_NAMES = ((25.0 / 23.976, '23.976 و25'), (25.0 / 24.0, '24 و25'), (24.0 / 23.976, '23.976 و24'))
 
 
+def _segmented(res, ref_starts, starts, decision, min_match):
+    """DEX_SEGMENTS_V578: إزاحة وحدة ما كفت: ترجمة لنسخة فيها فواصل مختلفة؟ جزء جزء."""
+    if decision != 'unsure' or res.get('reason'):
+        return res, decision
+    try:
+        seg = dexalign.align_segments(ref_starts, starts, res, min_match=min_match)
+    except Exception as e:
+        _log('segments failed: %s' % e, xbmc.LOGWARNING)
+        return res, decision
+    if not seg:
+        return res, decision
+    res = dict(res)
+    res.update(seg)
+    _log('segments: %s' % ', '.join('%ds %+dms' % (a // 1000, off) for a, off in seg['segments']))
+    return res, 'sync'
+
+
+def _transform(raw, res, name):
+    if res.get('segments'):
+        return dexalign.apply_segments(raw, res['scale'], res['segments'], name)
+    return dexalign.apply_transform(raw, res['scale'], res['offset_ms'], name)
+
+
 def _describe(res, starts):
+    if res.get('segments'):
+        return 'صحّحت توقيت الترجمة على %d أجزاء (لها نسخة فيها فواصل مختلفة)' % len(res['segments'])
     sc = res['scale']
     if abs(sc - 1.0) > 0.0005:
         # الإزاحة تتغير على طول الفيلم، فنذكر فرق السرعة بدل رقم ثواني واحد
@@ -450,7 +475,7 @@ def _analyze(raw, name, media_url, key, ext, use_marker=True):
     """AUTOSYNC_V573: قلب المزامنة، مشترك بين الطابور والزر اليدوي.
     يرجّع dict: status = cached | known | few | noref | in_sync | unsure | synced، و path للنسخة المتزامنة، و msg."""
     cached = os.path.join(CACHE_DIR, key + ext)
-    marker = os.path.join(CACHE_DIR, key + '.skip')
+    marker = os.path.join(CACHE_DIR, key + '.skip2')
     if os.path.exists(cached) and os.path.getsize(cached) > 20:
         _log('%s: cache hit' % key[:8])
         return {'status': 'cached', 'path': cached, 'msg': _t('طبّقت نسخة متزامنة محفوظة لهذي الترجمة')}
@@ -477,6 +502,7 @@ def _analyze(raw, name, media_url, key, ext, use_marker=True):
     res = dexalign.align(ref['starts'], starts)
     min_match = _setting_int('autosync_min_match', 45, 20, 95) / 100.0
     decision = dexalign.decide(res, min_match=min_match)
+    res, decision = _segmented(res, ref['starts'], starts, decision, min_match)
     _log('%s: ref #%s %s %s %d %s%s %s | match %d%% rival %d%% offset %dms scale %.6f align %.2fs -> %s' % (
         key[:8], tr['number'], tr['lang'], tr['codec'], tr['cues'],
         'image events' if tr.get('kind') == 'image' else 'cues',
@@ -500,7 +526,7 @@ def _analyze(raw, name, media_url, key, ext, use_marker=True):
         except Exception:
             pass
         return {'status': 'in_sync' if decision == 'in_sync' else 'unsure', 'path': None, 'msg': why}
-    out = dexalign.apply_transform(raw, res['scale'], res['offset_ms'], name)
+    out = _transform(raw, res, name)
     _write_bytes(cached, out)
     return {'status': 'synced', 'path': cached,
             'msg': _t('%s (تطابق %d%%)') % (_describe(res, starts), round(res['matched'] * 100))}
@@ -617,11 +643,12 @@ def score(raw, name, media_url, ref=None):
     t1 = time.time()
     res = dexalign.align(ref['starts'], starts)
     decision = dexalign.decide(res, min_match=min_match())
+    res, decision = _segmented(res, ref['starts'], starts, decision, min_match())
     out.update({'matched': res['matched'], 'rival': res['rival'], 'hits': res['hits'],
                 'scale': res['scale'], 'offset_ms': res['offset_ms']})
     if decision == 'sync':
         out['status'] = 'synced'
-        out['data'] = dexalign.apply_transform(raw, res['scale'], res['offset_ms'], name)
+        out['data'] = _transform(raw, res, name)
         out['desc'] = _describe(res, starts)
     elif decision == 'in_sync':
         out['status'] = 'in_sync'
@@ -674,6 +701,22 @@ def note_handled(path, is_ai=False, live=False):
             _write_bytes(os.path.join(QUEUE_DIR, 'last_live'), str(now).encode('ascii'))
         except Exception:
             pass
+
+
+def synced_copy(sub_hash, media_url):
+    """The synced copy made earlier for this subtitle on this video, or ''."""
+    key = _job_key(sub_hash, media_url)
+    for ext in SUB_EXTS_CACHE:
+        path = os.path.join(CACHE_DIR, key + ext)
+        try:
+            if os.path.getsize(path) > 20:
+                return path
+        except OSError:
+            pass
+    return ''
+
+
+SUB_EXTS_CACHE = ('.srt', '.vtt', '.ass', '.ssa', '.sub')
 
 
 def handled_info(sub_hash):

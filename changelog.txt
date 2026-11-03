@@ -1,3 +1,53 @@
+5.10.494
+أسرع وأصلح: سيرفر Plex/Emby/Silo اللي يخلص وقته في كل بحث (٨ مرات ورا بعض) ما يتسأل لين محاولته الكاملة كل نص ساعة، بدل ما يأخر كل بحث ٦ ثواني. الترجمات المتأخرة تنضاف على طول بعد التشغيل بدل ما تنتظر ٣ ثواني. لو ملف «عربي» طلع نصه إنجليزي، الترجمات العربية الاحتياطية اللي ما لحقت تتجهز تنضاف بعد التشغيل بدل ما تضيع. ترجمة البحث أو AI من Silo تشتغل على عمل ما كان فيه ترجمات. Silo ما ينتظر السيرفر المشغول قبل التشغيل. ومفتاح «مزامنة تلقائية» يبين حالته الصحيحة.
+Faster and fixed: a Plex, Emby or Silo server that runs out of time on every search (8 in a row) is no longer asked until its full try every half hour, instead of holding every search up 6 seconds. Late subtitles are attached right after playback starts instead of after 3 seconds. When an "Arabic" file turns out to hold English text, the spare Arabic subtitles not ready in time are attached after start instead of being lost. A Silo search or AI subtitle works on a title that had no subtitles. Silo no longer waits for a busy server before playback. The "Auto sync" switch shows its true state.
+
+5.10.493
+المزامنة المحلية: لما ترجع لترجمة انضبطت قبل في نفس التشغيل، ترجع نسختها المتزامنة بدل الملف الأصلي بتوقيته الغلط (نفس إصلاح DexSubtitles 5.7.12، للحالة اللي Dex Hub هو اللي يزامن فيها).
+Local sync: returning to a subtitle synced earlier in the same playback puts its synced copy back on, not the original file with the wrong timing (the same fix as DexSubtitles 5.7.12, for when Dex Hub runs the sync).
+
+5.10.492
+المزامنة تشتغل مع كل تغيير للترجمة: ترجمة Silo تتزامن من السيرفر، ولو قال السيرفر ما تطابق تجربها المزامنة المحلية. صار Dex Hub يتعرف على ترجمة Silo باسم ملفها، لأن Kodi يسمي الترجمة باسم الملف، فكانت ترجمات Silo الجانبية ما تتزامن أبداً. في صفحة إعدادات الترجمة بالمشغل صار فيه «مزامنة تلقائية» مفتاح واحد لكل الترجمات، وتحته «زامن الترجمة الحين»، ونفس المفتاح في قائمة زر Silo وينطبق على DexSubtitles بعد.
+اختيار الترجمة: لغتك صارت قبل علامة «الافتراضية» عند المصدر، فما تشتغل الإنجليزي وفيه عربي. ترجمة Silo اللي طابقها السيرفر على الصوت تتقدم على اللي ما طابقت، والملف الموسوم عربي ونصه لغة ثانية ما ينختار عربي.
+Sync runs on every subtitle change: a Silo subtitle is synced by the server, and when the server finds no match the local sync tries it. Dex Hub now knows a Silo subtitle by its file name (Kodi names the track after the file), so Silo's sidecar subtitles were never synced before. The player's subtitle settings page has "Auto sync", one switch for every subtitle, and "Sync this subtitle now" under it; the same switch is in the Silo button menu and applies to DexSubtitles too.
+Subtitle choice: your language now comes before a source's "default" flag, so English no longer plays when Arabic is there. A Silo subtitle the server matched to the audio comes before one it did not, and a file tagged Arabic with another language inside is not picked as Arabic.
+
+5.10.491
+الترجمة العربية المنزّلة كانت تطلع حروف غريبة (Ø§Ù„…) لأن Kodi يقرأ الملف بترميز غربي. الحين ملفات SRT و VTT اللي ينزلها Dex Hub تنحفظ وفيها علامة UTF-8، فتطلع عربي صحيح.
+Downloaded Arabic subtitles showed garbled letters (Ø§Ù„…) because Kodi read the file in a Western charset. SRT and VTT files Dex Hub downloads are now saved with a UTF-8 mark, so Arabic shows correctly.
+
+5.10.490
+بحث الترجمات من Silo: زر Silo في المشغل فيه «ابحث عن ترجمة»، والسيرفر يبحث في SubDL و SubSource و OpenSubtitles. النتائج مرتبة: لغتك أول، بعدها نفس الحلقة ثم حزمة الموسم، والحلقات الثانية في الآخر. كل نتيجة مكتوب عندها الموقع واللغة وعدد التحميلات، وإذا كانت للصم أو محفوظة في Silo. الترجمة اللي تختارها تنحفظ على السيرفر وتشتغل من الجلسة، وتتزامن مع صوت الفيديو. ولو كانت موسومة عربي ونصها مو عربي ينبهك.
+Silo subtitle search: the Silo button in the player has "Search subtitles", and the server searches SubDL, SubSource and OpenSubtitles. Results are ordered: your language first, then this episode and the season pack, with other episodes last. Each shows its site, language, downloads, and whether it is for the hearing impaired or already saved on Silo. The one you pick is kept on the server, plays from the session and is synced to the video's audio. A subtitle tagged Arabic whose text isn't Arabic is flagged.
+
+5.10.489
+ترجمات AI من Silo تتسمى حسب مصدرها: «AI من الصوت» أو «AI من ترجمة»، في قائمة الترجمات وقائمة الزر (السيرفر يسميهم كلهم English → Arabic (AI)).
+Silo AI subtitles are named by their source, "AI from audio" or "AI from a subtitle", in the subtitle list and the button menu (the server names them all English → Arabic (AI)).
+
+5.10.488
+ترجمة AI من Silo: تختار الترجمة المصدر، والملف الخارجي يتفحص على صوت الفيديو قبل الترجمة، فما تتترجم ترجمة لعمل ثاني.
+AI translation from Silo: you pick the source subtitle, and an external file is checked against the video's audio first, so another title's subtitle is not translated.
+
+5.10.487
+مزامنة السيرفر صارت لترجمات Silo بس، وفي القائمة خيار «مزامنة محلية» لأي ترجمة خارجية. لو ما طابقت الصوت ما تتغير الترجمة من نفسها. ورسالة صحيحة لما تكون الترجمات موسومة عربي ونصها لغة ثانية بدل «ما قدرت أحمّل».
+Server sync is for Silo subtitles only, and the menu has a Local sync for any external subtitle. A subtitle that does not match the audio is no longer replaced on its own. The right message when subtitles are tagged Arabic with another language inside, instead of a download error.
+
+5.10.486
+مصدر Silo مثل تطبيقه: السيرفر يزامن الترجمة على صوت الفيديو وتنحمّل النسخة المصححة بهدوء، وزر المزامنة في المشغل يفتح قائمة: مزامنة مع الصوت، رجوع للتوقيت الأصلي، ترجمة AI من ترجمة موجودة أو من الصوت، وأفضل ترجمة. لو ما طابقت الصوت يكمل بالمزامنة العادية.
+A Silo source works like Silo's app: the server syncs the subtitle to the video's audio and the corrected copy loads quietly, and the player's sync button opens a menu: sync to audio, restore the original timing, an AI translation from a subtitle or from the audio, and the best subtitle. When the audio doesn't match, the usual sync takes over.
+
+5.10.485
+«أفضل ترجمة» يتأكد من نص الترجمة: ملف موسوم عربي ونصه إنجليزي أو روسي ما يتطبق، ولو كان هو الشغال يدور بديل عربي.
+Best subtitle checks the text itself: a file tagged Arabic with English or Russian inside is not applied, and if it is the one playing an Arabic one is looked for.
+
+5.10.484
+المزامنة التلقائية تضبط الترجمة المتوقّتة لنسخة ثانية من العمل: لما يقفز الفرق عند الفواصل تصحّح كل جزء لحاله، وما تطبق إلا لو التطابق واضح فوق الصدفة.
+Auto-sync fixes a subtitle timed for another cut of the title: when the offset jumps at breaks, each part is corrected on its own, and only when the match is clearly above chance.
+
+5.10.483
+إذا وصلت ترجمة بلغتك بعد بداية التشغيل والمعروضة لغة ما اخترتها، تتبدل. اختيارك اليدوي والملفات الخارجية ما تتغير.
+A subtitle in your language that loads after the start replaces one showing in a language you did not pick. Your own choice and external files stay.
+
 5.10.482
 إضافات لها معرّفات خاصة (مثل Soof-55): تطلع مصادرها وجوداتها حتى لو فتحت العنوان من TMDb (تنربط بالاسم والسنة، والحلقة من بياناتها)، ونتايجها تطلع في البحث بدون ما تختفي نتيجة TMDb. جودات 360p و320p و240p صارت تنكتب بدل «--» وتدخل في فلتر SD. مركز التحكم: «الصفوف التابعة» و«توصيات الأعمال» و«تحديث البيانات» رجعت تشتغل. أقسام الشريط: إلغاء نافذة الاسم ما يضيف المجلد، وما يتكرر مجلد، وتنبيه عند حد 20 صف، وBack يصفّر التحديد.
 Add-ons with ids of their own (like Soof-55): their sources and qualities show even for a title opened from TMDb (matched by name and year, the episode from their meta), and their results join the search without pushing out TMDb's. 360p, 320p and 240p are written instead of "--" and count as SD in the filter. Control centre: Follow rows, Work recommendations and Metadata refresh work again. Bar sections: cancelling the name adds nothing, a folder is added once, a note at the 20 row limit, Back clears the ticks.

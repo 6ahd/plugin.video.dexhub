@@ -30,6 +30,7 @@ The job travels over a Home-window property (same transport as the session
 store): written by the plugin interpreter, read+cleared by the service.
 """
 import json
+import time
 
 import xbmc
 import xbmcgui
@@ -290,6 +291,14 @@ def run_job(job, monitor=None, valid=None):
             except Exception:
                 pass
 
+        # Tracks can load after the startup attempts above: correct a language
+        # you did not ask for once, then once more after discovery.
+        # v5.10.494: the first look still comes three seconds after the
+        # elected subtitle, but the deferred sidecars (stage 3) no longer
+        # wait for it; it waits only for what is left of the three seconds
+        late_index = None
+        late_from = time.monotonic()
+
         # Stage 3 — deferred sidecars (legacy non-playlist handoff only).
         # v5.10.254: the deferred sidecars and the discovery share one
         # attacher: your subtitle languages only, and never a switch to a
@@ -300,10 +309,23 @@ def run_job(job, monitor=None, valid=None):
         if attach_rows and same_session():
             attach(attach_rows)
 
+        if not explicit_subtitle and same_session() and \
+                not kodi_monitor.waitForAbort(max(0.0, 3.0 - (time.monotonic() - late_from))):
+            try:
+                late_index = track_preferences.apply_late_subtitle(player, job.get('uid') or '')
+            except Exception:
+                pass
+
         # Stage 4 — background broker discovery.
         if job.get('discovery') and not kodi_monitor.abortRequested() \
                 and same_session():
             _discover_and_attach(player, job, stream_key, attach=attach, counts=counts)
+
+        if not explicit_subtitle and same_session() and late_index is not None:
+            try:
+                track_preferences.apply_late_subtitle(player, job.get('uid') or '', expected=late_index)
+            except Exception:
+                pass
     except Exception as exc:
         _emit('play-post-start-error', level=xbmc.LOGWARNING, error=exc,
               stream_key=stream_key, title=title)

@@ -198,9 +198,16 @@ def _pick_default_subtitle_index(subtitles, ctx=None):
     for idx, sub in enumerate(rows):
         if not allow_automatic(sub):
             continue
+        # v5.10.491: your language first. A source's "default" flag (often its
+        # English track) came first and beat an Arabic subtitle sitting next
+        # to it; it now only orders tracks of the same language
+        # Silo's server checked it against the audio: a matched subtitle
+        # first, one it found timed for another release last
+        fit = {'synced': 0, 'already_synced': 0, 'no_match': 2}.get(str(sub.get('sync_status') or ''), 1)
         sort_key = (
-            0 if (sub.get('selected') or sub.get('default')) else 1,
             _lang_rank(sub),
+            fit,
+            0 if (sub.get('selected') or sub.get('default')) else 1,
             1 if sub.get('forced') else 0,
             idx,
         )
@@ -1033,6 +1040,8 @@ def _download_remote_subtitle(url, local_path, timeout=None, language_hint='', e
         base, _dot, cur_ext = str(local_path).rpartition('.')
         if base and cur_ext.lower() in ('srt', 'vtt', 'ass', 'ssa') and cur_ext.lower() != real_ext:
             local_path = '%s.%s' % (base, real_ext)
+        from ..subtitle_encoding import for_kodi
+        payload = for_kodi(payload, real_ext)
         fh = xbmcvfs.File(local_path, 'wb')
         try:
             written = fh.write(payload)

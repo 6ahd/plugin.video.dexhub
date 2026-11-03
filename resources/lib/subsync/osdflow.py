@@ -514,9 +514,12 @@ def _usable(cands, skip_hash, include_ai):
         h = hashlib.sha1(raw).hexdigest()
         if h in seen:
             continue
+        # v5.10.485: a site can tag an English or Russian subtitle as Arabic: the text decides
+        if _pref()[1] == 'ara' and not dexpick.looks_arabic(raw):
+            _log('skip %s: its text is not Arabic' % (c.get('name') or '')[:40])
+            c['not_arabic'] = True
+            continue
         if c['kind'] == 'local':
-            if _pref()[1] == 'ara' and not dexpick.looks_arabic(raw):
-                continue
             info = autosync.handled_info(h) or {}
             if info.get('ai'):
                 c['is_ai'] = True
@@ -566,6 +569,7 @@ def _best(dex, media, search, bar, deadline):
         return
 
     # (أ) الترجمة الخارجية الشغالة: نزامنها أول
+    cur_not_arabic = False
     baseline = None      # تطابق الشغالة لو انقاست وما انضبطت: البديل لازم يتعداه
     cur_nscore = None    # قرب اسمها من نسخة الفيديو (لما ما فيه مرجع توقيت)
     skip_hash, skip_paths = set(), set()
@@ -577,6 +581,12 @@ def _best(dex, media, search, bar, deadline):
             raw = _read(snap) if snap else b''
             if raw:
                 skip_hash.add(h)
+            if raw and _pref()[1] == 'ara' and not dexpick.looks_arabic(raw):
+                # v5.10.485: tagged Arabic, another language inside: look for another
+                _log('playing subtitle is not Arabic text: looking for another')
+                raw = b''
+                cur_not_arabic = True
+            if raw:
                 cur_ai = bool((autosync.handled_info(h) or {}).get('ai'))
                 name = os.path.splitext(pick['name'])[0]
                 cur_nscore = dexpick.name_score(video, name)
@@ -614,7 +624,13 @@ def _best(dex, media, search, bar, deadline):
         else:
             _note('ما لقيت ترجمات عربية لهذا الفيديو', 'No Arabic subtitles found for this video', False)
         return
-    got = _usable(_download(todo, deadline, bar, want=_want_episode(search.req)), skip_hash, include_ai)
+    fetched = _download(todo, deadline, bar, want=_want_episode(search.req))
+    got = _usable(fetched, skip_hash, include_ai)
+    if not got and any(c.get('not_arabic') for c in fetched):
+        wrong = sum(1 for c in fetched if c.get('not_arabic'))
+        _note('ما فيه ترجمة عربية ثانية: %d موسومة عربي ونصها لغة ثانية' % wrong,
+              'No other Arabic subtitle: %d tagged Arabic with another language inside' % wrong, False)
+        return
     if not got:
         _note('ما قدرت أحمّل ترجمة تصلح', "Couldn't download a usable subtitle", False)
         return
@@ -633,7 +649,10 @@ def _best(dex, media, search, bar, deadline):
             good = [c for c in good if c['r']['matched'] > baseline]
         if not good:
             top = max([_pct(c['r']) for c in scored] + [int(round((baseline or 0) * 100))])
-            if cur_arabic_ext:
+            if cur_not_arabic:
+                _note('الترجمة الشغالة مو عربية، وما لقيت ترجمة عربية تطابق هذا الفيديو',
+                      "The playing subtitle isn't Arabic, and no Arabic subtitle matches this video", False)
+            elif cur_arabic_ext:
                 _note('ما لقيت ترجمة أضبط من الحالية (أعلى تطابق %d%%)، خليتها' % top,
                       'No subtitle matched better than the current one (best %d%%); kept it' % top, False)
             else:

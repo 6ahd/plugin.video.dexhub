@@ -58,6 +58,12 @@ def _fetch_uncached(target, media_type, api):
                     _why = 'empty' if _budget > 0 else ''
             except Exception:
                 _budget, _why = 0.0, ''
+            if _why == 'skip' and not provider.get('_force_stream_refresh'):
+                # v5.10.494: it ran out of time too many times running; asked
+                # again at its next periodic full-length try
+                api.xbmc.log('[DexHub] %s server skipped until its next try (slow every time): %s' % (
+                    backend, server.get('name') or '?'), api.xbmc.LOGINFO)
+                return {'streams': [], '_source_status': 'skipped'}
             try:
                 # v5.10.85: the lookup may outlive the budget in its own
                 # thread; hand it a stop signal it can poll (see client.py).

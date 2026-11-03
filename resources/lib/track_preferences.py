@@ -114,6 +114,36 @@ def apply_audio(player,ctx,uid):
     player.setAudioStream(selected)
     return True
 
+def late_subtitle_target(tracks,current,enabled,prefs,mode='preferred',sdh='any'):
+    """Index to switch to when a preferred track appeared after startup, else None.
+    Only a known, non-preferred language that is showing is replaced: an external
+    file with no language and a track of a preferred language stay as they are."""
+    if mode!='preferred' or not enabled:return None
+    code=language((current or {}).get('language'))
+    if not code:return None
+    if code.split('-')[0] in [c.split('-')[0] for c in languages(prefs)]:return None
+    selected=choose_subtitle(tracks,prefs,mode,sdh)
+    if selected is None or selected<0 or selected==(current or {}).get('index'):return None
+    return selected
+
+def apply_late_subtitle(player,uid='',expected=None):
+    """Returns the current index, so a caller can tell a change made since the last look."""
+    from .settings_cache import cached_addon
+    from .session_store import load_session
+    if uid and str((load_session() or {}).get('playback_uid') or '')!=str(uid):return None
+    pid,props=player_tracks()
+    if pid is None:return None
+    current=props.get('currentsubtitle') or {}
+    index=current.get('index')
+    if expected is not None and index!=expected:return index # the viewer or the attacher moved it
+    addon=cached_addon()
+    target=late_subtitle_target(props.get('subtitles'),current,props.get('subtitleenabled'),
+        addon.getSetting('preferred_subtitle_langs') or 'ar,en',addon.getSetting('embedded_subtitle_mode') or 'preferred',
+        addon.getSetting('subtitle_sdh_preference') or 'any')
+    if target is not None:
+        player.setSubtitleStream(target);return target
+    return index
+
 def apply_subtitles(player,show=False,uid=''):
     from .settings_cache import cached_addon
     from .session_store import load_session

@@ -1544,6 +1544,11 @@ def resolve_playback(server, item_id, media_source_id='', start_position=None, s
                 pass
             from .silo_playback import session_context, stream_headers
             session = session_context(auth, major, installation, request, decision)
+            try:
+                from ..silo_subsync import publish as _publish_tracks
+                _publish_tracks(file_id, decision.get('session_id'), candidate, subtitles)
+            except Exception:
+                pass
             return {'url': str(candidate) + '|' + stream_headers(auth, plan.get('stream') or {}),
                     'media_source_id': str(plan.get('effective_media_file_id') or file_id),
                     'play_session_id': str(decision.get('session_id') or ''),

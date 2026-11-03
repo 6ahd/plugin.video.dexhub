@@ -235,6 +235,11 @@ COLD_BUDGET_SECONDS = 6.0
 # faster (or a library that was added) is noticed without resetting anything.
 SLOW_AFTER_CUTS = 2
 SLOW_PROBE_SECONDS = 1800.0
+# v5.10.494: a server stopped by the limit this many times running is not
+# asked at all between its probes (one kept every search waiting its 6s
+# budget 32 times in a row without an answer); a probe that finishes, or any
+# answer, puts it back at once (record_result resets the slow streak)
+SLOW_SKIP_AFTER = 8
 
 
 def slow_streak(backend, server):
@@ -246,8 +251,10 @@ def standing(backend, server, full_seconds=0.0):
     """(budget_seconds, reason, streak) for one lookup, decided once.
 
     reason is '' (normal limit), 'empty' (cold: nothing found five scans
-    running), 'slow' (stopped by the limit twice running) or 'probe' (a slow
-    server's periodic full-length attempt). budget 0 means the normal limit.
+    running), 'slow' (stopped by the limit twice running), 'skip' (stopped
+    SLOW_SKIP_AFTER times running: not asked until its next probe) or 'probe'
+    (a slow server's periodic full-length attempt). budget 0 means the normal
+    limit.
     """
     key = server_key(backend, server)
     with _LOCK:
@@ -265,6 +272,8 @@ def standing(backend, server, full_seconds=0.0):
                 data[key] = row
                 _save(data)
                 return float(full_seconds or 0.0), 'probe', slow
+            if slow >= SLOW_SKIP_AFTER:
+                return 0.0, 'skip', slow
             return COLD_BUDGET_SECONDS, 'slow', slow
     return float(full_seconds or 0.0), '', 0
 

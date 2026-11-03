@@ -21,3 +21,20 @@ def normalize(payload, language_hint=''):
         try:return raw.decode(codec).encode('utf-8')
         except UnicodeError:pass
     return raw # Kodi can apply its own charset preference for unknown files.
+
+
+def for_kodi(payload, ext=''):
+    """UTF-8 text marked as such for Kodi: without the mark Kodi reads an SRT or
+    WebVTT file in its own charset (Windows-1252 by default), and Arabic shows
+    as "Ø§Ù„..." (a SubDL subtitle from Silo, v5.10.490). Plain ASCII and ASS
+    files are left as they are."""
+    raw = bytes(payload)
+    if str(ext).lower() not in ('srt', 'vtt') or raw.startswith(b'\xef\xbb\xbf'):
+        return raw
+    try:
+        text = raw.decode('utf-8')
+    except UnicodeError:
+        return raw
+    if all(ord(c) < 128 for c in text):
+        return raw
+    return b'\xef\xbb\xbf' + raw

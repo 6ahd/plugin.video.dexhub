@@ -308,7 +308,13 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
                      'value': _t('مفعّلة', 'On') if enabled else _t('مطفأة', 'Off'), 'adjust': True})
         rows.append({'id': 'delay', 'label': _t('التأخير', 'Delay'),
                      'value': xbmc.getInfoLabel('Player.SubtitleDelay') or '0.000 s', 'adjust': True})
-        rows.append({'id': 'sync', 'label': _t('مزامنة تلقائية', 'Auto sync'), 'value': '', 'opens': True})
+        # v5.10.491: one switch for every subtitle (a Silo one syncs on the
+        # server, any other locally), and the one-off sync beside it
+        from ..subsync import sync_prefs
+        rows.append({'id': 'autosync', 'label': _t('مزامنة تلقائية', 'Auto sync'),
+                     'value': _t('شغالة لكل الترجمات', 'On, all subtitles') if sync_prefs.auto_on() else _t('مطفية', 'Off'),
+                     'adjust': True})
+        rows.append({'id': 'sync', 'label': _t('زامن الترجمة الحين', 'Sync this subtitle now'), 'value': '', 'opens': True})
         preset = xbmcgui.Window(10000).getProperty('dhs.substyle.preset')
         rows.append({'id': 'preset', 'label': _t('شكل جاهز', 'Look'),
                      'value': dict(PRESET_NAMES).get(preset, ('', ''))[1 if _english() else 0] or _t('اختر', 'Choose'),
@@ -1011,6 +1017,9 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
             _act('VolAmpUp' if step > 0 else 'VolAmpDown')
         elif key == 'passthrough':
             _toggle_passthrough()
+        elif key == 'autosync':
+            from ..subsync import sync_prefs
+            sync_prefs.set_auto(not sync_prefs.auto_on())
         elif row.get('toggle'):
             S._set(key, not bool(S._get(key)))
         elif key == 'shade':
