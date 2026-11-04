@@ -114,15 +114,52 @@ def addon_name(addon_id):
 
 
 def _state_path():
-    return os.path.join(C.folder(), STATE)
+    # v5.10.511: one file for Kodi (the skin is Kodi's, not a profile's)
+    try:
+        import xbmcvfs
+        root = xbmcvfs.translatePath('special://profile/addon_data/%s/skin' % C.ADDON_ID)
+        os.makedirs(root, exist_ok=True)
+        return os.path.join(root, STATE)
+    except Exception:
+        return os.path.join(C.folder(), STATE)
 
 
 def previous():
-    """Last successfully replaced skin, when installed; otherwise Estuary."""
-    skin = (C.read_json(_state_path(), {}) or {}).get('previous') or ''
-    if skin and skin != current() and installed(skin):
+    """Last successfully replaced skin, when installed; otherwise Estuary.
+    v5.10.511: from skin.dexhub, the other skin seen in use last when it is
+    newer (a skin chosen in Kodi's own settings went unnoticed)."""
+    state = C.read_json(_state_path(), {}) or {}
+    skin = state.get('previous') or ''
+    here = current()
+    other = state.get('other') or ''
+    if here == SKIN and other and other != SKIN and (skin in ('', here) or (state.get('other_t') or 0) >= (state.get('t') or 0)):
+        skin = other
+    if skin and skin != here and installed(skin):
         return skin
     return DEFAULT_SKIN
+
+
+def note_skin():
+    """The service's look at the skin in use (v5.10.511): another skin is
+    remembered for Back; on skin.dexhub the power menu item's name follows."""
+    here = current()
+    if not here:
+        return
+    if here != SKIN:
+        state = C.read_json(_state_path(), {}) or {}
+        if state.get('other') != here:
+            state['other'] = here
+            state['other_t'] = int(time.time())
+            C.write_json(_state_path(), state)
+        return
+    try:
+        from ..i18n import tr
+        label = tr('الرجوع إلى %s') % addon_name(previous())
+        win = xbmcgui.Window(10000)
+        if win.getProperty('dhs.skinback.label') != label:
+            win.setProperty('dhs.skinback.label', label)
+    except Exception:
+        pass
 
 
 def _remember(skin):
@@ -402,10 +439,15 @@ def _switch(target, monitor, interactive, remember):
         if not _clear_screen(monitor):
             return False
         C.log('skin switch: %s -> %s' % (current(), target))
+        # v5.10.511: remembered before the change (a skin change can end this
+        # script before it returns), taken back when the change fails
+        before = C.read_json(_state_path(), {}) or {}
+        _remember(origin)  # every switch, including between other skins
         ok = apply(target, monitor)
         C.log('skin switch: %s (skin in use %s)' % ('done' if ok else 'failed', current()))
+        if not ok:
+            C.write_json(_state_path(), before)
         if ok:
-            _remember(origin)  # every successful switch, including between other skins
             xbmc.executebuiltin('Dialog.Close(all,true)')
             xbmc.executebuiltin('ActivateWindow(Home)')
             if target == SKIN:

@@ -750,6 +750,46 @@ if __name__ == '__main__':
             xbmc.log('[DexHub] startup splash: %s' % exc, xbmc.LOGWARNING)
 
     threading.Thread(target=_startup_splash_worker, name='DexHub-startup-splash', daemon=True).start()
+
+    def _skin_watch_worker():
+        # v5.10.511: the skin in use, for the power menu's Back to your
+        # previous skin (a skin chosen in Kodi's settings went unnoticed)
+        watch = xbmc.Monitor()
+        if watch.waitForAbort(20):
+            return
+        while not watch.abortRequested():
+            try:
+                from resources.lib.skinui import switch
+                switch.note_skin()
+            except Exception as exc:
+                xbmc.log('[DexHub] skin watch: %s' % exc, xbmc.LOGDEBUG)
+            if watch.waitForAbort(15):
+                return
+
+    threading.Thread(target=_skin_watch_worker, name='DexHub-skin-watch', daemon=True).start()
+
+    def _bytecode_worker():
+        # v5.10.512: Kodi never writes compiled files itself, so every plugin
+        # call compiled the add-on again (bytecode_warm.py); once per update
+        # here, after the Home is up and never over a video
+        watch = xbmc.Monitor()
+        if watch.waitForAbort(40):
+            return
+        while xbmc.getCondVisibility('Player.HasVideo'):
+            if watch.waitForAbort(30):
+                return
+        try:
+            from resources.lib import bytecode_warm
+            started = time.time()
+            root = os.path.dirname(os.path.abspath(__file__))
+            checked, compiled = bytecode_warm.warm(root, watch)
+            if compiled:
+                xbmc.log('[DexHub] compiled %d of %d files in %.1f s' % (compiled, checked, time.time() - started),
+                         xbmc.LOGINFO)
+        except Exception as exc:
+            xbmc.log('[DexHub] compile: %s' % exc, xbmc.LOGDEBUG)
+
+    threading.Thread(target=_bytecode_worker, name='DexHub-bytecode', daemon=True).start()
     _retire_apple_tv_addon()
     try:
         import xbmcaddon

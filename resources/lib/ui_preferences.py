@@ -122,6 +122,8 @@ OPTIONS = {
     'homeui_startup_splash': ('true', None, 'انتظار تجهيز الرئيسية عند التشغيل', 'Wait for the Home to load at start'),
     # v5.10.363 (GitHub #27): Back on the Home's menu asks to exit Kodi (skin.dexhub 3.28.92)
     'homeui_back_exit': ('true', None, 'الرجوع من القائمة يسأل عن الخروج', 'Back on the menu asks to exit Kodi'),
+    # v5.10.510: a Back to your previous skin item in the power menu, off unless turned on
+    'homeui_skin_back_menu': ('true', None, 'الرجوع للسكين السابق في قائمة الطاقة', 'Back to the previous skin in the power menu'),
     # v5.10.334: the Home's backdrop changes once the cursor rests (lighter scrolling)
     'homeui_bg_settle': ('true', None, 'الخلفية تتبع التحديد بعد التوقف', 'Backdrop waits for the cursor'),
     # v5.10.334: the title, genres and ratings step aside while a trailer plays
@@ -294,6 +296,15 @@ def publish():
             win.setProperty(prop, shown)
     from . import playback_choices
     from .i18n import tr
+    # the power menu's Back to your previous skin: its name on the item
+    try:
+        from .skinui import switch
+        before = switch.previous() or 'skin.estuary'
+        label = tr('الرجوع إلى %s') % switch.addon_name(before)
+    except Exception:
+        label = tr('الرجوع للسكين السابق')
+    if win.getProperty('dhs.skinback.label') != label:
+        win.setProperty('dhs.skinback.label', label)
     shown = tr({'choose':'اختيار المصدر من النتائج', 'best':'أفضل نتيجة تلقائيًا',
                 'same':'مصدر العمل أو السيرفر نفسه', 'tmdbh':'تشغيل عبر TMDb Helper'}[playback_choices.mode(_addon())])
     if win.getProperty('dhs.playback.mode') != shown:

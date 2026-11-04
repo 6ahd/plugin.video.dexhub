@@ -29,6 +29,17 @@ Design constraints
 import importlib.util
 import os
 import py_compile
+import sys
+
+# v5.10.512: Kodi starts Python with dont_write_bytecode and optimize=1, so an
+# import never writes a .pyc and looks only for .opt-1.pyc. Nothing called
+# warm() any more and the zips stopped carrying .pyc files (tools/pack.py),
+# so every plugin call compiled what it imported again: 0.3-1.1 s a call on a
+# Mac, measured 2026-11-04, and several seconds on an Android box. Written
+# here at the level Kodi loads, hash-checked: a file changed after this (a
+# patch) is still read from its source.
+_OPT = sys.flags.optimize or ''
+_MODE = py_compile.PycInvalidationMode.CHECKED_HASH
 
 _SKIP_DIRS = ('tests', '__pycache__', '.git')
 
@@ -42,13 +53,18 @@ def _stale(src):
     times say nothing (Kodi writes every file as it unpacks): one is taken
     as fresh, and Python checks its source hash when it loads it."""
     try:
-        cached = importlib.util.cache_from_source(src)
+        cached = importlib.util.cache_from_source(src, optimization=_OPT)
         with open(cached, 'rb') as handle:
             head = handle.read(16)
-        if len(head) == 16 and head[:4] == importlib.util.MAGIC_NUMBER \
-                and int.from_bytes(head[4:8], 'little') & 1:
+        if len(head) < 16 or head[:4] != importlib.util.MAGIC_NUMBER:
+            return True
+        if int.from_bytes(head[4:8], 'little') & 1:
             return False        # the import checks the hash itself
-        return os.path.getmtime(cached) < os.path.getmtime(src)
+        # v5.10.512: as the import judges it, the source's time and size kept
+        # in the file (a file newer than its source can still be refused)
+        st = os.stat(src)
+        return int.from_bytes(head[8:12], 'little') != int(st.st_mtime) & 0xFFFFFFFF \
+            or int.from_bytes(head[12:16], 'little') != st.st_size & 0xFFFFFFFF
     except (OSError, ValueError):
         return True
 
@@ -73,11 +89,16 @@ def warm(root, monitor=None, throttle=0.05):
             if not _stale(src):
                 continue
             try:
-                py_compile.compile(src, doraise=False, quiet=2)
+                py_compile.compile(src, cfile=importlib.util.cache_from_source(src, optimization=_OPT),
+                                   doraise=False, quiet=2, optimize=sys.flags.optimize,
+                                   invalidation_mode=_MODE)
                 compiled += 1
+            except OSError:
+                # v5.10.512: a folder Kodi cannot write (an app's own
+                # copy): the rest would only be compiled and thrown away
+                return checked, compiled
             except Exception:
-                # doraise=False already swallows compile errors; this
-                # guards OSError (read-only fs, disk full) and the like.
+                # doraise=False already swallows compile errors
                 continue
             if monitor is not None and throttle > 0:
                 if monitor.waitForAbort(throttle):

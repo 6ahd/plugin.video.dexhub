@@ -72,6 +72,7 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
         self._inited = False
         self._closing = False
         self._moved = False
+        self._resolved = set()  # sections read (with titles or empty): the focus waits for the ones above
 
     # ---------------------------------------------------------- lifecycle
     def onInit(self):
@@ -88,6 +89,7 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
         self.tone = Tone(self)
         self._later(self._read_watched)
         self._later(self._load)
+        self._later(self._focus_late)
 
     def _later(self, job):
         from .. import profile_scope
@@ -276,12 +278,39 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
             self.setProperty('dw.s%d.off' % n, '' if rows_ else '1')
             self.setProperty('dw.s%d.src' % n, (_t('%d عنوان', '%d titles') % len(rows_)) if rows_ else '')
             self._wire()
-            first = not self._moved and rows_ and self.getFocusId() in KINDS
+            self._resolved.add(n)
+            target = self._first_ready()
+            first = target and not self._moved and self.getFocusId() in KINDS
             if first:
                 self._moved = True
         if first:
-            take_focus(self, self._list_of(n))
-            self._describe(self._list_of(n))
+            # v5.10.510: the first section in order, not the first to arrive (a
+            # network's rows come side by side: a lower one took the focus)
+            take_focus(self, self._list_of(target))
+            self._describe(self._list_of(target))
+
+    def _first_ready(self, waited=False):
+        """The first section with titles once every section above it is read
+        (``waited``: the first with titles, whatever is still on its way)."""
+        for k in range(1, min(len(self.specs), SLOTS) + 1):
+            if self.shown.get(k):
+                return k
+            if k not in self._resolved and not waited:
+                return 0
+        return 0
+
+    def _focus_late(self):
+        """A section still on its way after 6 s: the focus goes to the first one ready."""
+        if xbmc.Monitor().waitForAbort(6) or self._closing:
+            return
+        with self._lock:
+            target = self._first_ready(waited=True)
+            go = target and not self._moved and self.getFocusId() in KINDS
+            if go:
+                self._moved = True
+        if go:
+            take_focus(self, self._list_of(target))
+            self._describe(self._list_of(target))
 
     def _show_catalogs(self):
         cards = []

@@ -1531,7 +1531,9 @@ def _panel(name, params, handle):
 
 def _fold(params, handle):
     from ..folder_view import rows_enabled
-    if rows_enabled():
+    # v5.10.511: a DexWorld collection has only the page (the old list view
+    # knows nothing of it and opened empty)
+    if rows_enabled() or params.get('dw'):
         from .folderpage import open_page
         return open_page(params, handle)
     from ..catalog_navigation import open_selector

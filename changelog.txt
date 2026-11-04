@@ -1,3 +1,7 @@
+5.10.510
+صفحة الكوليكشن تفتح على أول قسم (كانت تنزل لآخر قسم يوصل). خيار جديد في مركز التحكم ← السكين: «الرجوع للسكين السابق في قائمة الطاقة» يضيف زر «الرجوع إلى سكينك» في قائمة الإيقاف؛ مخفي إلا لو فعّلته. يحتاج سكن 3.28.209.
+A collection page opens on its first section (it went to the last one to arrive). New in the Control Centre's skin section: Back to the previous skin in the power menu adds a Back to <your skin> item to the power menu; hidden unless turned on. Needs skin 3.28.209.
+
 5.10.509
 صفوف DexWorld في الواجهة لأي أحد يثبّت Dex Hub، حسب لغته وبلده: للكل شبكات التلفزيون والمنصات في الرئيسية، والشبكات وتوب 10 المنصات والريالتي والأنمي في المسلسلات، والاستوديوهات والأنواع والوثائقيات في الأفلام؛ وللعربي زيادة: كوليكشن عربي، ومسلسلات خليجية وشامية وتركية ومصرية، وأفلام عربية. تنضاف بعد «متابعة المشاهدة». اللي رتّب واجهته بنفسه يتسأل مرة وحدة قبل.
 DexWorld's rows on the Home for everyone who installs Dex Hub, by language and country: TV networks and streamers on Home, networks, the streamers' top 10, reality and anime on TV Shows, studios, genres and documentaries on Movies; Arabic adds the Arabic collection, Gulf, Levantine, Turkish and Egyptian series and Arabic films. They go right after Continue watching. A Home the user arranged is asked once first.
