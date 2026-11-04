@@ -3821,6 +3821,14 @@ class BrowseWindow(_BaseWindow):
                                   loader=self._catalog_loader(params), meta=meta))
                 continue
             params = dict(spec.get('params') or {})
+            if params.get('action') == 'dexworld_row':
+                # v5.10.505: a DexWorld collection is a collection row (its lists as
+                # covers, the collection styles), not a catalog of no titles
+                from .. import dexworld as DW
+                tiles = DW.kit_tiles(params.get('id') or '')
+                if tiles:
+                    rows.append(R.Row(key, label, shape='landscape', kind='collection', tiles=tiles, meta=meta))
+                    continue
             if not params.get('action'):
                 meta['missing'] = True
             from . import servers as S

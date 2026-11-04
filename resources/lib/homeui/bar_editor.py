@@ -13,6 +13,12 @@ the right half of the same window (Window property bs.mode).
 
 Every change is saved at once (bar_sections.write publishes the bar); the
 Home reads the rows again when the window closes.
+
+v5.10.501: the one editor of the Home. The pen opens it too (on the section
+on show): Home, Movies and TV Shows open their rows on the right like a
+section of yours (layout.json, the Home's own: order, hidden, style, rows
+added from any source); hiding a built-in row hides it, removing is for the
+rows you added.
 """
 import os
 
@@ -26,6 +32,9 @@ ICON_TABS, ICONS, STYLES, PICK_BUTTONS, PICK = 370, 380, 385, 390, 395
 A_LEFT, A_RIGHT, A_UP, A_DOWN = 1, 2, 3, 4
 A_BACK = {9, 10, 92, 216, 247, 257, 275, 61448, 61467}
 _t = B._t
+# v5.10.505: the styles a collection row takes (the Home's collections, DexWorld's kits)
+COLLECTION_CHOICES = ('collection_spotlight', 'collection_compact', 'collection_ranking', 'landscape', 'wide',
+                      'collage', 'mosaic', 'stack')
 
 
 def _li(label, label2='', icon='', **props):
@@ -56,6 +65,16 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         self.icon_files = []
         self._inited = False
         self._c = {}
+        self.page = None            # the open page's rows as a section (see page_section)
+        self.insert_key = None      # '+ Above': new rows go above this row (its key)
+        self._page_removed = set()  # the added rows the user removed (the others are always kept)
+        self.pages_changed = set()
+        select = kwargs.get('select') or ''
+        if select:
+            for n, e in enumerate(self.entries()):
+                if self.page_media(e) == ('all' if select == 'all' else select) or e.get('key') == select:
+                    self.cur = n
+                    break
 
     # ---------------------------------------------------------- helpers
     def media(self, name):
@@ -93,6 +112,10 @@ class BarEditor(xbmcgui.WindowXMLDialog):
             return None
 
     def save(self, rows=False):
+        if self.page is not None and self.page_media(self.entry()):
+            self.save_page()
+            self.rows_changed = True
+            return
         B.write(self.data)
         self.rows_changed = self.rows_changed or rows
 
@@ -111,7 +134,104 @@ class BarEditor(xbmcgui.WindowXMLDialog):
 
     def custom(self):
         e = self.entry()
+        if self.page_media(e):
+            return self.page
         return self.data['custom'][e['index']] if e['kind'] == 'custom' else None
+
+    # ---------------------------------------------------------- Home, Movies, TV Shows
+    @staticmethod
+    def page_media(e):
+        """'all', 'movie' or 'series' for a section whose rows are the Home's own; '' else."""
+        if e.get('kind') == 'home':
+            return 'all'
+        if e.get('kind') == 'builtin' and e.get('key') in ('movie', 'series'):
+            return e['key']
+        return ''
+
+    def limit(self):
+        return 120 if (self.custom() or {}).get('_page') else B.MAX_ROWS
+
+    def page_section(self, media):
+        """The page's rows (the Home's own and the ones added) in a section's shape."""
+        from ..skinui import rows as R
+        app = R.app()
+        try:
+            found = R.HeadlessHome(app, media).layout_rows(media)
+        except Exception:
+            xbmc.log('[DexHub] bar editor: rows of %s failed' % media, xbmc.LOGWARNING)
+            found = []
+        specs = []
+        for row, hidden in app.layout.arrange(found, media):
+            meta = row.meta or {}
+            key = row.key
+            collection = key.startswith('col:') or getattr(row, 'kind', '') == 'collection'
+            specs.append({'key': key, 'title': row.title or key, 'sub': meta.get('source_label') or row.subtitle or '',
+                          'style': app.layout.shape(key) or (row.shape if collection else ''), 'hidden': bool(hidden),
+                          'default_hidden': bool(meta.get('default_hidden')), 'known': True,
+                          'custom_id': key[3:] if key.startswith('my:') else '', 'collection': collection,
+                          '_style0': app.layout.shape(key) or (row.shape if collection else ''),
+                          'params': dict(meta.get('params') or {})})
+        return {'name': '', 'icon': '', 'rows': specs, '_page': media, '_app': app}
+
+    def save_page(self):
+        """The open page back to layout.json: order, hidden, the added rows, the styles."""
+        from . import layout as L
+        c = self.page
+        app = c['_app']
+        media = c['_page']
+        before = app.layout.page(media)
+        old_custom = dict((spec.get('id'), spec) for spec in before.get('custom') or [])
+        rows = c['rows']
+        # a built-in row unticked in a picker is not removed: it is hidden at the end
+        keys = set(r['key'] for r in rows)
+        for r in self._page_known:
+            if r['key'] not in keys and not r.get('custom_id'):
+                rows.append(dict(r, hidden=True))
+        custom = []
+        for r in rows:
+            if r.get('custom_id') and r['custom_id'] in old_custom:
+                spec = dict(old_custom[r['custom_id']])
+                spec['label'] = r.get('title') or spec.get('label')
+                custom.append(spec)
+            elif not r.get('known'):
+                params = dict(r.get('params') or {})
+                spec = L.new_custom({'type': 'route', 'label': r.get('title') or '', 'source': 'catalog',
+                                     'source_label': r.get('sub') or '', 'subtitle': r.get('sub') or '',
+                                     'params': params, 'shape': ''})
+                r.update(known=True, custom_id=spec['id'], key=L.custom_key(spec))
+                custom.append(spec)
+        # an added row not listed now (its source away for a while) is kept: only
+        # the user's Remove takes one out
+        listed = set(r.get('custom_id') for r in rows if r.get('custom_id'))
+        custom += [spec for spec in before.get('custom') or []
+                   if spec.get('id') not in listed and spec.get('id') not in self._page_removed]
+        order = [r['key'] for r in rows]
+        # only what changed: the saved order stays as it was when the rows did not
+        # move, and a row's hidden switch is kept while the row is not listed now
+        # (a catalog away for a while comes back hidden as it was)
+        if order == self._page_order and not before.get('order'):
+            order = None
+        hidden = dict(before.get('hidden') or {})
+        for r in rows:
+            if bool(r.get('hidden')) != bool(r.get('default_hidden')):
+                hidden[r['key']] = bool(r.get('hidden'))
+            else:
+                hidden.pop(r['key'], None)
+        if hidden == dict(before.get('hidden') or {}):
+            hidden = None
+        if sorted(s.get('id') for s in custom) == sorted(s.get('id') for s in before.get('custom') or []) and \
+                all(s.get('label') == old_custom.get(s.get('id'), {}).get('label') for s in custom):
+            custom = None
+        app.layout.save_page(media, order=order, hidden=hidden, custom=custom)
+        for r in rows:
+            # a style is saved only when it was changed here (a collection row's
+            # own shape, shown as its style, is not written as a choice)
+            if (r.get('style') or '') != (r.get('_style0') or ''):
+                app.layout.set_shape(r['key'], r.get('style') or '')
+                r['_style0'] = r.get('style') or ''
+        self._page_known = [dict(r) for r in rows if r.get('known')]
+        self._page_order = [r['key'] for r in rows]
+        self.pages_changed.add(media)
 
     def styles(self):
         from .layout import style_choices
@@ -119,7 +239,9 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         return style_choices(tr, self.media, B._styles())
 
     def style_name(self, key):
-        for k, name, _line, _preview, _group in self.styles():
+        from .layout import style_choices
+        from ..i18n import tr
+        for k, name, _line, _preview, _group in list(self.styles()) + list(style_choices(tr, self.media, COLLECTION_CHOICES)):
             if k == (key or ''):
                 return name
         return key or ''
@@ -129,9 +251,9 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         if self._inited:
             return
         self._inited = True
-        self.setProperty('bs.title', _t('أقسام الشريط', 'Bar sections'))
-        self.setProperty('bs.desc', _t('اختر وش يطلع في الشريط، وسوّ أقسامك بأيقونتها وكتالوجاتها وشكل كل كتالوج',
-                                       'Choose what the bar shows, and make sections of your own with their icon, catalogs and the style of each'))
+        self.setProperty('bs.title', _t('تعديل الواجهة', 'Edit the Home screen'))
+        self.setProperty('bs.desc', _t('الشريط وأقسامه، وصفوف كل قسم: رتّبها، أخفها، غيّر شكلها، وأضف من Dex Hub أو DexWorld أو YouTube أو أي إضافة',
+                                       'The bar, its sections and each one\'s rows: order, hide, restyle, and add from Dex Hub, DexWorld, YouTube or any add-on'))
         self.setProperty('bs.yourbar', _t('شريطك', 'Your bar'))
         self.fill_sections()
         self.show()
@@ -177,7 +299,7 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         for n, c in enumerate(self.data['custom']):
             add('c%d' % (n + 1), B._icon_preview(c.get('icon') or ''), c['name'][:1].upper())
         items.append(_li('', div='1'))
-        for key in ('discover', 'live', 'library', 'dexworld'):
+        for key in ('discover', 'live', 'library', 'dexworld', 'youtube'):
             if key not in hidden:
                 add(key, B.ICON_PATH % key)
         self.fill(BAR, items)
@@ -186,6 +308,15 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         """The right half for the section under the cursor."""
         e = self.entry()
         kind = e['kind']
+        media = self.page_media(e)
+        if media:
+            if not self.page or self.page.get('_page') != media:
+                self.page = self.page_section(media)
+                self._page_known = [dict(r) for r in self.page['rows']]
+                self._page_order = [r['key'] for r in self.page['rows']]
+            self.show_page(e, media)
+            return
+        self.page = None
         c = self.custom()
         self.setProperty('bs.custom', '1' if c is not None else '')
         if kind == 'home':
@@ -223,16 +354,47 @@ class BarEditor(xbmcgui.WindowXMLDialog):
             buttons = [_li(_t('تغيير الاسم', 'Rename'), key='rename'), _li(_t('الأيقونة', 'Icon'), key='icon'),
                        _li(_t('حذف القسم', 'Delete section'), key='delete')]
             self.fill(ADDS, [_li(_t('+ صفوف Dex Hub', '+ Dex Hub rows'), key='dexhub'),
+                             _li(_t('+ DexWorld', '+ DexWorld'), key='dexworld'),
+                             _li(_t('+ YouTube', '+ YouTube'), key='youtube'),
                              _li(_t('+ من إضافة', '+ From an add-on'), key='addon'),
                              _li(_t('شكل واحد للكل', 'One style for all'), key='allstyle')])
-            self.fill(ROW_ACTIONS, [_li(_t('ترتيب', 'Sort'), key='sort'), _li(_t('الاسم', 'Rename'), key='rename'),
+            self.fill(ROW_ACTIONS, [_li(_t('⤒ للأعلى', '⤒ To top'), key='top'), _li(_t('+ فوقه', '+ Above'), key='above'), _li(_t('ترتيب', 'Sort'), key='sort'), _li(_t('الاسم', 'Rename'), key='rename'),
                                     _li(_t('حذف', 'Remove'), key='remove')])
             self.fill_catalogs()
         self.fill(BUTTONS, buttons)
 
+    def show_page(self, e, media):
+        """Home, Movies or TV Shows: their rows on the right, edited like a section's."""
+        c = self.page
+        self.setProperty('bs.custom', '1')
+        name = _t('الرئيسية', 'Home') if media == 'all' else e['name']
+        shown = len([r for r in c['rows'] if not r.get('hidden')])
+        self.setProperty('bs.name', name)
+        self.setProperty('bs.icon', B.ICON_PATH % ('home' if media == 'all' else media))
+        self.setProperty('bs.initial', '')
+        self.setProperty('bs.sub', _t('قسم أساسي · %d صف ظاهر من %d', 'Built in · %d of %d rows shown') % (shown, len(c['rows'])))
+        self.setProperty('bs.catalogs', _t('الصفوف', 'ROWS'))
+        self.setProperty('bs.empty', _t('ما فيه صفوف.', 'No rows.'))
+        if media == 'all':
+            buttons = [_li(_t('دايم ظاهرة', 'Always shown'), key='', dot='on')]
+        else:
+            off = e['key'] in self.data['hidden']
+            buttons = [_li(_t('مخفي من الشريط', 'Hidden from the bar') if off else _t('ظاهر في الشريط', 'On the bar'),
+                           key='toggle', dot='off' if off else 'on')]
+        self.fill(ADDS, [_li(_t('+ صفوف Dex Hub', '+ Dex Hub rows'), key='dexhub'),
+                         _li(_t('+ DexWorld', '+ DexWorld'), key='dexworld'),
+                         _li(_t('+ YouTube', '+ YouTube'), key='youtube'),
+                         _li(_t('+ من إضافة', '+ From an add-on'), key='addon'),
+                         _li(_t('شكل واحد للكل', 'One style for all'), key='allstyle')])
+        self.fill(ROW_ACTIONS, [_li(_t('⤒ للأعلى', '⤒ To top'), key='top'), _li(_t('+ فوقه', '+ Above'), key='above'), _li(_t('إخفاء / إظهار', 'Hide / show'), key='hide'), _li(_t('الاسم', 'Rename'), key='rename'),
+                                _li(_t('حذف', 'Remove'), key='remove')])
+        self.fill_catalogs()
+        self.fill(BUTTONS, buttons)
+
     @staticmethod
     def catalog_line(spec):
-        parts = [spec.get('sub') or '']
+        parts = [_t('مخفي', 'Hidden')] if spec.get('hidden') else []
+        parts.append(spec.get('sub') or '')
         if spec.get('sort'):
             parts.append('↕ ' + B.sort_name(spec['sort']))
         return '  ·  '.join(p for p in parts if p)
@@ -240,7 +402,8 @@ class BarEditor(xbmcgui.WindowXMLDialog):
     def catalog_item(self, spec, editing=False):
         style = spec.get('style') or ''
         return _li(spec.get('title') or '', self.catalog_line(spec), thumb=self.media('rowpreview_%s.jpg' % (style or 'auto')),
-                   style=self.style_name(style), editing='1' if editing else '')
+                   style=self.style_name(style) if style else _t('كوليكشن', 'Collection'),
+                   editing='1' if editing else '', off='1' if spec.get('hidden') else '')
 
     def fill_catalogs(self, select=0):
         c = self.custom()
@@ -257,8 +420,9 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         li.setLabel(spec.get('title') or '')
         li.setLabel2(self.catalog_line(spec))
         li.setProperty('thumb', self.media('rowpreview_%s.jpg' % (style or 'auto')))
-        li.setProperty('style', self.style_name(style))
+        li.setProperty('style', self.style_name(style) if style else _t('كوليكشن', 'Collection'))
         li.setProperty('editing', '1' if index == self.edit else '')
+        li.setProperty('off', '1' if spec.get('hidden') else '')
 
     def after_section_change(self, select_rows=None):
         """The section's name, icon or catalogs changed: the left list and the bar again."""
@@ -337,6 +501,7 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         elif self.mode == 'pick' and self.pick.get('source') == 'folder':
             self.folder_up()
         elif self.mode:
+            self.insert_key = None
             self.leave(BUTTONS if self.mode == 'icons' else ADDS)
         else:
             self.close()
@@ -360,14 +525,16 @@ class BarEditor(xbmcgui.WindowXMLDialog):
     def sort_label(self):
         c = self.custom()
         n = self.pos(CATALOGS)
-        li = self.item(ROW_ACTIONS, 0)
-        if c and li is not None and 0 <= n < len(c['rows']):
+        li = self.item(ROW_ACTIONS, 2)
+        if c and not c.get('_page') and li is not None and 0 <= n < len(c['rows']):
             li.setLabel('↕ ' + B.sort_name(c['rows'][n].get('sort')))
 
     # ---------------------------------------------------------- sections
     def click_section(self):
         e = self.entry()
-        if e['kind'] == 'builtin':
+        if self.page_media(e):
+            self.setFocusId(CATALOGS if (self.page or {}).get('rows') else ADDS)
+        elif e['kind'] == 'builtin':
             self.toggle()
         elif e['kind'] == 'custom':
             self.setFocusId(CATALOGS if self.custom().get('rows') else ADDS)
@@ -423,6 +590,10 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         key = li.getProperty('key') if li is not None else ''
         if key == 'dexhub':
             self.pick_dexhub()
+        elif key == 'dexworld':
+            self.pick_dexworld()
+        elif key == 'youtube':
+            self.pick_youtube()
         elif key == 'addon':
             self.pick_addons()
         elif key == 'allstyle' and (self.custom() or {}).get('rows'):
@@ -451,6 +622,8 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         if aid in (A_LEFT, A_RIGHT):
             keys = list(B._styles())
             spec = rows[self.edit]
+            if spec.get('collection'):
+                keys = list(COLLECTION_CHOICES)
             at = keys.index(spec.get('style') or '') if (spec.get('style') or '') in keys else 0
             spec['style'] = keys[(at + (1 if aid == A_RIGHT else -1)) % len(keys)]
             self.refresh_catalog(self.edit)
@@ -472,6 +645,18 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         if not c or not (0 <= n < len(c['rows'])):
             return
         spec = c['rows'][n]
+        if key == 'top':
+            c['rows'].insert(0, c['rows'].pop(n))
+            self.save(rows=True)
+            self.fill_catalogs(0)
+            self.pick_row(0)
+            return
+        if key == 'above':
+            self.add_above(spec)
+            return
+        if c.get('_page'):
+            self.page_row_action(key, spec, n)
+            return
         if key == 'sort':
             # each OK the next order; the row is read again in it
             keys = [k for k, _ar, _en in B.SORTS]
@@ -494,6 +679,70 @@ class BarEditor(xbmcgui.WindowXMLDialog):
             self.save(rows=True)
             self.after_section_change(select_rows=min(n, len(c['rows']) - 1))
         self.setFocusId(CATALOGS if c['rows'] else ADDS)
+
+    def page_row_action(self, key, spec, n):
+        c = self.page
+        mine = bool(spec.get('custom_id')) or not spec.get('known')
+        if key == 'hide':
+            spec['hidden'] = not spec.get('hidden')
+            self.save(rows=True)
+            self.refresh_catalog(n)
+            self.show_page(self.entry(), c['_page'])
+            self.pick_row(n)
+            return
+        if key in ('rename', 'remove') and not mine:
+            xbmcgui.Dialog().notification('Dex Hub', _t('صفوف Dex Hub الأساسية تنخفي بس، الحذف والاسم للصفوف اللي أضفتها',
+                                                        "Dex Hub's own rows can only be hidden; rename and remove are for the rows you added"),
+                                          xbmcgui.NOTIFICATION_INFO, 4000)
+            return
+        if key == 'rename':
+            name = (xbmcgui.Dialog().input(_t('اسم الصف', 'Row name'), spec.get('title') or '') or '').strip()
+            if name:
+                spec['title'] = name
+                self.save(rows=True)
+                self.refresh_catalog(n)
+        elif key == 'remove':
+            c['rows'].pop(n)
+            self._page_known = [r for r in self._page_known if r['key'] != spec['key']]
+            if spec.get('custom_id'):
+                self._page_removed.add(spec['custom_id'])
+            self.save(rows=True)
+            self.show_page(self.entry(), c['_page'])
+            self.pick_row(min(n, len(c['rows']) - 1))
+        self.setFocusId(CATALOGS)
+
+    def add_above(self, spec):
+        """'+ Above': where the new rows come from; they go above this row."""
+        sources = [('dexhub', _t('صفوف Dex Hub', 'Dex Hub rows')), ('dexworld', 'DexWorld'), ('youtube', 'YouTube'),
+                   ('addon', _t('من إضافة', 'From an add-on'))]
+        pick = xbmcgui.Dialog().select(_t('أضف فوق «%s»', 'Add above "%s"') % (spec.get('title') or ''),
+                                       [label for _k, label in sources])
+        if pick < 0:
+            return
+        self.insert_key = spec.get('key')
+        {'dexhub': self.pick_dexhub, 'dexworld': self.pick_dexworld, 'youtube': self.pick_youtube,
+         'addon': self.pick_addons}[sources[pick][0]]()
+        if self.mode != 'pick':
+            self.insert_key = None          # nothing opened (no rows to pick from)
+
+    def place_new(self, rows, fresh):
+        """The new rows go above the row '+ Above' was pressed on, else first, where
+        they are seen (v5.10.504: at the end of a page of 100 rows nobody saw them)."""
+        at = 0
+        if self.insert_key is not None:
+            for i, r in enumerate(rows):
+                if r.get('key') == self.insert_key:
+                    at = i
+                    break
+        self.insert_key = None
+        return rows[:at] + list(fresh) + rows[at:], at
+
+    def pick_row(self, n):
+        try:
+            self.ctrl(CATALOGS).selectItem(max(0, n))
+        except (RuntimeError, AttributeError):
+            pass
+        self.setFocusId(CATALOGS)
 
     # ---------------------------------------------------------- modes
     def focus(self, cid):
@@ -605,7 +854,8 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         if li is None or c is None:
             return
         for spec in c['rows']:
-            spec['style'] = li.getProperty('key')
+            if not spec.get('collection'):
+                spec['style'] = li.getProperty('key')
         self.save(rows=True)
         self.fill_catalogs()
         self.leave(CATALOGS)
@@ -624,6 +874,44 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         self.setProperty('bs.psub', _t('الرئيسية والأفلام والمسلسلات · حدد كم واحد تبي', 'Home, Movies and Series · tick as many as you like'))
         self.pick_render(0)
         self.enter('pick', PICK)
+
+    def pick_list(self, found, title, sub):
+        """Tick rows from a list of (spec, where), then Save (the Dex Hub rows' picker)."""
+        import json
+        chosen = set(json.dumps(r.get('params') or {}, sort_keys=True) for r in self.custom()['rows'])
+        self.pick = {'source': 'dexhub', 'found': found,
+                     'checked': set(i for i, (spec, _w) in enumerate(found) if json.dumps(spec['params'], sort_keys=True) in chosen)}
+        self.setProperty('bs.ptitle', title)
+        self.setProperty('bs.psub', sub)
+        self.pick_render(0)
+        self.enter('pick', PICK)
+
+    def pick_dexworld(self):
+        from .. import dexworld as DW
+        xbmc.executebuiltin('ActivateWindow(busydialognocancel)')
+        try:
+            data = DW.page()
+        finally:
+            xbmc.executebuiltin('Dialog.Close(busydialognocancel)')
+        found = [(DW.spec_of(row), (row.get('cat') or 'DexWorld')) for row in data.get('rows') or [] if row.get('id') and row.get('title')]
+        if not found:
+            xbmcgui.Dialog().notification('DexWorld', _t('الموقع ما رد الحين، جرّب بعد شوي', 'The site did not answer; try again shortly'),
+                                          xbmcgui.NOTIFICATION_INFO, 3500)
+            return
+        self.pick_list(found, 'DexWorld', _t('قوائم وكوليكشن DexWorld · حدد كم واحد تبي', "DexWorld's lists and collections · tick as many as you like"))
+
+    def pick_youtube(self):
+        from .. import youtube_feed as Y
+        xbmc.executebuiltin('ActivateWindow(busydialognocancel)')
+        try:
+            found = Y.row_choices()
+        finally:
+            xbmc.executebuiltin('Dialog.Close(busydialognocancel)')
+        search = ({'key': 'youtube:ask', 'title': _t('🔍 ابحث وأضف…', '🔍 Search and add…'), 'params': {'action': 'youtube_ask'}},
+                  _t('أي بحث كصف', 'Any search as a row'))
+        self.pick_list([search] + found, 'YouTube',
+                       _t('حسابك، البث المباشر، الرائج، الأقسام، وقنواتك · حدد كم واحد تبي',
+                          'Your account, live, trending, the topics and your channels · tick as many as you like'))
 
     def pick_addons(self):
         addons = B._rpc('Addons.GetAddons', {'type': 'xbmc.addon.video', 'enabled': True, 'properties': ['name', 'thumbnail']}).get('addons') or []
@@ -697,6 +985,14 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         p = self.pick
         n = self.pos(PICK)
         src = p.get('source')
+        if src == 'dexhub' and 0 <= n < len(p['found']) and p['found'][n][0]['params'].get('action') == 'youtube_ask':
+            words = (xbmcgui.Dialog().input(_t('ابحث في YouTube', 'Search YouTube')) or '').strip()
+            if words:
+                from .. import youtube_feed as Y
+                p['found'].insert(n + 1, (Y.row_spec('search', words, title=words), _t('بحث', 'Search')))
+                p['checked'] = set(i + 1 if i > n else i for i in p['checked']) | {n + 1}
+                self.pick_render(n + 1)
+            return
         if src == 'dexhub' or (src == 'folder' and p.get('many')):
             p['checked'].symmetric_difference_update([n])
             li = self.item(PICK)
@@ -718,6 +1014,7 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         key = li.getProperty('key') if li is not None else ''
         p = self.pick
         if key == 'cancel':
+            self.insert_key = None
             self.leave(ADDS)
         elif key == 'save':
             self.save_dexhub()
@@ -746,17 +1043,23 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         p = self.pick
         c = self.custom()
         idents = [json.dumps(spec['params'], sort_keys=True) for spec, _w in p['found']]
+        p['checked'] = set(i for i in p['checked'] if p['found'][i][0]['params'].get('action') != 'youtube_ask')
         keep = [idents[i] for i in p['checked']]
         before = [json.dumps(r.get('params') or {}, sort_keys=True) for r in c['rows']]
         rows = [r for r, ident in zip(c['rows'], before) if ident not in idents or ident in keep]
-        rows += [dict(p['found'][i][0], style='') for i in sorted(p['checked']) if idents[i] not in before]
-        if len(rows) > B.MAX_ROWS:
-            xbmcgui.Dialog().notification('Dex Hub', _t('القسم وصل حده (%d صف)', 'The section is full (%d rows)') % B.MAX_ROWS,
+        rows, at = self.place_new(rows, [dict(p['found'][i][0], style='') for i in sorted(p['checked']) if idents[i] not in before])
+        if len(rows) > self.limit():
+            xbmcgui.Dialog().notification('Dex Hub', _t('القسم وصل حده (%d صف)', 'The section is full (%d rows)') % self.limit(),
                                           xbmcgui.NOTIFICATION_INFO, 3500)
-        c['rows'] = rows[:B.MAX_ROWS]
+        c['rows'] = rows[:self.limit()]
         rows = c['rows']
         self.save(rows=True)
-        self.after_section_change(select_rows=0)
+        if c.get('_page'):
+            self.show_page(self.entry(), c['_page'])
+            self.leave(CATALOGS)
+            self.pick_row(min(at, max(0, len(rows) - 1)))
+            return
+        self.after_section_change(select_rows=min(at, max(0, len(rows) - 1)))
         self.leave(CATALOGS if rows else ADDS)
 
     def add_rows(self, specs):
@@ -769,27 +1072,50 @@ class BarEditor(xbmcgui.WindowXMLDialog):
             if spec.get('key') not in have:
                 have.add(spec.get('key'))
                 fresh.append(spec)
-        room = B.MAX_ROWS - start
-        c['rows'] += fresh[:max(0, room)]
+        room = self.limit() - start
+        c['rows'], start = self.place_new(c['rows'], fresh[:max(0, room)])
         left = len(specs) - len(fresh[:max(0, room)])
         if left:
             xbmcgui.Dialog().notification('Dex Hub', _t('ما انضاف %d: مكرر أو القسم وصل حده (%d صف)',
                                                         '%d not added: already there or the section is full (%d rows)') % (left, B.MAX_ROWS),
                                           xbmcgui.NOTIFICATION_INFO, 3500)
         self.save(rows=True)
+        if c.get('_page'):
+            self.show_page(self.entry(), c['_page'])
+            self.pick_row(min(start, max(0, len(c['rows']) - 1)))
+            self.leave(CATALOGS)
+            return
         self.after_section_change(select_rows=min(start, max(0, len(c['rows']) - 1)))
         self.leave(CATALOGS if c['rows'] else ADDS)
 
 
-def open_editor():
+def open_editor(select=''):
+    """The Home's one editor; ``select`` opens it on a section (the pen: the tab on show)."""
     import xbmcaddon
     path = xbmcaddon.Addon('plugin.video.dexhub').getAddonInfo('path')
-    window = BarEditor('dexhub_bars.xml', path, 'Default', '1080i', addon_path=path)
+    window = BarEditor('dexhub_bars.xml', path, 'Default', '1080i', addon_path=path, select=select)
     try:
         window.doModal()
         changed = window.rows_changed
+        pages = set(window.pages_changed)
     finally:
         del window
-    if changed:
-        B._republish(None)
+    if pages or changed:
+        # one request for the layout and the sections, every tab at once
+        _home_changed()
     return True
+
+
+def _home_changed():
+    """The Home's rows again, every tab, now (the worker's 'home editor'); with no
+    worker running (the add-on's own Home), they are worked out here."""
+    try:
+        from ..skinui import common as C
+        from ..skinui.actions import worker_alive
+        if worker_alive():
+            C.ask_republish('home editor')
+        else:
+            from ..skinui import rows
+            rows.publish(reason='home editor')
+    except Exception:
+        xbmc.log('[DexHub] bar editor: the Home was not asked to rebuild', xbmc.LOGWARNING)

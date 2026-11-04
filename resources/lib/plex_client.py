@@ -1170,6 +1170,11 @@ def _slow_until(server):
 _SLOW_MAX = 3600.0
 
 
+def resting(server):
+    """True while the server is left out after giving no answer (see _mark_slow)."""
+    return _slow_until(server) > time.time()
+
+
 def _mark_slow(server, spent):
     # v5.10.448: a server that stays down is left out longer each time (5, 10,
     # 20, 40 min, then an hour): DexMedia gave no answer all day, and every

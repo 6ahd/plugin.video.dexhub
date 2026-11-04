@@ -230,9 +230,40 @@ def _quality(text):
     return _badge_quality({}, text)
 
 
+def _youtube_rows():
+    """(5.10.497) A YouTube video: its qualities, the playing one first marked."""
+    from .. import youtube_feed as Y
+    try:
+        from ..i18n import is_english
+        english = is_english()
+    except Exception:
+        english = False
+    entries = []
+    for index, label, detail, current in Y.qualities():
+        li = xbmcgui.ListItem(label=label, label2=('YouTube  ·  %s' % detail) if detail else 'YouTube', offscreen=True)
+        height = int((re.match(r'\d+', label) or re.match('', '')).group(0) or 0)
+        quality = ('4K' if height >= 2160 else '1080p' if height >= 1080 else '720p' if height >= 720 else
+                   'SD' if height else '')
+        props = {'pos': str(len(entries)), 'provider': 'YouTube', 'quality': quality, 'isfolder': 'false'}
+        if current:
+            props['iscurrent'] = 'true'
+        props.update(_island_props(label, li.getLabel2(), quality))
+        li.setProperties(props)
+        entries.append((C.url('switch_source', yt_stream=str(index)), li, False))
+    if not entries:
+        li = xbmcgui.ListItem(label='Quality is chosen automatically' if english else 'الجودة تتحدد تلقائياً',
+                              label2='YouTube', offscreen=True)
+        li.setProperties({'pos': 'none', 'isfolder': 'false'})
+        entries.append((C.url('switch_source', pick='none'), li, False))
+    return entries
+
+
 def sources(params, handle):
     entries = []
-    if xbmc.Player().isPlayingVideo():
+    from .. import youtube_feed as _yt
+    if xbmc.Player().isPlayingVideo() and _yt.playing():
+        entries = _youtube_rows()
+    elif xbmc.Player().isPlayingVideo():
         try:
             from ..i18n import tr as _t
         except Exception:

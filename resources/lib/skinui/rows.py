@@ -1814,6 +1814,18 @@ class Context(object):
         if tile.get('catalog_node') and not tile.get('catalog_banner'):
             props['dhs.catalog'] = '1'
             props['dhs.catalog_icon'] = tile.get('catalog_icon') or ''
+        # v5.10.507: a list's posters as the wall behind the page (wp1-wp8), and
+        # a DexWorld collection's list opens on the collection page
+        wall = [w for w in tile.get('wall') or [] if w]
+        if wall:
+            for n in range(8):
+                props['wp%d' % (n + 1)] = wall[n % len(wall)]
+        if tile.get('fold_url'):
+            # skin.dexhub opens the collection page whatever the folder-rows
+            # setting (serve.skin_fold); other skins only with it on
+            from ..folder_view import rows_enabled
+            if rows_enabled() or C.served() == 'dexhub':
+                props['dhs.fold'] = tile['fold_url']
         # v5.10.227: a show's seasons and status, once TMDb told them
         if tile.get('seasons_count') or tile.get('tv_status'):
             props['dhs.seasons'], props['dhs.tvstatus'], props['dhs.tvstatus_bg'] = \

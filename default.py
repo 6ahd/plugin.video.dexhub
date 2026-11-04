@@ -25,6 +25,10 @@ if not (sys.argv and str(sys.argv[0]).startswith('plugin://')):
 from resources.lib.tvos_compat import install as install_tvos_compat
 install_tvos_compat()
 
+# v5.10.499: IPv4 first where IPv6 goes nowhere (net_guard.py)
+from resources.lib.net_guard import install as _ipv4_first
+_ipv4_first()
+
 from resources.lib.profile_scope import initialize as initialize_profiles
 initialize_profiles()
 

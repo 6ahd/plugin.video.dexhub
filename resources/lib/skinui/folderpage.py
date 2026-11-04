@@ -78,11 +78,34 @@ def open_page(params, handle):
     request_token = params.get('_open_token') or ''
     app = rows.app()
     home = rows.HeadlessHome(app, 'all')
-    try:
-        folder, sources = W.BrowseWindow.__dict__['_folder_sources'](home, ref)
-    except Exception as exc:
-        C.log('collection folder failed: %s' % exc, xbmc.LOGWARNING)
-        folder, sources = None, []
+    wall = []
+    if params.get('dw'):
+        # v5.10.507: a list of a DexWorld collection: it first, the collection's
+        # other lists after it, its titles' posters behind the page
+        from .. import dexworld as DW
+        ref = {'set_id': 'dexworld', 'group_id': params['dw'], 'folder_id': params.get('dwm') or '', 'media_filter': ''}
+        try:
+            sources, members = DW.fold_sources(params['dw'], params.get('dwm') or '')
+        except Exception as exc:
+            C.log('DexWorld collection failed: %s' % exc, xbmc.LOGWARNING)
+            sources, members = [], []
+        first = members[0] if members else {}
+        folder = {'name': params.get('t') or first.get('title') or '', 'background': '', 'poster': ''}
+        wall = DW._posters(first) if first else []
+        if not wall and first:
+            try:
+                DW.row_page(first['id'], 1)
+                wall = DW._posters(first)
+            except Exception:
+                wall = []
+    else:
+        try:
+            folder, sources = W.BrowseWindow.__dict__['_folder_sources'](home, ref)
+        except Exception as exc:
+            C.log('collection folder failed: %s' % exc, xbmc.LOGWARNING)
+            folder, sources = None, []
+    for n in range(8):
+        C.set_prop('dhs.fold.p%d' % (n + 1), wall[n % len(wall)] if wall else '')
     if request_token:
         from .. import profile_scope
         if not _request_current(request_token) or not profile_scope.is_current():

@@ -1,3 +1,51 @@
+5.10.509
+صفوف DexWorld في الواجهة لأي أحد يثبّت Dex Hub، حسب لغته وبلده: للكل شبكات التلفزيون والمنصات في الرئيسية، والشبكات وتوب 10 المنصات والريالتي والأنمي في المسلسلات، والاستوديوهات والأنواع والوثائقيات في الأفلام؛ وللعربي زيادة: كوليكشن عربي، ومسلسلات خليجية وشامية وتركية ومصرية، وأفلام عربية. تنضاف بعد «متابعة المشاهدة». اللي رتّب واجهته بنفسه يتسأل مرة وحدة قبل.
+DexWorld's rows on the Home for everyone who installs Dex Hub, by language and country: TV networks and streamers on Home, networks, the streamers' top 10, reality and anime on TV Shows, studios, genres and documentaries on Movies; Arabic adds the Arabic collection, Gulf, Levantine, Turkish and Egyptian series and Arabic films. They go right after Continue watching. A Home the user arranged is asked once first.
+
+5.10.508
+شعار الشبكة (Clear logo) بدل اسمها: في الرئيسية لما تقف على غلافها وفوق صفحتها. الشعار الغامق بلا ألوان (HBO وFX وAMC) يجي بنسخته البيضاء عشان يبان على الخلفية الغامقة، والملوّن يبقى مثل ما هو.
+A network's clear logo in place of its name: on the Home when its cover has the focus, and over its page. A dark, colourless logo (HBO, FX, AMC) comes in its white copy so it shows on the dark background; a coloured one stays as it is.
+
+5.10.507
+كوليكشن DexWorld: لما تقف على غلاف (BBC One مثلاً) الخلفية تصير جدار من بوسترات أعماله، والصورة الكبيرة فوق تختفي. OK يفتح صفحة الكوليكشن: الشبكة تفتح كل شي عنها من TMDb (مختارات DexWorld، الأشهر، الأعلى تقييماً، الأحدث، يُعرض الآن، ودراما وكوميديا وجريمة وخيال علمي وغموض ووثائقي ورسوم)، وباقي الكوليكشن (الوثائقيات وغيرها) تفتح قائمتها أول وبعدها قوائم الكوليكشن. يحتاج سكن 3.28.208.
+DexWorld collections: on a cover (BBC One, say) the background becomes a wall of its titles' posters, and the big picture top right steps aside. OK opens the collection page: a network opens as everything TMDb has on it (DexWorld's picks, most popular, top rated, newest, on the air now, then drama, comedy, crime, sci-fi, mystery, documentary and animation); other collections (documentaries and the rest) open their list first, then the collection's other lists. Needs skin 3.28.208.
+
+5.10.506
+كوليكشن DexWorld في الواجهة تطلع بأغلفتها (شبكات التلفزيون، الوثائقيات…) بدل بطاقات فاضية، وكل غلاف يفتح قائمته.
+DexWorld collections on the Home show their covers (TV networks, documentaries…) instead of blank cards, each opening its list.
+
+5.10.505
+كوليكشن DexWorld صارت كوليكشن حقيقية في الواجهة (مثل كوليكشن الرئيسية): أغلفة قوائمها، وتقدر تغيّر شكلها في تعديل الواجهة بين «مجموعة مع واجهة بارزة» و«ببوسترات جانبية» و«ترتيب» وبانر وغيرها. إصلاح: تعديل الواجهة ما يحذف صف أضفته إذا كان مصدره غير متاح وقتها؛ الحذف بس لما تضغط حذف. بعد التحديث أعد تشغيل كودي.
+DexWorld collections are now real collections on the Home (like the Home's own): their lists' covers, and Edit the Home screen changes their style between spotlight, side posters, ranking, banner and more. Fix: Edit the Home screen no longer drops a row you added when its source is away at the moment; only Remove takes one out. Restart Kodi after updating.
+
+5.10.504
+كوليكشن DexWorld (مثل شبكات التلفزيون والوثائقيات والريالتي) صارت تطلع في الواجهة صف أغلفة، كل غلاف يفتح قائمته (كانت تطلع فاضية وتختفي). الصفوف الجديدة من تعديل الواجهة تنضاف أول القسم وين تشوفها، و«+ فوقه» يحطها في مكان تختاره.
+DexWorld collections (like TV Networks, Documentaries and Reality & Shows) now show on the Home as a row of covers, each opening its list (they came back empty and were left out). New rows from Edit the Home screen go first in the section where you see them; + Above puts them where you choose.
+
+5.10.503
+تعديل الواجهة: زرّين جديدة جنب كل صف: «⤒ للأعلى» يرفع الصف لأول القائمة، و«+ فوقه» يضيف صف جديد (من Dex Hub أو DexWorld أو YouTube أو أي إضافة) فوق هذا الصف مباشرة بدل آخر القائمة.
+Edit the Home screen: two new buttons beside every row: To top moves the row first, and + Above adds a new row (from Dex Hub, DexWorld, YouTube or any add-on) right above this row instead of at the end.
+
+5.10.502
+تعديل الواجهة يطبّق على طول: لما تقفل المحرر أو تضيف صف من YouTube أو DexWorld، كل الأقسام تتحدث مرة وحدة في أقل من ثانية (كانت تتحدث على دفعات خلال ٤ إلى ١٠ ثواني).
+Edit the Home screen applies at once: closing the editor, or adding a row from YouTube or DexWorld, rebuilds every tab in one pass in under a second (it came in stages over 4 to 10 seconds).
+
+5.10.501
+محرر واحد للواجهة: القلم وأقسام الشريط صاروا «تعديل الواجهة». على اليسار أقسام الشريط، والرئيسية والأفلام والمسلسلات تفتح صفوفها على اليمين مثل أقسامك: رتّب، أخفِ وأظهر، غيّر الشكل، سمِّ أو احذف الصفوف اللي أضفتها. الإضافة من أي مكان: صفوف Dex Hub، قوائم وكوليكشن DexWorld، YouTube (حسابك، البث المباشر، الرائج، الأقسام، قنواتك، وأي بحث)، أو مجلدات أي إضافة. «أضف للواجهة» من قائمة أي صف في YouTube وDexWorld: للرئيسية أو الأفلام أو المسلسلات أو قسم من أقسامك أو قسم جديد.
+One editor for the Home screen: the pen and Bar sections are now Edit the Home screen. The bar's sections on the left; Home, Movies and TV Shows open their rows on the right like your own sections: order, hide and show, restyle, rename or remove the rows you added. Add from anywhere: Dex Hub's rows, DexWorld's lists and collections, YouTube (your account, live, trending, the topics, your channels and any search), or any add-on's folders. Add to the Home screen from the menu of any YouTube or DexWorld row: into Home, Movies, TV Shows, one of your sections or a new one.
+
+5.10.500
+YouTube: صفحة تحميل قبل التشغيل فيها شعار Dex Hub وشعار YouTube وصورة الفيديو، تبقى لين يبدأ الفيديو. الترجمة: اختار لغة من القائمة (العربية وغيرها)، ولو الفيديو ما فيه ترجمتك يترجمها YouTube تلقائياً، وتشتغل لحالها. التشغيل أسرع: الفيديو يجي من YouTube مباشرة، والترجمات تنزل مع البحث عن الفيديو بدل ما يعلّق ٤٠ ثانية. شعار Premium واسم حسابك لو حسابك بريميوم. مربع البحث صار أرتب لما تحدده، ويختفي في صفحة القناة والمسلسل.
+YouTube: a loading page before a video plays, with Dex Hub's and YouTube's logos over the video's picture, kept until the video starts. Subtitles: pick a language in the menu (Arabic and more); when the video has none, YouTube translates one automatically, and it is switched on by itself. Faster start: the video comes straight from YouTube, and subtitles download while the video is looked up instead of holding the player 40 s. The Premium logo and your account name for a Premium account. The search box looks cleaner when selected and is hidden on channel and series pages.
+
+5.10.499
+أسرع بكثير: على الشبكات اللي IPv6 فيها ما يوصل للإنترنت، Dex Hub يستخدم IPv4 أول. تشغيل فيديو YouTube نزل من ٧٨ ثانية إلى ٣، وزر «المصادر» في المشغل من ٣٣ ثانية إلى ٣، وكل اتصالات Dex Hub تستفيد. YouTube مع حسابك: متابعة المشاهدة من أي جهاز (جوالك أو التلفزيون)، اشتراكاتك وجديدها، مقترح لك، المشاهدة لاحقاً، وسجل المشاهدة. ربط الحساب صفحة وحدة مثل تطبيق YouTube: الباركود والرمز مع بعض، ويقفل لحاله بعد الموافقة. ولو الحساب غير مربوط تطلع رسالة تشرح فايدة الربط. مربع بحث جنب شعار YouTube بدل زر البحث.
+Much faster: on networks where IPv6 does not reach the internet, Dex Hub tries IPv4 first. A YouTube video starts in 3 s instead of 78, the player's Sources button opens in 3 s instead of 33, and every Dex Hub connection gains. YouTube with your account: continue watching from any device (your phone or TV), your subscriptions and what is new on them, recommended for you, watch later and history. Linking is one page like the YouTube app: the QR and the code together, closing by itself once allowed; an unlinked account is told what linking gives. A search box beside the YouTube logo instead of the Search chip.
+
+5.10.498
+YouTube: صفحة جديدة مرتبة. الرئيسية تبدأ بـ«متابعة المشاهدة» وقنواتك وجديدها، بعدها البث المباشر الآن والرائج وقائمتي. أقسام: مكتبتي، مباشر، الرائج، موسيقى، رياضة، أخبار، وشامي وتركي وخليجي وأطفال للدول العربية (والباقين ألعاب)، وكل قسم بلغة وبلد الجهاز. صفحة لكل قناة (بثها المباشر، أحدث الفيديوهات، قوائم التشغيل). القائمة على أي فيديو: تابِع القناة، أضف لقائمتي، أكمل المشاهدة. زر «المصادر» في المشغّل يغيّر جودة YouTube (تلقائي، 1440p، 1080p...) بدون ما يرجع الفيديو. متابعة Plex أسرع: السيرفر اللي ما يرد ما ينتظر، والباقي ينسألون مع بعض (من ٢٠ ثانية إلى ٣).
+YouTube: a new, tidier page. Home starts with Continue watching, your channels and what is new on them, then Live now, Trending and My list. Pages: Library, Live, Trending, Music, Sport, News, plus Syrian, Turkish, Gulf and Kids in Arab countries (Gaming elsewhere), each in the device's language and country. A page for every channel (its live stream, latest videos, playlists). The menu on a video: follow the channel, add to My list, resume. The player's Sources button changes the YouTube quality (Automatic, 1440p, 1080p...) without restarting the video. Plex Continue watching is faster: a server that does not answer is not waited for, and the others are asked together (20 s down to 3).
+
 5.10.496
 DexWorld: أقسام موقع blocks.dexworld.cc داخل Dex Hub وبنفس شكله، بالعربي والإنجليزي حسب لغة الواجهة. زر الكرة الأرضية في آخر الشريط (جنب Discover و Live TV) يفتح الصفحة: فلاتر الموقع (الكل، عربي، عالمي، آسيا، أنمي، منصات، قوائم مشهورة، مجموعات)، والحزم، وكل صف مثل ما يرسمه الموقع (بوسترات، أرقام، أغلفة المجموعات، شعار المنصة). OK على عنوان يفتح صفحته، وتشغيل يشغّل الفيلم، و«عرض الكل» يفتح القائمة كاملة. القائمة على أي صف: «أضف إلى قسم في الشريط» (قسم من أقسامك أو قسم جديد)، والمجموعة تضيف كل أقسامها. تقدر تخفي الزر من «أقسام الشريط».
 DexWorld: the sections of blocks.dexworld.cc inside Dex Hub, looking like the site, in Arabic and English by the interface language. The globe button at the end of the bar (beside Discover and Live TV) opens the page: the site's filters (All, Arabic, World, Asia, Anime, Platforms, Famous lists, Collections), the bundles, and every row as the site draws it (posters, numbers, collection covers, the platform's logo). OK on a title opens its page, Play plays a film, and "See all" opens the whole list. The menu on any row: "Add to a bar section" (one of yours or a new one); a collection adds all its sections. The button can be hidden in Bar sections.

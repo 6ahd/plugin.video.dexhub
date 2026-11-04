@@ -24,6 +24,10 @@ _no_dangling()
 from resources.lib.tvos_compat import install as install_tvos_compat
 install_tvos_compat()
 
+# v5.10.499: IPv4 first where IPv6 goes nowhere (net_guard.py)
+from resources.lib.net_guard import install as _ipv4_first
+_ipv4_first()
+
 from resources.lib.portable_restore import startup as restore_startup
 restore_startup()
 
@@ -1302,6 +1306,16 @@ if __name__ == '__main__':
             xbmc.log('[DexHub] native playback helper stopped: %s' % exc, xbmc.LOGWARNING)
 
     threading.Thread(target=_native_playback_worker, name='DexHub-playback-assist', daemon=True).start()
+
+    # v5.10.509: DexWorld's rows on the Home for a new profile (home_seed.py)
+    def _home_seed_worker():
+        try:
+            from resources.lib.home_seed import run as _seed
+            _seed(monitor)
+        except Exception as exc:
+            xbmc.log('[DexHub] home seed not run: %s' % exc, xbmc.LOGWARNING)
+
+    threading.Thread(target=_home_seed_worker, name='DexHub-home-seed', daemon=True).start()
 
     # v5.10.217: the end-of-episode panel (the next episode at the credits)
     def _credits_worker():

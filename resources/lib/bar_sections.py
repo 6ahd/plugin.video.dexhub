@@ -22,7 +22,7 @@ import uuid
 
 KEYS = (('movie', 'الأفلام', 'Movies'), ('series', 'المسلسلات', 'Series'), ('servers', 'السيرفرات', 'Servers'),
         ('discover', 'Discover', 'Discover'), ('live', 'Live TV', 'Live TV'), ('library', 'مكتبتي', 'My Library'),
-        ('dexworld', 'DexWorld', 'DexWorld'))   # v5.10.496
+        ('dexworld', 'DexWorld', 'DexWorld'), ('youtube', 'YouTube', 'YouTube'))   # v5.10.496, .497
 CUSTOM = ('c1', 'c2', 'c3')
 # the bar's own icons a section can take (skin.dexhub's dexhub/nav/<name>.png);
 # v5.10.481: any picture too (Dex Hub's menu icons, Arctic Fuse 3's icons when
@@ -123,6 +123,14 @@ def rows(tab):
         # v5.10.481: the sort is part of the row's key, so a new sort reads the row anew
         sort = spec.get('sort') or ''
         key = 'bar:%s' % spec.get('key') + (':' + sort if sort else '')
+        if params.get('action') == 'dexworld_row':
+            # v5.10.505: a DexWorld collection: its lists as covers (a collection row)
+            from . import dexworld as DW
+            tiles = DW.kit_tiles(params.get('id') or '')
+            if tiles:
+                out.append(R.Row(key, spec.get('title') or '', shape=style or 'landscape', kind='collection',
+                                 tiles=tiles, meta={}))
+                continue
         out.append(R.Row(key, spec.get('title') or '', shape=style or spec.get('shape') or 'poster',
                          kind='catalog', subtitle=spec.get('sub') or '', meta={'params': params, 'auto_shape': not style, 'sort': sort}))
     return out

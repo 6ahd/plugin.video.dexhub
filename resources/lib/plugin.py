@@ -6759,7 +6759,7 @@ def ready_collection(set_id='', page='1'):
     return end_dir(content=_directory_content_for_type(media_type), cache=True)
 
 
-def tmdb_titles_view(mode='', tid='', media='movie', name='', page='1'):
+def tmdb_titles_view(mode='', tid='', media='movie', name='', page='1', sort='', genre='', when=''):
     """v5.10.313: a TMDb collection's films in release order, or a studio's
     or a network's titles (most popular first): what the title page's
     Collection card and Studios tiles open in the grid."""
@@ -6781,11 +6781,25 @@ def tmdb_titles_view(mode='', tid='', media='movie', name='', page='1'):
         media_type = 'series' if kind == 'tv' else 'movie'
         from .skinui import title_extras as _tx
         language = _tx._lang()
-        key = 'dh-studio1:%s:%s:%s:%s:%d' % (mode, tid, kind, language, page_num)
+        key = 'dh-studio1:%s:%s:%s:%s:%d:%s:%s:%s' % (mode, tid, kind, language, page_num, sort, genre, when)
         cached = _tmdb._cache_get(key)
         if cached is None:
             query = {'page': str(page_num), 'sort_by': 'popularity.desc', 'include_adult': 'false',
                      'language': language, ('with_networks' if mode == 'network' else 'with_companies'): tid}
+            # v5.10.507: a network's page asks for more than its most popular
+            import datetime as _dt
+            today = _dt.date.today()
+            date_key = 'first_air_date' if kind == 'tv' else 'primary_release_date'
+            if sort == 'rated':
+                query.update({'sort_by': 'vote_average.desc', 'vote_count.gte': '150'})
+            elif sort == 'new':
+                query.update({'sort_by': '%s.desc' % date_key, '%s.lte' % date_key: today.isoformat(),
+                              'vote_count.gte': '5'})
+            if when == 'airing' and kind == 'tv':
+                query.update({'air_date.gte': (today - _dt.timedelta(days=10)).isoformat(),
+                              'air_date.lte': (today + _dt.timedelta(days=7)).isoformat()})
+            if str(genre).replace(',', '').replace('|', '').isdigit():
+                query['with_genres'] = str(genre)
             data = _tmdb._request('/discover/%s' % kind, query, timeout=6, max_attempts=2) or {}
             cached = {'rows': [_tmdb._row_from_tmdb(r, media_type) for r in data.get('results') or []
                                if isinstance(r, dict)],
@@ -6815,7 +6829,7 @@ def tmdb_titles_view(mode='', tid='', media='movie', name='', page='1'):
                  context_menu=_build_source_picker_menu(
                      media_type=media_type, canonical_id='tmdb:%s' % tmdb_id, title=title))
     if more:
-        add_item(tr('المزيد'), build_url(action='tmdb_titles', mode=mode, id=tid, media=media, name=name,
+        add_item(tr('المزيد'), build_url(action='tmdb_titles', mode=mode, id=tid, media=media, name=name, sort=sort, genre=genre, when=when,
                                           page=str(page_num + 1)),
                  art=root_art('catalogs'), info={'title': tr('المزيد')})
     return end_dir(content=_directory_content_for_type(media_type), cache=True)
@@ -8598,15 +8612,29 @@ def plex_continue(server_id=''):
     failure = None
     try:
         servers = [_plex_server(server_id)] if server_id else plex_client.servers()
-        for server in servers:
-            try:
-                rows.extend(plex_client.on_deck(server))
-            except Exception as exc:
-                failure = exc
+        if not server_id:
+            # v5.10.498: a server that gave no answer lately is left out here too
+            # (it held the list 7.5 s each, two of them 15 s of a 20 s list),
+            # and the others are read side by side, 5 s at most each
+            servers = [s for s in servers if not plex_client.resting(s)]
+
+        def deck(server):
+            if server_id:                     # one server opened by hand: its own time
+                return plex_client.on_deck(server)
+            with plex_client.bounded_timeout(5):
+                return plex_client.on_deck(server)
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=max(1, min(6, len(servers))), thread_name_prefix='DexHub-plex-deck') as pool:
+            futures = [pool.submit(deck, server) for server in servers]
+            for future in futures:
                 try:
-                    xbmc.log('[DexHub] Plex On Deck skipped: %s' % exc, xbmc.LOGWARNING)
-                except Exception:
-                    pass
+                    rows.extend(future.result())
+                except Exception as exc:
+                    failure = exc
+                    try:
+                        xbmc.log('[DexHub] Plex On Deck skipped: %s' % exc, xbmc.LOGWARNING)
+                    except Exception:
+                        pass
     except Exception as exc:
         _plex_error(exc)
     if server_id and failure is not None and not rows:
@@ -25158,6 +25186,36 @@ def _content_type_from_plugin_rows(rows):
     return 'movies'
 
 
+def youtube_play(video_id='', title=''):
+    """v5.10.497: a YouTube video: the official YouTube add-on finds its stream
+    and Dex Hub plays it, every quality switchable in the player."""
+    from . import youtube_feed as _yt
+    video_id = str(video_id or '')
+    if _yt.open_in_app(video_id):
+        if HANDLE >= 0:
+            xbmcplugin.setResolvedUrl(HANDLE, False, xbmcgui.ListItem())
+        return
+    if not video_id or not _yt.addon_ready(install=False):
+        xbmcgui.Dialog().notification('YouTube', tr('ثبّت إضافة YouTube الرسمية أولاً'), xbmcgui.NOTIFICATION_WARNING, 4000)
+        if HANDLE >= 0:
+            xbmcplugin.setResolvedUrl(HANDLE, False, xbmcgui.ListItem())
+        return
+    _yt.quiet_setup()
+    # every quality as its own stream, so the player's Sources button switches
+    # them in place; the add-on plays it itself if its resolver fails
+    item = _yt.player_item(video_id, title) if HANDLE >= 0 else None
+    if item is not None:
+        xbmcplugin.setResolvedUrl(HANDLE, True, item)
+        return
+    url = _yt.play_url(video_id)
+    if HANDLE >= 0:
+        item = xbmcgui.ListItem(title or video_id, offscreen=True)
+        item.setPath(url)
+        xbmcplugin.setResolvedUrl(HANDLE, True, item)
+    else:
+        xbmc.executebuiltin('PlayMedia(%s)' % _yt.dexhub_url(video_id, title))
+
+
 def dexworld_row_browse(row_id='', title='', page='1'):
     """v5.10.496: a DexWorld block (blocks.dexworld.cc) as a folder of titles,
     40 a page; the Home rows, the bar sections and the grid read it."""
@@ -25169,6 +25227,31 @@ def dexworld_row_browse(row_id='', title='', page='1'):
     data = _dw.row_page(str(row_id or ''), number)
     items = data.get('items') or []
     if not items:
+        # v5.10.504: a collection (a kit: TV Networks, Documentaries) has no titles
+        # of its own: its lists, each a cover that opens it, as the site shows them
+        page_data = _dw.page()
+        by_id = _dw.rows_by_id(page_data)
+        owner = by_id.get(str(row_id or '')) or {}
+        members = []
+        for member in owner.get('members') or []:
+            # a member is {id, title, cover}; the one on the page has its titles too
+            ident = member.get('id') if isinstance(member, dict) else member
+            full = dict(by_id.get(ident) or {})
+            if isinstance(member, dict):
+                full.update(dict((k, v) for k, v in member.items() if v))
+            if full.get('id') and full.get('ready', True):
+                members.append(full)
+        if members:
+            for member in members:
+                first = (member.get('items') or [{}])[0] or {}
+                cover = member.get('cover') or first.get('backdrop') or first.get('poster') or ''
+                art = {'thumb': cover, 'landscape': cover, 'fanart': first.get('backdrop') or cover,
+                       'poster': first.get('poster') or cover}
+                add_item(member.get('title') or '', build_url(action='dexworld_row', id=member.get('id') or '',
+                                                              title=member.get('title') or ''),
+                         info={'title': member.get('title') or '', 'plot': member.get('desc') or member.get('meta') or ''},
+                         art=art, properties={'dexhub.tile_shape': 'landscape'})
+            return end_dir(content='videos')
         error(tr('القائمة فارغة أو غير متاحة'))
         return end_dir()
     any_series = any_movie = False
@@ -25204,6 +25287,39 @@ def dexworld_row_browse(row_id='', title='', page='1'):
         add_item(tr('المزيد'), build_url(action='dexworld_row', id=row_id, title=title, page=str(number + 1)),
                  info={'title': tr('المزيد'), 'plot': tr('تحميل عناصر إضافية من هذا المسار')}, art=root_art('catalogs'))
     end_dir(content=('tvshows' if any_series and not any_movie else ('movies' if any_movie and not any_series else 'videos')))
+
+
+def youtube_row_browse(kind='', ident='', name='', title=''):
+    """v5.10.501: a YouTube row (youtube_feed.row_items) as a folder of cards:
+    a video plays through Dex Hub's YouTube player, a playlist or a channel
+    opens as its own folder. The Home rows and the bar sections read it."""
+    from . import youtube_feed as _yt
+    try:
+        found = _yt.row_items(kind, ident, name)
+    except Exception as exc:
+        xbmc.log('[DexHub] youtube row %s: %s' % (kind, exc), xbmc.LOGWARNING)
+        found = []
+    if not found:
+        return end_dir()
+    for item in found[:60]:
+        label = item.get('title') or ''
+        art = {'thumb': item.get('thumb') or '', 'fanart': item.get('big') or item.get('thumb') or '',
+               'landscape': item.get('big') or item.get('thumb') or '', 'poster': item.get('thumb') or ''}
+        info = {'title': label, 'plot': ' · '.join(x for x in (item.get('channel'), item.get('when')) if x),
+                'mediatype': 'video'}
+        if item['kind'] == 'video':
+            props = {'IsPlayable': 'true', 'dexhub.tile_shape': 'landscape'}
+            if item.get('live'):
+                props['dexhub.badge_line'] = tr('مباشر')
+            add_item(label, _yt.dexhub_url(item['id'], label), is_folder=False, info=info, art=art,
+                     properties=props, label2=item.get('length') or '')
+        elif item['kind'] == 'playlist':
+            add_item(label, build_url(action='youtube_row', kind='playlist', id=item['id'], title=label),
+                     info=info, art=art, properties={'dexhub.tile_shape': 'landscape'})
+        elif item['kind'] == 'channel':
+            add_item(label, build_url(action='youtube_row', kind='channel', id=item['id'], title=label),
+                     info=info, art=dict(art, landscape=''), properties={'dexhub.tile_shape': 'circle'})
+    end_dir(content='videos', cache=False)
 
 
 def kodi_route_browse(route='', title='', background='', page='0'):
@@ -28274,8 +28390,13 @@ def _dispatch(params=None):
         return trakt_list_browse(username=params.get('username', ''), slug=params.get('slug', ''), title=params.get('title', ''), background=params.get('background', ''), media_filter=params.get('media_filter', 'auto'), page=params.get('page', '0'), force_remote=params.get('force_remote', ''))
     if action == 'mdblist_list_browse':
         return mdblist_list_browse(username=params.get('username', ''), slug=params.get('slug', ''), title=params.get('title', ''), background=params.get('background', ''), media_filter=params.get('media_filter', 'auto'), cursor=params.get('cursor', ''), force_remote=params.get('force_remote', ''))
+    if action == 'youtube_play':
+        return youtube_play(video_id=params.get('v', ''), title=params.get('title', ''))
     if action == 'dexworld_row':
         return dexworld_row_browse(row_id=params.get('id', ''), title=params.get('title', ''), page=params.get('page', '1'))
+    if action == 'youtube_row':
+        return youtube_row_browse(kind=params.get('kind', ''), ident=params.get('id', ''), name=params.get('name', ''),
+                                  title=params.get('title', ''))
     if action == 'kodi_route_browse':
         return kodi_route_browse(route=params.get('route', ''), title=params.get('title', ''), background=params.get('background', ''), page=params.get('page', '0'))
     if action == 'trakt_hub':
@@ -28396,7 +28517,8 @@ def _dispatch(params=None):
         return ready_collections_menu()
     if action == 'tmdb_titles':
         return tmdb_titles_view(params.get('mode') or '', params.get('id') or '', params.get('media') or 'movie',
-                                params.get('name') or '', params.get('page') or '1')
+                                params.get('name') or '', params.get('page') or '1', sort=params.get('sort') or '',
+                                genre=params.get('genre') or '', when=params.get('when') or '')
     if action == 'ready_collection':
         return ready_collection(params.get('set_id') or '', params.get('page') or '1')
     if action == 'config_export':

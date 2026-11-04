@@ -12,6 +12,11 @@ def run(api, params):
     pick = str(params.get('pick') or '')
     if pick == 'none':
         return
+    if str(params.get('yt_stream') or '').isdigit():
+        # 5.10.497: a YouTube quality, switched in place
+        from . import youtube_feed
+        youtube_feed.set_quality_now(params['yt_stream'])
+        return
     ctx = load_session() or {}
     if not isinstance(ctx, dict):
         ctx = {}

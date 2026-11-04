@@ -858,6 +858,9 @@ def run(params):
         return _run_page('sport', params)
     if action == 'home_discover':
         return _run_page('discover', params)
+    if action == 'home_youtube':
+        # v5.10.497: YouTube, the series first (youtube_page.py)
+        return _run_page('youtube', params)
     if action == 'home_dexworld':
         # v5.10.496: the sections of blocks.dexworld.cc (dexworld_page.py)
         return _run_page('dexworld', params)
@@ -1058,6 +1061,9 @@ def _run_page(page, params):
             open_my(app)
         elif page == 'discover':
             app.open_discover()
+        elif page == 'youtube':
+            from .youtube_page import open_youtube
+            open_youtube(app)
         elif page == 'dexworld':
             from .dexworld_page import open_dexworld
             open_dexworld(app)

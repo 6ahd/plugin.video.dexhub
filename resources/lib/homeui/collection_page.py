@@ -123,12 +123,41 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
     def _load(self):
         from ..skinui import folderpage, rows
         from . import window as W
-        try:
-            home = rows.HeadlessHome(rows.app(), 'all')
-            folder, sources = W.BrowseWindow.__dict__['_folder_sources'](home, self.ref)
-        except Exception:
-            xbmc.log('[DexHub] collection page: %s' % traceback.format_exc(), xbmc.LOGWARNING)
-            folder, sources = None, []
+        if self.params.get('dw'):
+            # v5.10.507: a list of a DexWorld collection: it first, then the
+            # collection's other lists, its titles' posters as the page's wall
+            from .. import dexworld as DW
+            self.ref = {'set_id': 'dexworld', 'group_id': self.params['dw'], 'folder_id': self.params.get('dwm') or '',
+                        'media_filter': ''}
+            try:
+                sources, members = DW.fold_sources(self.params['dw'], self.params.get('dwm') or '')
+            except Exception:
+                xbmc.log('[DexHub] collection page: %s' % traceback.format_exc(), xbmc.LOGWARNING)
+                sources, members = [], []
+            first = members[0] if members else {}
+            folder = {'name': self.params.get('t') or first.get('title') or ''}
+            network = DW.NETWORK_ID.match(str(first.get('id') or ''))
+            if network:
+                # v5.10.508: a network's clear logo in place of its name
+                folder['clearlogo'] = DW.network_logo(network.group(1), fetch=True)
+            wall = DW._posters(first) if first else []
+            if not wall and first:
+                try:
+                    DW.row_page(first['id'], 1)
+                    wall = DW._posters(first)
+                except Exception:
+                    wall = []
+            for n in range(8):
+                self.setProperty('dw.wall.p%d' % (n + 1), wall[n % len(wall)] if wall else '')
+            owner = DW.rows_by_id(DW.page()).get(self.params['dw']) or {}
+            self.params.setdefault('group_name', owner.get('title') or '')
+        else:
+            try:
+                home = rows.HeadlessHome(rows.app(), 'all')
+                folder, sources = W.BrowseWindow.__dict__['_folder_sources'](home, self.ref)
+            except Exception:
+                xbmc.log('[DexHub] collection page: %s' % traceback.format_exc(), xbmc.LOGWARNING)
+                folder, sources = None, []
         if self._closing:
             return
         folder = folder or {}
@@ -192,6 +221,8 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
 
     def _group_name(self):
         """The collection row the card was in ("Streaming Services")."""
+        if self.params.get('group_name'):
+            return self.params['group_name']
         try:
             from .. import collection_sets
             for sets in collection_sets.active_sets():

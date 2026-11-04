@@ -422,24 +422,9 @@ class DexWorldWindow(xbmcgui.WindowXMLDialog):
             self._add(row, blocks)
 
     def _add(self, row, blocks):
-        from .. import bar_sections as B
-        custom = B.read().get('custom') or []
-        names = [c.get('name') or '' for c in custom]
-        options = names + ([_t('قسم جديد…', 'A new section…')] if len(custom) < len(B.CUSTOM) else [])
-        if not options:
-            return
-        pick = xbmcgui.Dialog().select(_t('أضف %d قسم إلى', 'Add %d rows to') % len(blocks), options)
-        if pick < 0:
-            return
-        if pick < len(custom):
-            done = D.add_to_section(blocks, slot=pick)
-        else:
-            name = xbmcgui.Dialog().input(_t('اسم القسم', 'Section name'), row.get('title') or 'DexWorld')
-            if not name:
-                return
-            done = D.add_to_section(blocks, name=name)
-        if done:
-            xbmcgui.Dialog().notification('DexWorld', _t('انضاف إلى «%s»', 'Added to "%s"') % done, time=2500, sound=False)
+        """v5.10.501: into Home, Movies, TV Shows or a bar section (home_add)."""
+        from .. import home_add
+        home_add.add([D.spec_of(b) for b in blocks], name_hint=row.get('title') or 'DexWorld', icon='discover')
 
 
 def open_dexworld(app):

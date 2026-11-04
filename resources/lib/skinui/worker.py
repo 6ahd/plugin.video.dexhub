@@ -927,7 +927,9 @@ class Worker(object):
         return False
 
     # v5.10.188: a user's pick asks once (no other request follows it)
-    _AT_ONCE = ('row style', 'library source', 'servers source')
+    # v5.10.502: the Home's editor closed (or a row was added from a page's
+    # menu): every tab at once, no settling wait (all of them took 0.1-0.2 s)
+    _AT_ONCE = ('row style', 'library source', 'servers source', 'home editor')
 
     def republish_if_asked(self, settle=1.0):
         """Publish when asked; a request younger than ``settle`` seconds waits
@@ -964,6 +966,10 @@ class Worker(object):
             elif reason == 'servers source':
                 # v5.10.157: a Servers chip, or its servers read again
                 rows.publish(tabs=('servers',), reason=reason)
+            elif reason == 'home editor':
+                rows.publish(reason=reason, computed=computed)
+                self._note_slow(rows.LAST)
+                self._later = None
             else:
                 # v5.10.188: the tab on screen at once, the others one by one
                 # from the loop a moment later (the Home answers meanwhile).

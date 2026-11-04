@@ -342,16 +342,11 @@ def skin_size(tr):
 
 
 def layout_editor():
-    """The Home layout editor (homeui), for the tab on show; the rows follow it."""
-    from ..homeui.layout_window import open_editor
-    from . import rows
+    """The pen: the Home's one editor (bar_editor, v5.10.501), open on the tab on show:
+    the bar's sections and each one's rows, added from any source."""
+    from ..homeui.bar_editor import open_editor
     tab = C.prop('dhs.tab') or 'all'
-    if tab not in C.TABS or tab in ('library', 'servers'):
-        tab = 'all'         # the add-ons page and the Library have no editable rows
-    app = rows.app()
-    changed = open_editor(app, rows.HeadlessHome(app, tab), media=tab)
-    if changed:
-        _republish('layout')
+    open_editor(select=tab)
 
 
 def community():
