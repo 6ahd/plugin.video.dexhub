@@ -699,9 +699,11 @@ class App(object):
             except Exception:
                 pass
         self.push(window)
+        _note_id(window)
         try:
             window.doModal()
         finally:
+            _closed(window)
             try:
                 window.on_close()
             except Exception:
@@ -1002,6 +1004,67 @@ def run(params):
         _shutdown_pools()
         _await_threads(timeout=4.0)
     return None
+
+
+def _note_id(window):
+    """The page's window id, read as it opens (a WindowXMLDialog has no
+    getId in Kodi 22): the top dialog when its onInit runs."""
+    init = getattr(window, 'onInit', None)
+    if init is None:
+        return
+
+    def noted():
+        if not getattr(window, '_dh_window_id', 0):
+            window._dh_window_id = xbmcgui.getCurrentWindowDialogId()
+        return init()
+    window.onInit = noted
+
+
+def _closed(window, most=1.5):
+    """v5.10.519: doModal returns while Kodi still fades the page out; the
+    page's window was then let go mid-fade and Kodi kept a dialog "closing"
+    for ever, ignoring every key ("topmost modal dialog closing animation
+    is running"): after Back on a collection, or a title opened from it.
+    Waits until the window is really gone (at most ``most`` seconds)."""
+    import time
+    wid = getattr(window, '_dh_window_id', 0)
+    if not wid:
+        return
+    end = time.time() + most
+    while xbmc.getCondVisibility('Window.IsVisible(%d)' % wid) and time.time() < end:
+        xbmc.sleep(20)
+    if xbmc.getCondVisibility('Window.IsVisible(%d)' % wid):
+        # v5.10.523: its fade never ended (seen after Back on a collection
+        # whose sections were still arriving): closed without it, or Kodi
+        # ignored every key from then on
+        _log('page %d still closing after %.1f s: closed at once' % (wid, most), xbmc.LOGWARNING)
+        xbmc.executebuiltin('Dialog.Close(%d,true)' % wid, True)
+
+
+def page_pause(window, seconds):
+    """v5.10.522: a page thread's wait that ends as the page closes (True
+    then). One long wait outlived the page: a thread still asleep when the
+    call ended crashed Kodi 22 as Python cleaned up (5.10.520's 20 s focus
+    wait, 5 Nov 09:50)."""
+    import time
+    end = time.time() + seconds
+    monitor = xbmc.Monitor()
+    while time.time() < end:
+        if getattr(window, '_closing', False) or monitor.waitForAbort(0.25):
+            return True
+    return False
+
+
+def join_briefly(threads, total=3.0):
+    """v5.10.519: a closing page's threads, waited for ``total`` seconds in
+    all (each got 9 s: Back from a page waited for reads still on their
+    way). Their waits end with the page (page_pause); v5.10.522: 3 s, not
+    0.5, so a read in flight ends before the call does (a thread alive at
+    the call's end can crash Kodi 22)."""
+    import time
+    end = time.time() + total
+    for thread in threads:
+        thread.join(max(0.0, end - time.time()))
 
 
 def _details_tile(params):

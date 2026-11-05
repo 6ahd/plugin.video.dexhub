@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
-"""DexWorld's rows on the Home for everyone who installs Dex Hub (v5.10.509).
+"""DexWorld's rows on the Home, Movies and TV Shows (v5.10.509).
 
-Once per profile, a little after Kodi starts: TV networks and streamers on
-the Home; networks, the streamers' top 10, reality and anime on TV Shows;
-studios, genres and documentaries on Movies. Arabic (the device's language,
-or an Arab country) adds the Arabic collection, Gulf, Levantine, Turkish and
-Egyptian series and Arabic films. They go right after the Continue rows.
+TV networks and streamers on the Home; networks, the streamers' top 10,
+reality and anime on TV Shows; studios, genres and documentaries on Movies.
+Arabic (the device's language, or an Arab country) adds the Arabic
+collection, Gulf, Levantine, Turkish and Egyptian series and Arabic films.
+They go right after the Continue rows.
 
-A Home the user arranged (rows added, hidden or moved) is not touched: the
-user is asked once instead. Every row is an ordinary added row: the Home's
-editor hides, moves or removes it.
+v5.10.521: none by default. The user puts them in, or takes them out, page
+by page in Control centre > Home & rows > DexWorld rows (choose). 5.10.509
+added them by itself after a start to every Home the user had not arranged;
+those are taken out once (run). Every row is an ordinary added row: the
+Home's editor hides, moves or removes it.
 """
 import time
 
@@ -18,7 +20,7 @@ import xbmc
 from . import profile_scope
 
 STAMP = 'homeui/seed_dexworld.json'
-VERSION = 1
+VERSION = 3              # 3 (5.10.521): none by default; 5.10.509's own taken out
 WORLD = {'all': ('k:networks', 'k:platforms'),
          'series': ('k:networks', 'k:top10', 'k:reality', 'b:dexworld-anime'),
          'movie': ('k:studios', 'k:genres', 'k:documentaries')}
@@ -52,14 +54,6 @@ def plan():
             out[page] = list(ids) + out[page] if page == 'all' else out[page] + list(ids)
     return out
 
-
-def _arranged(app):
-    """True when the user arranged the Home (rows added, hidden or moved)."""
-    for media in ('all', 'movie', 'series'):
-        page = app.layout.page(media)
-        if page.get('custom') or page.get('hidden') or page.get('order'):
-            return True
-    return False
 
 
 def _specs(ids):
@@ -102,36 +96,93 @@ def add(app, wanted):
     return added
 
 
+PAGES = (('all', 'الرئيسية', 'Home'), ('movie', 'الأفلام', 'Movies'), ('series', 'المسلسلات', 'TV Shows'))
+
+
+def _ours(page):
+    """The page's rows add() put in (DexWorld's, by their ids)."""
+    ids = set(i for group in (WORLD, ARABIC) for page_ids in group.values() for i in page_ids)
+    return [row for row in page.get('custom') or []
+            if row.get('source_label') == 'DexWorld' and str((row.get('params') or {}).get('id')) in ids]
+
+
+def remove(app, pages=None):
+    """v5.10.519: the rows add() put in out of ``pages`` (None: every page); returns how many."""
+    from .homeui import layout as L
+    removed = 0
+    for media in [p for p, _ar, _en in PAGES] if pages is None else pages:
+        page = app.layout.page(media)
+        gone = _ours(page)
+        if not gone:
+            continue
+        keys = set(L.custom_key(row) for row in gone)
+        app.layout.save_page(media, order=[k for k in page.get('order') or [] if k not in keys],
+                             custom=[row for row in page.get('custom') or [] if row not in gone])
+        removed += len(gone)
+    return removed
+
+
+def choose():
+    """v5.10.521: Control centre > Home & rows > DexWorld rows: the pages
+    that have them, ticked; untick a page to take its rows out (all of them:
+    untick all), tick one to put them in. The question at start is not
+    asked any more after this."""
+    import xbmcgui
+    from .dexworld import _t
+    from .skinui import rows as R
+    app = R.app()
+    have = dict((media, len(_ours(app.layout.page(media)))) for media, _ar, _en in PAGES)
+    labels = [_t('%s (%d صف)', '%s (%d rows)') % (_t(ar, en), have[media]) if have[media] else _t(ar, en)
+              for media, ar, en in PAGES]
+    picked = xbmcgui.Dialog().multiselect(_t('صفوف DexWorld: شبكات ومنصات واستوديوهات', 'DexWorld rows: networks, streamers, studios'),
+                                          labels, preselect=[i for i, (media, _a, _e) in enumerate(PAGES) if have[media]])
+    if picked is None:
+        return
+    want = set(PAGES[i][0] for i in picked)
+    path = profile_scope.path(STAMP)
+    profile_scope._write(path, dict(profile_scope._read(path, {}) or {}, v=VERSION, asked=True, chosen=time.time()))
+    removed = remove(app, [media for media, _a, _e in PAGES if media not in want and have[media]])
+    added = 0
+    fresh = dict((media, ids) for media, ids in plan().items() if media in want and not have[media])
+    if fresh:
+        from . import dexworld as DW
+        if DW.page():
+            added = add(app, fresh)
+        else:
+            xbmcgui.Dialog().notification('DexWorld', _t('DexWorld ما رد، جرّب بعد شوي', 'DexWorld did not answer, try again later'),
+                                          xbmcgui.NOTIFICATION_WARNING, 4000)
+    _log('chosen: %s (%d added, %d removed)' % (', '.join(sorted(want)) or 'none', added, removed))
+    if added or removed:
+        from .homeui.bar_editor import _home_changed
+        _home_changed()
+        xbmcgui.Dialog().notification('DexWorld', _t('أضيف %d وانحذف %d صف', '%d rows added, %d removed') % (added, removed),
+                                      xbmcgui.NOTIFICATION_INFO, 3000)
+
+
 def run(monitor):
-    """Once per profile, a minute after Kodi starts (the Home's rows and DexWorld's page are in by then)."""
+    """Once per profile, a minute after Kodi starts: the rows 5.10.509 put in
+    by itself (stamp v1 without 'asked') go, with a word on where they are
+    now. Rows the user said yes to (asked) or chose stay; nothing is added."""
     if monitor.waitForAbort(60):
         return
     path = profile_scope.path(STAMP)
-    if (profile_scope._read(path, {}) or {}).get('v', 0) >= VERSION:
+    stamp = profile_scope._read(path, {}) or {}
+    if stamp.get('v', 0) >= VERSION:
+        return
+    profile_scope._write(path, dict(stamp, v=VERSION, defaulted=time.time()))
+    if not stamp.get('v') or stamp.get('asked'):
         return
     try:
-        from . import dexworld as DW
-        if not DW.page():
-            _log('DexWorld did not answer: next start')
-            return
         from .skinui import rows as R
-        app = R.app()
-        wanted = plan()
-        if _arranged(app):
+        removed = remove(R.app())
+        _log('%d rows 5.10.509 put in taken out' % removed)
+        if removed:
             import xbmcgui
             from .dexworld import _t
-            profile_scope._write(path, {'v': VERSION, 'at': time.time(), 'asked': True})
-            if not xbmcgui.Dialog().yesno('DexWorld', _t(
-                    'فيه صفوف جديدة من DexWorld للرئيسية والأفلام والمسلسلات: شبكات التلفزيون والمنصات والاستوديوهات والوثائقيات وغيرها. تضيفها لواجهتك؟',
-                    'New DexWorld rows for Home, Movies and TV Shows: TV networks, streamers, studios, documentaries and more. Add them to your Home screen?'),
-                    nolabel=_t('لا', 'No'), yeslabel=_t('أضفها', 'Add them')):
-                return
-        else:
-            profile_scope._write(path, {'v': VERSION, 'at': time.time()})
-        added = add(app, wanted)
-        _log('%d rows added (%s)' % (added, ', '.join('%s %d' % (k, len(v)) for k, v in wanted.items())))
-        if added:
             from .homeui.bar_editor import _home_changed
             _home_changed()
+            xbmcgui.Dialog().notification('DexWorld', _t('صفوف DexWorld انشالت؛ ترجّعها من مركز التحكم ← الرئيسية والصفوف',
+                                                         'DexWorld rows removed; add them back in Control centre > Home & rows'),
+                                          xbmcgui.NOTIFICATION_INFO, 6000)
     except Exception as exc:
         _log('failed: %s' % exc)

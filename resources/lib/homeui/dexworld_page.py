@@ -112,8 +112,8 @@ class DexWorldWindow(xbmcgui.WindowXMLDialog):
                 self.tone.stop()
         except Exception:
             pass
-        for thread in self._threads:
-            thread.join(9.0)
+        from .app import join_briefly
+        join_briefly(self._threads)
 
     def _load(self):
         try:
@@ -381,7 +381,12 @@ class DexWorldWindow(xbmcgui.WindowXMLDialog):
             self._see_all(row)
         else:
             self.state['focus'] = row.get('id')
-            self.next_title = {'m': card['kind'], 'title': card['title'], 'tmdb': card['tmdb'], 'imdb': card['imdb']}
+            query = {'m': card['kind'], 'title': card['title'], 'tmdb': card['tmdb'], 'imdb': card['imdb']}
+            # v5.10.519: over this page, which stays (it closed and Back went to the Home)
+            from ..skinui.items import title_over_window
+            if title_over_window(self, query):
+                return
+            self.next_title = query
             self.close_window()
 
     def _see_all(self, row):
@@ -392,8 +397,12 @@ class DexWorldWindow(xbmcgui.WindowXMLDialog):
 
     def _open(self, row):
         # DiscoverWindow._play's way to a title page
-        self.next_title = {'m': row.get('kind'), 'title': row.get('title') or '', 'tmdb': row.get('tmdb') or '',
-                           'imdb': row.get('imdb') or ''}
+        query = {'m': row.get('kind'), 'title': row.get('title') or '', 'tmdb': row.get('tmdb') or '',
+                 'imdb': row.get('imdb') or ''}
+        from ..skinui.items import title_over_window
+        if title_over_window(self, query):
+            return
+        self.next_title = query
         self.close_window()
 
     # ---------------------------------------------------------- menu

@@ -141,7 +141,8 @@ class YouTubeWindow(xbmcgui.WindowXMLDialog):
         """The account at the top right; a Premium account's logo reads Premium, as on YouTube."""
         info = {}
         if not Y.addon_ready(install=False):
-            text = ''
+            # v5.10.515: Apple TV says where the account is
+            text = '' if Y.addon_installable() else _t('التشغيل في تطبيق YouTube', 'Plays in the YouTube app')
         elif Y.linked():
             info = Y.account_info()
             text = info.get('name') or _t('YouTube مربوط ✓', 'YouTube linked ✓')
@@ -192,8 +193,8 @@ class YouTubeWindow(xbmcgui.WindowXMLDialog):
 
     def on_close(self):
         self._closing = True
-        for thread in self._threads:
-            thread.join(9.0)
+        from .app import join_briefly
+        join_briefly(self._threads)
 
     # ---------------------------------------------------------- drawing
     def _view(self):
@@ -513,19 +514,30 @@ class YouTubeWindow(xbmcgui.WindowXMLDialog):
             if pick != 1:
                 return
         region = Y.R.chosen()
-        linked = Y.linked()
-        options = [_t('فك ربط YouTube', 'Unlink YouTube') if linked else _t('ربط YouTube (باركود)', 'Link YouTube (QR code)'),
-                   _t('الجودة: %s', 'Quality: %s') % Y.quality(),
-                   _t('الترجمة: %s', 'Subtitles: %s') % Y.subtitle_label(),
-                   _t('الدولة: %s', 'Country: %s') % (dict(countries).get(region) or region or
-                                                    _t('تلقائي (%s)', 'Automatic (%s)') % Y.R.country())]
-        pick = xbmcgui.Dialog().select('YouTube', options)
+        country = _t('الدولة: %s', 'Country: %s') % (dict(countries).get(region) or region or
+                                                   _t('تلقائي (%s)', 'Automatic (%s)') % Y.R.country())
+        if not Y.addon_ready(install=False) and not Y.addon_installable():
+            # v5.10.515: Apple TV, where the add-on cannot be installed: the
+            # YouTube app plays the videos and holds the account, its quality and subtitles
+            pick = xbmcgui.Dialog().select('YouTube', [
+                _t('الفيديو يشتغل في تطبيق YouTube، والحساب والجودة والترجمة من هناك',
+                   'Videos play in the YouTube app; your account, quality and subtitles are set there'),
+                country])
+            pick = 3 if pick == 1 else -1
+        else:
+            linked = Y.linked()
+            options = [_t('فك ربط YouTube', 'Unlink YouTube') if linked else _t('ربط YouTube (باركود)', 'Link YouTube (QR code)'),
+                       _t('الجودة: %s', 'Quality: %s') % Y.quality(),
+                       _t('الترجمة: %s', 'Subtitles: %s') % Y.subtitle_label(),
+                       country]
+            pick = xbmcgui.Dialog().select('YouTube', options)
         if pick == 0:
             if not linked:
                 self._link()
             elif xbmcgui.Dialog().yesno('YouTube', _t('فك ربط حساب YouTube من هذا الجهاز؟', 'Unlink the YouTube account from this device?')):
                 Y.sign_out()
-                self._later(lambda: (xbmc.Monitor().waitForAbort(4), self._account()))
+                from .app import page_pause
+                self._later(lambda: page_pause(self, 4) or self._account())
         elif pick == 1:
             if Y.addon_ready():
                 n = xbmcgui.Dialog().select(_t('الجودة', 'Quality'), [label for _v, label in Y.QUALITIES])
@@ -721,8 +733,12 @@ class LinkWindow(xbmcgui.WindowXMLDialog):
             xbmc.Monitor().waitForAbort(2.5)
         else:
             self.setProperty('yt.l.code', '')
-            self.setProperty('yt.l.state', _t('ما قدرت أربط الحساب الحين، جرّب بعد شوي', 'Could not link the account now; try again in a moment'))
-            xbmc.Monitor().waitForAbort(4)
+            state = _t('ما قدرت أربط الحساب الحين، جرّب بعد شوي', 'Could not link the account now; try again in a moment')
+            if Y.LINK_ERROR[0]:
+                # v5.10.513: the reason on the page (a box's log is hard to reach)
+                state += '[CR][COLOR FF8A8A8A]%s[/COLOR]' % Y.LINK_ERROR[0]
+            self.setProperty('yt.l.state', state)
+            xbmc.Monitor().waitForAbort(12 if Y.LINK_ERROR[0] else 4)
         self.close()
 
     def onAction(self, action):

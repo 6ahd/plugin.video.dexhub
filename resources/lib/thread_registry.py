@@ -54,3 +54,21 @@ def install():
             _cf_thread._threads_queues = dict(registry.items())
     except Exception:
         pass
+
+
+def prune():
+    """v5.10.524: the executors' registry (a plain dict since install())
+    kept every worker that ever ran, with its queue: in the service, which
+    lives as long as Kodi, they piled up. Finished workers go (only those:
+    a live one is joined at exit as before); returns how many."""
+    try:
+        from concurrent.futures import thread as _cf_thread
+        registry = _cf_thread._threads_queues
+        if not isinstance(registry, dict):
+            return 0
+        done = [worker for worker in list(registry) if not worker.is_alive()]
+        for worker in done:
+            registry.pop(worker, None)
+        return len(done)
+    except Exception:
+        return 0

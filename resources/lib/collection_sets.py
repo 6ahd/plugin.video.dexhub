@@ -1741,12 +1741,19 @@ def _fetch_raw_text(url):
         last_err = exc
         try:
             import xbmc as _xbmc
-            _xbmc.log('[DexHub] fetch_raw_text default fetch failed: %s — trying unverified SSL' % exc, _xbmc.LOGINFO)
+            _xbmc.log('[DexHub] fetch_raw_text default fetch failed: %s' % exc, _xbmc.LOGINFO)
         except Exception:
             pass
 
-    # Attempt 2: unverified SSL context — covers stale CA stores.
+    # Attempt 2: unverified SSL context — covers stale CA stores. v5.10.524:
+    # only when the first attempt failed on the certificate (any failure,
+    # a timeout too, dropped the check before)
+    reason = getattr(last_err, 'reason', None)
+    cert_problem = isinstance(last_err, _ssl.SSLCertVerificationError) or isinstance(reason, _ssl.SSLCertVerificationError) \
+        or 'CERTIFICATE_VERIFY_FAILED' in str(last_err or '')
     try:
+        if not cert_problem:
+            raise last_err if last_err is not None else RuntimeError('no response')
         ctx = _ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = _ssl.CERT_NONE
@@ -1760,11 +1767,12 @@ def _fetch_raw_text(url):
             return _read_body(resp)
     except Exception as exc:
         last_err = exc
-        try:
-            import xbmc as _xbmc
-            _xbmc.log('[DexHub] fetch_raw_text unverified SSL failed: %s' % exc, _xbmc.LOGINFO)
-        except Exception:
-            pass
+        if cert_problem:
+            try:
+                import xbmc as _xbmc
+                _xbmc.log('[DexHub] fetch_raw_text unverified SSL failed: %s' % exc, _xbmc.LOGINFO)
+            except Exception:
+                pass
 
     # Attempt 3: third-party requests library if available.
     try:

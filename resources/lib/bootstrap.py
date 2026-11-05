@@ -202,6 +202,10 @@ def _run_inner():
         # v5.10.229: set Dex Hub up from a phone (QR on the TV, page on the phone)
         from .phone_setup import run as _phone
         return _phone(section=_home_params.get('section', ''))
+    if _home_params.get('action') == 'dexworld_rows':
+        # v5.10.521: DexWorld's rows on Home, Movies, TV Shows, or none (home_seed.choose)
+        from .home_seed import choose as _dexworld_rows
+        return _dexworld_rows()
     if _home_params.get('action') == 'bar_sections':
         # v5.10.479: which sections the Home bar shows, and your own
         from .bar_sections import open_page as _bar_page

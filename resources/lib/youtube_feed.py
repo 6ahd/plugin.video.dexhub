@@ -911,6 +911,15 @@ def _arabic_rows(chip):
 ADDON = 'plugin.video.youtube'
 
 
+def addon_installable():
+    """v5.10.515: False on Apple TV. The add-on needs inputstream.adaptive,
+    which no repository has for Kodi on tvOS ("The dependency on
+    inputstream.adaptive version 19.0.0 could not be satisfied"); there the
+    YouTube app plays the videos and holds the account."""
+    import xbmc
+    return not xbmc.getCondVisibility('System.Platform.TVOS')
+
+
 def addon_ready(install=True):
     """True when the official YouTube add-on is installed and on. With ``install``
     (only from a page, never while Kodi waits on a plugin call: that would
@@ -918,7 +927,7 @@ def addon_ready(install=True):
     import xbmc
     if xbmc.getCondVisibility('System.HasAddon(%s)' % ADDON) and xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % ADDON):
         return True
-    if not install:
+    if not install or not addon_installable():
         return False
     xbmc.executebuiltin('InstallAddon(%s)' % ADDON, True)
     return bool(xbmc.getCondVisibility('System.HasAddon(%s)' % ADDON))
@@ -960,7 +969,50 @@ QUALITIES = ((3, '720p'), (4, '1080p'), (5, '1440p'), (6, '4K'))
 
 def _addon():
     import xbmcaddon
+    fix_settings_version()          # before any of its settings is read or written
     return xbmcaddon.Addon(ADDON)
+
+
+_SETTINGS_FIXED = []
+
+
+def fix_settings_version():
+    """v5.10.513: the add-on's saved settings readable again. A settings.xml
+    written as <settings version="4"> (by a newer Kodi or an older add-on) is
+    refused whole by Kodi 22's beta ("unable to read setting values from
+    version 4"): every YouTube setting fell back to its default, the quality
+    chosen in Dex Hub never held and playback failed (a CoreELEC box; a Mac
+    the same, mended by hand). The values are the same in version 2."""
+    if _SETTINGS_FIXED:
+        return
+    _SETTINGS_FIXED.append(True)
+    try:
+        import xbmcvfs
+        path = xbmcvfs.translatePath('special://profile/addon_data/%s/settings.xml' % ADDON)
+        with open(path, encoding='utf-8') as handle:
+            text = handle.read()
+        head = text[:200]
+        if '<settings version="4">' not in head:
+            return
+        with open(path + '.v4', 'w', encoding='utf-8') as handle:
+            handle.write(text)              # kept once, as found
+        tmp = path + '.tmp'
+        with open(tmp, 'w', encoding='utf-8') as handle:
+            handle.write(text.replace('<settings version="4">', '<settings version="2">', 1))
+        os.replace(tmp, path)
+        _log('settings.xml was version 4 (unreadable by this Kodi): now version 2')
+    except Exception:
+        return
+    try:
+        # its service read the settings when it started: off and on again,
+        # so it serves videos with them (no Kodi restart)
+        import xbmc
+        for on in (False, True):
+            xbmc.executeJSONRPC(json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': 'Addons.SetAddonEnabled',
+                                            'params': {'addonid': ADDON, 'enabled': on}}))
+            xbmc.sleep(500)
+    except Exception:
+        pass
 
 
 def quiet_setup():
@@ -968,6 +1020,7 @@ def quiet_setup():
     else English), the device's country. Cheap: only what differs is written."""
     if not addon_ready(install=False):
         return False
+    fix_settings_version()
     try:
         addon = _addon()
         mode, language = subtitle_choice()
@@ -1111,13 +1164,60 @@ def linked():
 ACTIVATE = 'https://www.youtube.com/activate'
 
 
+def _module_paths(addon_id, seen):
+    """The library folders of *addon_id*'s script.module dependencies, and of
+    theirs (requests needs urllib3, idna, certifi, chardet)."""
+    import xml.etree.ElementTree as ET
+    import xbmcvfs
+    out = []
+    for base in ('special://home/addons/', 'special://xbmc/addons/'):
+        root = xbmcvfs.translatePath(base + addon_id)
+        if os.path.isfile(os.path.join(root, 'addon.xml')):
+            break
+    else:
+        return out
+    try:
+        tree = ET.parse(os.path.join(root, 'addon.xml')).getroot()
+    except Exception:
+        return out
+    if addon_id.startswith('script.module.'):
+        for ext in tree.iter('extension'):
+            if ext.get('point') == 'xbmc.python.module':
+                out.append(os.path.join(root, ext.get('library') or 'lib'))
+    for imp in tree.iter('import'):
+        dep = imp.get('addon') or ''
+        if dep.startswith('script.module.') and dep not in seen:
+            seen.add(dep)
+            out += _module_paths(dep, seen)
+    return out
+
+
 def _addon_code():
-    """The official add-on's own modules (youtube_plugin, youtube_resolver) importable."""
+    """The official add-on's own modules (youtube_plugin, youtube_resolver) importable.
+
+    v5.10.513: with the modules it needs. Kodi puts only Dex Hub's own
+    dependencies on Dex Hub's path, so on a CoreELEC box the add-on's code
+    stopped at 'No module named requests' (Link YouTube showed no code); a
+    Mac had requests on the path by chance."""
     import sys
     import xbmcvfs
+    fix_settings_version()
     path = xbmcvfs.translatePath('special://home/addons/%s/resources/lib' % ADDON)
-    if path not in sys.path:
-        sys.path.append(path)
+    for folder in [path] + _module_paths(ADDON, set()):
+        if folder not in sys.path and os.path.isdir(folder):
+            sys.path.append(folder)
+
+
+# v5.10.513: why the last link gave no code, for the page to show (a CoreELEC
+# box failed within a second with nothing on screen and no way to see why)
+LINK_ERROR = ['']
+
+
+def _link_failed(kind, exc):
+    import traceback
+    text = str(getattr(exc, 'json_data', '') or exc or '')
+    LINK_ERROR[0] = ('%s: %s' % (exc.__class__.__name__, text))[:160]
+    _log('link %s: %s\n%s' % (kind, LINK_ERROR[0], traceback.format_exc()))
 
 
 def link(show_code, show_state, stopped):
@@ -1130,16 +1230,21 @@ def link(show_code, show_state, stopped):
     The new sign-ins are saved where and how the add-on saves them.
     Returns 'linked', 'stopped' or 'failed'."""
     import xbmc
-    _addon_code()
-    network_guard()
-    from youtube_plugin.youtube.provider import Provider
-    from youtube_plugin.kodion.context import XbmcContext
-    context = XbmcContext()
-    provider = Provider()
-    client = provider.get_client(context)
-    manager = context.get_access_manager()
-    access_tokens, _n, expiry_timestamp = manager.get_access_tokens()
-    refresh_tokens, _n = manager.get_refresh_tokens()
+    LINK_ERROR[0] = ''
+    try:
+        _addon_code()
+        network_guard()
+        from youtube_plugin.youtube.provider import Provider
+        from youtube_plugin.kodion.context import XbmcContext
+        context = XbmcContext()
+        provider = Provider()
+        client = provider.get_client(context)
+        manager = context.get_access_manager()
+        access_tokens, _n, expiry_timestamp = manager.get_access_tokens()
+        refresh_tokens, _n = manager.get_refresh_tokens()
+    except Exception as exc:
+        _link_failed('setup', exc)
+        return 'failed'
     kinds = ['tv', 'user', 'vr', 'dev']
     new_access = dict.fromkeys(kinds, None)
     tokens = list(kinds)
@@ -1179,8 +1284,10 @@ def link(show_code, show_state, stopped):
                     show_state(answer2['error'], shown)
                     break
         except Exception as exc:
-            _log('link %s: %s' % (kind, exc.__class__.__name__))
-            return 'failed'
+            # v5.10.513: the next kind is still asked (one refused kind
+            # left the page with no code), and the reason is shown
+            _link_failed(kind, exc)
+            continue
         finally:
             new_access[kind] = token[0]
             tokens[index] = token

@@ -43,10 +43,14 @@ def _row_of(item):
         rating = round(float(info.get('rating') or 0), 1)
     except (TypeError, ValueError):
         rating = 0
+    try:
+        runtime = int(float(info.get('duration') or 0)) // 60
+    except (TypeError, ValueError):
+        runtime = 0     # v5.10.524: 'N/A' and the like took the whole section with it
     return {'kind': kind, 'tmdb': tmdb, 'imdb': ids.get('imdb') or '', 'title': item.get('label') or info.get('title') or '',
             'poster': art.get('poster') or art.get('thumb') or '', 'fanart': art.get('fanart') or art.get('landscape') or '',
             'year': year if year not in ('0', '-1') else '', 'rating': rating or '', 'plot': info.get('plot') or '',
-            'runtime': int(info.get('duration') or 0) // 60, 'genres': list(info.get('genres') or []),
+            'runtime': runtime, 'genres': list(info.get('genres') or []),
             'key': ('movie|%s' if kind == 'movie' else 'series|%s') % tmdb, 'path': item.get('path') or '',
             'work': (item.get('props') or {}).get('kind') in ('work', None, '') and bool(tmdb or ids.get('imdb'))}
 
@@ -118,8 +122,8 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
             self.tone.stop()
         except Exception:
             pass
-        for thread in self._threads:
-            thread.join(9.0)
+        from .app import join_briefly
+        join_briefly(self._threads)
 
     # ---------------------------------------------------------- reading
     def _load(self):
@@ -136,6 +140,8 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
             except Exception:
                 xbmc.log('[DexHub] collection page: %s' % traceback.format_exc(), xbmc.LOGWARNING)
                 sources, members = [], []
+            if self._closing:
+                return      # v5.10.524: closed while its lists were read (nothing more is written to it)
             first = members[0] if members else {}
             folder = {'name': self.params.get('t') or first.get('title') or ''}
             network = DW.NETWORK_ID.match(str(first.get('id') or ''))
@@ -143,14 +149,17 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
                 # v5.10.508: a network's clear logo in place of its name
                 folder['clearlogo'] = DW.network_logo(network.group(1), fetch=True)
             wall = DW._posters(first) if first else []
-            if not wall and first:
+            if not wall and first and not self._closing:
                 try:
                     DW.row_page(first['id'], 1)
                     wall = DW._posters(first)
                 except Exception:
                     wall = []
-            for n in range(8):
-                self.setProperty('dw.wall.p%d' % (n + 1), wall[n % len(wall)] if wall else '')
+            with self._lock:
+                if self._closing:
+                    return
+                for n in range(8):
+                    self.setProperty('dw.wall.p%d' % (n + 1), wall[n % len(wall)] if wall else '')
             owner = DW.rows_by_id(DW.page()).get(self.params['dw']) or {}
             self.params.setdefault('group_name', owner.get('title') or '')
         else:
@@ -185,7 +194,11 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
                 self.setProperty('dw.s%d.rank' % n, '1')
             self.setProperty('dw.s%d.heading' % n, spec.get('title') or '')
             self.setProperty('dw.s%d.eyebrow' % n, spec.get('sub') or (_t('كتالوج %d من %d', 'Catalog %d of %d') % (n, count)))
-            self.setProperty('dw.s%d.off' % n, '')
+            # v5.10.525: a section shows once its titles are in (_show), not
+            # empty before: Kodi gives an empty list no focus, so the first
+            # section in was the page's last focusable one, and Kodi scrolls
+            # the page to its end for that one (DexWorld's Netflix opened on
+            # Pixar and A24, the cursor out of sight at the top)
         if count > SLOTS:
             self.setProperty('dw.s%d.eyebrow' % ALL, _t('%d كتالوج', '%d catalogs') % count)
             self.setProperty('dw.s%d.heading' % ALL, _t('كل الكتالوجات', 'Every catalog'))
@@ -279,15 +292,40 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
             self.setProperty('dw.s%d.src' % n, (_t('%d عنوان', '%d titles') % len(rows_)) if rows_ else '')
             self._wire()
             self._resolved.add(n)
-            target = self._first_ready()
-            first = target and not self._moved and self.getFocusId() in KINDS
+            # v5.10.519: back from a title opened here, the cursor is on it again
+            back = self.state.get('back_to')
+            again = None
+            if back and back[0] == n and not self._moved:
+                self.state.pop('back_to', None)
+                again = next((i for i, row in enumerate(rows_) if row['key'] == back[1]), None)
+                if again is not None:
+                    control.selectItem(again)
+                    self._moved = True
+            target = self._first_ready(waited=getattr(self, '_late', False))
+            first = (target and not self._moved and not self.state.get('back_to')
+                     and self.getFocusId() in KINDS)
             if first:
                 self._moved = True
-        if first:
+        if again is not None:
+            self._focus_section(self._list_of(n))
+            self._describe(self._list_of(n))
+        elif first:
             # v5.10.510: the first section in order, not the first to arrive (a
             # network's rows come side by side: a lower one took the focus)
-            take_focus(self, self._list_of(target))
+            self._focus_section(self._list_of(target))
             self._describe(self._list_of(target))
+
+    def _focus_section(self, cid):
+        """v5.10.523: the focus on a section, the page scrolled to it. Kodi
+        scrolls its list of sections to a focused one only when its group
+        shows, and the group shows a frame after its property: the focus
+        came in while it was hidden, the page stayed where it was (at the
+        bottom after a Down, the Netflix page on its last rows). The focus
+        is set again once the group shows, and the page scrolls to it."""
+        take_focus(self, cid)
+        xbmc.sleep(150)
+        if not self._closing and self.getFocusId() == cid:
+            self.setFocusId(cid)
 
     def _first_ready(self, waited=False):
         """The first section with titles once every section above it is read
@@ -299,17 +337,25 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
                 return 0
         return 0
 
+    FOCUS_LATE = 8      # v5.10.523: after this, Down and the focus take the first section ready
+                        # (20 in 5.10.520: the focus sat on All while a slow first section came)
+
     def _focus_late(self):
-        """A section still on its way after 6 s: the focus goes to the first one ready."""
-        if xbmc.Monitor().waitForAbort(6) or self._closing:
+        """A section still on its way after FOCUS_LATE seconds: the focus goes
+        to the first one ready, and Down from All/Movies/Series too (_wire)."""
+        from .app import page_pause
+        if page_pause(self, self.FOCUS_LATE):
             return
         with self._lock:
+            self.state.pop('back_to', None)     # its section did not come: the first one ready
+            self._late = True
+            self._wire()
             target = self._first_ready(waited=True)
             go = target and not self._moved and self.getFocusId() in KINDS
             if go:
                 self._moved = True
         if go:
-            take_focus(self, self._list_of(target))
+            self._focus_section(self._list_of(target))
             self._describe(self._list_of(target))
 
     def _show_catalogs(self):
@@ -346,7 +392,18 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
         try:
             chain = [self._list_of(n) for n in range(1, ALL + 1) if self.shown.get(n)]
             media_btn = [cid for cid, kind in KINDS.items() if kind == self.media][0]
-            first = chain[0] if chain else media_btn
+            # v5.10.523: Down from All/Movies/Series goes to the first section in
+            # order once it is in, and waits there while one above is on its
+            # way. It went to the first list that had arrived: a lower section,
+            # or the catalogs list at the bottom (in before any section), so a
+            # first open's Down landed on the last row.
+            target = self._first_ready(waited=getattr(self, '_late', False))
+            if target:
+                first = self._list_of(target)
+            elif chain and len(self._resolved) >= min(len(self.specs), SLOTS):
+                first = chain[0]        # every section read, none with titles
+            else:
+                first = media_btn
             for cid in KINDS:
                 self.getControl(cid).controlDown(self.getControl(first))
             previous = media_btn
@@ -381,7 +438,10 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
             return
         focus = self.getFocusId()
         if aid in (A_LEFT, A_RIGHT, A_UP, A_DOWN):
-            self._moved = True
+            # v5.10.523: Down on All/Movies/Series before the first section is
+            # in goes nowhere (_wire), and the focus still goes to it when it comes
+            if not (aid == A_DOWN and focus in KINDS and not self._first_ready(waited=getattr(self, '_late', False))):
+                self._moved = True
         if aid in (A_LEFT, A_RIGHT) and KINDS.get(focus) not in (None, self.media):
             self._set_media(KINDS[focus])
         elif self._number_of(focus):
@@ -415,7 +475,13 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
             self.next_grid = (dict(row.get('params') or {}), row.get('title') or '')
             self.close_window()
         elif row.get('work'):
-            self.next_title = {'m': row['kind'], 'title': row['title'], 'tmdb': row['tmdb'], 'imdb': row['imdb']}
+            query = {'m': row['kind'], 'title': row['title'], 'tmdb': row['tmdb'], 'imdb': row['imdb']}
+            # v5.10.519: over this page, which stays (it closed and Back went to the Home)
+            from ..skinui.items import title_over_window
+            if title_over_window(self, query):
+                return
+            self.next_title = query
+            self.state['back_to'] = (n, row['key'])
             self.close_window()
         elif row.get('path'):
             self.next_action = row['path']

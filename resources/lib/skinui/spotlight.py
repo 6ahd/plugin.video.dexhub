@@ -430,8 +430,7 @@ class Spotlight(threading.Thread):
         elif container == layout.spotlight:
             if not _has_items(container):
                 return None
-        elif not (layout.row_list(1) <= container <= layout.row_list(C.ROWS)
-                  and _focused(container)):
+        elif not (layout.is_row_list(container) and _focused(container)):
             # v5.10.187: Kodi's busy spinner opens with a trailer and takes
             # the focus before the cached dialog id knows it: a box stopped
             # three trailers 0.2 s after they began (two blinks, then it played)

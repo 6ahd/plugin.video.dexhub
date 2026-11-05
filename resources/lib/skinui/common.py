@@ -78,8 +78,21 @@ class Layout(object):
             self.tp = {'seasons': 8200, 'episodes': 8300, 'cast': 8400, 'related': 8500}
         self.hero_buttons = 4010 if major >= 3 else 0
 
-    def row_list(self, slot):
+    def row_list(self, slot, tab=None):
+        """The list of the Home's row slot. v5.10.517: with skin 3.28.210 the
+        first PINNED_ROWS rows of Home, Movies and TV Shows have lists of
+        their own (PINNED_LISTS), so a section keeps its rows loaded."""
+        if self.row_base == 5000 and slot <= PINNED_ROWS and prop('dhs.pinned') == '1':
+            base = PINNED_LISTS.get(tab or prop('dhs.tab') or 'all')
+            if base:
+                return base + slot
         return self.row_base + slot
+
+    def is_row_list(self, cid):
+        """cid is one of the Home rows' lists (any section's)."""
+        if self.row_base + 1 <= cid <= self.row_base + ROWS:
+            return True
+        return any(base + 1 <= cid <= base + PINNED_ROWS for base in PINNED_LISTS.values())
 
     def tab_window(self, tab):
         """(name for builtins and conditions, window id) of a tab's hub."""
@@ -102,6 +115,10 @@ class Layout(object):
                 return tab
         return None
 
+
+# v5.10.517 (skin 3.28.210): the pinned sections' own lists for rows 1..PINNED_ROWS
+PINNED_ROWS = 10
+PINNED_LISTS = {'all': 5200, 'movie': 5300, 'series': 5400}
 
 _LAYOUT = {}
 

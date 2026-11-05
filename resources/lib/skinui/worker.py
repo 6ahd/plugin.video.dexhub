@@ -731,11 +731,33 @@ class Worker(object):
             request, self._warm_next = getattr(self, '_warm_next', None), None
             if not request:
                 return
+            if not self._warm_settled(request):
+                continue
             try:
                 with profile_scope.bind(request.get('scope')):
                     actions.warm_sources(dict(request.get('params') or {}), -1)
             except Exception:
                 C.log('warm (service):\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
+
+    WARM_SETTLE = 3.0   # v5.10.518: seconds a title page gets to fill before its sources search
+
+    def _warm_settled(self, request):
+        """v5.10.518: the sources search waits until the title page asking for
+        it had WARM_SETTLE seconds to fill its sections: run at once it
+        searched a dozen providers (POV and Red Light scrapers, Plex, Silo)
+        in this interpreter while the page's sections were served from it.
+        A Home card's request (no pid) has waited already (spotlight's
+        WARM_DWELL). False when it should not run: a newer request came or
+        the page closed."""
+        params = request.get('params') or {}
+        if not params.get('pid'):
+            return True
+        until = float(request.get('t') or 0) + self.WARM_SETTLE
+        while time.time() < until:
+            if self.stopped() or getattr(self, '_warm_next', None):
+                return False
+            time.sleep(0.2)
+        return bool(xbmc.getCondVisibility('Window.IsVisible(movieinformation)'))
 
     def dispatch_requests(self, rows):
         if self.busy() or self.preview_transition():
@@ -840,7 +862,7 @@ class Worker(object):
         for slot, spec in rows.published(tab):
             if slot > reach:
                 break
-            cid = layout.row_list(slot)
+            cid = layout.row_list(slot, tab)
             key = '%s:%s' % (tab, spec['id'])
             # v5.10.188: the list's first title, not the selected one
             holds = info('Container(%d).ListItemAbsolute(0).Property(dhs.row)' % cid)
@@ -1191,7 +1213,7 @@ class Worker(object):
         if not view or view[0] != tab:
             return False
         slot = view[1]
-        cid = 7000 + slot if tab == 'fold' else C.layout().row_list(slot)
+        cid = 7000 + slot if tab == 'fold' else C.layout().row_list(slot, tab)
         return (C.prop('dhs.%s.%d.id' % (tab, slot)) == row_id
                 and xbmc.getCondVisibility('Control.HasFocus(%d)' % cid))
 

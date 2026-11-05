@@ -316,6 +316,8 @@ def _reference(media_url):
     budget = dexcues.Budget(dexcues.DEFAULTS)
     try:
         if kind == 'http':
+            # the playing video's own address (a local Plex or proxy with its own
+            # certificate, often); only its timing index is read, nothing is sent
             src = dexcues.HttpSource(base, budget, _SESSION, headers=headers, verify=False)
         else:
             src = dexcues.VfsSource(base, budget, _vfs_open)

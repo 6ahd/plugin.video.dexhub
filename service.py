@@ -757,12 +757,21 @@ if __name__ == '__main__':
         watch = xbmc.Monitor()
         if watch.waitForAbort(20):
             return
+        rounds = 0
         while not watch.abortRequested():
             try:
                 from resources.lib.skinui import switch
                 switch.note_skin()
             except Exception as exc:
                 xbmc.log('[DexHub] skin watch: %s' % exc, xbmc.LOGDEBUG)
+            rounds += 1
+            if rounds % 40 == 0:
+                # v5.10.524: every 10 minutes, the finished workers kept in the
+                # executors' registry (thread_registry.prune)
+                from resources.lib.thread_registry import prune
+                gone = prune()
+                if gone:
+                    xbmc.log('[DexHub] finished workers let go: %d' % gone, xbmc.LOGDEBUG)
             if watch.waitForAbort(15):
                 return
 

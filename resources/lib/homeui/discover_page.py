@@ -166,9 +166,9 @@ class DiscoverWindow(xbmcgui.WindowXMLDialog):
             self.tone.stop()
         except Exception:
             pass
-        # no thread of this page outlives it: Python ends with the script
-        for thread in self._threads:
-            thread.join(9.0)
+        # its threads stop on _closing; the call's end waits for any left (default.py)
+        from .app import join_briefly
+        join_briefly(self._threads)
 
     # ---------------------------------------------------------- words
     def _words(self, personal=False):
@@ -214,7 +214,10 @@ class DiscoverWindow(xbmcgui.WindowXMLDialog):
         with self._lock:
             self.rows = {}
             for n, _key, _shape in SECTIONS:
-                self.setProperty('dw.s%d.off' % n, '')
+                # v5.10.525: hidden until its titles are in, as on the collection
+                # page (an empty list takes no focus: the first section in was
+                # the last focusable one, and Kodi scrolled the page to its end)
+                self.setProperty('dw.s%d.off' % n, '1')
                 self.setProperty('dw.s%d.src' % n, '')
                 self.getControl(400 + n).reset()
             self._wire()
@@ -426,8 +429,13 @@ class DiscoverWindow(xbmcgui.WindowXMLDialog):
             from ..skinui import folderpage
             self.next_action = folderpage.page_url(row.get('ref') or {}, row.get('title') or '')
         else:
-            self.next_title = {'m': row.get('kind'), 'title': row.get('title') or '', 'tmdb': row.get('tmdb') or '',
-                               'imdb': row.get('imdb') or ''}
+            query = {'m': row.get('kind'), 'title': row.get('title') or '', 'tmdb': row.get('tmdb') or '',
+                     'imdb': row.get('imdb') or ''}
+            # v5.10.519: over this page, which stays (it closed and Back went to the Home)
+            from ..skinui.items import title_over_window
+            if title_over_window(self, query):
+                return
+            self.next_title = query
         self.close_window()
 
     def _play(self, row):

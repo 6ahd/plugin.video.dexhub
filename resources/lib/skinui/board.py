@@ -6,6 +6,7 @@ Light on purpose (no router): at Kodi's start the Home shows the rows saved
 last time from here at once, while the service works them out again.
 """
 import os
+import time
 
 from . import common as C
 
@@ -22,13 +23,29 @@ def find_spec(tab, row_id):
     from .catalog_follow import spec
     return spec(tab, row_id)
 
+def session():
+    """v5.10.516: the rows' session, last in every row path (s=). Kodi for
+    Apple TV keeps a row's listing by its path (22.16), so a path must never
+    come back with other content: the versions (v=) live in Home properties,
+    which a skin reload clears, and the same row ids serve every profile.
+    A new session after either makes every path new."""
+    from .. import profile_scope as _scope
+    import hashlib
+    scope = hashlib.sha1(str(_scope.key()).encode('utf-8')).hexdigest()[:6]
+    current = C.prop('dhs.rows.session')
+    if not current.endswith('-' + scope):
+        current = '%x-%s' % (int(time.time() * 1000), scope)
+        C.set_prop('dhs.rows.session', current)
+    return current
+
+
 def row_path(tab, row_id, version=0, slot=0):
     """A row's plugin path; v5.10.165: with its slot (n), so the row's call
     finds its Home properties at once instead of reading the slots above
     it one by one (each read waits for Kodi's frame to end)."""
     if slot:
-        return C.url('skin_row', m=tab, id=row_id, n=str(slot), v=str(version or 0))
-    return C.url('skin_row', m=tab, id=row_id, v=str(version or 0))
+        return C.url('skin_row', m=tab, id=row_id, n=str(slot), v=str(version or 0), s=session())
+    return C.url('skin_row', m=tab, id=row_id, v=str(version or 0), s=session())
 
 
 def slot_of(tab, row_id, hint=''):

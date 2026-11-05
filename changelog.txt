@@ -1,3 +1,56 @@
+5.10.525
+الكوليكشن وDiscover ينفتحون من فوق: القسم يظهر لما توصل أعماله. كانت الأقسام تطلع فاضية، فأول قسم يوصل يصير القائمة الوحيدة اللي تقدر تاخذ المؤشر، وكودي ينزّل الصفحة لآخرها عشانه (Netflix في DexWorld كان يفتح على Pixar وA24).
+A collection or Discover opens at its top: a section shows once its titles are in. Shown empty, the first section in was the only list that could take the cursor, and Kodi scrolled the page to its end for it (DexWorld's Netflix opened on Pixar and A24).
+
+5.10.524
+صفحات أثبت: الكوليكشن اللي يتسكّر وهو يحمّل ما ينكتب عليه شي، والقسم اللي يوصل بعد الـ8 ثواني ياخذ المؤشر، ومدة عرض غلط ما تطيّح قسم كامل، واستيراد الكوليكشنات يتجاوز التحقق من الشهادة بس لما يكون الخطأ في الشهادة، والخدمة تتخلص من الخيوط اللي خلصت كل 10 دقايق. مع سكين 3.28.212.
+Steadier pages: a collection closed while it loads gets nothing written to it; a section that comes after the 8 s wait takes the focus; a bad running time no longer drops a section; collection imports skip the certificate check only on a certificate error; the service lets go of finished workers every 10 minutes. With skin 3.28.212.
+
+5.10.523
+الكوليكشن ينفتح على قسمه الأول والصفحة نازلة له (كانت تبقى على آخر الصفوف مثل صفحة Netflix في DexWorld)، والنزول قبل ما توصل الأقسام ينتظر القسم الأول بدل ما يروح لآخر صف. والصفحة اللي ما تخلّص إغلاقها تتسكّر على طول عشان كودي ما يوقف عن الأزرار.
+A collection opens on its first section with the page scrolled to it (it stayed on its last rows, as on DexWorld's Netflix page); Down before the sections are in waits for the first one instead of going to the last row. A page that does not finish closing is closed at once, so Kodi keeps taking keys.
+
+5.10.522
+تصليح كراش من 5.10.520 و5.10.521: لما تسكّر كوليكشن بعد فتحه بشوي كان كودي يطفي (انتظار في الصفحة كان يعيش بعدها). انتظارات الصفحات صارت تخلص مع الصفحة.
+Fixes a crash of 5.10.520 and 5.10.521 when a collection was closed soon after it opened (a wait of the page outlived it); the pages' waits now end with the page.
+
+5.10.521
+صفوف DexWorld (الشبكات والمنصات والاستوديوهات) صارت مقفلة افتراضياً: تضيفها أو تشيلها لكل صفحة من مركز التحكم ← الرئيسية والصفوف ← صفوف DexWorld (الرئيسية، الأفلام، المسلسلات، أو شيلها كلها). اللي أضافها 5.10.509 بنفسه تنشال مرة وحدة، واللي وافقت عليها تبقى.
+DexWorld rows (networks, streamers, studios) are off by default: add them or take them out page by page in Control centre > Home & rows > DexWorld rows (Home, Movies, TV Shows, or none). The ones 5.10.509 added by itself are taken out once; rows you said yes to stay.
+
+5.10.520
+العمل من الكوليكشن أو Discover أو DexWorld ينفتح فوق الصفحة نفسها بدون ما يمر على الهوم، والرجوع يرجعك للصفحة على نفس العمل، والصفحة تتسكّر لما يبدأ تشغيل فيديو. كودي ما عاد يوقف عن الأزرار بعد إغلاق صفحة من صفحات Dex Hub (كانت تتسكّر قبل ما تخلص حركة الإغلاق). أول فتحة للكوليكشن تنتظر قسمه الأول بدل ما تروح لآخر قسم.
+A title from a collection, Discover or DexWorld opens over the page with no Home in between; Back is the page again on the same title, and the page closes once a video starts. Kodi no longer stops taking keys after one of Dex Hub's pages closes (it was let go before its fade ended). A collection's first open waits for its first section instead of going to the last one.
+
+5.10.519
+العمل اللي تفتحه من كوليكشن أو Discover أو DexWorld يرجعك لنفس الصفحة لما تطلع منه (كان يرجعك للهوم)، والمؤشر على نفس العمل، ويفتح على طول (إغلاق الصفحة كان ينتظر تحميلها). صفوف DexWorld ما تنضاف إلا لو وافقت، واللي انضافت له في 5.10.509 بدون سؤال ينسأل مرة يبقيها ولا يحذفها.
+A title opened from a collection, Discover or DexWorld goes back to that page (it went to the Home), on the same title, and opens at once (closing the page waited for its reads). DexWorld rows are only added when you say yes; a Home that got them in 5.10.509 without a question is asked once whether to keep them.
+
+5.10.518
+صفحة العمل أخف: البحث عن المصادر من الصفحة يستنى 3 ثواني لين تتعبّى أقسامها، وما يشتغل لو سكّرت الصفحة قبلها. مع سكن 3.28.211.
+A lighter title page: its sources search waits three seconds for the page's sections and is skipped when the page closed first. With skin 3.28.211.
+
+5.10.517
+with skin 3.28.210, the first ten rows of Home, Movies and TV Shows stay loaded: coming back to one of these sections shows its rows at once instead of loading them again. Dex Hub follows each section's own row lists (focus, hero, trailers). 5.10.516: Apple TV keeps rows in memory. Needs skin 3.28.210.
+
+5.10.516
+Home rows carry a session in their path, so Dex Hub for Apple TV 22.16 can keep each row in memory: coming back to a section no longer reloads its rows. Elsewhere nothing changes. 5.10.515: Apple TV no longer tries to install the YouTube add-on. Needs skin 3.28.209.
+
+5.10.515
+On Apple TV the YouTube page no longer tries to install the YouTube add-on, which Kodi on tvOS cannot run ("inputstream.adaptive could not be satisfied"). Videos play in the YouTube app, and the menu says so. 5.10.514: YouTube on CoreELEC and other boxes (link code, 4K that holds, playback). Needs skin 3.28.209.
+
+5.10.514
+YouTube on CoreELEC and other boxes: Link YouTube shows its code (Dex Hub now loads the modules the YouTube add-on needs), and the quality you pick (4K) holds and videos play. The add-on settings file, saved as version 4, was refused whole by Kodi 22 beta; Dex Hub turns it to version 2 (the values stay) and restarts YouTube once. When no code comes, the page says why. 5.10.512: faster on every device. Needs skin 3.28.209.
+
+5.10.513
+YouTube on CoreELEC and other boxes: Link YouTube shows its code (Dex Hub now loads the modules the YouTube add-on needs), and the quality you pick (4K) holds and videos play. The add-on settings file, saved as version 4, was refused whole by Kodi 22 beta; Dex Hub turns it to version 2 (the values stay) and restarts YouTube once. When no code comes, the page says why. 5.10.512: faster on every device. Needs skin 3.28.209.
+
+5.10.512
+Faster on every device. Kodi never saves Dex Hub in its compiled form, so each page and row compiled the add-on again: Dex Hub now does it once after each update, in the background (a call on a Mac: 0.3-1.7 s down to 0.15-0.25 s). The Home drops card styles no row showed for a week (a lighter Home from the next start), and the Floppy cache is one small file a list instead of one 14 MB file written again for every change. Needs skin 3.28.209.
+
+5.10.511
+The Back to the previous skin item in the power menu is on for everyone (turn it off in the Control Centre, skin section). A collection page stays on its first section while the rest load. Fixes the 5.10.510 package, which Kodi could not read. Needs skin 3.28.209.
+
 5.10.510
 صفحة الكوليكشن تفتح على أول قسم (كانت تنزل لآخر قسم يوصل). خيار جديد في مركز التحكم ← السكين: «الرجوع للسكين السابق في قائمة الطاقة» يضيف زر «الرجوع إلى سكينك» في قائمة الإيقاف؛ مخفي إلا لو فعّلته. يحتاج سكن 3.28.209.
 A collection page opens on its first section (it went to the last one to arrive). New in the Control Centre's skin section: Back to the previous skin in the power menu adds a Back to <your skin> item to the power menu; hidden unless turned on. Needs skin 3.28.209.

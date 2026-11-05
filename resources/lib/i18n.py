@@ -77,6 +77,8 @@ STRINGS = {
     'اختيار الإضافة والمشغّل': 'Choose an add-on and player',
     'يلزم تثبيت TMDb Helper': 'TMDb Helper must be installed',
     'خيارات الصف…': 'Row options…',
+    'صفوف DexWorld': 'DexWorld rows',
+    'شبكات ومنصات واستوديوهات في الرئيسية والأفلام والمسلسلات، أو بدون': 'Networks, streamers and studios on Home, Movies and TV Shows, or none',
 
     # v5.10.311: subtitle filter and source warm-up
     'إظهار لغاتي فقط': 'Show my languages only',

@@ -144,8 +144,8 @@ class MyWindow(xbmcgui.WindowXMLDialog):
             self.tone.stop()
         except Exception:
             pass
-        for thread in self._threads:
-            thread.join(9.0)
+        from .app import join_briefly
+        join_briefly(self._threads)
 
     # ---------------------------------------------------------- the week
     def _fill_week(self):

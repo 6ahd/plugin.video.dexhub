@@ -1415,7 +1415,7 @@ def row_facet(params, handle):
         if tab == 'fold':
             xbmc.executebuiltin('SetFocus(%d)' % (7000 + slot))
         elif C.skin_active() and xbmc.getCondVisibility('Window.IsActive(home)'):
-            xbmc.executebuiltin('SetFocus(%d)' % (5000 + slot))
+            xbmc.executebuiltin('SetFocus(%d)' % C.layout().row_list(slot, tab))
 
 
 _PLAIN_STYLES = ('poster', 'landscape', 'square', 'wide', 'tall', 'poster_large', 'feature', 'landscape_info', 'circle')

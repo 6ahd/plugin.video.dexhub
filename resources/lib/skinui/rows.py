@@ -492,8 +492,9 @@ def _legacy_focus():
             if xbmc.getCondVisibility('Window.IsActive(Home)'):
                 if not xbmc.getCondVisibility('Control.HasFocus(4010)'):
                     return
-                if xbmc.getCondVisibility('Integer.IsGreater(Container(5001).NumItems,0)'):
-                    xbmc.executebuiltin('SetFocus(5001)')
+                first = C.layout().row_list(1)
+                if xbmc.getCondVisibility('Integer.IsGreater(Container(%d).NumItems,0)' % first):
+                    xbmc.executebuiltin('SetFocus(%d)' % first)
                     return
             if monitor.waitForAbort(0.25):
                 return
@@ -1983,7 +1984,7 @@ def _focus_first(tab, row_id, targets):
         slot = int(C.prop('dhs.fr') or 0)
         if not 1 <= slot <= C.ROWS or C.prop('dhs.%s.%d.id' % (tab, slot)) != row_id:
             return list(targets)
-        cid = C.layout().row_list(slot)
+        cid = C.layout().row_list(slot, tab)
         position = int(xbmc.getInfoLabel('Container(%d).CurrentItem' % cid)) - 1
         if not 0 <= position < len(targets):
             return list(targets)
