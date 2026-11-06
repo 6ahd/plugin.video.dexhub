@@ -240,6 +240,14 @@ def osd(action, params, handle):
         # v5.10.315: subtitle (or audio) settings and look, one page
         from . import subwindow
         return subwindow.open_window(params)
+    if action == 'skin_osd_playerinfo':
+        # v5.10.535: what is playing, in three tabs. v5.10.537: the external
+        # add-on (Lucent's page, GPL, kept apart from this one) when installed
+        if xbmc.getCondVisibility('System.HasAddon(script.dexhub.playerinfo)'):
+            xbmc.executebuiltin('RunScript(script.dexhub.playerinfo)')
+            return None
+        from . import playerinfo
+        return playerinfo.open_window(params)
     if action in ('skin_osd_substyle_set', 'skin_osd_substyle_preset'):
         from . import substyle
         return (substyle.step if action == 'skin_osd_substyle_set' else substyle.preset)(params)

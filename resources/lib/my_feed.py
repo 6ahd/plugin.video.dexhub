@@ -87,7 +87,9 @@ def _compact(entry):
     ids = body.get('ids') or {}
     return {'id': entry.get('id'), 'at': entry.get('watched_at') or '', 'k': 'e' if kind == 'episode' else 'm',
             'title': body.get('title') or '', 'tmdb': str(ids.get('tmdb') or ''), 'imdb': ids.get('imdb') or '',
-            'genres': list(body.get('genres') or [])[:3], 'min': int(runtime or 0)}
+            'genres': list(body.get('genres') or [])[:3], 'min': int(runtime or 0),
+            'sn': (entry.get('episode') or {}).get('season'), 'en': (entry.get('episode') or {}).get('number'),
+            'name': (entry.get('episode') or {}).get('title') or ''}
 
 
 def stale(data=None):
@@ -321,6 +323,53 @@ def week(now=None):
         if day in by_day:
             by_day[day].append(ev)
     return sorted(by_day.items())
+
+
+# ------------------------------------------------------------ v5.10.537
+def streak(buckets, now=None):
+    """(days in a row up to today or yesterday, the last 7 days as 0-20 steps)."""
+    today = (now or datetime.datetime.now()).date()
+    seen = lambda day: bool(day in buckets and (buckets[day]['tv'] or buckets[day]['film']))
+    day = today if seen(today) else today - datetime.timedelta(days=1)
+    count = 0
+    while seen(day):
+        count += 1
+        day -= datetime.timedelta(days=1)
+    week = [today - datetime.timedelta(days=n) for n in range(6, -1, -1)]
+    minutes = [buckets[d]['tv'] + buckets[d]['film'] if d in buckets else 0 for d in week]
+    top = max(minutes) or 1
+    return count, [(d, step(m, top)) for d, m in zip(week, minutes)]
+
+
+def history(limit=18):
+    """The last things watched, newest first, one card per title and episode."""
+    out, seen = [], set()
+    rows = sorted(_read().get('items') or [], key=lambda item: item.get('at') or '', reverse=True)
+    for item in rows:
+        key = (item.get('tmdb') or item.get('title'), item.get('sn'), item.get('en'))
+        if key in seen or not item.get('tmdb'):
+            continue
+        seen.add(key)
+        out.append(item)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def when(stamp, now=None):
+    """'Today', 'Yesterday', a weekday or a date, for a card."""
+    moment = _local(stamp)
+    if moment is None:
+        return ''
+    days_ago = ((now or datetime.datetime.now()).date() - moment.date()).days
+    if days_ago <= 0:
+        return _t('اليوم', 'Today')
+    if days_ago == 1:
+        return _t('أمس', 'Yesterday')
+    if days_ago < 7:
+        return _t(('الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد')[moment.weekday()],
+                  moment.strftime('%A'))
+    return '%d/%d' % (moment.day, moment.month)
 
 
 # ------------------------------------------------------------ your lists

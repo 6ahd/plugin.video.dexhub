@@ -1,3 +1,15 @@
+5.10.537
+الزوايا الدائرية ورسومات الصفحات رجعت في تطبيق الأندرويد. الرجوع من التقويم الكامل ومتابعتي يرجعك لمكتبتي. IPTV: لما سيرفر DexWorld يرجع 403 من المزود، يتجرب مرة ثانية وبعدها تطلع آخر نسخة محفوظة. مكتبتي صار فيها سلسلة أيام المشاهدة والمقترحات والسجل، زي Trakt، وكل تذكرة لها بوستر. وزر PPI يفتح إضافة Player Info الخارجية لو كانت مثبتة، وإلا الصفحة الداخلية. والشبكات وصفحات الأعمال تجهز من الخدمة أبكر بعد التشغيل.
+Rounded corners and page artwork are back in the Android app. Back from the full calendar and My watching returns to My Library. IPTV: when DexWorld's server gets a 403 from the provider it is tried once more, then the last saved copy shows. My Library gets your streak, picks for you and your history, as on Trakt, and every ticket has its poster. The PPI button opens the external Player Info add-on when it is installed, else the page inside Dex Hub. Grids and title pages are served by the service earlier after a start.
+
+5.10.536
+صفحة معلومات التشغيل كاملة: نظرة عامة بمربعات وأنوية المعالج، والفيديو برسم الدقة والسطوع والألوان ومسار الصورة وسرعتها، والصوت بمسار الصوت لسماعاتك وغرفتك والقنوات وكل المسارات.
+The full playback info page: Overview with tiles and CPU cores, Video with resolution, brightness, colour space, the way to the screen and its bit rate, Audio with the sound chain to your speakers, your room, the channels and every audio track.
+
+5.10.535
+صفحة جديدة لمعلومات التشغيل من زر PPI في المشغل: نظرة عامة والفيديو والصوت، بدون ما تحتاج TinyPPI. صفحة مباراة في Sport: الناديين بألوانهم والنتيجة والإحصائيات والأهداف والبطاقات والتبديلات، وتتحدث وقت اللعب. والتشغيل أخف: بقية التبويبات تنتظر الصفوف اللي على الشاشة.
+A new playback info page from the player's PPI button: Overview, Video and Audio, with no need for TinyPPI. A game page in Sport: both clubs in their colours, the score, statistics, goals, cards and substitutions, updating while the game is on. A lighter start: the other tabs wait for the rows on screen.
+
 5.10.534
 المكتبة رجعت تعرض متابعتك من كل الخدمات المربوطة، مو بس Trakt والتقويم: قسم «كمّل من حيث وقفت» في أول الصفحة بزر لكل خدمة (ومعها Plex وSilo وباقي السيرفرات). OK يشغّل، وزر القائمة يفتح العمل، والأزرار تفلتر قائمة المشاهدة كمان، وكل تذكرة تقول من أي خدمة.
 My Library shows what you are watching on every linked service again, not only Trakt and the calendar: "Pick up where you left" at the top of the page with a chip per service (Plex, Silo and the other servers too). OK plays, Menu opens the title, the chips filter the watchlist too, and each ticket says which service it is from.

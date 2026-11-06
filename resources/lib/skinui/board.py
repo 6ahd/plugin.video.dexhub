@@ -418,6 +418,19 @@ def published(tab):
     return out
 
 
+def _let_rows_in(tab, limit=8.0):
+    """v5.10.535: the other tabs wait while the start screen is up. Their
+    property writes took Kodi's GUI lock from the rows on screen (3.8 s of
+    them on the AM8). A tab opened meanwhile lets them through at once."""
+    import xbmc
+    from .startup_splash import PROP
+    monitor = xbmc.Monitor()
+    end = time.monotonic() + limit
+    while time.monotonic() < end and C.prop(PROP) and C.prop('dhs.tab') == tab:
+        if monitor.waitForAbort(0.1):
+            return
+
+
 def publish_saved(tabs=C.TABS):
     """The rows saved by the last publish, put on the Home at once (a few
     milliseconds); False when there is nothing saved yet.
@@ -440,6 +453,7 @@ def publish_saved(tabs=C.TABS):
                 found = True
                 C.set_prop(C.PROP_READY, '1')
                 first = time.monotonic()
+                _let_rows_in(visible)
     if found:
         C.log('rows shown from the last session: %d (labels %d ms, first tab %d ms, every tab %d ms)' % (
             total, (labels - began) * 1000, (first - labels) * 1000, (time.monotonic() - labels) * 1000))

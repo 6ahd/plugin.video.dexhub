@@ -44,7 +44,6 @@ NOTES = {
     # v5.10.290: Dex Hub runs both itself; DexSubtitles only takes over the sync when installed
     'subsync': ('يستخدم DexSubtitles لو كانت مثبتة', 'Uses DexSubtitles when installed'),
     'nextsub': ('وبعد آخر ترجمة: بدون ترجمة', 'After the last one: subtitles off'),
-    'ppi': ('يحتاج TinyPPI', 'Needs TinyPPI'),
     'external': ('على Apple TV فقط', 'Apple TV only'),
 }
 # v5.10.289: what each button does, one line in the editor

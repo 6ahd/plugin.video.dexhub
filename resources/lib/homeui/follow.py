@@ -1085,7 +1085,7 @@ def open_follow(app, media=''):
         query, media = window.next_title, window.media
         del window
         if not query:
-            return
+            return True         # v5.10.537: Back: a page under this one comes back
         _log('title page %s %s' % (query.get('m'), query.get('tmdb') or query.get('imdb')))
         try:
             app.open_details(_details_tile(query))

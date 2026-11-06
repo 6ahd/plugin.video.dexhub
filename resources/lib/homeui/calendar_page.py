@@ -504,7 +504,7 @@ def open_calendar(app):
             xbmc.executebuiltin('RunPlugin("%s")' % target)
             return
         if not query:
-            return
+            return True         # v5.10.537: Back: a page under this one comes back
         try:
             from ..skinui.items import title_here, title_target
             skin_page = title_here()

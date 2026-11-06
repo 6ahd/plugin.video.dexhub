@@ -417,16 +417,17 @@ class SportWindow(xbmcgui.WindowXMLDialog):
         if game.get('state') == 'pre':
             text = _t('ألغِ التذكير', 'Cancel the reminder') if game['id'] in data['reminders'] else _t('ذكّرني قبلها بخمس دقايق', 'Remind me 5 minutes before')
             choices.insert(0, ('bell', None, (text, '')))
-        if not choices:
-            xbmcgui.Dialog().notification('Dex Hub', _t('ما لقينا قناة لهذي المباراة في دليلك', 'No channel for this game in your guide'),
-                                          time=3000, sound=False)
-            return
+        # v5.10.535: the game's own page: statistics and what happened
+        choices.insert(0, ('game', None, (_t('تفاصيل المباراة', 'Game details'), _t('الإحصائيات والأحداث', 'Statistics and events'))))
         subtitle = '%s  ·  %s' % (F.league_name(game['league']), _day_word(game['start']))
         pick = choose(F.game_line(game), [row[2] for row in choices], subtitle=subtitle)
         if pick < 0:
             return
         kind, tile = choices[pick][0], choices[pick][1]
-        if kind == 'bell':
+        if kind == 'game':
+            from .sport_game import open_game
+            open_game(self.app, game)
+        elif kind == 'bell':
             F.toggle_reminder(game)
             self._paint_games()
         else:

@@ -396,6 +396,32 @@ _pages = {}             # (src, type, catalog, genre, skip) -> (time, [ids], [me
 _pages_lock = threading.Lock()
 
 
+UPSTREAM_PAUSE = 2.0
+_turn = threading.Lock()    # one catalog at a time: a burst is what a provider turns away
+
+
+def _upstream_failed(data):
+    failure = (data or {}).get('dexworldError')
+    return isinstance(failure, dict) and failure.get('code') == 'IPTV_UPSTREAM'
+
+
+def _log_refused(data, params):
+    failure = data.get('dexworldError') or {}
+    xbmc.log('[DexHub] live: IPTV source %s said %s to the server for %s, asking once more' % (
+        failure.get('source') or '?', failure.get('status') or '?', params.get('catalog') or '?'), xbmc.LOGINFO)
+
+
+def _last_copy(provider, params, extra):
+    """The last good answer on disk, up to a week old (errors are never saved)."""
+    try:
+        client = _client()
+        url = client.build_resource_url(provider, 'catalog', params['type'], params['catalog'], extra=extra)
+        saved, _age = client._read_stale_cache(url, client.CATALOG_STALE_SECONDS)
+        return saved if isinstance(saved, dict) and saved.get('metas') else None
+    except Exception:
+        return None
+
+
 def _add_on_page(provider, params, skip, timeout):
     """(ids, metas, raw count) of one answer of the add-on, an id once, from
     the copy above when fresh. The raw count (duplicates included) is how far
@@ -416,10 +442,23 @@ def _add_on_page(provider, params, skip, timeout):
         kwargs = {'timeout_override': timeout, 'retry': False}
         if params.get('_refresh'):
             kwargs['force_refresh'] = True
-        data = _client().fetch_catalog(provider, params['type'], params['catalog'], extra=extra,
-                                       **kwargs) or {}
+        with _turn:
+            data = _client().fetch_catalog(provider, params['type'], params['catalog'], extra=extra,
+                                           **kwargs) or {}
+            if _upstream_failed(data):
+                # v5.10.537: DexWorld's server was refused by the IPTV provider
+                # (HTTP 200 with dexworldError; seen on the AM8, the channels
+                # themselves play). Once more after a moment, then the last copy.
+                _log_refused(data, params)
+                time.sleep(UPSTREAM_PAUSE)
+                data = _client().fetch_catalog(provider, params['type'], params['catalog'], extra=extra,
+                                               timeout_override=timeout, retry=False, force_refresh=True) or {}
     except Exception as exc:
         raise LS.SourceError(LS.safe(exc)) from None
+    if _upstream_failed(data):
+        saved = _last_copy(provider, params, extra)
+        if saved:
+            data = saved
     failure = data.get('dexworldError')
     if isinstance(failure, dict) and failure.get('code') == 'IPTV_UPSTREAM':
         status = str(failure.get('status') or '')

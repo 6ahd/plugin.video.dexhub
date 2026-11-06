@@ -257,6 +257,83 @@ def parse_scoreboard(league, data):
     return out
 
 
+STATS = (('possessionPct', 'الاستحواذ', 'Possession', '%'), ('totalShots', 'التسديدات', 'Shots', ''),
+         ('shotsOnTarget', 'على المرمى', 'On target', ''), ('wonCorners', 'الركنيات', 'Corners', ''),
+         ('accuratePasses', 'تمريرات صحيحة', 'Accurate passes', ''), ('saves', 'التصديات', 'Saves', ''),
+         ('foulsCommitted', 'الأخطاء', 'Fouls', ''), ('offsides', 'التسلل', 'Offsides', ''),
+         ('yellowCards', 'بطاقات صفراء', 'Yellow cards', ''), ('redCards', 'بطاقات حمراء', 'Red cards', ''))
+
+
+def _event_kind(code):
+    code = str(code or '').lower()
+    if 'own' in code and 'goal' in code:
+        return 'own'
+    if 'penalty' in code and 'scored' in code:
+        return 'penalty'
+    if 'goal' in code:
+        return 'goal'
+    if 'yellow' in code:
+        return 'yellow'
+    if 'red' in code:
+        return 'red'
+    if 'substitution' in code:
+        return 'sub'
+    return ''
+
+
+def parse_game(data):
+    """ESPN's summary of one game: the two sides, the statistics side by side
+    and what happened, in order. Parts ESPN has not got yet stay empty."""
+    data = data or {}
+    comp = (((data.get('header') or {}).get('competitions')) or [{}])[0]
+    rows = comp.get('competitors') or []
+    home = next((c for c in rows if c.get('homeAway') == 'home'), None)
+    away = next((c for c in rows if c.get('homeAway') == 'away'), None)
+    sides = {'home': _side(home) if home else {}, 'away': _side(away) if away else {}}
+    kind = (comp.get('status') or {}).get('type') or {}
+    numbers = {}
+    for team in (data.get('boxscore') or {}).get('teams') or []:
+        tid = str((team.get('team') or {}).get('id') or '')
+        side = 'home' if tid == sides['home'].get('id') else 'away'
+        numbers[side] = dict((row.get('name'), str(row.get('displayValue') or '')) for row in team.get('statistics') or [])
+    stats = []
+    for key, ar, en, unit in STATS:
+        left, right = (numbers.get('home') or {}).get(key), (numbers.get('away') or {}).get(key)
+        if left is None and right is None:
+            continue
+        try:
+            a, b = float(left or 0), float(right or 0)
+        except ValueError:
+            a = b = 0.0
+        whole = (a + b) or 1.0
+        stats.append({'name': _t(ar, en), 'home': (left or '0') + unit, 'away': (right or '0') + unit,
+                      'home_step': int(round(a / whole * 20)), 'away_step': int(round(b / whole * 20))})
+    events = []
+    for row in data.get('keyEvents') or []:
+        what = _event_kind((row.get('type') or {}).get('type'))
+        if not what:
+            continue
+        people = [((p.get('athlete') or {}).get('displayName') or '') for p in row.get('participants') or []]
+        people = [name for name in people if name]
+        tid = str((row.get('team') or {}).get('id') or '')
+        events.append({'minute': (row.get('clock') or {}).get('displayValue') or '', 'kind': what,
+                       'side': 'home' if tid == sides['home'].get('id') else 'away',
+                       'text': ' ← '.join(people) if what == 'sub' else (people[0] if people else row.get('shortText') or '')})
+    return {'home': sides['home'], 'away': sides['away'], 'state': kind.get('state') or 'pre',
+            'status': kind.get('shortDetail') or kind.get('detail') or '',
+            'venue': ((data.get('gameInfo') or {}).get('venue') or {}).get('fullName') or '',
+            'stats': stats, 'events': events}
+
+
+def game_detail(game):
+    """One game's page, read from ESPN each time: it is open only for a moment."""
+    league, _sep, event = str(game.get('id') or '').partition(':')
+    path = (LEAGUE_BY_KEY.get(league) or (None, None))[1]
+    if not path or not event:
+        return {}
+    return parse_game(_http('%s%s/summary?event=%s' % (ESPN, path, event)))
+
+
 def _fetch_day(key, day):
     return parse_scoreboard(key, _http('%s%s/scoreboard?dates=%s&limit=200' % (ESPN, LEAGUE_BY_KEY[key][1], day.strftime('%Y%m%d'))))
 

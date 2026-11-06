@@ -453,7 +453,9 @@ class App(object):
                     from ..i18n import reset_language_cache
                     reset_language_cache()
                     for page in list(self._windows):
-                        page.reload_preferences()
+                        # v5.10.537: the newer pages have none, and one stopped the rest
+                        if hasattr(page, 'reload_preferences'):
+                            page.reload_preferences()
                 except Exception:
                     self.log('settings refresh failed:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
             try:

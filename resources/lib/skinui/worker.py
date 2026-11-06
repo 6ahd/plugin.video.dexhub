@@ -266,6 +266,16 @@ class Worker(object):
                 C.log('row caches given their quick copy: %d' % made)
         except Exception:
             C.log('row copies:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
+        # v5.10.132: grids and title lists worked out here for the plugin
+        # calls (listing.py), skin.dexhub and Arctic Fuse 3 alike. v5.10.537:
+        # before the first publish: it came 24 s after Kodi's start on the AM8
+        self.listing = None
+        try:
+            from .listing import Server
+            self.listing = Server(self.monitor)
+            self.listing.start()
+        except Exception:
+            C.log('listing server off:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
         self.start()
         import threading
         threading.Thread(target=self.first_run, name='dexhub-skin-firstrun', daemon=True).start()
@@ -306,15 +316,6 @@ class Worker(object):
             from .catalog_follow import Controller
             self.catalog_follow = Controller(self.monitor, lambda: self.busy() or self.preview_transition())
             self.catalog_follow.start()
-        # v5.10.132: grids and title lists worked out here for the plugin
-        # calls (listing.py), skin.dexhub and Arctic Fuse 3 alike
-        self.listing = None
-        try:
-            from .listing import Server
-            self.listing = Server(self.monitor)
-            self.listing.start()
-        except Exception:
-            C.log('listing server off:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
         try:
             self._loop(rows)
         finally:

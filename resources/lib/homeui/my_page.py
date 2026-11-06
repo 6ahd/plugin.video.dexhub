@@ -31,8 +31,8 @@ from .sport_page import take_focus
 A_LEFT, A_RIGHT, A_UP, A_DOWN = 1, 2, 3, 4
 A_CONTEXT, A_MENU = 117, 163
 A_BACK = {9, 10, 92, 216, 247, 257, 275, 61448, 61467}
-CHAIN = (453, 406, 451, 401, 402, 403, 404, 405)
-SECTION_OF = {453: 6, 406: 6, 402: 2, 403: 3, 404: 4, 405: 5}
+CHAIN = (453, 406, 451, 401, 407, 408, 402, 403, 404, 405)
+SECTION_OF = {453: 6, 406: 6, 407: 8, 408: 9, 402: 2, 403: 3, 404: 4, 405: 5}
 DAYS_AR = ('اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت', 'أحد')
 DAYS_EN = ('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun')
 MONTHS_AR = ('يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر')
@@ -77,6 +77,7 @@ class MyWindow(xbmcgui.WindowXMLDialog):
     def __init__(self, *args, **kwargs):
         super(MyWindow, self).__init__(*args)
         self.app = kwargs.get('app')
+        self.state = kwargs.get('state') if isinstance(kwargs.get('state'), dict) else {}
         self.next_title = None
         self.next_action = None
         self.week = []
@@ -85,6 +86,8 @@ class MyWindow(xbmcgui.WindowXMLDialog):
         self.ticket_all = []
         self.up_all = []
         self.up_rows = []
+        self.picks = []
+        self.past = []
         self.chips = []
         self.src = 'all'
         self.names = {}
@@ -107,7 +110,10 @@ class MyWindow(xbmcgui.WindowXMLDialog):
         linked = F.linked()
         self.setProperty('my.t.account', _t('Trakt مربوط ✓', 'Trakt linked ✓') if linked else
                          _t('اربط Trakt من الإعدادات لإحصائيات أدق', 'Link Trakt in Settings for full numbers'))
-        words = ((6, _t('من كل خدماتك', 'From all your services'), _t('كمّل من حيث وقفت', 'Pick up where you left'), ''),
+        words = ((7, _t('سلسلة المشاهدة', 'Your streak'), '', ''),
+                 (8, _t('مختار لك', 'Picked for you'), _t('مقترحات', 'Recommended'), ''),
+                 (9, _t('اللي شفته', 'What you watched'), _t('السجل', 'History'), ''),
+                 (6, _t('من كل خدماتك', 'From all your services'), _t('كمّل من حيث وقفت', 'Pick up where you left'), ''),
                  (1, _t('هالأسبوع', 'This week'), _t('الجاي من تقويمك', 'Coming up'), _t('من تقويمك', 'From your calendar')),
                  (2, _t('بالأرقام', 'In numbers'), _t('وقتك مع الشاشة', 'Your screen time'), 'Trakt' if linked else 'Dex Hub'),
                  (3, _t('آخر ١٣ أسبوع', 'The last 13 weeks'), _t('سجل المشاهدة', 'Viewing history'), ''),
@@ -117,7 +123,8 @@ class MyWindow(xbmcgui.WindowXMLDialog):
             self.setProperty('my.s%d.eyebrow' % n, eyebrow)
             self.setProperty('my.s%d.heading' % n, heading)
             self.setProperty('my.s%d.src' % n, src)
-        self.setProperty('my.s6.off', '1')
+        for n in (6, 7, 8, 9):
+            self.setProperty('my.s%d.off' % n, '1')
         self.setProperty('my.up.empty', _t('ما فيه شي من هالخدمة', 'Nothing from this service'))
         self.setProperty('my.day.empty', _t('ما فيه شي ينزل هاليوم', 'Nothing comes out that day'))
         from ..art_tone import Tone
@@ -126,8 +133,18 @@ class MyWindow(xbmcgui.WindowXMLDialog):
         self._fill_numbers()
         self._later(self._fill_lists)
         self._later(self._fill_services)
+        self._later(self._fill_more)
         self._later(self._refresh)
         take_focus(self, 451)
+        back = self.state.pop('back_to', None)
+        if back:
+            # v5.10.537: back from the full calendar or My watching, on the same spot
+            self._moved = True
+            if back[0] == 451:
+                self.getControl(451).selectItem(back[1])
+            else:
+                take_focus(self, back[0])
+                self.getControl(back[0]).selectItem(back[1])
         # the list can come before the first focus: whichever is last moves it
         self._ready = True
         if self.up_all and not self._moved:
@@ -146,6 +163,7 @@ class MyWindow(xbmcgui.WindowXMLDialog):
             if F.refresh() and not self._closing:
                 self._fill_numbers()
                 self._fill_lists()
+                self._fill_more()       # a first read: the history was empty before it
         except Exception:
             xbmc.log('[DexHub] my: refresh failed\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
 
@@ -314,6 +332,7 @@ class MyWindow(xbmcgui.WindowXMLDialog):
                  card('watching', count, _t('أتابعها', 'Watching'), _t('مسلسلات بديت فيها', 'Shows you started'), posters),
                  card('watchlist', len(watchlist), _t('قائمة المشاهدة', 'Watchlist'), _t('ناوي تشوفها', 'Saved for later'),
                       [r.get('poster') for r in watchlist])]
+        self._posters(watchlist)
         self.ticket_all = watchlist
         with self._lock:
             if self._closing:
@@ -322,6 +341,27 @@ class MyWindow(xbmcgui.WindowXMLDialog):
             self.getControl(404).addItems(cards)
             self._show_tickets()
             self._wire()
+
+    def _posters(self, rows):
+        """v5.10.537: every ticket has its poster: a service often saves none."""
+        missing = []
+        for row in rows[:30]:
+            if row.get('poster'):
+                continue
+            kind, tmdb, imdb = _ids(row)
+            if imdb:
+                row['poster'] = 'https://images.metahub.space/poster/medium/%s/img' % imdb
+            elif tmdb:
+                missing.append((row, kind, tmdb))
+        if not missing:
+            return
+        try:
+            from .. import discover_feed as D
+            found = dict((str(r.get('tmdb')), r) for r in D._details_many([(kind, tmdb) for _row, kind, tmdb in missing]))
+        except Exception:
+            found = {}
+        for row, _kind, tmdb in missing:
+            row['poster'] = (found.get(str(tmdb)) or {}).get('poster') or ''
 
     def _sources(self, row):
         return set(str(s).lower() for s in (row.get('sources') or [row.get('source')]) if s) - {'local'}
@@ -387,6 +427,41 @@ class MyWindow(xbmcgui.WindowXMLDialog):
                     self.setProperty('my.t.sub', '  ·  '.join('%s %s' % pair for pair in numbers))
             except Exception:
                 pass
+
+    def _fill_more(self):
+        """v5.10.537: as on Trakt's home: the streak, picks for you, what you watched."""
+        try:
+            from .. import discover_feed as D
+            count, week = F.streak(F.days())
+            days = [_item(_t(DAYS_AR[d.weekday()], DAYS_EN[d.weekday()]), '', None, step=value) for d, value in week]
+            word = (_t('%d يوم ورا بعض', '%d-day streak') % count) if count else _t('ابدأ سلسلة جديدة اليوم', 'Start a new streak today')
+            picks = (D.for_you('all') or ([], False))[0][:20]
+            past = F.history()
+            pairs = list(dict.fromkeys(('series' if row.get('k') == 'e' else 'movie', row.get('tmdb')) for row in past))
+            art = dict((str(row.get('tmdb')), row) for row in D._details_many(pairs))
+        except Exception:
+            xbmc.log('[DexHub] my: more\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
+            return
+        pick_items = [_item(row.get('title') or '', str(row.get('year') or ''), {'thumb': row.get('poster') or '', 'fanart': row.get('fanart') or ''})
+                      for row in picks]
+        rows, past_items = [], []
+        for row in past:
+            detail = art.get(str(row.get('tmdb'))) or {}
+            code = 'S%s · E%s' % (row.get('sn'), row.get('en')) if row.get('sn') is not None and row.get('en') else ''
+            line = '  ·  '.join(x for x in (code, row.get('name')) if x) or (_t('فيلم', 'Movie') if row.get('k') != 'e' else '')
+            rows.append(dict(row, poster=detail.get('poster') or '', fanart=detail.get('fanart') or ''))
+            past_items.append(_item(row.get('title') or '', line, {'fanart': detail.get('fanart') or detail.get('poster') or ''}, day=F.when(row.get('at'))))
+        with self._lock:
+            if self._closing:
+                return
+            self.picks, self.past = picks, rows
+            self.setProperty('my.streak', word)
+            for cid, items, n in ((409, days, 7), (407, pick_items, 8), (408, past_items, 9)):
+                control = self.getControl(cid)
+                control.reset()
+                control.addItems(items)
+                self.setProperty('my.s%d.off' % n, '' if items else '1')
+            self._wire()
 
     def _count(self, key):
         return sum(1 for r in self.up_all if key == 'all' or key in (r.get('srcs') or ()))
@@ -468,18 +543,18 @@ class MyWindow(xbmcgui.WindowXMLDialog):
                 else:
                     xbmcgui.Dialog().notification('Dex Hub', _t('ما قدرنا نحدد العمل', 'Could not tell which title this is'),
                                                   time=2000, sound=False)
-        elif focus in (401, 405, 406):
+        elif focus in (401, 405, 406, 407, 408):
             self._describe(focus)
 
     def onFocus(self, cid):
-        if cid in (401, 405, 406):
+        if cid in (401, 405, 406, 407, 408):
             self._describe(cid)
         elif cid in (402, 403, 404, 453):
             self.setProperty('my.fanart', '')
 
     def _describe(self, cid):
         pos = self.getControl(cid).getSelectedPosition()
-        rows = {401: self.day_rows, 405: self.tickets, 406: self.up_rows}[cid]
+        rows = {401: self.day_rows, 405: self.tickets, 406: self.up_rows, 407: self.picks, 408: self.past}[cid]
         if not 0 <= pos < len(rows):
             return
         row = rows[pos]
@@ -500,12 +575,21 @@ class MyWindow(xbmcgui.WindowXMLDialog):
         pos = self.getControl(cid).getSelectedPosition()
         if cid == 453:
             self._pick_chip(pos)
+        elif cid == 407 and 0 <= pos < len(self.picks):
+            row = self.picks[pos]
+            self._open_title({'m': row.get('kind') or 'movie', 'title': row.get('title') or '', 'tmdb': row.get('tmdb') or '',
+                              'imdb': row.get('imdb') or ''})
+        elif cid == 408 and 0 <= pos < len(self.past):
+            row = self.past[pos]
+            self._open_title({'m': 'series' if row.get('k') == 'e' else 'movie', 'title': row.get('title') or '',
+                              'tmdb': row.get('tmdb') or '', 'imdb': row.get('imdb') or ''})
         elif cid == 406 and 0 <= pos < len(self.up_rows):
             from .follow import play_entry
             play_entry(self, self.up_rows[pos])
         elif cid == 451:
             if pos >= len(self.week):
-                self.next_action = 'plugin://plugin.video.dexhub/?action=home_calendar'
+                self.next_action = 'calendar'
+                self.state['back_to'] = (cid, pos)
                 self.close_window()
             else:
                 self._show_day(pos)
@@ -519,7 +603,8 @@ class MyWindow(xbmcgui.WindowXMLDialog):
         elif cid == 404 and 0 <= pos < len(self.lists):
             key = self.lists[pos]
             if key == 'watching':
-                self.next_action = 'plugin://plugin.video.dexhub/?action=home_follow'
+                self.next_action = 'follow'
+                self.state['back_to'] = (cid, pos)
             else:
                 from ..skinui.rows import list_url
                 params = {'action': 'lib_favs'} if key == 'favs' else {'action': 'lib_watchlist'}
@@ -532,11 +617,24 @@ def open_my(app):
     """The page; a title opened from it shows over the Home and the page comes back after it."""
     from . import ui_size
     from .app import _details_tile
+    state = {}
     while True:
-        window = MyWindow(ui_size.xml('dexhub_my.xml'), app.addon_path, 'Default', '1080i', app=app)
+        window = MyWindow(ui_size.xml('dexhub_my.xml'), app.addon_path, 'Default', '1080i', app=app, state=state)
         app._show(window)
         query, action = window.next_title, window.next_action
         del window
+        if action in ('calendar', 'follow'):
+            # v5.10.537: opened from here, so Back comes here (it was started
+            # and forgotten, and Back went to the Home)
+            if action == 'calendar':
+                from .calendar_page import open_calendar
+                came_back = open_calendar(app)
+            else:
+                from .follow import open_follow
+                came_back = open_follow(app)
+            if came_back:
+                continue
+            return
         if action:
             if action.startswith('grid:'):
                 xbmc.executebuiltin('ActivateWindow(Videos,"%s",return)' % action[5:])
