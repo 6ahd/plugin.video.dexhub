@@ -204,7 +204,7 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
             self.setProperty('dw.s%d.heading' % ALL, _t('كل الكتالوجات', 'Every catalog'))
             self.setProperty('dw.s%d.off' % ALL, '')
             self._show_catalogs()
-        # cached copies first, at once; then what is old or missing, three at a time
+        # Show cached cards before fetching stale or missing catalogs.
         todo = []
         for n, spec in enumerate(self.specs[:SLOTS], 1):
             data = rows.C.read_json(rows.C.row_file(folderpage.TAB, spec['id']))
@@ -233,6 +233,7 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
             list(pool.map(read, todo))
         if count > SLOTS and not self._closing:
             self._show_catalogs()
+        self._enrich_first_section()
 
     def _group_name(self):
         """The collection row the card was in ("Streaming Services")."""
@@ -251,18 +252,40 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
     def _take(self, n, data):
         found = [_row_of(item) for item in (data.get('items') or [])[:PER_ROW]]
         found = [row for row in found if row['title'] and (row['poster'] or row['fanart'])]
-        if n == 1:
-            self._fill_story(found[:8])
         self.data[n] = found
         self._show(n, found)
 
-    def _fill_story(self, found):
-        """The feature cards tell the story: what the cached copy lacks is read from TMDb."""
-        missing = [row for row in found if row['tmdb'] and not (row['plot'] and row['fanart'])]
-        for row, full in zip(missing, F._details_many([(row['kind'], row['tmdb']) for row in missing])):
+    def _enrich_first_section(self):
+        """v5.10.531: the feature cards' story, after every section is on screen.
+        Read before the first section was shown, it held the cards back: 84 % of
+        the first cards of real collections had no plot in their cached copy."""
+        if self._closing:
+            return
+        first = self.data.get(1) or []
+        missing = {row['key']: (row['kind'], row['tmdb']) for row in first[:8]
+                   if row['tmdb'] and not (row['plot'] and row['fanart'])}
+        if not missing:
+            return
+        details = {row['key']: row for row in F._details_many(list(missing.values()))}
+        if self._closing or not details:
+            return
+        updated = [dict(row) for row in first[:8]] + first[8:]
+        changed = False
+        for row in updated[:8]:
+            if row['key'] not in missing:
+                continue
+            full = details.get(row['key'], {})
             for key in ('plot', 'fanart', 'year', 'rating', 'runtime', 'genres'):
                 if full.get(key) and not row.get(key):
                     row[key] = full[key]
+                    changed = True
+        if not changed or self._closing:
+            return
+        self.data[1] = updated
+        self._show(1, updated)
+        cid = self._list_of(1)
+        if not self._closing and self.getFocusId() == cid:
+            self._describe(cid)
 
     def _show(self, n, found):
         rows_ = [row for row in found if self.media == 'all' or row['kind'] == self.media]

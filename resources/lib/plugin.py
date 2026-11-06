@@ -11226,7 +11226,15 @@ def providers():
     # Missing artwork must never cause a network sweep every time Sources is
     # opened. At most one silent refresh per hour per Kodi session.
     _logo_refresh_due = False
-    if stale:
+    # v5.10.526: never from a skin widget (Arctic Fuse 3 reloads Sources on
+    # its Home after a video stops, alongside many other calls). A crash
+    # report of 5 Nov 17:10 (LibreELEC, Kodi 22 RC1, Python 3.14): Kodi's
+    # collection at the end of that call crashed in a weak reference's
+    # callback while its DexHub-bg worker had been fetching manifests and
+    # other calls still ran network threads. Opened on purpose, Sources still
+    # refreshes the missing logos (idea from a user's suggested change).
+    _widget = 'reload=' in (sys.argv[2] if len(sys.argv) > 2 else '') or _skin_widget_call('providers')
+    if stale and not _widget:
         try:
             _w = xbmcgui.Window(WINDOW_ID)
             _last = float(_w.getProperty('dexhub.provider_logo_refresh_ts') or 0)
@@ -19855,7 +19863,7 @@ def _cw_warm_selected_source(rows):
                     jobs.append(lambda c=canonical, m=media: _cw_warm_tmdb_art(c, m))
             else:
                 jobs.append(lambda s=source_id, m=media, x=metas: _ms.warm_source_metas(
-                    s, m, x, budget_seconds=None if anywhere else 6.0,
+                    s, m, x, budget_seconds=None if anywhere else 2.0,   # v5.10.529: was 6.0
                     max_items=None if anywhere else 8))
         if jobs:
             run_parallel(lambda job: job(), jobs)
@@ -20112,22 +20120,52 @@ def _lazy_fill_row_art_now(row):
     return row
 
 
-def _continue_rows(limit=500):
+class _Stages(object):
+    """v5.10.529: where a listing's time went, in one log line. Rows that
+    took 84 ms one time and 9.4 s the next left nothing between dispatch and
+    the row (CoreELEC log)."""
+
+    def __init__(self, name):
+        self.name, self.parts, self.begin = name, [], time.monotonic()
+        self.last = self.begin
+
+    def mark(self, label):
+        now = time.monotonic()
+        self.parts.append((label, (now - self.last) * 1000))
+        self.last = now
+
+    def add(self, label, seconds):
+        self.parts.append((label, seconds * 1000))
+
+    def log(self, note='', floor_ms=300):
+        total = (time.monotonic() - self.begin) * 1000
+        if total >= floor_ms:
+            xbmc.log('[DexHub] %s stages: %d ms%s: %s' % (
+                self.name, total, note, ', '.join('%s %d' % (k, v) for k, v in self.parts)), xbmc.LOGINFO)
+
+
+def _continue_rows(limit=500, stages=None):
+    mark = stages.mark if stages else (lambda _label: None)
     local = playback_store.list_continue_items(limit=limit)
+    mark('store')
     try:
         from . import native_continue
         rows = native_continue.rows(sys.modules[__name__], local, limit)
     except Exception:
         rows = local
+    mark('servers')
     try:
         from . import continue_nextup
         rows = continue_nextup.merge(rows, _nextup_items_cached(limit=60, cached_only=True),
                                     playback_store.list_finished_items(limit=400), _work_keys)
     except Exception as exc:
         xbmc.log('[DexHub] continue next episode: %s' % exc, xbmc.LOGDEBUG)
+    mark('nextup')
     # v5.10.286: titles removed from Continue Watching stay out (every
     # source's rows of them), until newer progress of the title arrives
-    return _continue_order(_continue_merge(_cw_hidden_filter(_with_iptv(_continue_source_filter(_drop_finished(rows))))))
+    rows = _continue_order(_continue_merge(_cw_hidden_filter(_with_iptv(_continue_source_filter(_drop_finished(rows))))))
+    mark('filters')
+    return rows
 
 
 def _cw_hidden_filter(rows):
@@ -20746,27 +20784,33 @@ def home_xml():
 
 def continue_watching(page='0'):
     _set_render_section('continue')
+    stages = _Stages('continue')
     # POV-style bridge: pull local POV progress rows into Dex Hub before
     # rendering. This is SQLite-only and throttled, so it stays lightweight.
     try:
         _import_pov_progress_if_available()
     except Exception:
         pass
+    stages.mark('pov')
     # Keep the screen snappy: slice first, then enrich only the visible rows.
-    all_rows = _continue_rows(limit=500)
+    all_rows = _continue_rows(limit=500, stages=stages)
     page_num, _page_size, raw_rows, has_more = _page_slice(all_rows, page)
     # v5.10.239: IPTV rows carry their own art and play from their subscription
     _iptv = set(id(r) for r in raw_rows if str(r.get('canonical_id') or '').startswith('iptv|'))
     _cw_warm_selected_source([r for r in raw_rows if id(r) not in _iptv])
+    stages.mark('warm')
     rows = []
     for _row, _filled in run_parallel(lambda r: r if id(r) in _iptv else _lazy_fill_row_art(r), raw_rows):
         rows.append(_filled if not isinstance(_filled, Exception) else _row)
+    stages.mark('art')
     rows = _continue_order(_continue_merge(rows))
     any_series = any(_continue_row_is_episode(r) for r in rows)
     any_movie = any(not _continue_row_is_episode(r) for r in rows)
     if any_series:
         _warm_episode_names([r for r in rows if _continue_row_is_episode(r)
                              and not str(r.get('canonical_id') or '').startswith('iptv|')])
+    stages.mark('names')
+    _enrich_took = 0.0
     if any_series and not any_movie:
         content_type = 'episodes'
     elif any_movie and not any_series:
@@ -20782,9 +20826,11 @@ def continue_watching(page='0'):
         try:
             from . import continue_metadata, meta_source as _cw_meta_source
             _metadata_ids = _merge_seed_ids(extract_ids({'id': row.get('canonical_id') or ''}), _get_tmdbh_seed_ids(row.get('canonical_id') or ''))
+            _enrich_at = time.monotonic()
             row = continue_metadata.enrich(row, _metadata_ids,
                 source=_cw_meta_source.get_meta_source_for(_cw_target_key(row)),
                 is_episode=is_episode)
+            _enrich_took += time.monotonic() - _enrich_at
         except Exception:
             pass
         title = row.get('title') or ''
@@ -21014,7 +21060,10 @@ def continue_watching(page='0'):
             info={'title': 'المزيد', 'plot': 'تحميل عناصر إضافية من متابعة المشاهدة'},
             art=root_art('continue'),
         )
+    stages.mark('build')
+    stages.add('of which enrich', _enrich_took)
     end_dir(content=content_type, cache=False)
+    stages.log(' (%d rows)' % len(rows))
 
 
 def cw_remove(media_type='', canonical_id='', video_id='', refresh=True, on_local=None):

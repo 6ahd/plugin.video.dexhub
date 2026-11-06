@@ -12,7 +12,7 @@ from concurrent.futures import (
 )
 import socket
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote, urlparse, urlunparse
+from urllib.parse import quote, urljoin, urlparse, urlunparse
 # v5.4.7: urllib.request is imported lazily at the call sites below.
 # It drags in http.client/email (~35ms x86, ~120-150ms ARM32) and was
 # paid on EVERY invoker cold start before the first byte of UI rendered.
@@ -91,6 +91,7 @@ def _ensure_pool():
     return _POOL_MGR
 
 from .common import addon, profile_path
+from ..redirect_policy import RedirectRefused, next_headers as _redirect_headers, origin as _origin
 
 # v3.9.17: use orjson when available — 2-5× faster than stdlib `json` on the
 # big catalog responses (200KB+ Stremio catalog payloads). Falls back to
@@ -853,6 +854,45 @@ def _hub_catalog(url, timeout):
         return None
 
 
+_REDIRECT_CODES = (301, 302, 303, 307, 308)
+_REDIRECT_HOPS = 5
+
+
+def pool_get(pool, url, headers=None, timeout=None):
+    """v5.10.527: GET through the urllib3 pool, following redirects.
+
+    The pool runs with retries=False, and urllib3 then hands back a 3xx as
+    it is even with redirect=True: Cinemeta's 307 was read as the catalog
+    (JSONDecodeError) and the Home rows stayed empty wherever urllib3 is
+    installed.
+
+    v5.10.528: origins are compared whole (scheme, host, port). Only the safe
+    headers cross to another origin, a request carrying private headers never
+    goes from https to http, and a redirect that does not end raises
+    RedirectRefused instead of passing a 3xx body on as content."""
+    read = getattr(timeout, 'read_timeout', None)
+    budget = max(5.0, 2.0 * read) if isinstance(read, (int, float)) else 60.0
+    deadline = time.monotonic() + budget
+    target, sent, seen = url, dict(headers or {}), {url}
+    for _hop in range(_REDIRECT_HOPS + 1):
+        resp = pool.request('GET', target, headers=sent, timeout=timeout, redirect=False,
+                            retries=False, decode_content=True, preload_content=True)
+        if int(resp.status) not in _REDIRECT_CODES:
+            return resp
+        location = resp.headers.get('location') or ''
+        if not location:
+            raise RedirectRefused('redirect without an address')
+        following = urljoin(target, location)
+        if following in seen:
+            raise RedirectRefused('redirect loop')
+        if time.monotonic() > deadline:
+            raise RedirectRefused('redirects took too long')
+        sent = _redirect_headers(sent, _origin(target), _origin(following))
+        seen.add(following)
+        target = following
+    raise RedirectRefused('too many redirects')
+
+
 def _http_get(url, headers, timeout, retry=True, rate_wait=2.0):
     """Single HTTP GET with retry, transparent gzip, returns decoded text.
 
@@ -869,15 +909,8 @@ def _http_get(url, headers, timeout, retry=True, rate_wait=2.0):
             try:
                 # decode_content=True lets urllib3 transparently gunzip.
                 # We then read .data which is already decompressed bytes.
-                resp = pool.request(
-                    'GET', url,
-                    headers=headers,
-                    timeout=_URLLIB3.Timeout(connect=min(10, timeout), read=timeout),
-                    redirect=True,
-                    retries=False,
-                    decode_content=True,
-                    preload_content=True,
-                )
+                resp = pool_get(pool, url, headers=headers,
+                                timeout=_URLLIB3.Timeout(connect=min(10, timeout), read=timeout))
                 if 500 <= resp.status < 600 and retry and attempt == 0:
                     # Retry once on 5xx (matches the urllib path).
                     last_exc = Exception('upstream %d' % resp.status)
@@ -886,6 +919,8 @@ def _http_get(url, headers, timeout, retry=True, rate_wait=2.0):
                 if resp.status >= 400:
                     raise Exception('HTTP %d for %s' % (resp.status, url))
                 return resp.data.decode('utf-8', 'replace')
+            except RedirectRefused:
+                raise
             except Exception as exc:
                 last_exc = exc
                 if retry and attempt == 0:

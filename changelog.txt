@@ -1,3 +1,27 @@
+5.10.531
+الكوليكشن يعرض بطاقاته على طول ويكمل قصتها بعدين، بدل ما ينتظرها (كان 0.4 إلى 1.3 ثانية، والحين أقل من 0.1).
+A collection shows its cards at once and fills in their story after, instead of waiting for it (0.4 to 1.3 s before, under 0.1 s now).
+
+5.10.530
+بيانات الدخول تبقى مع السيرفر المقصود. كل طلبات Dex Hub صارت تمشي على قاعدة وحدة في التحويلات: ما ينتقل لعنوان ثاني غير المعلومات العادية، والطلب اللي فيه تسجيل دخول ما ينزل من https إلى http.
+Logins stay with the server they were meant for. Every request Dex Hub makes now follows one rule on redirects: only plain headers go to another address, and a signed-in request never drops from https to http.
+
+5.10.529
+الرئيسية أسرع وقت التشغيل: القسم اللي على الشاشة يظهر أول والباقي وراه. متابعة المشاهدة تحتفظ بصفها المحفوظ لما يتجدد رمز الدخول (كانت تنتظر السيرفرات ثانيتين ونص). والرئيسية تنتظر الصور الناقصة ثانيتين بدل 6. وسطر في السجل يبيّن وين راح وقت متابعة المشاهدة.
+A faster Home at start: the tab on screen shows first and the others follow behind it. Continue Watching keeps its saved shelf when a login token renews (it waited 2.5 s for the servers). The Home waits 2 s for missing artwork, not 6. A log line shows where Continue Watching's time went.
+
+5.10.528
+التحويلات صارت أأمن: ما ينتقل لعنوان ثاني غير المعلومات العادية (رمز بروفايل Silo كان ينتقل معها)، والطلب اللي فيه تسجيل دخول ما ينزل من https إلى http أبداً، والتحويل اللي ما يخلص يعطي خطأ واضح بدل قائمة فاضية.
+Safer redirects: only plain headers go to another address (Silo's profile token used to go along), a signed-in request never drops from https to http, and a redirect that never ends gives a clear error instead of an empty list.
+
+5.10.527
+على الأجهزة اللي فيها urllib3، Dex Hub صار يتبع التحويلات. Cinemeta صار يحوّل طلباته لعنوان ثاني، وكان التحويل ينقرا كأنه القائمة فتطلع صفوف الرئيسية فاضية. طلبات Emby وSilo وTMDb نفس التصليح.
+Where urllib3 is installed, Dex Hub now follows redirects. Cinemeta moved its catalogs behind a redirect, which was read as the catalog and left the Home rows empty. Emby, Silo and TMDb calls get the same fix.
+
+5.10.526
+أثبت على كودي 22 لما توقف فيديو: Arctic Fuse 3 يحدّث ويدجتات Dex Hub في واجهته وقتها، وويدجت المصادر ما عاد يحدّث الشعارات الناقصة بالخلفية (فتح المصادر بنفسك يحدّثها). وخيوط تجهيز بيانات TMDb تطلع لما تخلص بدل ما تخلي كل طلب مفتوح 45 ثانية.
+Steadier on Kodi 22 when a video stops: Arctic Fuse 3 reloads Dex Hub's widgets on its Home then, and the Sources widget no longer refreshes missing logos in the background (opening Sources still does). The TMDb warm-up workers leave once idle instead of keeping each call open 45 s.
+
 5.10.525
 الكوليكشن وDiscover ينفتحون من فوق: القسم يظهر لما توصل أعماله. كانت الأقسام تطلع فاضية، فأول قسم يوصل يصير القائمة الوحيدة اللي تقدر تاخذ المؤشر، وكودي ينزّل الصفحة لآخرها عشانه (Netflix في DexWorld كان يفتح على Pixar وA24).
 A collection or Discover opens at its top: a section shows once its titles are in. Shown empty, the first section in was the only list that could take the cursor, and Kodi scrolled the page to its end for it (DexWorld's Netflix opened on Pixar and A24).

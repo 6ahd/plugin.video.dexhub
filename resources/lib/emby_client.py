@@ -207,12 +207,8 @@ def _pooled_get(url, headers, timeout):
     last_exc = None
     for attempt in (0, 1):
         try:
-            resp = pool.request(
-                'GET', url, headers=headers,
-                timeout=urllib3.Timeout(connect=min(5, timeout), read=timeout),
-                redirect=True, retries=False, decode_content=True,
-                preload_content=True,
-            )
+            resp = _http.pool_get(pool, url, headers=headers,
+                                  timeout=urllib3.Timeout(connect=min(5, timeout), read=timeout))
             status = int(getattr(resp, 'status', 0) or 0)
             if 500 <= status < 600 and attempt == 0:
                 time.sleep(0.15)

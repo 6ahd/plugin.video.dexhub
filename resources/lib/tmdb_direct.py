@@ -340,10 +340,8 @@ def _request(path, params=None, timeout=None, max_attempts=3,
                     host_of(url), max_wait=max(0.0, float(rate_wait or 0.0)))
             if pool is not None and urllib3 is not None:
                 try:
-                    resp = pool.request(
-                        'GET', url, headers=dict(req.headers),
-                        timeout=urllib3.Timeout(connect=min(10.0, request_timeout), read=request_timeout),
-                        redirect=True, retries=False, decode_content=True, preload_content=True)
+                    resp = _client.pool_get(pool, url, headers=dict(req.headers),
+                                            timeout=urllib3.Timeout(connect=min(10.0, request_timeout), read=request_timeout))
                 except Exception as exc:
                     # urllib3 names the address (and with it the API key)
                     raise urllib.error.URLError(type(exc).__name__) from None

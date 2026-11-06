@@ -1094,8 +1094,15 @@ def _tmdb_warm(request):
             return
         _TMDB_WARM_PENDING.add(key)
         if _TMDB_POOL is None:
-            from concurrent.futures import ThreadPoolExecutor
-            _TMDB_POOL = ThreadPoolExecutor(max_workers=2, thread_name_prefix='DexHubTmdbWarm')
+            # v5.10.526: workers that leave once idle for 1.5 s. The executor
+            # this replaces was never shut down, so its two workers waited in
+            # their queue for ever and every call that warmed a title stayed
+            # open 45 s for them ("call ends with threads alive:
+            # DexHubTmdbWarm_0 | DexHubTmdbWarm_1", nine times in the
+            # LibreELEC log of 5 Nov), the threads Kodi 22 crashes around
+            # when another call's interpreter closes.
+            from .runtime_tasks import IdleExitPool
+            _TMDB_POOL = IdleExitPool(max_workers=2, name='DexHubTmdbWarm')
 
     def run():
         try:

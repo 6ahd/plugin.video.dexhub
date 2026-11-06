@@ -28,6 +28,10 @@ install_tvos_compat()
 from resources.lib.net_guard import install as _ipv4_first
 _ipv4_first()
 
+# v5.10.530: logins stay with the server they were meant for (redirect_guard.py)
+from resources.lib.redirect_guard import install as _guard_redirects
+_guard_redirects()
+
 from resources.lib.portable_restore import startup as restore_startup
 restore_startup()
 

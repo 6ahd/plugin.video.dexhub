@@ -420,16 +420,27 @@ def published(tab):
 
 def publish_saved(tabs=C.TABS):
     """The rows saved by the last publish, put on the Home at once (a few
-    milliseconds); False when there is nothing saved yet."""
+    milliseconds); False when there is nothing saved yet.
+
+    v5.10.529: the tab on screen goes first and the Home is ready right after
+    it. Every property waits for Kodi's GUI lock: on a CoreELEC box as Kodi
+    starts, all 79 rows of all the tabs took 8.8 s with the Home empty."""
     from . import strings
+    began = time.monotonic()
     strings.publish()
-    total, found = 0, False
-    for tab in tabs:
+    labels = time.monotonic()
+    visible = C.prop('dhs.tab')
+    ordered = sorted(tabs, key=lambda tab: tab != visible)
+    total, found, first = 0, False, 0.0
+    for tab in ordered:
         specs = load_specs(tab)
         if specs:
-            found = True
             total += _publish_tab(tab, specs)
+            if not found:
+                found = True
+                C.set_prop(C.PROP_READY, '1')
+                first = time.monotonic()
     if found:
-        C.set_prop(C.PROP_READY, '1')
-        C.log('rows shown from the last session: %d' % total)
+        C.log('rows shown from the last session: %d (labels %d ms, first tab %d ms, every tab %d ms)' % (
+            total, (labels - began) * 1000, (first - labels) * 1000, (time.monotonic() - labels) * 1000))
     return found
