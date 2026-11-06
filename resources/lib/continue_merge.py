@@ -16,9 +16,16 @@ def _episode(row):
 
 
 def _number(value):
-    from decimal import Decimal, InvalidOperation
     if value in (None, '') or isinstance(value, bool):
         return ''
+    # v5.10.532: nearly every value is a plain number. Python's Decimal is the
+    # slow pure-Python one on these builds: 1,760 calls in one Continue Watching
+    if isinstance(value, int):
+        return str(value) if value >= 0 else ''
+    text = str(value).strip()
+    if text.isascii() and text.isdigit():
+        return str(int(text))
+    from decimal import Decimal, InvalidOperation
     try:
         n = Decimal(str(value).strip())
         return str(int(n)) if n.is_finite() and n >= 0 and n == int(n) else ''

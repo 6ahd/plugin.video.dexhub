@@ -1,3 +1,15 @@
+5.10.534
+المكتبة رجعت تعرض متابعتك من كل الخدمات المربوطة، مو بس Trakt والتقويم: قسم «كمّل من حيث وقفت» في أول الصفحة بزر لكل خدمة (ومعها Plex وSilo وباقي السيرفرات). OK يشغّل، وزر القائمة يفتح العمل، والأزرار تفلتر قائمة المشاهدة كمان، وكل تذكرة تقول من أي خدمة.
+My Library shows what you are watching on every linked service again, not only Trakt and the calendar: "Pick up where you left" at the top of the page with a chip per service (Plex, Silo and the other servers too). OK plays, Menu opens the title, the chips filter the watchlist too, and each ticket says which service it is from.
+
+5.10.533
+الإشعارات اللي تقراها تختفي وما ترجع بعد إعادة التشغيل، ونتائج الأندية صارت في قائمة الجرس وتنمسح منها. الرجوع من كتالوج في الاستكشف يرجعك لنفس البطاقة بدل الرئيسية. IPTV: الطلبات تروح للسيرفر وحدة وحدة، ورد 401 أو 403 يتجرب مرة ثانية قبل ما يطلع الخطأ، والمكتبة تعرض آخر نسخة عندها لو تعثر السيرفر.
+Alerts you read stay gone, also after a restart, and club results are now in the bell list and clear from it. Back from a Discover catalog returns to the same card instead of the Home. IPTV: a panel is asked one request at a time, a 401 or 403 is tried once more before the error shows, and the library shows its last copy when the panel fails.
+
+5.10.532
+إعادة تحميل السكين صارت أقل بكثير. شكل بطاقة جديد لصف ما تشوفه ينتظر التشغيل الجاي، والصف يظهر بوسترات لين ذاك الوقت وما يطلع فاضي. الشكل أو التصميم اللي تختاره بنفسك يتطبق على طول. ومتابعة المشاهدة تسوي شغل أقل.
+Far fewer skin reloads. A new card style for a row you can't see waits for the next start, and rows show as posters until then, never blank. A style or layout you pick yourself still applies at once. Continue Watching does less work.
+
 5.10.531
 الكوليكشن يعرض بطاقاته على طول ويكمل قصتها بعدين، بدل ما ينتظرها (كان 0.4 إلى 1.3 ثانية، والحين أقل من 0.1).
 A collection shows its cards at once and fills in their story after, instead of waiting for it (0.4 to 1.3 s before, under 0.1 s now).

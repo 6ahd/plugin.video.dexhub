@@ -538,7 +538,7 @@ def open_collection(app, params):
             xbmc.executebuiltin('RunPlugin("%s")' % action)
             return
         if not query:
-            return
+            return True         # v5.10.533: Back: a page under this one comes back
         try:
             from ..skinui.items import title_here, title_target
             skin_page = title_here()

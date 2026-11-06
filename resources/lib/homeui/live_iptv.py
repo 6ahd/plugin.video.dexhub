@@ -865,9 +865,24 @@ def _xt_base(conf):
 
 
 def xt_api(conf, timeout=15, **params):
+    """v5.10.533: one request at a time to a panel (the rows, the VOD and the
+    channels went at once, and some panels turn a burst away with 403 although
+    the account is fine), and a 401 or 403 asked once more on a new connection
+    after a moment. A refusal that stays is still said."""
     query = [('username', conf.get('username') or ''), ('password', conf.get('password') or '')]
     query.extend((k, v) for k, v in params.items() if v not in (None, ''))
-    return LS.http_json('%s/player_api.php?%s' % (_xt_base(conf), urlencode(query)), timeout=timeout)
+    address = '%s/player_api.php?%s' % (_xt_base(conf), urlencode(query))
+    with _xt_api_lock(conf):
+        try:
+            return LS.http_json(address, timeout=timeout)
+        except LS.SourceError as exc:
+            if not re.search(r'HTTP 40[13]\b', str(exc)):
+                raise
+            xbmc.log('[DexHub] live: panel %s said %s to %s, asking once more' % (
+                urlsplit(_xt_base(conf)).hostname or '?', re.search(r'40[13]', str(exc)).group(0),
+                params.get('action') or 'login'), xbmc.LOGINFO)
+        time.sleep(2.0)
+        return LS.http_json(address, headers={'Connection': 'close'}, timeout=timeout)
 
 
 def _refused(user):
@@ -947,8 +962,18 @@ def categories(profile, conf, refresh=False):
 # fails it) is asked per category, one request at a time.
 XT_FULL_LIMIT = 25 * 1024 * 1024
 _xt_hosts = {}          # panel host -> the lock its requests take turns on
+_xt_api_locks = {}      # panel host -> the lock xt_api's single requests take turns on
 _xt_hosts_lock = threading.Lock()
 _xt_full_tried = {}     # account id -> time its whole list was last asked for
+
+
+def _xt_api_lock(conf):
+    host = (urlsplit(_xt_base(conf)).netloc or str(conf.get('id') or '')).lower()
+    with _xt_hosts_lock:
+        lock = _xt_api_locks.get(host)
+        if lock is None:
+            lock = _xt_api_locks[host] = threading.Lock()
+        return lock
 
 
 def _xt_host_lock(conf):

@@ -1113,6 +1113,8 @@ def _home_changed():
         from ..skinui import common as C
         from ..skinui.actions import worker_alive
         if worker_alive():
+            from ..skinui import home_layouts
+            home_layouts.force_next()       # v5.10.532: the user's change shows at once
             C.ask_republish('home editor')
         else:
             from ..skinui import rows

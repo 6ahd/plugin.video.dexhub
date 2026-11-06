@@ -399,9 +399,16 @@ def _alerts():
         rows.extend(silo_notifications.notices())
     except Exception as exc:
         C.log('panel: Silo inbox unavailable: %s' % type(exc).__name__, xbmc.LOGWARNING)
+    # v5.10.533: the bell counted the games, but this list did not hold them,
+    # so there was nothing here to read and clear
+    try:
+        from .. import island
+        rows.extend(r for r in island.notices() if r.get('kind') == 'sport')
+    except Exception as exc:
+        C.log('panel: games unavailable: %s' % type(exc).__name__, xbmc.LOGWARNING)
     # v5.10.474: the kinds the user switched off (alerts_prefs)
     from .. import alerts_prefs
-    rows = [r for r in rows if alerts_prefs.notice_on('silo' if r.get('kind') == 'silo' else 'newep')]
+    rows = [r for r in rows if alerts_prefs.notice_on(r.get('kind') if r.get('kind') in ('silo', 'sport') else 'newep')]
     count = len(rows)
     # v5.10.371: the watch party first (the island opens this tab), not counted
     if alerts_prefs.on('party'):
@@ -801,6 +808,8 @@ def _alert_items(got):
                  'wday': '' if monitoring else _t('اليوم', 'TODAY'), 'mday': '' if monitoring else str(datetime.date.today().day)}
         if ev.get('kind') == 'silo':
             props['badge'] = ev.get('kicker') or 'Silo'
+        if ev.get('kind') == 'sport':
+            props['badge'] = ev.get('kicker') or ''
         if index == 0:
             props['kick'] = _t('OK لإدارة المراقبة', 'OK TO MANAGE') if monitoring else _t('متوفر الآن', 'READY TO WATCH')
             if ev.get('kind') == 'silo':
@@ -900,6 +909,14 @@ def refresh(params, handle):
 
 def open_alert(params, handle=None):
     key = str(params.get('key') or '')
+    if key.startswith('sport|'):
+        from .. import island
+        island.mark_read([key])
+        refresh_alerts()
+        target = str(params.get('target') or '')
+        if target.startswith(C.BASE + '?') or target.startswith(C.BASE + '/?'):
+            xbmc.executebuiltin('RunPlugin(%s)' % target)
+        return
     if key.startswith('silo|'):
         from .. import silo_notifications
         # Resolve the current owner's event again, rather than trusting a
@@ -934,6 +951,8 @@ def read_all(params=None, handle=None):
     from .. import silo_notifications
     events = _alerts()['rows']
     silo_notifications.mark_read([r for r in events if r.get('kind') == 'silo'], all_visible=True)
-    W.mark_read([r['key'] for r in events if r.get('key') and r.get('kind') != 'silo'])
+    W.mark_read([r['key'] for r in events if r.get('key') and r.get('kind') not in ('silo', 'sport')])
     W.sync_alerts()
+    from .. import island
+    island.mark_read([r['key'] for r in events if r.get('kind') == 'sport'])
     refresh_alerts()

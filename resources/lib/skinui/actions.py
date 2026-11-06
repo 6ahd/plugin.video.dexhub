@@ -1443,6 +1443,8 @@ def row_shape(params, handle):
     a.layout.set_shape(spec['key'], key)
     # v5.10.179: the rows are published again with the new style (a row's
     # shape, a collection row's look) at once
+    from . import home_layouts
+    home_layouts.force_next()       # v5.10.532: the user's own style shows at once
     C.ask_republish('row style')
     if key in _PLAIN_STYLES and not spec.get('shelf') and not spec.get('walls') and spec.get('kind') != 'collection':
         # v5.10.188: a plain style shows at once on the row as it is (the

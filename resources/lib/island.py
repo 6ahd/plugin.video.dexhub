@@ -218,13 +218,13 @@ def notices(soon=False, party=False):
     try:
         # v5.10.453: a followed team's game live or just ended
         from . import sport_feed
-        gone = set((home.getProperty('dhs.island.dismissed') or '').split('\n'))
+        gone = _gone(home)
         out.extend(row for row in sport_feed.island_notices(_json(sport_feed.ISLAND_PROP), now) if row['key'] not in gone)
     except Exception:
         pass
     today = datetime.date.today().isoformat()
     if home.getProperty('dhs.newep.day') == today:
-        gone = set((home.getProperty('dhs.island.dismissed') or '').split('\n'))
+        gone = _gone(home)
         for ev in _json('dhs.newep.list') or []:
             if not isinstance(ev, dict) or not ev.get('title'):
                 continue
@@ -245,6 +245,45 @@ def notices(soon=False, party=False):
     except Exception:
         pass
     return out
+
+
+def _gone_path():
+    from . import profile_scope
+    return profile_scope.path('island_read.json')
+
+
+def _gone(home):
+    """v5.10.533: the notices read or cleared. Kept on disk too: a result
+    read and gone came back with every start of Kodi."""
+    if home.getProperty('dhs.island.dismissed.loaded') != '1':
+        home.setProperty('dhs.island.dismissed.loaded', '1')
+        try:
+            with open(_gone_path(), 'r', encoding='utf-8') as fh:
+                kept = [str(k) for k in json.load(fh) if k]
+        except (OSError, ValueError, TypeError):
+            kept = []
+        old = [k for k in (home.getProperty('dhs.island.dismissed') or '').split('\n') if k]
+        home.setProperty('dhs.island.dismissed', '\n'.join((kept + old)[-120:]))
+    return set((home.getProperty('dhs.island.dismissed') or '').split('\n'))
+
+
+def mark_read(keys):
+    """These notices are read: they leave the bell, its count and the panel."""
+    keys = [k for k in keys or [] if k]
+    if not keys:
+        return
+    home = _home()
+    _gone(home)
+    old = [k for k in (home.getProperty('dhs.island.dismissed') or '').split('\n') if k]
+    merged = (old + [k for k in keys if k not in old])[-120:]
+    home.setProperty('dhs.island.dismissed', '\n'.join(merged))
+    try:
+        with open(_gone_path(), 'w', encoding='utf-8') as fh:
+            json.dump(merged, fh)
+    except OSError:
+        pass
+    changed()
+    refresh(force=True)
 
 
 def _on_home():
@@ -471,10 +510,9 @@ def dismiss():
     home = _home()
     from . import silo_notifications
     silo_notifications.mark_read(notices(), all_visible=True)
-    keys = [i['key'] for i in notices() if i.get('kind') == 'newep']
+    keys = [i['key'] for i in notices() if i.get('kind') in ('newep', 'sport')]
     home.clearProperty('dhs.island.resume')
-    old = [k for k in (home.getProperty('dhs.island.dismissed') or '').split('\n') if k]
-    home.setProperty('dhs.island.dismissed', '\n'.join((old + keys)[-60:]))
+    mark_read(keys)
     changed()
     refresh(force=True)
 
@@ -505,9 +543,14 @@ def inbox(settings=False):
     window.doModal()
     chosen = window.chosen
     del window
+    # v5.10.533: a full-time result on this list has been read; a game still
+    # on stays until it ends (its key changes at full time)
+    mark_read([i['key'] for i in items if i.get('kind') == 'sport' and str(i.get('key')).endswith('|post')])
     if not chosen:
         return None
     kind = chosen.get('kind')
+    if kind == 'sport':
+        mark_read([chosen.get('key')])
     if kind == 'dismiss':
         from . import watch_sources
         watch_sources.mark_read([i.get('alert_key') for i in items if i.get('kind') == 'newep' and i.get('alert_key')])

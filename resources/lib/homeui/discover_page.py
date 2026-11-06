@@ -102,6 +102,7 @@ class DiscoverWindow(xbmcgui.WindowXMLDialog):
         self.watched = set()
         self.next_title = None
         self.next_action = None
+        self.next_folder = None
         self._gen = 0
         self._threads = []
         self._lock = threading.Lock()
@@ -273,7 +274,15 @@ class DiscoverWindow(xbmcgui.WindowXMLDialog):
             self.setProperty('dw.s%d.off' % n, '' if rows else '1')
             self.setProperty('dw.s%d.src' % n, (_t('من %s', 'from %s') % src) if src and rows else '')
             self._wire()
-            first = not self._moved and rows and key == 'trending' and self.getFocusId() in KINDS
+            back = self.state.get('back_to')
+            returned = bool(rows and back and back[0] == 400 + n)
+            if returned:
+                # v5.10.533: back from a catalog, on the card it was opened from
+                control.selectItem(min(back[1], len(items) - 1))
+                self.state.pop('back_to', None)
+            first = returned or (not self._moved and rows and key == 'trending' and not back
+                                 and self.getFocusId() in KINDS)
+            self._moved = self._moved or returned
         if first:
             # the page opens on its first section once it has titles
             take_focus(self, 400 + n)
@@ -426,8 +435,12 @@ class DiscoverWindow(xbmcgui.WindowXMLDialog):
     # ---------------------------------------------------------- doing
     def _open(self, row):
         if row.get('kind') == 'folder':
-            from ..skinui import folderpage
-            self.next_action = folderpage.page_url(row.get('ref') or {}, row.get('title') or '')
+            # v5.10.533: opened from here, so Back comes here, to this card (it
+            # was started and forgotten, and Back went to the Home)
+            self.next_folder = (row.get('ref') or {}, row.get('title') or '')
+            cid = self.getFocusId()
+            if 401 <= cid <= 410:
+                self.state['back_to'] = (cid, self.getControl(cid).getSelectedPosition())
         else:
             query = {'m': row.get('kind'), 'title': row.get('title') or '', 'tmdb': row.get('tmdb') or '',
                      'imdb': row.get('imdb') or ''}
@@ -457,6 +470,20 @@ class DiscoverWindow(xbmcgui.WindowXMLDialog):
         self.close_window()
 
 
+def _open_folder(app, ref, title):
+    """The collection over this page; True when Back brought the user back
+    here. Its classic look and other skins keep their own route."""
+    from urllib.parse import parse_qsl, urlsplit
+    from ..settings_cache import cached_addon
+    from ..skinui import folderpage
+    url = folderpage.page_url(ref, title)
+    if xbmc.getSkinDir() != 'skin.dexhub' or (cached_addon().getSetting('collection_look') or 'sections') == 'classic':
+        xbmc.executebuiltin('RunPlugin("%s")' % url)
+        return False
+    from .collection_page import open_collection
+    return bool(open_collection(app, dict(parse_qsl(urlsplit(url).query))))
+
+
 def page_is_calendar(row):
     return 'code' in row and 'out' in row
 
@@ -469,8 +496,12 @@ def open_discover(app):
     while True:
         window = DiscoverWindow(ui_size.xml('dexhub_discover.xml'), app.addon_path, 'Default', '1080i', app=app, state=state)
         app._show(window)
-        query, action = window.next_title, window.next_action
+        query, action, folder = window.next_title, window.next_action, window.next_folder
         del window
+        if folder:
+            if _open_folder(app, *folder):
+                continue
+            return
         if action:
             xbmc.executebuiltin('RunPlugin("%s")' % action)
             return

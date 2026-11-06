@@ -292,6 +292,7 @@ def tidy_titles(specs):
 
 def _publish_tab(tab, specs):
     from .catalog_follow import compose
+    from . import home_layouts
     specs = compose(tab, specs)
     shown = 0
     source_on = show_source()       # v5.10.286
@@ -338,7 +339,7 @@ def _publish_tab(tab, specs):
             shape = 'feature'
         if shown > 10:
             shape = _FAR.get(shape, shape)
-        C.set_prop(prefix + 'shape', shape)
+        C.set_prop(prefix + 'shape', home_layouts.shown(shown, shape))    # v5.10.532
         C.set_prop(prefix + 'key', key)
         C.set_prop(prefix + 'path', row_path(tab, spec['id'], _version(tab, spec['id']), slot=shown))
         shapes.append(shape or 'poster')
@@ -356,7 +357,6 @@ def _publish_tab(tab, specs):
     C.set_prop('dhs.%s.shapes' % tab, '|'.join(shapes))
     # v5.10.447: the Home rows take only the card styles they use (skin.dexhub 3.28.167)
     try:
-        from . import home_layouts
         home_layouts.sync()
     except Exception as exc:
         C.log('home rows: %s' % exc)

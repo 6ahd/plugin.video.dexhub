@@ -61,7 +61,15 @@ def cached(app, source, key, read):
     if isinstance(hit, dict) and time.time() - float(hit.get('t') or 0) < TTL:
         _remember(path, hit)
         return hit.get('data')
-    data = read()  # Failure is not cached as an empty successful response.
+    try:
+        data = read()  # Failure is not cached as an empty successful response.
+    except XT.Refused:
+        raise
+    except LS.SourceError:
+        # v5.10.533: the last copy over an error while the panel is unwell
+        if isinstance(hit, dict) and hit.get('data'):
+            return hit.get('data')
+        raise
     hit = {'t': time.time(), 'data': data}
     LS.write_json(path, hit)
     _remember(path, hit)

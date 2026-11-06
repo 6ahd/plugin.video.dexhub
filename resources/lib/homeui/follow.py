@@ -42,7 +42,8 @@ A_CONTEXT, A_MENU = 117, 163
 A_BACK = {9, 10, 92, 216, 247, 257, 275, 61448, 61467}
 SERIES = ('series', 'show', 'tv', 'tvshow', 'anime', 'episode', 'season')
 SERVICES = (('trakt', 'Trakt'), ('simkl', 'Simkl'), ('nuvio', 'Nuvio'), ('mdblist', 'MDBList'),
-            ('floppy', 'Floppy'), ('stremio', 'Stremio'))
+            ('floppy', 'Floppy'), ('stremio', 'Stremio'), ('plex', 'Plex'), ('emby', 'Emby'),
+            ('jellyfin', 'Jellyfin'), ('silo', 'Silo'))
 SRC_PROP = 'dexhub.follow.src'
 KIND_PROP = 'dexhub.follow.media'
 
@@ -151,6 +152,14 @@ def up_next(app):
                         break
             if name.lower().startswith('tt') or _CODE_RE.match(name):
                 continue
+            # v5.10.534: a Plex, Emby or Silo card carries only a key to its saved
+            # row: no ids and no service, so it opened nothing and fell under no chip
+            native = {}
+            if params.get('action') == 'native_resume' and params.get('key'):
+                try:
+                    native = api.cache_store.get('native_resume', params['key']) or {}
+                except Exception:
+                    native = {}
             key = (tile.get('tmdb_id') or tile.get('imdb_id') or name).lower()
             # v5.10.469: one card per show, whatever the language of its name
             # or the episode (the show's own ids)
@@ -163,7 +172,7 @@ def up_next(app):
                 continue
             seen.add(key)
             seen.update(show_keys)
-            provider = params.get('provider_name') or tile.get('provider') or ''
+            provider = params.get('provider_name') or tile.get('provider') or native.get('provider_name') or ''
             if not _service(provider):
                 for value in (params.get('canonical_id'), tile.get('imdb_id'), tile.get('tmdb_id')):
                     value = str(value or '').split(':')[0].lower()
@@ -171,6 +180,8 @@ def up_next(app):
                         provider = providers[value]
                         break
             src = _service(provider)
+            place = provider.split('•')[-1].strip() if '•' in provider else dict(SERVICES).get(src, '') or provider
+            src = src or provider.lower()
             line = []
             code = _code(tile.get('season'), tile.get('episode')) if episode else ''
             if code:
@@ -181,13 +192,18 @@ def up_next(app):
                 line.append(_t('الحلقة القادمة', 'Next episode'))
             elif not episode and tile.get('year'):
                 line.append(tile['year'])
-            badge = dict(SERVICES).get(src, '') or (_t('الحلقة القادمة', 'Up next') if nextup else '')
+            badge = place or (_t('الحلقة القادمة', 'Up next') if nextup else '')
+            tmdb, imdb = tile.get('tmdb_id'), tile.get('imdb_id')
+            if not episode:
+                tmdb, imdb = tmdb or native.get('tmdb_id'), imdb or native.get('imdb_id')
             out.append({
                 'title': name, 'line': '  ·  '.join(line), 'thumb': R.card_landscape(tile),
                 'poster': tile.get('poster') or '', 'logo': tile.get('clearlogo') or '',
                 'media': 'series' if episode else 'movie', 'srcs': {src} if src else set(),
                 'badge': badge, 'prog': tile.get('progress') or 0, 'left': _left(tile),
-                'open': _query('series' if episode else 'movie', name, tile.get('tmdb_id'), tile.get('imdb_id')),
+                'open': _query('series' if episode else 'movie', name, tmdb, imdb),
+                'find': (native.get('imdb_id'), native.get('tvdb_id')) if episode else None,
+                'place': dict(SERVICES).get(src, '') or place,
                 'play': tile.get('path') or '', 'folder': bool(tile.get('folder')),
                 'menu': [tuple(m) for m in (tile.get('menu') or []) if len(m) == 2],
                 'order': len(out),
@@ -465,6 +481,34 @@ def linked():
         if key in names:
             out.append((key, name))
     return out
+
+
+def title_query(entry):
+    """What opens a card's title. A server's episode knows the episode's ids
+    only: the show's are asked for here, when it is opened (saved a week)."""
+    query = entry.get('open') or {}
+    if query or not entry.get('find'):
+        return query
+    from .. import tmdb_direct as T
+    imdb, tvdb = entry['find']
+    show = T.show_tmdb_for_episode_imdb(imdb) if imdb else ''
+    if not show and tvdb:
+        show = T.episode_for_external(tvdb).get('show_tmdb_id') or ''
+    entry['open'] = _query('series', entry.get('title'), show) if show else {}
+    return entry['open']
+
+
+def play_entry(window, entry):
+    """OK on an Up next card, here and on the My page: the window goes, it plays."""
+    from . import rows as R
+    path = entry.get('play') or ''
+    if not path:
+        return
+    window.close_window()
+    if R.is_dexhub_path(path) and (entry.get('folder') and R.params_of(path).get('action') not in R.PLAYER_ACTIONS):
+        xbmc.executebuiltin('ActivateWindow(Videos,"%s",return)' % path)
+    else:
+        xbmc.executebuiltin('%s("%s")' % ('RunPlugin' if R.is_dexhub_path(path) else 'PlayMedia', path))
 
 
 # ---------------------------------------------------------------- the window
@@ -980,18 +1024,10 @@ class FollowWindow(xbmcgui.WindowXMLDialog):
         self._start('up', lambda: up_next(self.app))
 
     def play(self, entry):
-        from . import rows as R
-        path = entry.get('play') or ''
-        if not path:
-            return
-        self.close_window()
-        if R.is_dexhub_path(path) and (entry.get('folder') and R.params_of(path).get('action') not in R.PLAYER_ACTIONS):
-            xbmc.executebuiltin('ActivateWindow(Videos,"%s",return)' % path)
-        else:
-            xbmc.executebuiltin('%s("%s")' % ('RunPlugin' if R.is_dexhub_path(path) else 'PlayMedia', path))
+        play_entry(self, entry)
 
     def open_title(self, entry):
-        query = entry.get('open') or {}
+        query = title_query(entry)
         if not query:
             xbmcgui.Dialog().notification('Dex Hub', _t('ما قدرنا نحدد العمل', 'Could not tell which title this is'),
                                           time=2000, sound=False)
