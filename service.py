@@ -1361,6 +1361,17 @@ if __name__ == '__main__':
     threading.Thread(target=_native_playback_worker, name='DexHub-playback-assist', daemon=True).start()
 
     # v5.10.509: DexWorld's rows on the Home for a new profile (home_seed.py)
+    def _android_files_worker():
+        # v5.10.538: once, after the start has settled
+        try:
+            if not monitor.waitForAbort(25):
+                from resources.lib import android_files
+                android_files.ask()
+        except Exception as exc:
+            xbmc.log('[DexHub] android files: %s' % type(exc).__name__, xbmc.LOGWARNING)
+
+    threading.Thread(target=_android_files_worker, name='DexHub-android-files', daemon=True).start()
+
     def _home_seed_worker():
         try:
             from resources.lib.home_seed import run as _seed

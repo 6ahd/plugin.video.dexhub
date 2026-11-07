@@ -241,10 +241,11 @@ def osd(action, params, handle):
         from . import subwindow
         return subwindow.open_window(params)
     if action == 'skin_osd_playerinfo':
-        # v5.10.535: what is playing, in three tabs. v5.10.537: the external
-        # add-on (Lucent's page, GPL, kept apart from this one) when installed
-        if xbmc.getCondVisibility('System.HasAddon(script.dexhub.playerinfo)'):
-            xbmc.executebuiltin('RunScript(script.dexhub.playerinfo)')
+        # what is playing, in three tabs (5.10.539: one page, inside the add-on);
+        # TinyPPI instead when the person chose it and it is installed
+        from .. import ui_preferences
+        if ui_preferences.value('player_ppi_page') == 'tiny' and xbmc.getCondVisibility('System.HasAddon(script.tinyppi)'):
+            xbmc.executebuiltin('RunScript(script.tinyppi)')
             return None
         from . import playerinfo
         return playerinfo.open_window(params)

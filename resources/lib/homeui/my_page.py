@@ -19,7 +19,10 @@ the saved copy, read again in the background). Up from the days goes back
 to the Home's bar, where the page opened from.
 """
 import datetime
+import json
+import os
 import threading
+import time
 
 import xbmc
 import xbmcgui
@@ -31,7 +34,7 @@ from .sport_page import take_focus
 A_LEFT, A_RIGHT, A_UP, A_DOWN = 1, 2, 3, 4
 A_CONTEXT, A_MENU = 117, 163
 A_BACK = {9, 10, 92, 216, 247, 257, 275, 61448, 61467}
-CHAIN = (453, 406, 451, 401, 407, 408, 402, 403, 404, 405)
+CHAIN = (453, 406, 407, 408, 451, 401, 402, 403, 404, 405)     # v5.10.539: what you watch first, the calendar after
 SECTION_OF = {453: 6, 406: 6, 407: 8, 408: 9, 402: 2, 403: 3, 404: 4, 405: 5}
 DAYS_AR = ('اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت', 'أحد')
 DAYS_EN = ('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun')
@@ -73,6 +76,39 @@ def _ids(row):
     return kind, tmdb, imdb
 
 
+UP_FILE = 'my_up.json'
+UP_HOURS = 20       # a card's resume key lives 24 hours
+RETRY_WAIT = 26     # seconds: rows.py remembers an answer, the empty one too, for 25
+
+
+def _saved_up():
+    """v5.10.539: the watching row as it was last time, so it is on the page
+    at once: the services take seconds, and the calendar stood first till then."""
+    try:
+        from .. import profile_scope
+        path = profile_scope.path(UP_FILE)
+        if time.time() - os.path.getmtime(path) > UP_HOURS * 3600:
+            return []
+        with open(path, encoding='utf-8') as handle:
+            rows = json.load(handle)
+        for row in rows:
+            row['srcs'] = set(row.get('srcs') or ())
+        return rows
+    except (OSError, ValueError, TypeError, AttributeError):
+        return []
+
+
+def _save_up(rows):
+    try:
+        from .. import profile_scope
+        path = profile_scope.path(UP_FILE)
+        with open(path + '.tmp', 'w', encoding='utf-8') as handle:
+            json.dump(rows, handle, ensure_ascii=False, default=sorted)
+        os.replace(path + '.tmp', path)
+    except (OSError, ValueError, TypeError):
+        pass
+
+
 class MyWindow(xbmcgui.WindowXMLDialog):
     def __init__(self, *args, **kwargs):
         super(MyWindow, self).__init__(*args)
@@ -97,6 +133,7 @@ class MyWindow(xbmcgui.WindowXMLDialog):
         self._inited = False
         self._closing = False
         self._moved = False
+        self._up_shown = None
         self._ready = False
         self._day = None
 
@@ -123,28 +160,26 @@ class MyWindow(xbmcgui.WindowXMLDialog):
             self.setProperty('my.s%d.eyebrow' % n, eyebrow)
             self.setProperty('my.s%d.heading' % n, heading)
             self.setProperty('my.s%d.src' % n, src)
-        for n in (6, 7, 8, 9):
+        for n in (7, 8, 9):
             self.setProperty('my.s%d.off' % n, '1')
-        self.setProperty('my.up.empty', _t('ما فيه شي من هالخدمة', 'Nothing from this service'))
+        self.setProperty('my.up.empty', _t('لحظة…', 'One moment…'))
         self.setProperty('my.day.empty', _t('ما فيه شي ينزل هاليوم', 'Nothing comes out that day'))
         from ..art_tone import Tone
         self.tone = Tone(self)
+        self._show_saved()
         self._fill_week()
         self._fill_numbers()
         self._later(self._fill_lists)
         self._later(self._fill_services)
         self._later(self._fill_more)
         self._later(self._refresh)
-        take_focus(self, 451)
+        take_focus(self, 406 if self.up_all else 453)
         back = self.state.pop('back_to', None)
         if back:
             # v5.10.537: back from the full calendar or My watching, on the same spot
             self._moved = True
-            if back[0] == 451:
-                self.getControl(451).selectItem(back[1])
-            else:
-                take_focus(self, back[0])
-                self.getControl(back[0]).selectItem(back[1])
+            take_focus(self, back[0])
+            self.getControl(back[0]).selectItem(back[1])
         # the list can come before the first focus: whichever is last moves it
         self._ready = True
         if self.up_all and not self._moved:
@@ -175,7 +210,7 @@ class MyWindow(xbmcgui.WindowXMLDialog):
         pass
 
     def on_uncover(self):
-        pass
+        self._later(self._fill_services)    # back from a video: where you stopped
 
     def on_close(self):
         self._closing = True
@@ -383,6 +418,39 @@ class MyWindow(xbmcgui.WindowXMLDialog):
         self.setProperty('my.s5.off', '' if tickets else '1')
 
     # ---------------------------------------------------------- every service
+    def _read_up(self):
+        from . import follow
+        try:
+            return follow.up_next(self.app)
+        except Exception:
+            xbmc.log('[DexHub] my: up next\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
+            return []
+
+    def _show_saved(self):
+        """The chips and the cards before the services answer. 453 needs an
+        item to hold the focus while there is nothing saved."""
+        from . import follow
+        try:
+            self.names = dict(follow.SERVICES)
+            services = follow.linked()
+        except Exception:
+            services = []
+        with self._lock:
+            self.up_all = _saved_up()
+            self.chips = self._chips_of(services, self.up_all)
+            self._show_chips()
+            self._show_up()
+            self._wire()
+
+    def _chips_of(self, services, rows):
+        chips = [('all', _t('الكل', 'All'))] + list(services)
+        for row in rows:
+            # the servers and add-ons on the go, linked or not
+            for src in sorted(row.get('srcs') or ()):
+                if src not in [key for key, _name in chips]:
+                    chips.append((src, row.get('place') or src.title()))
+        return chips
+
     def _fill_services(self):
         """v5.10.534: the page read Trakt's history and the calendar only: what
         is on the go on the other services was left on My watching."""
@@ -394,30 +462,33 @@ class MyWindow(xbmcgui.WindowXMLDialog):
         self.names = dict(follow.SERVICES)
         if services:
             self.setProperty('my.t.account', '%s ✓' % '  ·  '.join(name for _key, name in services))
-        try:
-            rows = follow.up_next(self.app)
-        except Exception:
-            xbmc.log('[DexHub] my: up next\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
-            rows = []
+        rows = self._read_up()
+        if not rows and self.up_all:
+            # a slow service answers nothing: once more before the row goes
+            for _wait in range(RETRY_WAIT * 2):
+                if self._closing:
+                    return
+                xbmc.sleep(500)
+            rows = self._read_up()
         with self._lock:
             if self._closing:
                 return
-            self.up_all = rows
-            self.chips = [('all', _t('الكل', 'All'))] + list(services)
-            for row in rows:
-                # the servers and add-ons on the go, linked or not
-                for src in sorted(row.get('srcs') or ()):
-                    if src not in [key for key, _name in self.chips]:
-                        self.chips.append((src, row.get('place') or src.title()))
+            self.up_all = rows      # the services' answer always replaces the saved row
+            self.chips = self._chips_of(services, rows)
             self._show_chips()
             self._show_up()
             self._show_tickets()
+            self.setProperty('my.up.empty', _t('ما فيه شي من هالخدمة', 'Nothing from this service'))
             self.setProperty('my.s6.off', '' if rows else '1')
             self._wire()
-            first = bool(rows) and self._ready and not self._moved and self.getFocusId() == 451
+            first = bool(rows) and self._ready and not self._moved and self.getFocusId() == 453
+            lost = not rows and self.getFocusId() in (453, 406)
+        _save_up(rows)
         if first:
             take_focus(self, 406)
             self._describe(406)
+        elif lost:
+            take_focus(self, 451)
         if not F.linked():
             # no Trakt: the counts and the month come from the others
             self._fill_lists()
@@ -489,9 +560,24 @@ class MyWindow(xbmcgui.WindowXMLDialog):
                 props['progstep'] = max(1, min(20, int(round(float(row['prog']) / 5.0))))
             items.append(_item(row.get('title') or '', line, {'thumb': row.get('thumb') or row.get('poster') or '',
                                                              'poster': row.get('poster') or ''}, **props))
+        names = [r.get('title') for r in self.up_rows]
         control = self.getControl(406)
+        if names == self._up_shown:
+            # the same titles: new values in place, a rebuilt row would lose its spot
+            for index, fresh in enumerate(items):
+                item = control.getListItem(index)
+                item.setLabel2(fresh.getLabel2())
+                item.setArt({'thumb': self.up_rows[index].get('thumb') or self.up_rows[index].get('poster') or '',
+                             'poster': self.up_rows[index].get('poster') or ''})
+                for key in ('badge', 'progstep'):
+                    item.setProperty(key, fresh.getProperty(key))
+            return
+        self._up_shown = names
+        pos = control.getSelectedPosition()
         control.reset()
         control.addItems(items)
+        if 0 < pos < len(items):
+            control.selectItem(pos)
 
     def _pick_chip(self, pos):
         if not 0 <= pos < len(self.chips) or self.chips[pos][0] == self.src:
@@ -500,6 +586,7 @@ class MyWindow(xbmcgui.WindowXMLDialog):
             if self._closing:
                 return
             self.src = self.chips[pos][0]
+            self.getControl(406).selectItem(0)
             self._show_chips()
             self._show_up()
             self._show_tickets()

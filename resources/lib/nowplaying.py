@@ -14,6 +14,7 @@ import xbmcgui
 LOGO = 'dexhub.np.logo'
 TITLE = 'dexhub.np.title'
 KEY = 'dexhub.np.key'
+EPISODE = 'dexhub.np.episode'     # v5.10.539: Kodi 22's minimal item has no season or episode
 
 _LOCK = threading.Lock()
 
@@ -32,6 +33,14 @@ def _key(ctx):
 def _title(ctx):
     ctx = ctx or {}
     return str(ctx.get('show_title') or ctx.get('tvshowtitle') or ctx.get('title') or '').strip()
+
+
+def _episode(ctx):
+    ctx = ctx or {}
+    try:
+        return 'S%dE%d' % (int(ctx.get('season')), int(ctx.get('episode')))
+    except (TypeError, ValueError):
+        return ''
 
 
 def _logo_from(ctx):
@@ -53,6 +62,7 @@ def publish(ctx, lookup=True):
             logo = home.getProperty(LOGO)
         home.setProperty(KEY, key)
         home.setProperty(TITLE, _title(ctx))
+        home.setProperty(EPISODE, _episode(ctx))
         home.setProperty(LOGO, logo)
         if not logo and lookup:
             _lookup_async(dict(ctx or {}), key)
@@ -63,7 +73,7 @@ def publish(ctx, lookup=True):
 def clear():
     try:
         home = _home()
-        for prop in (LOGO, TITLE, KEY):
+        for prop in (LOGO, TITLE, KEY, EPISODE):
             home.clearProperty(prop)
     except Exception:
         pass

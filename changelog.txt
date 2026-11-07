@@ -1,3 +1,11 @@
+5.10.539
+صفحة معلومات التشغيل الكاملة صارت داخل Dex Hub بدون إضافة منفصلة. خيار جديد في إعدادات المشغل يحدد زر PPI يفتح صفحة Dex Hub أو TinyPPI، وإذا TinyPPI مثبتة يظهر لها زر داخل الصفحة. مكتبتي تبدأ بالمتابعة وتظهر فورا وتتحدث، والتقويم صار تحت. رفع وخفض الترجمة صار سطر ثابت بخطوة واضحة ويبقى لكل الفيديوهات. يحتاج سكين 3.28.218.
+The full Player Info page is now part of Dex Hub, with no separate add-on. A new Player setting chooses what the PPI button opens: the Dex Hub page or TinyPPI. When TinyPPI is installed, the page has a button for it. My Library starts with what you are watching, shown at once and kept up to date, and the calendar moved down. Subtitle height is now always in the panel, moves in clear steps and stays for every video. Needs skin 3.28.218.
+
+5.10.538
+تطبيق الأندرويد يطلب مرة وحدة إذن الوصول لكل الملفات، عشان متصفح الملفات يعرض zip وباقي الملفات.
+The Android app asks once for All files access, so the file browser shows zips and other files.
+
 5.10.537
 الزوايا الدائرية ورسومات الصفحات رجعت في تطبيق الأندرويد. الرجوع من التقويم الكامل ومتابعتي يرجعك لمكتبتي. IPTV: لما سيرفر DexWorld يرجع 403 من المزود، يتجرب مرة ثانية وبعدها تطلع آخر نسخة محفوظة. مكتبتي صار فيها سلسلة أيام المشاهدة والمقترحات والسجل، زي Trakt، وكل تذكرة لها بوستر. وزر PPI يفتح إضافة Player Info الخارجية لو كانت مثبتة، وإلا الصفحة الداخلية. والشبكات وصفحات الأعمال تجهز من الخدمة أبكر بعد التشغيل.
 Rounded corners and page artwork are back in the Android app. Back from the full calendar and My watching returns to My Library. IPTV: when DexWorld's server gets a 403 from the provider it is tried once more, then the last saved copy shows. My Library gets your streak, picks for you and your history, as on Trakt, and every ticket has its poster. The PPI button opens the external Player Info add-on when it is installed, else the page inside Dex Hub. Grids and title pages are served by the service earlier after a start.

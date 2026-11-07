@@ -3656,6 +3656,10 @@ STRINGS.update({
     'مثل Nuvio TV أو صفوف مختصرة': 'Like Nuvio TV or compact rows',
     'مثل Nuvio TV أو صفوف مختصرة أو Halo': 'Like Nuvio TV, compact rows or Halo',
     'ثيم البحث والمصادر': 'Search and sources theme',
+    'زر PPI في المشغل': 'PPI button in the player',
+    'يفتح صفحة Dex Hub أو TinyPPI': 'Opens the Dex Hub page or TinyPPI',
+    'صفحة Dex Hub': 'Dex Hub page',
+    'TinyPPI لازم تكون مثبتة، وإذا مو مثبتة تفتح صفحة Dex Hub': 'TinyPPI must be installed; without it the Dex Hub page opens',
     'Halo · زجاج وعدّاد الجودة': 'Halo · glass and quality counts',
 })
 

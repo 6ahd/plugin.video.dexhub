@@ -209,6 +209,28 @@ def _act(name):
     xbmc.executebuiltin('Dialog.Close(sliderdialog,true)')
 
 
+# Kodi moves a subtitle by speed: one pixel on the first action, nothing for a
+# second one in the same frame, then faster while actions come within 200 ms.
+# 5 actions 120 ms apart are about 13 pixels, a step you can see
+SHIFT_ACTIONS, SHIFT_GAP, SHIFT_PIXELS = 5, 120, 12
+QUIET = 'dh.sub.quiet'  # skin: DialogSlider draws nothing, it dimmed the whole screen a moment
+
+
+def _shift(up):
+    """One press: a step anyone can see, kept for every video (save). The
+    position must be Manual, the only one Kodi moves while playing."""
+    if S._get('subtitles.align') != 0:
+        S._set('subtitles.align', 0)
+    home = xbmcgui.Window(10000)
+    home.setProperty(QUIET, '1')
+    name = 'subtitleshiftup' if up else 'subtitleshiftdown'
+    for _action in range(SHIFT_ACTIONS):
+        xbmc.executebuiltin('%s(save)' % name, True)
+        xbmc.sleep(SHIFT_GAP)
+    xbmc.executebuiltin('Dialog.Close(sliderdialog,true)', True)
+    home.clearProperty(QUIET)
+
+
 PASSTHROUGH = 'dhs.audio.passthrough'
 
 
@@ -308,6 +330,9 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
                      'value': _t('مفعّلة', 'On') if enabled else _t('مطفأة', 'Off'), 'adjust': True})
         rows.append({'id': 'delay', 'label': _t('التأخير', 'Delay'),
                      'value': xbmc.getInfoLabel('Player.SubtitleDelay') or '0.000 s', 'adjust': True})
+        # v5.10.539: always here, no need to pick Manual first
+        rows.append({'id': 'shift', 'label': _t('رفع وخفض الترجمة', 'Height'),
+                     'value': _shift_text(_shift_steps()), 'adjust': True})
         # v5.10.491: one switch for every subtitle (a Silo one syncs on the
         # server, any other locally), and the one-off sync beside it
         from ..subsync import sync_prefs
@@ -354,11 +379,6 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
                 rows.append({'id': 'shade', 'label': _t('درجة اللون', 'Shade'), 'adjust': True,
                              'value': _t(*S.SHADE_NAMES[at]) if at >= 0 else '',
                              'swatches': S.shades(S.base_of(value)), 'sel': at})
-            if key == 'subtitles.align' and value == 0:
-                # v5.10.448: Manual: right under it, the height as a number
-                # (0 where it started, +1 a step up), changed with Left/Right
-                rows.append({'id': 'shift', 'label': _t('رفع وخفض الترجمة', 'Height'),
-                             'value': _shift_text(_shift_steps()), 'adjust': True})
         if S.fonts_waiting():
             rows.append({'id': 'note', 'label': _t('خطوط عربية جديدة', 'New Arabic fonts'),
                          'value': _t('بعد إعادة التشغيل', 'after a restart')})
@@ -1007,8 +1027,10 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
         elif key == 'shift':
             # v5.10.448: a number the user can read (0 where it started, +1
             # a step up); Kodi moves a subtitle only in its Manual position
-            _act('SubtitleShiftUp' if step > 0 else 'SubtitleShiftDown')
-            _shift_save(_shift_steps() + (1 if step > 0 else -1))
+            _shift(step > 0)
+            _shift_save(_shift_steps() + (SHIFT_PIXELS if step > 0 else -SHIFT_PIXELS))
+            self.refresh_row(-1)        # the Position row may have changed
+            return
         elif key == 'adelay':
             _act('AudioDelayPlus' if step > 0 else 'AudioDelayMinus')
         elif key == 'volume':

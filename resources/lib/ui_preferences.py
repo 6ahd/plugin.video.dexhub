@@ -14,6 +14,7 @@ OPTIONS = {
     'homeui_background_style': ('fullscreen', ('cinematic', 'soft', 'dark', 'fullscreen'), 'نمط الخلفية', 'Background style'),
     'library_split_media': ('true', None, 'فصل الأفلام والمسلسلات في المكتبة', 'Separate movie and show library rows'),
     'player_badges_visible': ('true', None, 'إظهار رموز الجودة في المشغّل', 'Show player badges'),
+    'player_ppi_page': ('dexhub', ('dexhub', 'tiny'), 'زر PPI في المشغل', 'PPI button in the player'),
     'player_badges_brightness': ('solid', ('solid', 'soft'), 'وضوح رموز الجودة', 'Badge appearance'),
     # v5.10.286: two new Home layouts (cinema, netflix); cinematic stays the default
     'homeui_layout_mode': ('cinematic', ('legacy', 'cinema', 'netflix', 'two_rows', 'cinematic', 'shelf', 'spotlight_posters'), 'وضع الواجهة', 'Home layout'),
