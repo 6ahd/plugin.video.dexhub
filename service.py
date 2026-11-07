@@ -803,6 +803,13 @@ if __name__ == '__main__':
             xbmc.log('[DexHub] compile: %s' % exc, xbmc.LOGDEBUG)
 
     threading.Thread(target=_bytecode_worker, name='DexHub-bytecode', daemon=True).start()
+
+    def _self_update_worker():
+        # v5.10.542: Kodi does not update the Android app's bundled add-ons
+        from resources.lib import self_update
+        self_update.run(xbmc.Monitor())
+
+    threading.Thread(target=_self_update_worker, name='DexHub-self-update', daemon=True).start()
     _retire_apple_tv_addon()
     try:
         import xbmcaddon

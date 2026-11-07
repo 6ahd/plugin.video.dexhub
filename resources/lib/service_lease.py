@@ -1,5 +1,6 @@
 """One service owner per add-on, with a cheap playback-side wakeup."""
 import atexit
+import errno
 import json
 import os
 import time
@@ -54,9 +55,13 @@ def claim():
         else:
             import fcntl
             fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError:
-        handle.close()
-        return False
+    except OSError as exc:
+        # v5.10.542: Android's shared storage answers ENOSYS (seen on Android
+        # 14): that is no lock to take, not another owner, and the service
+        # never started there
+        if exc.errno not in (errno.ENOSYS, errno.ENOTSUP, errno.EOPNOTSUPP):
+            handle.close()
+            return False
     except (ImportError, AttributeError):
         # v5.10.495: no file lock on this Python (Kodi on Xbox, the Windows
         # Store build, lacks parts of os/msvcrt): one Kodi runs one service,

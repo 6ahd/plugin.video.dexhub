@@ -1,3 +1,7 @@
+5.10.542
+تطبيق الأندرويد يتحدث لحاله من مستودع Dex Hub، والتحديث يطبق عند فتح التطبيق المرة الجاية. خدمة Dex Hub تشتغل الآن على الأجهزة اللي كانت ما تبدأ فيها.
+The Android app now updates itself from the Dex Hub repository; an update applies the next time the app opens. The Dex Hub service now starts on devices where it never did.
+
 5.10.541
 «مبارياتي» تبدأ بكرت كبير بألوان الفريقين. المباريات المؤجلة تظهر «مؤجلة» بدل 0 - 0. أضفنا دوري أبطال آسيا 2 وبطولات أفريقيا والدوريات العربية: يلو، مصر، الإمارات، قطر، الكويت، العراق، المغرب، الجزائر وتونس.
 My games opens with a big card in both clubs' colours. Postponed games say so instead of 0 - 0. AFC Champions League Two, CAF competitions and Arab leagues added: Saudi First Division, Egypt, UAE, Qatar, Kuwait, Iraq, Morocco, Algeria and Tunisia.
