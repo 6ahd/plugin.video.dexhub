@@ -23,6 +23,10 @@ from . import profile_scope as _scope
 
 ESPN = 'https://site.api.espn.com/apis/site/v2/sports/'
 ESPN_TABLE = 'https://site.api.espn.com/apis/v2/sports/'
+# v5.10.542: Arab leagues ESPN does not have. Not an official API: it can change
+# or stop, and a failed read leaves the last games on the page
+FOTMOB = 'https://www.fotmob.com/api/data/'
+FOTMOB_LOGO = 'https://images.fotmob.com/image_resources/logo/teamlogo/%s.png'
 GUIDE_TTL = 3 * 3600.0
 GUIDE_BUDGET = 45.0
 MAX_CHANNELS = 60
@@ -35,6 +39,19 @@ LEAGUES = (
     ('ksa.1', 'soccer/ksa.1', 'دوري روشن السعودي', 'Saudi Pro League', ('دوري روشن', 'الدوري السعودي', 'roshn', 'saudi pro league')),
     ('ksa.kings.cup', 'soccer/ksa.kings.cup', 'كأس الملك', "King's Cup", ('كأس الملك', 'kings cup', "king's cup")),
     ('afc.champions', 'soccer/afc.champions', 'دوري أبطال آسيا', 'AFC Champions League', ('أبطال آسيا', 'afc champions')),
+    ('afc.cup', 'soccer/afc.cup', 'دوري أبطال آسيا 2', 'AFC Champions League Two', ('أبطال آسيا 2', 'afc champions league two')),
+    ('caf.champions', 'soccer/caf.champions', 'دوري أبطال أفريقيا', 'CAF Champions League', ('أبطال أفريقيا', 'caf champions league')),
+    ('caf.confed', 'soccer/caf.confed', 'كأس الكونفدرالية الأفريقية', 'CAF Confederation Cup', ('الكونفدرالية', 'caf confederation')),
+    ('fm.ksa2', 'fotmob/10721', 'دوري يلو', 'Saudi First Division', ('دوري يلو', 'saudi first division')),
+    ('fm.egy', 'fotmob/519', 'الدوري المصري', 'Egyptian Premier League', ('الدوري المصري', 'egyptian premier')),
+    ('fm.egycup', 'fotmob/9941', 'كأس مصر', 'Egypt Cup', ('كأس مصر', 'egypt cup')),
+    ('fm.uae', 'fotmob/538', 'دوري أدنوك الإماراتي', 'UAE Pro League', ('الدوري الإماراتي', 'دوري أدنوك', 'uae pro league')),
+    ('fm.qat', 'fotmob/535', 'دوري نجوم قطر', 'Qatar Stars League', ('دوري نجوم قطر', 'qatar stars')),
+    ('fm.kuw', 'fotmob/529', 'الدوري الكويتي', 'Kuwait Premier League', ('الدوري الكويتي', 'kuwait premier')),
+    ('fm.irq', 'fotmob/524', 'دوري نجوم العراق', 'Iraq Stars League', ('دوري نجوم العراق', 'iraq stars')),
+    ('fm.mar', 'fotmob/530', 'البطولة المغربية', 'Botola Pro', ('البطولة المغربية', 'botola')),
+    ('fm.alg', 'fotmob/516', 'الدوري الجزائري', 'Algerian Ligue 1', ('الدوري الجزائري', 'algerian ligue')),
+    ('fm.tun', 'fotmob/544', 'الدوري التونسي', 'Tunisian Ligue 1', ('الدوري التونسي', 'tunisian ligue')),
     ('uefa.champions', 'soccer/uefa.champions', 'دوري أبطال أوروبا', 'Champions League', ('أبطال أوروبا', 'champions league')),
     ('uefa.europa', 'soccer/uefa.europa', 'الدوري الأوروبي', 'Europa League', ('الدوري الأوروبي', 'europa league')),
     ('eng.1', 'soccer/eng.1', 'الدوري الإنجليزي', 'Premier League', ('الدوري الإنجليزي', 'premier league')),
@@ -52,7 +69,8 @@ LEAGUES = (
     ('ufc', 'mma/ufc', 'UFC', 'UFC', ('ufc',)),
 )
 LEAGUE_BY_KEY = dict((row[0], row) for row in LEAGUES)
-DEFAULT_LEAGUES = ('ksa.1', 'ksa.kings.cup', 'afc.champions', 'uefa.champions', 'uefa.europa', 'eng.1', 'esp.1', 'ita.1',
+DEFAULT_LEAGUES = ('ksa.1', 'ksa.kings.cup', 'afc.champions', 'afc.cup', 'caf.champions', 'fm.ksa2', 'fm.egy', 'fm.egycup',
+                   'fm.uae', 'fm.qat', 'fm.kuw', 'fm.irq', 'fm.mar', 'fm.alg', 'fm.tun', 'uefa.champions', 'uefa.europa', 'eng.1', 'esp.1', 'ita.1',
                    'eng.fa', 'esp.copa_del_rey', 'ita.coppa_italia', 'ger.1', 'fra.1')
 
 TEAMS_AR = {
@@ -92,6 +110,7 @@ RECAP_WORDS = ('highlights', 'replay', 'repeat', 'review', 'magazine', 'preview'
                'استديو', 'أهداف الأسبوع')
 _NOISE = {'fc', 'cf', 'sc', 'afc', 'club', 'al', 'the', 'de', 'ac', 'as', 'cd', 'fk', 'sk', 'ال', 'نادي'}
 _LOCK = threading.Lock()
+_FOTMOB_LOCK = threading.Lock()
 _guide_lock = threading.Lock()
 _memory = {}
 
@@ -229,8 +248,41 @@ def _side(comp):
         logo = (team['logos'][0] or {}).get('href') or ''
     return {'id': str(team.get('id') or comp.get('id') or ''), 'name': team.get('displayName') or team.get('fullName') or '',
             'short': team.get('shortDisplayName') or team.get('abbreviation') or '', 'logo': logo,
-            'color': team.get('color') or '', 'score': str(comp.get('score') or ''),
+            'color': team.get('color') or '', 'alt': team.get('alternateColor') or '', 'score': str(comp.get('score') or ''),
             'winner': bool(comp.get('winner'))}
+
+
+def game_kind(kind):
+    """ESPN's state, with 'off' for a game that will not be played as planned:
+    a postponed one is 'post' there with 0 - 0, and showed as a result."""
+    name = str((kind or {}).get('name') or '').upper()
+    if any(word in name for word in ('POSTPONED', 'CANCELED', 'CANCELLED', 'ABANDONED', 'SUSPENDED')):
+        return 'off'
+    return (kind or {}).get('state') or 'pre'
+
+
+def off_word(game):
+    text = str(game.get('status') or '').lower()
+    if 'cancel' in text or 'abandon' in text:
+        return _t('ملغاة', 'Cancelled')
+    return _t('مؤجلة', 'Postponed')
+
+
+def strong_colour(side):
+    """A club's colour for the big card: ARGB, deep enough for white text; the
+    other colour when the first is white or black."""
+    side = side or {}
+    for value in (side.get('color'), side.get('alt')):
+        try:
+            red, green, blue = [int(str(value)[i:i + 2], 16) for i in (0, 2, 4)]
+        except (TypeError, ValueError):
+            continue
+        top, low = max(red, green, blue), min(red, green, blue)
+        if top - low < 28 and (top > 200 or top < 40):
+            continue
+        scale = min(1.0, 150.0 / top) if top else 1.0
+        return 'FF%02X%02X%02X' % (int(red * scale), int(green * scale), int(blue * scale))
+    return 'FF24344D'
 
 
 def parse_scoreboard(league, data):
@@ -250,7 +302,7 @@ def parse_scoreboard(league, data):
         if not start or not raw.get('id'):
             continue
         out.append({'id': '%s:%s' % (league, raw['id']), 'league': league, 'start': start,
-                    'state': kind.get('state') or 'pre', 'status': kind.get('shortDetail') or kind.get('detail') or '',
+                    'state': game_kind(kind), 'status': kind.get('shortDetail') or kind.get('detail') or '',
                     'clock': status.get('displayClock') or '', 'title': raw.get('name') or '',
                     'home': _side(home) if home else {}, 'away': _side(away) if away else {},
                     'venue': (comp.get('venue') or {}).get('fullName') or '', 'broadcasts': broadcasts})
@@ -319,22 +371,121 @@ def parse_game(data):
         events.append({'minute': (row.get('clock') or {}).get('displayValue') or '', 'kind': what,
                        'side': 'home' if tid == sides['home'].get('id') else 'away',
                        'text': ' ← '.join(people) if what == 'sub' else (people[0] if people else row.get('shortText') or '')})
-    return {'home': sides['home'], 'away': sides['away'], 'state': kind.get('state') or 'pre',
+    return {'home': sides['home'], 'away': sides['away'], 'state': game_kind(kind),
             'status': kind.get('shortDetail') or kind.get('detail') or '',
             'venue': ((data.get('gameInfo') or {}).get('venue') or {}).get('fullName') or '',
             'stats': stats, 'events': events}
 
 
+def _fotmob_id(key):
+    path = (LEAGUE_BY_KEY.get(key) or (None, ''))[1]
+    return path.split('/', 1)[1] if path.startswith('fotmob/') else ''
+
+
+def _fotmob_side(row):
+    tid = str((row or {}).get('id') or '')
+    score = (row or {}).get('score')
+    return {'id': 'fm%s' % tid, 'name': (row or {}).get('name') or '', 'short': (row or {}).get('name') or '',
+            'logo': FOTMOB_LOGO % tid if tid else '', 'color': '', 'alt': '',
+            'score': '' if score is None else str(score), 'winner': False}
+
+
+def parse_fotmob(key, data):
+    """One league's games in a day of FotMob, in the shape of parse_scoreboard."""
+    wanted, out = _fotmob_id(key), []
+    for league in (data or {}).get('leagues') or []:
+        if str(league.get('primaryId') or '') != wanted:
+            continue
+        for raw in league.get('matches') or []:
+            status = raw.get('status') or {}
+            reason = status.get('reason') or {}
+            start = int((raw.get('timeTS') or 0) / 1000) or _epoch(status.get('utcTime'))
+            if not start or not raw.get('id'):
+                continue
+            if status.get('cancelled'):
+                state = 'off'
+            elif status.get('finished'):
+                state = 'post'
+            elif status.get('started'):
+                state = 'in'
+            else:
+                state = 'pre'
+            home, away = _fotmob_side(raw.get('home')), _fotmob_side(raw.get('away'))
+            live = (status.get('liveTime') or {}).get('short') or ''
+            out.append({'id': '%s:%s' % (key, raw['id']), 'league': key, 'start': start, 'state': state,
+                        'status': reason.get('long') or '', 'clock': live, 'title': '%s at %s' % (away['name'], home['name']),
+                        'home': home, 'away': away, 'venue': '', 'broadcasts': []})
+    return out
+
+
+def _fotmob_day(day):
+    """Every league of a day comes in one answer: asked once, not per league."""
+    ident = ('fotmob', day.isoformat())
+    with _LOCK:
+        known = _memory.get(ident)
+    now = time.time()
+    if known and now - known[0] < known[1]:
+        return known[2]
+    with _FOTMOB_LOCK:
+        with _LOCK:
+            known = _memory.get(ident)
+        if known and now - known[0] < known[1]:
+            return known[2]
+        data = _http('%smatches?date=%s' % (FOTMOB, day.strftime('%Y%m%d')), timeout=12)
+        with _LOCK:
+            _memory[ident] = (time.time(), 40.0, data)
+    return data
+
+
+def _fotmob_table(key):
+    data = _http('%stltable?leagueId=%s' % (FOTMOB, _fotmob_id(key)))
+    block = (data[0] if isinstance(data, list) and data else {}).get('data') or {}
+    groups = block.get('tables') or [block]
+    rows = []
+    for group in groups:
+        for row in (group.get('table') or {}).get('all') or []:
+            tid = str(row.get('id') or '')
+            rows.append({'id': 'fm%s' % tid, 'name': row.get('name') or '', 'logo': FOTMOB_LOGO % tid if tid else '',
+                         'rank': str(row.get('idx') or len(rows) + 1), 'played': str(row.get('played') or 0),
+                         'won': str(row.get('wins') or 0), 'drawn': str(row.get('draws') or 0),
+                         'lost': str(row.get('losses') or 0), 'diff': str(row.get('goalConDiff') or 0),
+                         'points': str(row.get('pts') or 0), 'group': group.get('leagueName') or ''})
+    return rows
+
+
+def _fotmob_game(game, event):
+    """The game page: goals and cards. The score comes with the day's list."""
+    data = _http('%smatchDetails?matchId=%s' % (FOTMOB, event))
+    events = []
+    for row in (((data.get('content') or {}).get('matchFacts') or {}).get('events') or {}).get('events') or []:
+        kind = str(row.get('type') or '')
+        if kind == 'Goal':
+            what = 'own' if row.get('ownGoal') else 'penalty' if row.get('goalDescriptionKey') == 'penalty' else 'goal'
+        elif kind == 'Card':
+            what = 'red' if 'red' in str(row.get('card') or '').lower() else 'yellow'
+        else:
+            continue
+        events.append({'minute': "%s'" % (row.get('timeStr') or row.get('time') or ''), 'kind': what,
+                       'side': 'home' if row.get('isHome') else 'away',
+                       'text': (row.get('player') or {}).get('name') or row.get('nameStr') or ''})
+    return {'home': game.get('home') or {}, 'away': game.get('away') or {}, 'state': game.get('state') or 'pre',
+            'status': game.get('status') or '', 'venue': game.get('venue') or '', 'stats': [], 'events': events}
+
+
 def game_detail(game):
-    """One game's page, read from ESPN each time: it is open only for a moment."""
+    """One game's page, read each time: it is open only for a moment."""
     league, _sep, event = str(game.get('id') or '').partition(':')
     path = (LEAGUE_BY_KEY.get(league) or (None, None))[1]
     if not path or not event:
         return {}
+    if path.startswith('fotmob/'):
+        return _fotmob_game(game, event)
     return parse_game(_http('%s%s/summary?event=%s' % (ESPN, path, event)))
 
 
 def _fetch_day(key, day):
+    if _fotmob_id(key):
+        return parse_fotmob(key, _fotmob_day(day))
     return parse_scoreboard(key, _http('%s%s/scoreboard?dates=%s&limit=200' % (ESPN, LEAGUE_BY_KEY[key][1], day.strftime('%Y%m%d'))))
 
 
@@ -410,7 +561,7 @@ def table(key):
     if known and time.time() - known[0] < 1800:
         return known[2]
     try:
-        rows = parse_table(_http('%s%s/standings' % (ESPN_TABLE, LEAGUE_BY_KEY[key][1])))
+        rows = _fotmob_table(key) if _fotmob_id(key) else parse_table(_http('%s%s/standings' % (ESPN_TABLE, LEAGUE_BY_KEY[key][1])))
     except Exception as exc:
         _log('table %s: %s %s' % (key, exc.__class__.__name__, exc))
         return known[2] if known else []
@@ -422,7 +573,7 @@ def table(key):
 def teams(key):
     """A league's teams for the follow page: its table's order, else ESPN's list."""
     rows = [{'id': r['id'], 'name': r['name'], 'logo': r['logo']} for r in table(key) if r['id']]
-    if rows:
+    if rows or _fotmob_id(key):
         return rows
     try:
         data = _http('%s%s/teams?limit=200' % (ESPN, LEAGUE_BY_KEY[key][1]))
@@ -686,6 +837,8 @@ def island_rows(games, now):
                'clock': game.get('clock') or game.get('status') or '', 'home': home.get('name') or '',
                'away': away.get('name') or '', 'homelogo': home.get('logo') or '', 'awaylogo': away.get('logo') or '',
                'homescore': home.get('score') or '', 'awayscore': away.get('score') or ''}
+        if row['state'] == 'off':
+            continue
         if row['state'] == 'in':
             live.append(row)
         elif row['state'] == 'post':

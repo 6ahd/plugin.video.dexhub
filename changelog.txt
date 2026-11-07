@@ -1,3 +1,7 @@
+5.10.541
+«مبارياتي» تبدأ بكرت كبير بألوان الفريقين. المباريات المؤجلة تظهر «مؤجلة» بدل 0 - 0. أضفنا دوري أبطال آسيا 2 وبطولات أفريقيا والدوريات العربية: يلو، مصر، الإمارات، قطر، الكويت، العراق، المغرب، الجزائر وتونس.
+My games opens with a big card in both clubs' colours. Postponed games say so instead of 0 - 0. AFC Champions League Two, CAF competitions and Arab leagues added: Saudi First Division, Egypt, UAE, Qatar, Kuwait, Iraq, Morocco, Algeria and Tunisia.
+
 5.10.540
 المشغل يعرض اسم المسلسل ورقم الحلقة بدل عنوان الحلقة، حتى لو ما وصل الاسم مع المصدر. مكتبتي تتحدث لحالها بعد ما توقف الفيديو، والحلقة اللي بدون اسم مسلسل ما تختفي منها. صف المتابعة في الرئيسية يتحدث مباشرة بعد التوقف. يحتاج سكين 3.28.219.
 The player shows the series name and episode number instead of the episode title, even when the source comes without the name. My Library updates by itself after a video stops, and an episode saved without its series name keeps its card. The Home's Continue Watching row updates right after a stop. Needs skin 3.28.219.

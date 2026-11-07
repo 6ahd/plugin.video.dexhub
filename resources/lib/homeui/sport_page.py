@@ -25,6 +25,8 @@ from .. import lazy_tb as traceback
 
 VIEWS = {101: 'today', 102: 'mine', 103: 'tables', 104: 'follow'}
 DAYS, LEAGUES, GAMES, TABLE, TEAMS = 110, 120, 130, 400, 500
+HERO, MY_GAMES = 140, 131        # v5.10.541: My games: the big card, the rest under it
+HERO_MAX = 1
 DAY_BACK, DAY_AHEAD = 2, 6
 A_LEFT, A_RIGHT = 1, 2
 A_BACK = {9, 10, 92, 216, 247, 257, 275, 61448, 61467}
@@ -59,6 +61,8 @@ def game_state(game):
         return game.get('clock') or game.get('status') or _t('مباشر', 'Live'), 'live'
     if game.get('state') == 'post':
         return _t('انتهت', 'Full time'), 'done'
+    if game.get('state') == 'off':
+        return F.off_word(game), 'soon'
     return _clock(game['start']), 'soon'
 
 
@@ -80,6 +84,7 @@ class SportWindow(xbmcgui.WindowXMLDialog):
         self.day = datetime.date.today()
         self.league = ''
         self.games = []
+        self.hero = []
         self.table_rows = []
         self.team_rows = []
         self.guide = []
@@ -93,6 +98,7 @@ class SportWindow(xbmcgui.WindowXMLDialog):
         self._closing = False
         self._live_at = 0.0
         self._threads = []
+        self._hero_shown = None
 
     # ---------------------------------------------------------- lifecycle
     def onInit(self):
@@ -104,7 +110,7 @@ class SportWindow(xbmcgui.WindowXMLDialog):
                           ('follow', _t('المتابعة', 'Follow')), ('rank', '#'), ('team', _t('الفريق', 'Team')),
                           ('played', _t('لعب', 'P')), ('won', _t('فاز', 'W')), ('drawn', _t('تعادل', 'D')),
                           ('lost', _t('خسر', 'L')), ('diff', _t('الفارق', 'GD')), ('points', _t('نقاط', 'Pts')),
-                          ('source', _t('النتائج من ESPN · القنوات من دليل قنواتك', 'Scores from ESPN · channels from your own guide'))):
+                          ('source', _t('النتائج من ESPN وFotMob · القنوات من دليل قنواتك', 'Scores from ESPN and FotMob · channels from your own guide'))):
             self.setProperty('sw.t.%s' % key, text)
         self.setProperty('tone', '402F6DE0')
         self._fill_days()
@@ -143,7 +149,7 @@ class SportWindow(xbmcgui.WindowXMLDialog):
             if self._closing:
                 return
             if self.view in ('today', 'mine') and time.monotonic() - self._live_at > LIVE_EVERY \
-                    and any(game.get('state') == 'in' for game in self.games):
+                    and any(game.get('state') == 'in' for game in self.games + self.hero):
                 self._live_at = time.monotonic()
                 self._load_games(keep=True)
 
@@ -170,7 +176,7 @@ class SportWindow(xbmcgui.WindowXMLDialog):
         self._fill_leagues()
         if view in ('today', 'mine'):
             self._load_games()
-            target = DAYS if view == 'today' else GAMES
+            target = DAYS if view == 'today' else MY_GAMES
         elif view == 'tables':
             self._load_table()
             target = LEAGUES
@@ -231,10 +237,48 @@ class SportWindow(xbmcgui.WindowXMLDialog):
                 games = F.games_between(self.day, self.day, keys)
             if gen != self._gen or self._closing:
                 return
-            self.games = games
+            hero = [game for game in games if game.get('state') in ('in', 'pre')][:HERO_MAX] if self.view == 'mine' else []
+            self.hero = hero
+            self.games = [game for game in games if game not in hero]
             self.setProperty('sw.loading', '')
             self._paint_games()
         self._later(job)
+
+    def _games_id(self):
+        return MY_GAMES if self.view == 'mine' else GAMES
+
+    def _paint_hero(self):
+        """The next games of your teams in both clubs' colours. Same titles: the
+        values change in place, a list rebuilt under the focus loses its spot."""
+        rows = []
+        for index, game in enumerate(self.hero):
+            line, kind = game_state(game)
+            home, away = game.get('home') or {}, game.get('away') or {}
+            when = line if kind == 'live' else _day_word(game['start'])
+            rows.append({'label': F.league_name(game['league']), 'when': when, 'statekind': kind, 'place': game.get('venue') or '',
+                         'clock': _clock(game['start']), 'home': F.team_name(home.get('name') or ''),
+                         'away': F.team_name(away.get('name') or ''), 'homelogo': home.get('logo') or '',
+                         'awaylogo': away.get('logo') or '', 'homescore': home.get('score') or '0',
+                         'awayscore': away.get('score') or '0', 'homecolor': F.strong_colour(home),
+                         'awaycolor': F.strong_colour(away),
+                         'count': '%d / %d' % (index + 1, len(self.hero)) if len(self.hero) > 1 else ''})
+        try:
+            control = self.getControl(HERO)
+        except RuntimeError:
+            return
+        names = [game['id'] for game in self.hero]
+        if names == self._hero_shown:
+            for index, row in enumerate(rows):
+                item = control.getListItem(index)
+                for key, value in row.items():
+                    if key != 'label':
+                        item.setProperty(key, str(value))
+            return
+        self._hero_shown = names
+        control.reset()
+        control.addItems([_item(row['label'], '', None, **dict((k, v) for k, v in row.items() if k != 'label')) for row in rows])
+        if rows and self.view == 'mine' and self.getFocusId() in (MY_GAMES, 102):
+            take_focus(self, HERO)
 
     def _paint_games(self):
         with self._lock:
@@ -254,8 +298,9 @@ class SportWindow(xbmcgui.WindowXMLDialog):
                                    sure='1' if channels and channels[0]['score'] == F.SURE else '',
                                    bell='1' if game['id'] in data['reminders'] else '',
                                    mine='1' if F.is_mine(game, data) else ''))
+            self._paint_hero()
             try:
-                control = self.getControl(GAMES)
+                control = self.getControl(self._games_id())
             except RuntimeError:
                 return
             pos = control.getSelectedPosition()
@@ -269,8 +314,8 @@ class SportWindow(xbmcgui.WindowXMLDialog):
                 empty = _t('ما فيه مباريات لفرقك في الأسبوعين الجايين', 'No games for your teams in the next two weeks')
             else:
                 empty = _t('ما فيه مباريات في هذا اليوم', 'No games on this day')
-            self.setProperty('sw.empty', '' if items else empty)
-            live = sum(1 for game in self.games if game.get('state') == 'in')
+            self.setProperty('sw.empty', '' if items or self.hero else empty)
+            live = sum(1 for game in self.games + self.hero if game.get('state') == 'in')
             self.setProperty('sw.count', _t('%d مباشر', '%d live') % live if live else '')
 
     def _load_table(self):
@@ -376,8 +421,8 @@ class SportWindow(xbmcgui.WindowXMLDialog):
                 self._toggle_league()
             elif self.view == 'today':
                 self.setFocusId(GAMES)
-        elif cid == GAMES:
-            self._game_menu()
+        elif cid in (GAMES, MY_GAMES, HERO):
+            self._game_menu(cid)
         elif cid == TEAMS:
             self._toggle_team()
 
@@ -397,12 +442,13 @@ class SportWindow(xbmcgui.WindowXMLDialog):
             F.toggle_team(self.team_rows[pos], self.league)
             self._paint_teams()
 
-    def _game_menu(self):
+    def _game_menu(self, cid=GAMES):
         from .options import choose
-        pos = self.getControl(GAMES).getSelectedPosition()
-        if not 0 <= pos < len(self.games):
+        pos = self.getControl(cid).getSelectedPosition()
+        games = self.hero if cid == HERO else self.games
+        if not 0 <= pos < len(games):
             return
-        game = self.games[pos]
+        game = games[pos]
         data = F.load()
         channels = F.channels_for(game, self.guide)
         words = {F.SURE: _t('مؤكد', 'Sure'), F.LIKELY: _t('غالبًا', 'Likely'), F.MAYBE: _t('ممكن', 'Maybe')}
