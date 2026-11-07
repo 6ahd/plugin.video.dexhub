@@ -30,9 +30,31 @@ def _key(ctx):
     return '|'.join(parts)
 
 
-def _title(ctx):
+def _series(ctx):
     ctx = ctx or {}
-    return str(ctx.get('show_title') or ctx.get('tvshowtitle') or ctx.get('title') or '').strip()
+    return bool(ctx.get('season') or ctx.get('episode') or
+                str(ctx.get('media_type') or '').lower() in ('series', 'tv', 'episode', 'anime'))
+
+
+def _show(ctx):
+    """The series' own name. An id stands in for it on some rows: no name."""
+    ctx = ctx or {}
+    name = str(ctx.get('show_title') or ctx.get('tvshowtitle') or '').strip()
+    if name in (str(ctx.get('canonical_id') or ''), str(ctx.get('imdb_id') or '')):
+        return ''
+    if name.lower().startswith('tmdb:') or (name.startswith('tt') and name[2:3].isdigit() and ' ' not in name):
+        return ''
+    return name
+
+
+def _title(ctx):
+    """v5.10.540: a series' name, never its episode's: an episode's ctx can
+    come with show_title empty and title the episode (Kodi 22's minimal item
+    has no name of its own to fall back on). Looked up when missing."""
+    ctx = ctx or {}
+    if _series(ctx):
+        return _show(ctx)
+    return str(ctx.get('title') or '').strip()
 
 
 def _episode(ctx):
@@ -60,11 +82,15 @@ def publish(ctx, lookup=True):
         logo = _logo_from(ctx)
         if not logo and key and home.getProperty(KEY) == key:
             logo = home.getProperty(LOGO)
+        same, kept = home.getProperty(KEY) == key, home.getProperty(TITLE)
         home.setProperty(KEY, key)
-        home.setProperty(TITLE, _title(ctx))
         home.setProperty(EPISODE, _episode(ctx))
         home.setProperty(LOGO, logo)
-        if not logo and lookup:
+        title = _title(ctx)
+        if not title and key and same:
+            title = kept
+        home.setProperty(TITLE, title)
+        if (not logo or not title) and lookup:
             _lookup_async(dict(ctx or {}), key)
     except Exception:
         pass
@@ -120,5 +146,11 @@ def _lookup(ctx, key):
             home = _home()
             if logo and home.getProperty(KEY) == key and not home.getProperty(LOGO):
                 home.setProperty(LOGO, logo)
+            if media == 'tv' and not home.getProperty(TITLE):
+                meta = tmdb_direct.meta_for(tmdb_id=str(ctx.get('show_tmdb_id') or ctx.get('tmdb_id') or ''),
+                                            imdb_id=imdb, media_type=media) or {}
+                name = str(meta.get('name') or meta.get('title') or '').strip()
+                if name and home.getProperty(KEY) == key:
+                    home.setProperty(TITLE, name)
         except Exception:
             pass

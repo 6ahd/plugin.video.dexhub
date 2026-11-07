@@ -112,6 +112,22 @@ def _code(season, episode):
 
 
 # ---------------------------------------------------------------- the data
+def _show_name(tile, params):
+    """The series' name from its ids (TMDb once), saved with the row."""
+    try:
+        from .. import continue_names
+        name = continue_names.name_for({'canonical_id': params.get('canonical_id') or '',
+                                        'tmdb_id': tile.get('tmdb_id') or '', 'imdb_id': tile.get('imdb_id') or '',
+                                        'show_tmdb_id': tile.get('show_tmdb_id') or ''}, is_episode=True)
+        if name and params.get('canonical_id'):
+            from .. import playback_store
+            playback_store.set_names([('series', params['canonical_id'], params.get('video_id') or params['canonical_id'],
+                                       '', name)])
+        return name or ''
+    except Exception:
+        return ''
+
+
 def up_next(app):
     """Continue Watching and Next Up as one list, one card per title."""
     from . import rows as R
@@ -150,6 +166,10 @@ def up_next(app):
                     if value and providers.get(('show', value)):
                         name = providers[('show', value)]
                         break
+                if not name:
+                    # v5.10.540: a local row has no show name without an account
+                    # row beside it: the card was left out although Resume worked
+                    name = _show_name(tile, params)
             if name.lower().startswith('tt') or _CODE_RE.match(name):
                 continue
             # v5.10.534: a Plex, Emby or Silo card carries only a key to its saved

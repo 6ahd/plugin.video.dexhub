@@ -805,6 +805,27 @@ def _local_percent(position_ms, duration_ms):
     return 0.0
 
 
+_NAMED = set()
+
+
+def _save_show_name(ctx, media_type, canonical_id, video_id):
+    """v5.10.540: the series' name with the row, once a playback. A row without
+    it had no card in My Library unless an account row stood beside it."""
+    key = (media_type, canonical_id, video_id)
+    if key in _NAMED:
+        return
+    try:
+        from . import continue_names, nowplaying
+        name = nowplaying._show(ctx) or xbmcgui.Window(10000).getProperty(nowplaying.TITLE)
+        if not name or name == ctx.get('title'):
+            name = continue_names.name_for(ctx, is_episode=True, network=False)
+        if name:
+            playback_store.set_names([(media_type, canonical_id, video_id, '', name)])
+            _NAMED.add(key)
+    except Exception:
+        pass
+
+
 def _save_local_progress(ctx, position_ms=0, duration_ms=0, finished=False):
     if not isinstance(ctx, dict) or not ctx:
         return
@@ -878,6 +899,8 @@ def _save_local_progress(ctx, position_ms=0, duration_ms=0, finished=False):
     except Exception as exc:
         xbmc.log('[DexHub] local progress save failed: %s' % exc, xbmc.LOGWARNING)
     else:
+        if is_episode:
+            _save_show_name(ctx, media_type, canonical_id, video_id)
         _invalidate_nextup_cache()
         # Wake up the home / CW UI so the row reflects this save without
         # the user having to navigate away and back. Skipped when we're

@@ -173,6 +173,7 @@ class MyWindow(xbmcgui.WindowXMLDialog):
         self._later(self._fill_services)
         self._later(self._fill_more)
         self._later(self._refresh)
+        self._later(self._watch_progress)
         take_focus(self, 406 if self.up_all else 453)
         back = self.state.pop('back_to', None)
         if back:
@@ -418,6 +419,24 @@ class MyWindow(xbmcgui.WindowXMLDialog):
         self.setProperty('my.s5.off', '' if tickets else '1')
 
     # ---------------------------------------------------------- every service
+    def _watch_progress(self):
+        """v5.10.540: a video played from here and stopped comes back to this
+        same page, which never heard of it; Resume on the title was right, the
+        row old. The store's mark moves with every save: read again after it."""
+        from . import rows as R
+        seen = R._progress_mark()
+        while not self._closing:
+            xbmc.sleep(1000)
+            if xbmc.getCondVisibility('Player.HasVideo'):
+                continue
+            mark = R._progress_mark()
+            if mark == seen:
+                continue
+            seen = mark
+            xbmc.log('[DexHub] my: progress changed, reading the row again', xbmc.LOGINFO)
+            if not self._closing:
+                self._fill_services()
+
     def _read_up(self):
         from . import follow
         try:

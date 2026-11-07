@@ -1,3 +1,7 @@
+5.10.540
+المشغل يعرض اسم المسلسل ورقم الحلقة بدل عنوان الحلقة، حتى لو ما وصل الاسم مع المصدر. مكتبتي تتحدث لحالها بعد ما توقف الفيديو، والحلقة اللي بدون اسم مسلسل ما تختفي منها. صف المتابعة في الرئيسية يتحدث مباشرة بعد التوقف. يحتاج سكين 3.28.219.
+The player shows the series name and episode number instead of the episode title, even when the source comes without the name. My Library updates by itself after a video stops, and an episode saved without its series name keeps its card. The Home's Continue Watching row updates right after a stop. Needs skin 3.28.219.
+
 5.10.539
 صفحة معلومات التشغيل الكاملة صارت داخل Dex Hub بدون إضافة منفصلة. خيار جديد في إعدادات المشغل يحدد زر PPI يفتح صفحة Dex Hub أو TinyPPI، وإذا TinyPPI مثبتة يظهر لها زر داخل الصفحة. مكتبتي تبدأ بالمتابعة وتظهر فورا وتتحدث، والتقويم صار تحت. رفع وخفض الترجمة صار سطر ثابت بخطوة واضحة ويبقى لكل الفيديوهات. يحتاج سكين 3.28.218.
 The full Player Info page is now part of Dex Hub, with no separate add-on. A new Player setting chooses what the PPI button opens: the Dex Hub page or TinyPPI. When TinyPPI is installed, the page has a button for it. My Library starts with what you are watching, shown at once and kept up to date, and the calendar moved down. Subtitle height is now always in the panel, moves in clear steps and stays for every video. Needs skin 3.28.218.

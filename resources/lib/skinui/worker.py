@@ -1351,12 +1351,18 @@ class Worker(object):
         """Continue Watching, Next Up and the other progress rows, after
         playback (also when empty and off the Home: a first play brings them)."""
         from . import rows
-        for tab in C.TABS:
-            for spec in rows.load_specs(tab):
+        shown = C.prop('dhs.tab') or 'all'
+        for tab in sorted(C.TABS, key=lambda name: name != shown):
+            # v5.10.540: the tab on screen, and its own rows first. Continue
+            # Watching waited for the cursor to reach it: the Home showed the
+            # old cards for a minute after a stop, behind 80-card server rows
+            for spec in sorted(rows.load_specs(tab), key=lambda row: not row.get('own')):
                 if self.stopped():
                     return
                 if spec.get('progress') or spec.get('own'):
-                    if self.mode == 'dexhub' and self.request_priority(tab, spec['id'], 'r') is None:
+                    own_here = bool(spec.get('own')) and tab == shown
+                    if (self.mode == 'dexhub' and not own_here
+                            and self.request_priority(tab, spec['id'], 'r') is None):
                         # Keep the saved cards visible; ask their source only when shown.
                         path = C.row_file(tab, spec['id'])
                         with C.file_lock(path):

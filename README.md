@@ -245,6 +245,7 @@ Built in Python 3 on Kodi's own APIs (xbmc, xbmcgui, xbmcplugin, xbmcvfs), with 
 * Fonts: Inter, IBM Plex Sans Arabic, League Spartan and Font Awesome 6 Free
 * Icons: Font Awesome Free and Simple Icons
 * Badge packs: [Elite](https://github.com/leonevz/Elite-Badges) by leonevz, [Gold](https://github.com/k45sle/NUVIO_BADGES) by k45sle and [Minimalist white](https://github.com/sweatycab/nuvio-minimalist-badges) by sweatycab, downloaded from their own repositories when you pick them
+* Player Info page: based on the Player Info screen of [Lucent](https://github.com/djdirty60/Lucent) by djdirty60
 
 ## Disclaimer
 
