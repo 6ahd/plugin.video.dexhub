@@ -2,7 +2,7 @@
 ACTIONS = frozenset(('tmdb_player', 'streams', 'episode_streams', 'play',
                      'play_item', 'play_next_same_source', 'plex_play', 'emby_play',
                      'jellyfin_play', 'silo_play', 'native_resume', 'cw_resume',
-                     'switch_source', 'flix_sources', 'flix_addons', 'flix_addon', 'flix_home'))
+                     'switch_source'))
 
 
 # v5.10.120: two plays started within a moment (OK pressed twice on a title
@@ -74,10 +74,6 @@ def _action():
 
 
 def run():
-    if _action().startswith('flix_'):
-        # no play starts here: Flix only asks for rows
-        from .flix_sources import run as flix
-        return flix()
     mark, age = ('', 0.0) if _action() in _CHAINED else _claim()
     if age:
         return _drop(age)

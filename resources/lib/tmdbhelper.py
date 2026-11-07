@@ -68,7 +68,7 @@ def helper_language():
 def _helper_language_uncached():
     try:
         import xbmc
-        if not xbmc.getCondVisibility('System.HasAddon(plugin.video.themoviedb.helper)'):
+        if not xbmc.getCondVisibility('System.AddonIsEnabled(plugin.video.themoviedb.helper)'):
             return ''
         import xbmcaddon
         addon = xbmcaddon.Addon('plugin.video.themoviedb.helper')
@@ -131,7 +131,7 @@ def _db_candidates():
     out = []
     try:
         import xbmc
-        if not xbmc.getCondVisibility('System.HasAddon(plugin.video.themoviedb.helper)'):
+        if not xbmc.getCondVisibility('System.AddonIsEnabled(plugin.video.themoviedb.helper)'):
             return list(_DB_PATHS)
         import xbmcaddon
         base = (xbmcaddon.Addon('plugin.video.themoviedb.helper').getSetting('cache_location') or '').strip()

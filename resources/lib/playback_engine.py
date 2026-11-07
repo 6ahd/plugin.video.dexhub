@@ -279,6 +279,12 @@ def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta
     # The flag is now cleared on real playback lifecycle events instead.
 
     stream_url = api._append_a4k_ids_to_url(ctx.get('stream_url') or '', ctx)
+    # v5.10.543: a Blu-ray image behind an address with no .iso (disc_play)
+    try:
+        from . import disc_play
+        stream_url = disc_play.wrap(stream_url, ctx)
+    except Exception as _disc_exc:
+        api.xbmc.log('[DexHub] disc: %s' % _disc_exc, api.xbmc.LOGWARNING)
     if stream_url != (ctx.get('stream_url') or ''):
         try:
             ctx = dict(ctx or {})

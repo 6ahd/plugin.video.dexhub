@@ -1340,6 +1340,16 @@ def add_m3u(app):
     url = _ask_address(tr, tr('رابط قائمة M3U'))
     if not url:
         return ''
+    # v5.10.543: a seller's get.php link with its account is read as Xtream:
+    # many panels refuse the playlist itself (an 884 answer behind Cloudflare)
+    # while their player_api answers, and Xtream brings categories and guide
+    try:
+        server, username, password = _xt_server(url)
+    except ValueError:
+        server = username = password = ''
+    if username and password and urlsplit(url).path.lower().rstrip('/').endswith('/get.php'):
+        LS.log('M3U link is an Xtream account: added as Xtream')
+        return add_xtream(app, prefilled=(server, username, password))
     same = _same_source(app.profile, 'm3u', url)
     if same is not None:
         return _open_existing(app, dialog, same)
@@ -1388,9 +1398,12 @@ def _xt_server(text):
     return server, (query.get('username') or '').strip(), query.get('password') or ''
 
 
-def add_xtream(app):
-    """Ask for an Xtream Codes account, check it, keep it: its source key."""
+def add_xtream(app, prefilled=None):
+    """Ask for an Xtream Codes account, check it, keep it: its source key.
+    `prefilled` (server, username, password) skips the questions."""
     tr, dialog = app.tr, xbmcgui.Dialog()
+    if prefilled:
+        return _add_xtream_account(app, tr, dialog, *prefilled)
     # v5.10.110: Cancel at any step ends the setup; a mistyped server is asked
     # for again with what was typed, and the seller's get.php address fills
     # the username and the password (only what is missing is asked for)
@@ -1404,6 +1417,10 @@ def add_xtream(app):
             break
         except ValueError:
             prompt = tr('رابط غير صالح، صححه')
+    return _add_xtream_account(app, tr, dialog, server, username, password)
+
+
+def _add_xtream_account(app, tr, dialog, server, username, password):
     if not username:
         username = _ask(tr('اسم المستخدم'), private=True)
         if not username:

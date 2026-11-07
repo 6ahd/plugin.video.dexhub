@@ -26,12 +26,76 @@ class _NoDangling(object):
         return iter(())
 
 
+def _strong_import_locks():
+    """v5.10.543: the import machinery keeps each module's lock behind a weak
+    reference whose callback forgets it when the lock is freed, and a weak
+    table of the threads waiting on imports. On Kodi 22 that callback crashed
+    the Android app (AM8, 6 Nov: SIGSEGV in PyObject_ClearWeakRefs during an
+    import, "'dict' object is not callable" in _get_module_lock's cb), more
+    often since Dex Hub's service runs there too. Here the locks are kept for
+    good, a few hundred small objects, so no callback is ever left to run."""
+    try:
+        import _frozen_importlib as boot
+    except ImportError:
+        import importlib._bootstrap as boot
+    if getattr(boot, '_dexhub_strong_locks', False):
+        return
+    imp = boot._imp
+    kept = {}
+    imp.acquire_lock()
+    try:
+        for name, ref in list(boot._module_locks.items()):
+            lock = ref()
+            if lock is not None:
+                kept[name] = lock
+        # the weak references go too: a reference freed before its lock never
+        # calls back, also when the interpreter is torn down at the end of a
+        # call (LibreELEC 7 Nov: Kodi's PyGC_Collect in onExecutionDone)
+        boot._module_locks.clear()
+
+        def _get_module_lock(name):
+            imp.acquire_lock()
+            try:
+                lock = kept.get(name)
+                if lock is None:
+                    lock = boot._DummyModuleLock(name) if boot._thread is None else boot._ModuleLock(name)
+                    kept[name] = lock
+            finally:
+                imp.release_lock()
+            return lock
+
+        boot._get_module_lock = _get_module_lock
+        if getattr(boot, '_blocking_on', None) is not None and not isinstance(boot._blocking_on, dict):
+            boot._blocking_on = {}
+        boot._dexhub_strong_locks = True
+    finally:
+        imp.release_lock()
+
+
 def install():
+    try:
+        _strong_import_locks()
+    except Exception:
+        pass
     try:
         old = threading._dangling
         if not isinstance(old, _NoDangling):
             threading._dangling = _NoDangling()
             old.clear()
+    except Exception:
+        pass
+    # v5.10.543: logging keeps its named handlers in a WeakValueDictionary and
+    # every handler in a list of weak references with a callback; both call
+    # back when a handler is freed at the end of a call. Plain references:
+    # a call makes a handful of handlers at most
+    try:
+        import logging
+        if not isinstance(logging._handlers, dict):
+            logging._handlers = dict(logging._handlers.items())
+        if not getattr(logging, '_dexhub_strong_refs', False):
+            logging._handlerList[:] = []
+            logging._addHandlerRef = lambda handler: None
+            logging._dexhub_strong_refs = True
     except Exception:
         pass
     # logging keeps every handler in a WeakSet too (its locks, renewed after

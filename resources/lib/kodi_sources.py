@@ -116,7 +116,7 @@ def installed():
         if not aid.startswith('plugin.video.') or aid == _ME:
             continue
         found = _family(aid)
-        if not found or not xbmc.getCondVisibility('System.HasAddon(%s)' % aid):
+        if not found or not xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % aid):
             continue
         family, router = found
         try:

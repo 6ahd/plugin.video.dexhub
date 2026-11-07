@@ -39,7 +39,7 @@ def upnext_installed():
     add-on logs an EXCEPTION line in kodi.log every time (v5.10.103).
     """
     try:
-        if not xbmc.getCondVisibility('System.HasAddon(%s)' % UPNEXT_ID):
+        if not xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % UPNEXT_ID):
             return False
     except Exception:
         return False

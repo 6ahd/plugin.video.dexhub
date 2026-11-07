@@ -9,6 +9,9 @@ import xbmc
 # Claim before expensive startup imports. A playback can wake the service
 # safely when Kodi did not start it; exactly one interpreter owns callbacks.
 if __name__ == '__main__':
+    # v5.10.543: before any other import (thread_registry.py: Kodi 22 import crash)
+    from resources.lib.thread_registry import install as _strong_locks
+    _strong_locks()
     from resources.lib.service_lease import claim
     if not claim():
         sys.exit(0)
@@ -810,6 +813,13 @@ if __name__ == '__main__':
         self_update.run(xbmc.Monitor())
 
     threading.Thread(target=_self_update_worker, name='DexHub-self-update', daemon=True).start()
+
+    def _nas_worker():
+        # v5.10.543: the NAS shares are read again twice a day
+        from resources.lib import nas_sources
+        nas_sources.service_loop(xbmc.Monitor())
+
+    threading.Thread(target=_nas_worker, name='DexHub-nas', daemon=True).start()
     _retire_apple_tv_addon()
     try:
         import xbmcaddon

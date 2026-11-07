@@ -37,7 +37,84 @@ import xbmcaddon
 import xbmcplugin
 import xbmcvfs
 
-BRIDGE_VERSION = 3
+BRIDGE_VERSION = 4
+
+
+def _no_weak_callbacks():
+    """Bridge 4 (Dex Hub 5.10.543): the add-on's interpreter runs Dex Hub's
+    search with its scraper threads and is torn down at the end of the call;
+    Kodi 22's collection there called a weak-reference callback and crashed
+    Kodi (Mac 7 Nov 19:59, Red Light's interpreter, "waiting on thread").
+    The same measures as Dex Hub's thread_registry: import locks, logging's
+    handler registries, threading's and the executors' weak sets held plainly."""
+    try:
+        try:
+            import _frozen_importlib as boot
+        except ImportError:
+            import importlib._bootstrap as boot
+        if not getattr(boot, '_dexhub_strong_locks', False):
+            imp, kept = boot._imp, {}
+            imp.acquire_lock()
+            try:
+                for name, ref in list(boot._module_locks.items()):
+                    lock = ref()
+                    if lock is not None:
+                        kept[name] = lock
+                boot._module_locks.clear()
+
+                def _get_module_lock(name):
+                    imp.acquire_lock()
+                    try:
+                        lock = kept.get(name)
+                        if lock is None:
+                            lock = boot._DummyModuleLock(name) if boot._thread is None else boot._ModuleLock(name)
+                            kept[name] = lock
+                    finally:
+                        imp.release_lock()
+                    return lock
+
+                boot._get_module_lock = _get_module_lock
+                if getattr(boot, '_blocking_on', None) is not None and not isinstance(boot._blocking_on, dict):
+                    boot._blocking_on = {}
+                boot._dexhub_strong_locks = True
+            finally:
+                imp.release_lock()
+    except Exception:
+        pass
+    try:
+        import logging
+        if not isinstance(logging._handlers, dict):
+            logging._handlers = dict(logging._handlers.items())
+        if not getattr(logging, '_dexhub_strong_refs', False):
+            logging._handlerList[:] = []
+            logging._addHandlerRef = lambda handler: None
+            logging._dexhub_strong_refs = True
+    except Exception:
+        pass
+    try:
+        import threading
+
+        class _Inert(object):
+            def add(self, *_a): pass
+            def discard(self, *_a): pass
+            def clear(self): pass
+            def __len__(self): return 0
+            def __iter__(self): return iter(())
+
+        if not isinstance(threading._dangling, _Inert) and type(threading._dangling).__name__ != '_NoDangling':
+            old, threading._dangling = threading._dangling, _Inert()
+            old.clear()
+    except Exception:
+        pass
+    try:
+        from concurrent.futures import thread as _cf_thread
+        if not isinstance(_cf_thread._threads_queues, dict):
+            _cf_thread._threads_queues = dict(_cf_thread._threads_queues.items())
+    except Exception:
+        pass
+
+
+_no_weak_callbacks()
 _KEEP_SECONDS = 900
 
 

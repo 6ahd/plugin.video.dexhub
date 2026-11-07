@@ -27,7 +27,7 @@ def context():
     roots, settings = {}, {}
     import xbmc
     for identifier in ROOTS:
-        if not xbmc.getCondVisibility('System.HasAddon(%s)' % identifier):
+        if not xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % identifier):
             continue                    # v5.10.314: no "Unknown addon id" in the log
         try:
             addon = xbmcaddon.Addon(identifier)

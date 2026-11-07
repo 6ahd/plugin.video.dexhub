@@ -275,6 +275,16 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
             api.xbmc.log('[DexHub] Kodi add-on sources: %s' % ', '.join(p['name'] for p, _r in _kodi), api.xbmc.LOGINFO)
     except Exception as _kodi_exc:
         api.xbmc.log('[DexHub] Kodi add-on sources: %s' % _kodi_exc, api.xbmc.LOGWARNING)
+    # v5.10.543: the viewer's NAS (nas_sources) first: a local index, no network wait
+    try:
+        from .nas_sources import targets as _nas_targets
+        _nas = _nas_targets(meta, canonical_id, media_type,
+                            ids=api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id)),
+                            season=season, episode=episode)
+        if _nas:
+            combined_targets = list(_nas) + list(combined_targets)
+    except Exception as _nas_exc:
+        api.xbmc.log('[DexHub] NAS sources: %s' % _nas_exc, api.xbmc.LOGWARNING)
     # v5.10.373: in a watch party whose host shares its own link, «Dex Hub+»
     # goes first (one quick call to the hub, no scan)
     try:

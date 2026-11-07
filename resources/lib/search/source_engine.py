@@ -39,6 +39,11 @@ def _fetch_uncached(target, media_type, api):
             from .. import party_share as _party
             payload = _party.payload(provider)
             return payload
+        if (provider or {}).get('id') == '__nas__':
+            # v5.10.543: films and episodes on the viewer's NAS (nas_sources)
+            from .. import nas_sources as _nas
+            payload = _nas.payload(provider)
+            return payload
         if (provider or {}).get('id') == '__kodi__':
             # v5.10.447: Red Light, Fen Light, Umbrella or POV (kodi_sources)
             from .. import kodi_sources as _kodi
@@ -190,7 +195,7 @@ def fetch(target, media_type, api):
             return {'streams': [], '_source_status': 'cancelled'}
     except Exception:
         pass
-    if (provider or {}).get('id') in ('__party__', '__kodi__'):
+    if (provider or {}).get('id') in ('__party__', '__kodi__', '__nas__'):
         # v5.10.373: a ticket of this moment, never from the results cache
         # (v5.10.447: nor a Kodi add-on's list: its saved copy is what plays)
         return _fetch_uncached(target, media_type, api)

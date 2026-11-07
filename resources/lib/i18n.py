@@ -1891,6 +1891,8 @@ STRINGS = {
     'الجودة • HDR': 'Quality • HDR',
     'الجودة • Dolby Vision': 'Quality • Dolby Vision',
     'الجودة • REMUX': 'Quality • REMUX',
+    'الجودة • قرص كامل ISO': 'Quality • Full disc ISO',
+    'الـNAS ومجلدات الشبكة': 'NAS and network folders',
     'الترتيب \u2022 المقترح': 'Sort \u2022 Recommended',
     'الترتيب \u2022 الحجم': 'Sort \u2022 Size',
     'الترتيب \u2022 الجودة': 'Sort \u2022 Quality',
@@ -3729,3 +3731,85 @@ STRINGS.update({'شكل صفحة العمل': 'Title page layout', 'كلاسيك
 
 # v5.10.448: page colour follows the title
 STRINGS.update({'يتبع لون العمل': 'Follows the title', 'يتبع لون العمل، أو كحلي أو أسود أو لون ثيمك أو غيرها، لصفحة الكوليكشن وصفحة العمل': "The title's own colour, or navy, black, your theme or others, for the collection and title pages"})
+
+
+# v5.10.544: labels and messages the English page still showed in Arabic
+STRINGS.update({
+    'رياضة': 'Sport',
+    'رياضة · مباريات اليوم': 'Sport · Today\'s games',
+    'حتى %s': 'Until %s',
+    'إعدادات سحب ورفع Stremio': 'Stremio pull and push settings',
+    'ثبّت إضافة YouTube الرسمية أولاً': 'Install the official YouTube add-on first',
+    'أسبوع وقائمة وشهر لكل اللي تتابعه': 'Week, list and month for everything you follow',
+    'إدارة كوليكشنات Silo': 'Manage Silo collections',
+    'تنبيهات Silo والجزيرة': 'Silo and Al Jazeera alerts',
+    'قوائم وكوليكشنات Silo': 'Silo lists and collections',
+    'كوليكشناتي': 'My collections',
+    'الكوليكشنات الشخصية بترتيب Silo.': 'Your own collections, in Silo\'s order.',
+    'سحب ورفع': 'Pull and push',
+    'سحب فقط': 'Pull only',
+    'رفع فقط': 'Push only',
+    'المزامنة التلقائية': 'Automatic sync',
+    'مفعّلة': 'On',
+    'مطفأة': 'Off',
+    'الاتجاه': 'Direction',
+    'المشاهدة والتقدم': 'Watched and progress',
+    'اتجاه مزامنة Stremio': 'Stremio sync direction',
+    'غلاف المجلد…': 'Folder cover…',
+    'غلاف الكتالوج…': 'Catalog cover…',
+    'صحّحت توقيت الترجمة على %d أجزاء (لها نسخة فيها فواصل مختلفة)':
+        'Fixed the subtitle timing in %d parts (its release has different breaks)',
+    # Silo errors shown to the person
+    'صفحة Silo غير صالحة': 'Silo sent a page that is not valid',
+    'مؤشر صفحات Silo غير صالح': 'Silo\'s page marker is not valid',
+    'تغير ترتيب صفحات Silo؛ أعد فتح القائمة': 'Silo\'s page order changed; open the list again',
+    'قائمة Silo أكبر من حد التصفح الآمن': 'This Silo list is larger than the safe browsing limit',
+    'رد هوية Silo غير صالح؛ تحقق من عنوان السيرفر': 'Silo\'s identity answer is not valid; check the server address',
+    'قائمة Silo غير مكتملة؛ أعد تحميلها': 'The Silo list came incomplete; load it again',
+    'رد Silo غير صالح': 'Silo\'s answer is not valid',
+    'هوية جلسة Silo مفقودة؛ أعد تشغيل المصدر': 'The Silo session id is missing; play the source again',
+    'رد تحديث جلسة Silo غير صالح': 'Silo\'s session refresh answer is not valid',
+    'رد إنهاء جلسة Silo لا يطابق الطلب': 'Silo\'s session end answer does not match the request',
+    'توقيت خطة Silo غير صالح': 'The Silo play plan\'s timing is not valid',
+    'هوية خطة Silo لا تطابق الجلسة': 'The Silo play plan does not match the session',
+    'هوية جلسة Silo غير صالحة': 'The Silo session id is not valid',
+    'خطة Silo تحتاج تجديد ترويسات أثناء البث؛ هذه الآلية غير متاحة في مشغّل Kodi':
+        'This Silo plan renews headers during playback, which Kodi\'s player cannot do',
+    'نافذة تقديم Silo غير صالحة': 'Silo\'s serving window is not valid',
+    'ترويسة خطة Silo غير صالحة': 'A Silo play plan header is not valid',
+    'تغير سيرفر Silo؛ أعد فتح المصدر': 'The Silo server changed; open the source again',
+    'تغير حساب Silo؛ تجاهل تحديث الجلسة السابقة': 'The Silo account changed; the old session refresh was ignored',
+    'نسخة Silo المحددة لم تعد متاحة؛ اختر المصدر من جديد': 'That Silo copy is gone; choose the source again',
+    'تشغيل Silo غير متاح لهذا البروفايل أو لم يكتمل إعداد السيرفر':
+        'Silo playback is not available for this profile, or the server setup is not finished',
+    'سيرفر Silo يحتاج تحديث عقد جلسات التشغيل': 'The Silo server needs an update for playback sessions',
+    'لم يسمح Silo بخطة تشغيل: %s': 'Silo did not allow a play plan: %s',
+    'لم يسمح Silo بخطة تشغيل:': 'Silo did not allow a play plan:',
+    'Silo مشغول؛ حاول بعد %d ثانية': 'Silo is busy; try again in %d seconds',
+    'Silo مشغول؛ حاول بعد': 'Silo is busy; try again in',
+    'تغير بروفايل Silo؛ أعد فتح الصفحة': 'The Silo profile changed; open the page again',
+    'اربط بروفايل Silo أولًا': 'Link a Silo profile first',
+    'تغير بروفايل Silo؛ أعد فتح القائمة': 'The Silo profile changed; open the list again',
+    'اسم الكوليكشن مطلوب': 'The collection needs a name',
+    'السيرفر لا يوفر حماية تعديل الكوليكشن؛ حدّث Silo': 'The server cannot protect collection edits; update Silo',
+    'رد الكوليكشن لا يطابق الطلب': 'The collection answer does not match the request',
+    'تغيرت هوية الكوليكشن': 'The collection\'s id changed',
+})
+
+# v5.10.545: the settings page's hints (Left/Right change a value in place)
+STRINGS.update({
+    'OK للفتح  •  رجوع للأقسام': 'OK opens  •  Back: sections',
+    'يمين ويسار للتغيير  •  OK لكل الخيارات': 'Left/Right change it  •  OK: every choice',
+    'الإعدادات الأساسية': 'Basic settings',
+    'كل الإعدادات': 'All settings',
+})
+
+# v5.10.545: the Basic sections added in 5.10.543 (they showed in Arabic in the English UI)
+STRINGS.update({
+    'مصادر التشغيل': 'Sources',
+    'الصفوف والكتالوجات': 'Rows and catalogs',
+    'ترتيبها وإخفاؤها وشكلها، وأقسام الشريط': 'Their order, hiding and style, and the bar\'s sections',
+    'الإضافات اللي يبحث فيها، والـNAS، وطريقة التشغيل': 'The add-ons searched, your NAS, and how playback starts',
+    'الصوت والترجمة والتريلر': 'Audio, subtitles and trailers',
+    'أفلامك ومسلسلاتك في الـNAS تطلع مع المصادر': 'Films and series on your NAS show with the sources',
+})

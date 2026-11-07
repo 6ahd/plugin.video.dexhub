@@ -40,7 +40,7 @@ def _pack_root(pack):
         return _PACK_ROOTS[pack]
     root = ''
     try:
-        if not xbmc.getCondVisibility('System.HasAddon(%s)' % pack):
+        if not xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % pack):
             raise LookupError(pack)     # not installed: no EXCEPTION line in the log
         addon_path = xbmcaddon.Addon(pack).getAddonInfo('path') or ''
         addon_path = xbmcvfs.translatePath(addon_path) if addon_path else ''

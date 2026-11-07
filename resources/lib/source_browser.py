@@ -65,7 +65,28 @@ QUALITY_FILTERS = [
     ('Q:HDR',   'الجودة • HDR', ('HDR', 'HDR10', 'HDR10+')),
     ('Q:DV',    'الجودة • Dolby Vision', ('DV', 'DOVI', 'DOLBY VISION')),
     ('Q:REMUX', 'الجودة • REMUX', ('REMUX', 'BDREMUX')),
+    # v5.10.543: whole Blu-ray discs (ISO, BDMV): CoreELEC plays them with menus
+    ('Q:DISC', 'الجودة • قرص كامل ISO', ()),
 ]
+
+_DISC_RE = re.compile(r'(?<![a-z0-9])(?:iso|bdmv|br[ ._-]?disk|full[ ._-]?disc|bd(?:25|50|66|100)|'
+                      r'complete[ ._-]?(?:uhd[ ._-]?)?blu[ ._-]?ray)(?![a-z0-9])|\.iso(?:$|[?|])|/index\.bdmv', re.I)
+
+
+def _row_is_disc(row):
+    """A whole Blu-ray disc (an .iso or a BDMV folder), by its name or address."""
+    if not isinstance(row, dict):
+        return False
+    known = row.get('_ui_is_disc')
+    if known is not None:
+        return known
+    text = ' '.join(str(row.get(key) or '') for key in (
+        'title', 'name', 'label', 'label2', 'filename', 'release', 'extraInfo', 'url', 'stream_url'))
+    hints = row.get('behaviorHints') if isinstance(row.get('behaviorHints'), dict) else {}
+    text += ' ' + str(hints.get('filename') or '')
+    found = bool(_DISC_RE.search(text))
+    row['_ui_is_disc'] = found
+    return found
 
 # Built once per interpreter, not once per rendered source row.  The picker can
 # receive hundreds of AIOStreams results and v5.2 rebuilt this palette list for
@@ -1451,6 +1472,8 @@ def _filter_label(value):
 
 
 def _row_matches_quality(row, filter_value):
+    if filter_value == 'Q:DISC':
+        return _row_is_disc(row)
     blob = _row_quality_blob(row)
     return _blob_matches_quality(blob, filter_value)
 
@@ -2560,6 +2583,8 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             for quality in quality_order:
                 if _blob_matches_quality(quality_blob, quality):
                     candidates.append(quality)
+            if _row_is_disc(row):
+                candidates.append('Q:DISC')
             candidates.extend((
                 _row_type_filter(row), _row_group_filter(row),
                 _row_provider_filter(row),
@@ -3076,6 +3101,9 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         # One badge from each useful category gives much better scanability than
         # simply taking the first six tokens from a release name.
         _add_native(('2160P', '4K', '1080P', '720P'))
+        if _row_is_disc(row) and 'ISO' not in seen:
+            tags.append({'text': 'ISO', 'bg': 'FF2A2112', 'fg': 'FFF2C879'})
+            seen.add('ISO')
         _add_native(('DV',))
         _add_native(('HDR10+', 'HDR10', 'HDR'))
         _add_native(('REMUX', 'BLURAY', 'WEB-DL', 'WEBDL', 'WEBRIP'))

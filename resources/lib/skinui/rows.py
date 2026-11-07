@@ -1349,7 +1349,7 @@ class Context(object):
     def helper_installed(self):
         if self._helper is None:
             try:
-                self._helper = bool(xbmc.getCondVisibility('System.HasAddon(%s)' % TMDBH_ID))
+                self._helper = bool(xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % TMDBH_ID))
             except Exception:
                 self._helper = False
         return self._helper

@@ -166,6 +166,22 @@ def toggle():
             xbmcgui.Dialog().notification('Silo', _t('تنبيهات Silo صارت توصلك على تيليجرام', 'Silo alerts now reach your Telegram'),
                                           xbmcgui.NOTIFICATION_INFO, 5000, False)
     except Refused as exc:
-        xbmcgui.Dialog().ok('Silo · Telegram', str(exc))
+        xbmcgui.Dialog().ok('Silo · Telegram', _i18n_tr(str(exc)))
     except Exception as exc:
-        xbmcgui.Dialog().notification('Silo', str(exc)[:120], xbmcgui.NOTIFICATION_ERROR, 5000, False)
+        xbmcgui.Dialog().notification('Silo', _i18n_tr(str(exc))[:120], xbmcgui.NOTIFICATION_ERROR, 5000, False)
+
+
+def _i18n_tr(text):
+    try:
+        from .i18n import tr
+        return tr(text)
+    except Exception:
+        return text
+
+
+def _i18n_en():
+    try:
+        from .i18n import is_english
+        return bool(is_english())
+    except Exception:
+        return False

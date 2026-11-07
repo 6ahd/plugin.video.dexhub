@@ -83,7 +83,7 @@ def _notify(message):
 
 def helper_installed():
     try:
-        return bool(xbmc.getCondVisibility('System.HasAddon(%s)' % HELPER_ADDON_ID))
+        return bool(xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % HELPER_ADDON_ID))
     except Exception:
         return False
 

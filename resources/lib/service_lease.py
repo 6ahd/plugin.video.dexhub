@@ -37,6 +37,15 @@ def release():
     handle.close()  # The OS also releases this lock if Kodi exits/crashes.
 
 
+def _other_owner_alive():
+    """Another interpreter owns the service: it pulsed within the minute."""
+    try:
+        value = json.loads(xbmcgui.Window(10000).getProperty(PROP) or '{}')
+        return bool(value.get('owner')) and 0 <= time.time() - float(value.get('at') or 0) < 60
+    except (TypeError, ValueError):
+        return False
+
+
 def claim():
     global _handle, _owner
     if _handle is not None:
@@ -59,14 +68,18 @@ def claim():
         # v5.10.542: Android's shared storage answers ENOSYS (seen on Android
         # 14): that is no lock to take, not another owner, and the service
         # never started there
-        if exc.errno not in (errno.ENOSYS, errno.ENOTSUP, errno.EOPNOTSUPP):
+        if exc.errno not in (errno.ENOSYS, errno.ENOTSUP, errno.EOPNOTSUPP) or _other_owner_alive():
+            # v5.10.543: with no file lock, a service that pulsed in the last
+            # minute still owns it; 5.10.542 let a second copy run every worker twice
             handle.close()
             return False
     except (ImportError, AttributeError):
         # v5.10.495: no file lock on this Python (Kodi on Xbox, the Windows
         # Store build, lacks parts of os/msvcrt): one Kodi runs one service,
         # so it carries on as the owner instead of never starting
-        pass
+        if _other_owner_alive():
+            handle.close()
+            return False
     _handle, _owner = handle, uuid.uuid4().hex
     pulse()
     atexit.register(release)

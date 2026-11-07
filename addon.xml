@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addon id="plugin.video.dexhub" name="Dex Hub" version="5.10.542" provider-name="Dex Hub">
+<addon id="plugin.video.dexhub" name="Dex Hub" version="5.10.545" provider-name="Dex Hub">
   <requires>
     <import addon="xbmc.python" version="3.0.0" />
     <import addon="script.module.urllib3" version="1.26.0" optional="true" />
@@ -36,7 +36,7 @@
     <description lang="ar">Dex Hub نسخة مستقلة لـ Kodi. أضف روابط Stremio، واستخدم مصادر Plex وEmby/Jellyfin وSilo الأصلية، وشغّل الترجمات الخارجية، واربط Trakt، واستخدم Dex Hub كمشغّل لـ TMDb Helper، وحافظ على قائمة متابعة موحّدة محلياً.</description>
     <disclaimer lang="en_GB">The author of this addon does not host any of the content which is found and has no affiliation with any of the content providers. The author is in no way affiliated with Kodi, Team Kodi, or the XBMC Foundation.</disclaimer>
     <disclaimer lang="ar">مؤلّف هذه الإضافة لا يستضيف أيًّا من المحتوى الذي يتم العثور عليه، وليس له أي ارتباط بأي من مزوّدي المحتوى. لا يرتبط المؤلّف بأي شكل مع Kodi أو فريق Kodi أو مؤسّسة XBMC.</disclaimer>
-    <news>5.10.541: My games opens with a big card in both clubs' colours. Postponed games say so instead of 0 - 0. AFC Champions League Two, CAF and more Arab leagues added.</news>
+    <news>5.10.545: New settings page: Left and Right change a value right on its row, the line at the bottom says what the option does, and Back goes to the sections before closing. New Edit Home: only the rows you see are listed and the hidden ones fold into one line, Left and Right change a row's style, one Add rows button opens Dex Hub, DexWorld, YouTube or any add-on, and Back goes to the sections. The row menu had empty lines (Kodi's font has no emoji); fixed. Also in this build, from 5.10.544: No more error lines when TinyPPI, TMDb Helper or another add-on is installed but turned off (Dex Hub now treats it as missing). The English look no longer shows Arabic words in the Stremio sync menu, Silo menus and messages, folder covers and subtitle sync notes. The Show and hide rows button in Edit the Home screen had an empty label; fixed. Also in this build, from 5.10.543: Your NAS as a source (found on the network, guest folders open without a password). Full Blu-ray discs (ISO, BDMV) get a badge and a filter. Basic settings now have Sources and Rows sections; OK on a row opens one menu to hide, move or restyle it, and Show and hide rows ticks them all at once. Fixes Kodi 22 crashes that closed the app (Dex Hub and the Kodi add-ons it searches with no longer leave Python weak callbacks behind), and a second copy of the background service no longer starts. Kodi logs can be downloaded from the phone setup page. An IPTV get.php link added as M3U is added as Xtream (panels that refuse the playlist with error 884 still work). Continue Watching fills from Trakt again on a profile that had never pulled it.</news>
     <source>https://github.com/6ahd/plugin.video.dexhub</source>
     <website>https://dexworld.cc</website>
     <assets>

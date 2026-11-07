@@ -464,7 +464,7 @@ def _own_props(props):
         if name and value not in (None, ''):
             own[name] = str(value)
     addon = own.get('inputstream') or own.get('inputstreamaddon') or ''
-    if addon and not xbmc.getCondVisibility('System.HasAddon(%s)' % addon):
+    if addon and not xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % addon):
         own = dict((k, v) for k, v in own.items() if not k.startswith('inputstream'))
     return own
 
@@ -498,7 +498,7 @@ def stream_for(url, headers=None, key='', logo='', props=None):
     for name, value in parse_qsl(given, keep_blank_values=False):
         set_header(merged, name, value)
     if mime == 'application/dash+xml' and not own.get('inputstream'):
-        if not xbmc.getCondVisibility('System.HasAddon(inputstream.adaptive)'):
+        if not xbmc.getCondVisibility('System.AddonIsEnabled(inputstream.adaptive)'):
             return None
         own.update({'inputstream': 'inputstream.adaptive',
                     'inputstream.adaptive.manifest_type': 'mpd'})

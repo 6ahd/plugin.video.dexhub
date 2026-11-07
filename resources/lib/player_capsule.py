@@ -171,7 +171,7 @@ def card(ctx, text, rating='', guide=None, place='top_left'):
 
 def _tinyppi():
     try:
-        return bool(xbmc.getCondVisibility('System.HasAddon(%s)' % TINYPPI))
+        return bool(xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % TINYPPI))
     except Exception:
         return False
 

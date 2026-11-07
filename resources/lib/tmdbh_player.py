@@ -110,7 +110,7 @@ def has_tmdbhelper():
     this Python invocation — install/uninstall is rare and never happens
     inside a single plugin call, so the per-item lookup overhead is wasted."""
     try:
-        return bool(xbmc.getCondVisibility('System.HasAddon(%s)' % TMDBH_ID))
+        return bool(xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % TMDBH_ID))
     except Exception:
         return False
 

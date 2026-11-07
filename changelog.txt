@@ -1,3 +1,13 @@
+5.10.545
+صفحة إعدادات جديدة: يمين ويسار يغيّرون القيمة في نفس السطر، والسطر اللي تحت يشرح الخيار المحدد، ورجوع يوديك للأقسام قبل ما تسكر.
+تعديل الرئيسية الجديد: تظهر الصفوف الظاهرة بس، والمخفية مطوية في سطر واحد. يمين ويسار يغيّرون شكل الصف، وزر «إضافة صفوف» واحد يفتح Dex Hub وDexWorld وYouTube وأي إضافة، ورجوع يوديك للأقسام. قائمة الصف كانت فيها أسطر فاضية (خط كودي ما فيه إيموجي)، انصلحت.
+New settings page: Left and Right change a value right on its row, the line at the bottom says what the focused option does, and Back goes to the sections before closing.
+New Edit Home: only the rows you see are listed and the hidden ones fold into one line. Left and Right change a row's style, one Add rows button opens Dex Hub, DexWorld, YouTube or any add-on, and Back goes to the sections. The row menu had empty lines (Kodi's font has no emoji); fixed.
+
+5.10.544
+ما تطلع أخطاء في السجل إذا TinyPPI أو TMDb Helper أو أي إضافة ثانية مثبتة بس مطفية (Dex Hub يعاملها كأنها مو موجودة). الواجهة الإنجليزية ما عاد تظهر فيها كلمات عربية في قائمة مزامنة Stremio وقوائم Silo ورسائله وغلاف المجلد وملاحظات مزامنة الترجمة. زر «إظهار وإخفاء الصفوف» في تعديل الواجهة كان فاضي، انصلح. وفيه كل ما في 5.10.543: مصادر NAS، فلتر الأقراص الكاملة، وحماية من كراش Kodi 22.
+No more error lines when TinyPPI, TMDb Helper or another add-on is installed but turned off (Dex Hub treats it as missing). The English look no longer shows Arabic words in the Stremio sync menu, Silo menus and messages, folder covers and subtitle sync notes. The Show and hide rows button in Edit the Home screen had an empty label; fixed. Includes everything in 5.10.543: NAS sources, the full disc filter and the Kodi 22 crash protections.
+
 5.10.542
 تطبيق الأندرويد يتحدث لحاله من مستودع Dex Hub، والتحديث يطبق عند فتح التطبيق المرة الجاية. خدمة Dex Hub تشتغل الآن على الأجهزة اللي كانت ما تبدأ فيها.
 The Android app now updates itself from the Dex Hub repository; an update applies the next time the app opens. The Dex Hub service now starts on devices where it never did.

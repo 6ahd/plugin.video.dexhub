@@ -1542,7 +1542,7 @@ def show(txt=None):
 
 def open_repository():
     """Kodi's add-on browser at the repository's badge packs."""
-    repo = next((r for r in REPOSITORIES if xbmc.getCondVisibility('System.HasAddon(%s)' % r)), '')
+    repo = next((r for r in REPOSITORIES if xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % r)), '')
     path = ('addons://%s/kodi.resource.images/' % repo) if repo else 'addons://all/kodi.resource.images/'
     xbmc.executebuiltin('ActivateWindow(AddonBrowser,%s,return)' % path)
 

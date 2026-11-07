@@ -93,6 +93,7 @@ SERVICES = (
     ('jellyfin', 'Jellyfin', 'server', 'jellyfin_login', 'jellyfin_logout'),
     ('silo', 'Silo', 'silo', 'silo_qr_login', 'silo_logout'),
     ('iptv', 'IPTV', 'tv', 'iptv_menu', ''),
+    ('nas', 'NAS', 'server', 'nas_setup', ''),
 )
 _BY_KEY = dict((row[0], row) for row in SERVICES)
 
@@ -180,6 +181,12 @@ def _ui_options():
 
 
 def _linked(key):
+    if key == 'nas':
+        try:
+            from . import nas_sources
+            return nas_sources.is_set_up()
+        except Exception:
+            return False
     if key == 'iptv':
         try:
             from .skinui import rows as SR
@@ -840,6 +847,12 @@ class Session(object):
             return self._silo_profiles(pending)
         elif service == 'iptv':
             self._iptv(server, user, password)
+        elif service == 'nas':
+            # v5.10.543: a NAS or one of its folders; its files are read on the TV
+            from . import nas_sources
+            ok, why = nas_sources.add_from_phone(server, user, password)
+            if not ok:
+                raise ValueError('The TV could not open that address' if why == 'unreachable' else 'Type the NAS address')
         else:
             raise ValueError('unknown service')
         _log('%s linked from the phone' % service)

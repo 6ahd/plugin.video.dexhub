@@ -1994,7 +1994,7 @@ class _BaseWindow(xbmcgui.WindowXML):
         if not force and self.title_page() != 'tmdbhelper':
             return ''
         try:
-            if not xbmc.getCondVisibility('System.HasAddon(%s)' % TMDBH_ID):
+            if not xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % TMDBH_ID):
                 return ''
         except Exception:
             return ''

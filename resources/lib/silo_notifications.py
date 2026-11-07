@@ -257,7 +257,7 @@ def settings():
             key = owner(client.auth)
             _update(key, lambda state: state.update(refresh_after=0))
     except Exception as exc:
-        xbmcgui.Dialog().notification('Silo', str(exc), xbmcgui.NOTIFICATION_ERROR)
+        xbmcgui.Dialog().notification('Silo', _i18n_tr(str(exc)), xbmcgui.NOTIFICATION_ERROR)
 
 
 def run(monitor):
@@ -280,3 +280,19 @@ def run(monitor):
             delay = min(600, 30 * 2 ** min(failures - 1, 4))
         if monitor.waitForAbort(delay):
             return
+
+
+def _i18n_tr(text):
+    try:
+        from .i18n import tr
+        return tr(text)
+    except Exception:
+        return text
+
+
+def _i18n_en():
+    try:
+        from .i18n import is_english
+        return bool(is_english())
+    except Exception:
+        return False

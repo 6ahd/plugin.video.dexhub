@@ -137,7 +137,7 @@ def base_url():
 def addon_key():
     """The key saved in the Dex IPTV add-on (plugin.video.dexworld), when it is installed."""
     try:
-        if not xbmc.getCondVisibility('System.HasAddon(%s)' % DEXWORLD_ADDON):
+        if not xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % DEXWORLD_ADDON):
             return ''
         return (xbmcaddon.Addon(DEXWORLD_ADDON).getSetting('api_key') or '').strip()
     except Exception:

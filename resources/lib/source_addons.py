@@ -57,9 +57,11 @@ def choose(tr):
     Light, Umbrella, POV, Otaku and their kin) follow, unchecked until the
     user switches them on (kodi_sources)."""
     from . import kodi_sources
+    from . import nas_sources
     providers = _stream_providers()
     kodi = kodi_sources.installed()
-    if not providers and not kodi:
+    nas = nas_sources.is_set_up()
+    if not providers and not kodi and not nas:
         xbmcgui.Dialog().ok('Dex Hub', tr('ما فيه إضافات مصادر مربوطة'))
         return False
     off = skipped()
@@ -74,6 +76,12 @@ def choose(tr):
         labels.append('%s  ·  %s' % (name, tr('إضافة كودي')))
         if aid in kodi_on:
             pre.append(index)
+    # v5.10.543: the NAS, last, on until switched off here
+    nas_index = len(providers) + len(kodi)
+    if nas:
+        labels.append('NAS  ·  %s' % tr('الـNAS ومجلدات الشبكة'))
+        if nas_sources.PROVIDER_ID not in off:
+            pre.append(nas_index)
     picked = xbmcgui.Dialog().multiselect(tr('الإضافات اللي يبحث فيها عن المصادر'), labels, preselect=pre)
     if picked is None:
         return False
@@ -84,10 +92,13 @@ def choose(tr):
     # Dex Hub's bridge goes into each add-on switched on, and out of the others
     missing = kodi_sources.apply_choice(
         [aid for i, (aid, _n, _h) in enumerate(kodi, len(providers)) if i in keep])
-    if providers:
+    if providers or nas:
         # keys of add-ons no longer linked are kept: relinking one keeps its choice
-        others = {k for k in off if k not in {key(p) for p in providers}}
-        _save(others | {key(p) for i, p in enumerate(providers) if i not in keep})
+        others = {k for k in off if k not in {key(p) for p in providers} and k != nas_sources.PROVIDER_ID}
+        dropped = {key(p) for i, p in enumerate(providers) if i not in keep}
+        if nas and nas_index not in keep:
+            dropped.add(nas_sources.PROVIDER_ID)
+        _save(others | dropped)
     if missing:
         xbmcgui.Dialog().ok('Dex Hub', '%s: %s' % (', '.join(missing), tr(
             'ما قدرت أربط هذي الإضافة: نسختها تغيّرت عن اللي يعرفها Dex Hub.')))

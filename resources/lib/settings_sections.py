@@ -16,7 +16,7 @@ def all_sections():
 # Opening or editing preferences does not mean viewing progress changed.
 # Settings changes themselves invalidate the rows that actually depend on them.
 SETTING_ACTIONS = frozenset(row[3] for row in all_sections()) | frozenset((
-    'av_settings', 'interface_fonts', 'track_preferences', 'ui_option', 'ui_options_publish', 'playback_mode', 'simple_source_behavior', 'source_addons',
+    'av_settings', 'interface_fonts', 'track_preferences', 'ui_option', 'ui_options_publish', 'playback_mode', 'simple_source_behavior', 'source_addons', 'nas_setup',
     'setup_playback', 'setup_quality', 'simple_episode_controls', 'player_appearance', 'osd_buttons',
     'player_badges', 'player_badge', 'player_badge_packs', 'badges_url',
     'simple_metadata_language', 'meta_source_picker', 'simple_tmdb_api_key',

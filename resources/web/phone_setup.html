@@ -828,6 +828,7 @@ input[type=file].inp{padding:10px 12px;font-size:13px}
           <option value="files">ملفاتي / My files</option><option value="imports">الملفات المرفوعة / Imports</option>
           <option value="fonts">الخطوط / Fonts</option><option value="backups">نسخ ما قبل الاسترجاع / Restore backups</option>
           <option value="trash">السلة / Trash</option><option value="addons">الإضافات المثبتة / Installed add-ons</option>
+          <option value="logs">سجلات كودي / Kodi logs (kodi.old.log = آخر تشغيل)</option>
         </select>
         <p class="hint ltr" id="filePath" dir="auto">/</p>
         <div class="btnrow">
@@ -1033,14 +1034,15 @@ const SVC_META={
  emby:{sub:'مكتبة السيرفر',ph:'http://192.168.1.20:8096'},
  jellyfin:{sub:'مكتبة السيرفر',ph:'http://192.168.1.20:8096'},
  silo:{sub:'مكتبة السيرفر',ph:'silo.example.com'},
- iptv:{sub:'قنوات وVOD',ph:'http://server:8080'}
+ iptv:{sub:'قنوات وVOD',ph:'http://server:8080'},
+ nas:{sub:'أفلامك ومسلسلاتك في الشبكة',ph:'192.168.1.20'}
 };
-const ORDER=['nuvio','trakt','stremio','plex','emby','jellyfin','silo','iptv'];
+const ORDER=['nuvio','trakt','stremio','plex','emby','jellyfin','silo','iptv','nas'];
 let chosen=new Set();
 function loadChosen(){try{const v=JSON.parse(localStorage.getItem('dexhub.phone.chosen')||'null');if(Array.isArray(v))return new Set(v)}catch(e){}return null}
 function saveChosen(){try{localStorage.setItem('dexhub.phone.chosen',JSON.stringify([...chosen]))}catch(e){}}
 const svc=id=>S.services[id]||{name:id,kind:'tv'};
-function ico(id){return ICON[id]?`<img src="${ICON[id]}" alt="">`:`<span class="ico">TV</span>`}
+function ico(id){return ICON[id]?`<img src="${ICON[id]}" alt="">`:`<span class="ico">${id==='nas'?'NAS':'TV'}</span>`}
 /* v5.10.251: the page is plain http on the home network, where phones give
    no clipboard API; copying through a selected text box works there, and
    only the code itself is copied (Safari copied the page's address) */
@@ -1117,8 +1119,8 @@ document.addEventListener('change',async e=>{
 function cardBody(id){
   const s=svc(id),m=SVC_META[id]||{};
   if(s.linked){
-    return (id==='stremio'?stremioSyncCard():'')+`<div class="done-line">${id==='iptv'?'اشتراكك مضاف، تقدر تضيف ثاني من التلفزيون':'مربوط ويشتغل على التلفزيون'}</div>`+
-      (id==='iptv'?'':`<div class="row"><button class="btn g s" data-act="unlink" data-id="${id}" type="button">فك الربط</button></div>`);
+    return (id==='stremio'?stremioSyncCard():'')+`<div class="done-line">${id==='iptv'?'اشتراكك مضاف، تقدر تضيف ثاني من التلفزيون':id==='nas'?'الـNAS مضاف، وملفاته تطلع مع المصادر':'مربوط ويشتغل على التلفزيون'}</div>`+
+      (id==='iptv'||id==='nas'?'':`<div class="row"><button class="btn g s" data-act="unlink" data-id="${id}" type="button">فك الربط</button></div>`);
   }
   if(s.kind==='code'){
     const p=s.pairing;
@@ -1140,11 +1142,12 @@ function cardBody(id){
   if(s.kind==='silo') return siloBody(id,s,m);
   if(s.kind==='tv') return `<div class="row"><button class="btn p" data-act="tv" data-id="${id}" type="button">افتحه على التلفزيون</button></div>`;
   const server=(s.kind==='server'||id==='iptv');
-  const addr=server?`<div class="field"><label for="a-${id}">${id==='iptv'?'عنوان السيرفر أو رابط M3U':'عنوان السيرفر'}</label><input class="inp ltr" id="a-${id}" inputmode="url" autocomplete="off" placeholder="${m.ph||''}"></div>`:'';
+  const addr=server?`<div class="field"><label for="a-${id}">${id==='iptv'?'عنوان السيرفر أو رابط M3U':id==='nas'?'عنوان الـNAS (أو smb://nas/movies)':'عنوان السيرفر'}</label><input class="inp ltr" id="a-${id}" inputmode="url" autocomplete="off" placeholder="${m.ph||''}"></div>`:'';
   const u=id==='stremio'?'البريد':'اسم المستخدم';
   return `${addr}<div class="field"><label for="u-${id}">${u}${id==='iptv'?' (لـ Xtream)':''}</label><input class="inp ltr" id="u-${id}" autocomplete="${id==='stremio'?'email':'username'}" ${id==='stremio'?'inputmode="email"':''}></div>
     <div class="field"><label for="p-${id}">كلمة المرور</label><input class="inp ltr" id="p-${id}" type="password" autocomplete="current-password"></div>
     <div class="row"><button class="btn p" data-act="login" data-id="${id}" type="button">اربط</button></div>
+    ${id==='nas'?'<p class="hint">اترك الاسم وكلمة المرور فاضية لو المجلدات مفتوحة. كل مجلد مشارك يتقرأ، والأفلام والحلقات تنعرف من أسمائها.</p>':''}
     <p class="hint">تنرسل لتلفزيونك مباشرة على شبكة البيت، وما تمر على أي سيرفر ثاني.</p>`;
 }
 /* v5.10.242: Silo opens its own site on the phone, then the profile is picked here */
@@ -1254,7 +1257,7 @@ document.addEventListener('click',async e=>{
     if(ad){ad.value=cleanText(ad.value);u.value=cleanText(u.value)}
     if(ad&&!ad.value.trim()){ad.focus();toast('اكتب عنوان السيرفر');return}
     if(id==='silo')siloServer(ad.value);
-    if(id!=='iptv'&&(!u.value.trim()||!pw.value)){(u.value.trim()?pw:u).focus();toast('اكتب البيانات أول');return}
+    if(id!=='iptv'&&id!=='nas'&&(!u.value.trim()||!pw.value)){(u.value.trim()?pw:u).focus();toast('اكتب البيانات أول');return}
     a.disabled=true;a.textContent='يربط…';
     const j=await post('login',{service:id,server:ad?ad.value.trim():'',user:u.value.trim(),password:pw.value},true);
     if(j.ok&&id==='silo'){siloProfiles(j);return}
@@ -2100,7 +2103,7 @@ const exact={
 'كثيب: الجزء الثاني':'Dune: Part Two','بول أتريديس يتحد مع الفريمن وهو في طريقه للانتقام من المتآمرين اللي دمروا عائلته.':'Paul Atreides unites with the Fremen to seek revenge against those who destroyed his family.','2024 · خيال علمي · مغامرة · 2س 46د':'2024 · Science Fiction · Adventure · 2h 46m',
 'نسخة احتياطية انحفظت على التلفزيون':'Backup preview created','الوضع الخفيف اشتغل':'Lightweight mode enabled',
 'تجريبي':'Demo','إعداد من الجوال':'PHONE SETUP','ثلاث خطوات، تجربة واحدة.':'Three steps. One personal experience.','خدماتك، شاشتك، إعدادك.':'Your services. Your screen. Your setup.',
-"متصل بـ":"Connected to","اختر خدماتك ورتّب شاشتك. كل تغيير يوصل للتلفزيون على طول.":"Choose your services and arrange your home screen. Every change reaches the TV right away.","مربوط":"Linked","محفوظ":"Saved","خلصت":"Done","جاهز على التلفزيون":"Ready on your TV","ارجع للتلفزيون، الصفحة الرئيسية تتحدث الحين.":"Go back to the TV. The home screen is refreshing now.","ابدأ الربط":"Start linking","أو اربطه من التلفزيون":"Or link it on the TV","افتحه على التلفزيون":"Open it on the TV","مربوط ويشتغل على التلفزيون":"Linked and working on the TV","اشتراكك مضاف، تقدر تضيف ثاني من التلفزيون":"Your subscription is added. Add another one on the TV.","بعد الموافقة يتحول هنا لـ \"مربوط\" لحاله.":"Once approved, this turns to Linked by itself.","افتح الرابط وحط الرمز، والتلفزيون ينربط لحاله.":"Open the link and enter the code. The TV links by itself.","تفتح صفحة Plex وتوافق، وتنربط سيرفراتك كلها.":"Approve on Plex and all your servers are linked.","انتهى الرمز قبل الموافقة، ابدأ من جديد.":"The code expired before approval. Start again.","عنوان السيرفر أو رابط M3U":"Server address or M3U link","تنرسل لتلفزيونك مباشرة على شبكة البيت، وما تمر على أي سيرفر ثاني.":"Sent straight to your TV on your home network, never through another server.","وصل للتلفزيون":"Sent to the TV","يحفظ…":"Saving…","الصق رابط manifest كامل":"Paste a full manifest link","يضيف…":"Adding…","انضافت الإضافة ✓":"Add-on added ✓","انشالت الإضافة":"Add-on removed","الثيم تغيّر على التلفزيون":"Theme changed on the TV","كبير جداً":"Extra large","انسخ النص":"Copy the text","احفظ كملف":"Save as file","الحسابات وكلمات المرور وروابط الإضافات ما تدخل الملف أبد.":"Accounts, passwords and add-on links never go into the file.","يطبق الإعداد…":"Applying…","انطبق الإعداد على التلفزيون ✓":"Applied on the TV ✓","انضافت الصفوف ✓":"Rows added ✓","الصفوف تطلع هنا أول ما تربط حساب أو تضيف إضافة":"Rows appear here once you link an account or add an add-on","ما فيه كوليكشن جاهز الحين":"No ready collections right now","انقطع الاتصال بالتلفزيون":"Lost the connection to the TV","انقطع الاتصال بالتلفزيون، تأكد إنه شغال على نفس الشبكة":"Lost the connection to the TV. Make sure it is on the same network.","ما ضبط، جرّب مرة ثانية":"That did not work, try again","الصفحة قفلت على التلفزيون، امسح الباركود مرة ثانية للتعديل":"The page closed on the TV. Scan the QR again to keep editing.","اكتب عنوان السيرفر":"Enter the server address","من قاعدة TMDb Helper على جهازك":"From TMDb Helper on this device","من إضافتك":"From your add-on","يفيد في البحث عن الممثلين. بدونه كل شي يشتغل عادي، والمفتاح ما يطلع هنا بعد ما ينحفظ.":"Used for cast searches. Everything works without it, and the key is not shown again once saved.","المفتاح انحفظ":"Key saved","انفتح على التلفزيون، كمّل هناك":"Opened on the TV, continue there","انفك الربط":"Unlinked","يجهز الرمز…":"Getting a code…","يربط…":"Linking…","اسم المستخدم (لـ Xtream)":"Username (for Xtream)"
+"متصل بـ":"Connected to","اختر خدماتك ورتّب شاشتك. كل تغيير يوصل للتلفزيون على طول.":"Choose your services and arrange your home screen. Every change reaches the TV right away.","مربوط":"Linked","محفوظ":"Saved","خلصت":"Done","جاهز على التلفزيون":"Ready on your TV","ارجع للتلفزيون، الصفحة الرئيسية تتحدث الحين.":"Go back to the TV. The home screen is refreshing now.","ابدأ الربط":"Start linking","أو اربطه من التلفزيون":"Or link it on the TV","افتحه على التلفزيون":"Open it on the TV","مربوط ويشتغل على التلفزيون":"Linked and working on the TV","اشتراكك مضاف، تقدر تضيف ثاني من التلفزيون":"Your subscription is added. Add another one on the TV.","بعد الموافقة يتحول هنا لـ \"مربوط\" لحاله.":"Once approved, this turns to Linked by itself.","افتح الرابط وحط الرمز، والتلفزيون ينربط لحاله.":"Open the link and enter the code. The TV links by itself.","تفتح صفحة Plex وتوافق، وتنربط سيرفراتك كلها.":"Approve on Plex and all your servers are linked.","انتهى الرمز قبل الموافقة، ابدأ من جديد.":"The code expired before approval. Start again.","عنوان السيرفر أو رابط M3U":"Server address or M3U link","تنرسل لتلفزيونك مباشرة على شبكة البيت، وما تمر على أي سيرفر ثاني.":"Sent straight to your TV on your home network, never through another server.","وصل للتلفزيون":"Sent to the TV","يحفظ…":"Saving…","الصق رابط manifest كامل":"Paste a full manifest link","يضيف…":"Adding…","انضافت الإضافة ✓":"Add-on added ✓","انشالت الإضافة":"Add-on removed","الثيم تغيّر على التلفزيون":"Theme changed on the TV","كبير جداً":"Extra large","انسخ النص":"Copy the text","احفظ كملف":"Save as file","الحسابات وكلمات المرور وروابط الإضافات ما تدخل الملف أبد.":"Accounts, passwords and add-on links never go into the file.","يطبق الإعداد…":"Applying…","انطبق الإعداد على التلفزيون ✓":"Applied on the TV ✓","انضافت الصفوف ✓":"Rows added ✓","الصفوف تطلع هنا أول ما تربط حساب أو تضيف إضافة":"Rows appear here once you link an account or add an add-on","ما فيه كوليكشن جاهز الحين":"No ready collections right now","انقطع الاتصال بالتلفزيون":"Lost the connection to the TV","انقطع الاتصال بالتلفزيون، تأكد إنه شغال على نفس الشبكة":"Lost the connection to the TV. Make sure it is on the same network.","ما ضبط، جرّب مرة ثانية":"That did not work, try again","الصفحة قفلت على التلفزيون، امسح الباركود مرة ثانية للتعديل":"The page closed on the TV. Scan the QR again to keep editing.","اكتب عنوان السيرفر":"Enter the server address","من قاعدة TMDb Helper على جهازك":"From TMDb Helper on this device","من إضافتك":"From your add-on","يفيد في البحث عن الممثلين. بدونه كل شي يشتغل عادي، والمفتاح ما يطلع هنا بعد ما ينحفظ.":"Used for cast searches. Everything works without it, and the key is not shown again once saved.","المفتاح انحفظ":"Key saved","انفتح على التلفزيون، كمّل هناك":"Opened on the TV, continue there","انفك الربط":"Unlinked","يجهز الرمز…":"Getting a code…","يربط…":"Linking…","اسم المستخدم (لـ Xtream)":"Username (for Xtream)","أفلامك ومسلسلاتك في الشبكة":"Your films and series on the network","الـNAS مضاف، وملفاته تطلع مع المصادر":"NAS added; its files show up as sources","عنوان الـNAS (أو smb://nas/movies)":"NAS address (or smb://nas/movies)","اترك الاسم وكلمة المرور فاضية لو المجلدات مفتوحة. كل مجلد مشارك يتقرأ، والأفلام والحلقات تنعرف من أسمائها.":"Leave the name and password empty if the folders are open. Every shared folder is read, and films and episodes are told apart by their names."
 };
 Object.assign(exact,{'افتح Silo وسجّل':'Open Silo and sign in','ينفتح موقع Silo في الجوال، تسجّل وتوافق، وبعدها تختار البروفايل هنا.':'The Silo site opens on your phone. Sign in and approve, then pick the profile here.','أو بالاسم وكلمة المرور':'Or with username and password','افتح موقع Silo':'Open the Silo site','سجّل دخولك في موقع Silo ووافق على ربط Dex Hub، وبعدها ترجع هنا تختار البروفايل.':'Sign in on the Silo site and approve Dex Hub, then come back here to pick the profile.','وافقت ✓ اختر البروفايل:':'Approved ✓ Pick the profile:','مفتوح':'Open','انتهى الطلب قبل الموافقة، ابدأ من جديد.':'The request ended before approval. Start again.','يفتح Silo…':'Opening Silo…','يدخل…':'Signing in…','اكتب PIN البروفايل':'Type the profile PIN'});
 Object.assign(exact,{'الصفحات والصفوف':'Pages & rows','رتّب كل صفحة على كيفك':'Arrange every page your way','الصفحات':'Pages','معاينة الصفحة':'Page preview',

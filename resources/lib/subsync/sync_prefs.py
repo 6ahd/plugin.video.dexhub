@@ -31,7 +31,7 @@ def set_auto(on):
     value = 'true' if on else 'false'
     addons = [xbmcaddon.Addon('plugin.video.dexhub')]
     try:
-        if xbmc.getCondVisibility('System.HasAddon(%s)' % OTHER):
+        if xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % OTHER):
             addons.append(xbmcaddon.Addon(OTHER))
     except Exception:
         pass

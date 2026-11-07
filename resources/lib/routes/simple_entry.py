@@ -792,6 +792,11 @@ def playback_quality():
          _txt('اختر الإضافات اللي يسألها البحث: AIOStreams وغيرها، وإضافات كودي مثل Fen Light و Umbrella و Red Light و POV.',
               'Choose the add-ons the search asks: AIOStreams and others, and Kodi add-ons such as Fen Light, Umbrella, Red Light and POV.'),
          folder=False)
+    _add(_txt('الـNAS ومجلدات الشبكة', 'NAS and network folders'), 'nas_setup',
+         'root_sources.png',
+         _txt('أفلامك ومسلسلاتك في الـNAS (SMB أو NFS) تطلع مع المصادر وتشتغل مباشرة.',
+              'Films and series on your NAS (SMB or NFS) show up as sources and play directly.'),
+         folder=False)
     _add(_txt('الجودة والفلاتر', 'Quality & Filters'), 'setup_quality',
          'cat_4k.png', folder=False)
     _add(_txt('الحلقات وأزرار التخطي', 'Episodes & Skip Buttons'),
@@ -1407,7 +1412,7 @@ def watching_dialog():
                     _refresh_continue()
             else:
                 xbmc.executebuiltin('Addon.OpenSettings(%s)' % floppy_progress.SERVICE_ID
-                                    if xbmc.getCondVisibility('System.HasAddon(%s)' % floppy_progress.SERVICE_ID)
+                                    if xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % floppy_progress.SERVICE_ID)
                                     else 'InstallAddon(%s)' % floppy_progress.SERVICE_ID)
                 return True
         elif choice == 3:
@@ -1713,7 +1718,7 @@ def episode_controls_dialog():
     while True:
         try:
             tidb_installed = bool(
-                xbmc.getCondVisibility('System.HasAddon(plugin.video.tidb)') and
+                xbmc.getCondVisibility('System.AddonIsEnabled(plugin.video.tidb)') and
                 xbmcaddon.Addon('plugin.video.tidb').getAddonInfo('id'))
         except Exception:
             tidb_installed = False
@@ -2107,7 +2112,7 @@ def diagnostics_dialog():
         return str(value).strip().lower() in ('1', 'true', 'yes', 'on')
 
     try:
-        tidb = bool(xbmc.getCondVisibility('System.HasAddon(plugin.video.tidb)'))
+        tidb = bool(xbmc.getCondVisibility('System.AddonIsEnabled(plugin.video.tidb)'))
     except Exception:
         tidb = False
     lines = [
@@ -2181,6 +2186,10 @@ def dispatch():
         return playback_choices.edit_mode(_ADDON, _txt)
     if action in ('simple_source_behavior', 'setup_playback'):
         return source_behavior_dialog()
+    if action == 'nas_setup':
+        _close_native_settings_dialog()
+        from resources.lib import nas_sources
+        return nas_sources.setup()
     if action == 'source_addons':
         _close_native_settings_dialog()
         from resources.lib import source_addons

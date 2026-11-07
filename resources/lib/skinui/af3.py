@@ -114,7 +114,7 @@ def supported():
         return False
     return (os.path.exists(os.path.join(shortcuts, PREFIX + 'homewidgets.json'))
             and os.path.exists(os.path.join(shortcuts, 'skinvariables-generator.json'))
-            and xbmc.getCondVisibility('System.HasAddon(script.skinvariables)'))
+            and xbmc.getCondVisibility('System.AddonIsEnabled(script.skinvariables)'))
 
 
 def _nodes_dir(skin):

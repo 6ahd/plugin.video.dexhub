@@ -244,7 +244,7 @@ def osd(action, params, handle):
         # what is playing, in three tabs (5.10.539: one page, inside the add-on);
         # TinyPPI instead when the person chose it and it is installed
         from .. import ui_preferences
-        if ui_preferences.value('player_ppi_page') == 'tiny' and xbmc.getCondVisibility('System.HasAddon(script.tinyppi)'):
+        if ui_preferences.value('player_ppi_page') == 'tiny' and xbmc.getCondVisibility('System.AddonIsEnabled(script.tinyppi)'):
             xbmc.executebuiltin('RunScript(script.tinyppi)')
             return None
         from . import playerinfo

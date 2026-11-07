@@ -13725,7 +13725,7 @@ def _dispatch_dexhub_play(media_type='', canonical_id='', title='', video_id='',
 
 def _has_tmdbhelper():
     try:
-        return xbmc.getCondVisibility('System.HasAddon(plugin.video.themoviedb.helper)')
+        return xbmc.getCondVisibility('System.AddonIsEnabled(plugin.video.themoviedb.helper)')
     except Exception:
         return False
 
@@ -16499,7 +16499,7 @@ def _torrent_handoff_url(magnet):
         try:
             # the skin condition first: Addon() on a missing add-on logs an
             # EXCEPTION line in kodi.log
-            if not xbmc.getCondVisibility('System.HasAddon(%s)' % addon_id):
+            if not xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % addon_id):
                 continue
             xbmcaddon.Addon(addon_id)
             return template % quote_plus(magnet)
@@ -23058,7 +23058,7 @@ def _addon_meta_for_id(addon_id):
 def _pick_skin_widget_route(default_route='', default_label=''):
     """Use Skin Shortcuts' widget picker and return (path, label, addon_meta)."""
     try:
-        if not xbmc.getCondVisibility('System.HasAddon(script.skinshortcuts)'):
+        if not xbmc.getCondVisibility('System.AddonIsEnabled(script.skinshortcuts)'):
             error(tr('إضافة Skin Shortcuts غير مثبتة، لذلك لا يمكن فتح صفحة الويدجت'))
             return '', '', {}
     except Exception:

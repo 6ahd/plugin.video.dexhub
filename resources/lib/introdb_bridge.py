@@ -58,7 +58,7 @@ def _valid_imdb(value):
 def is_available():
     """Return True only when TheIntroDB is installed and enabled in Kodi."""
     try:
-        if not xbmc.getCondVisibility('System.HasAddon(%s)' % ADDON_ID):
+        if not xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % ADDON_ID):
             return False
         return xbmcaddon.Addon(ADDON_ID).getAddonInfo('id') == ADDON_ID
     except Exception:

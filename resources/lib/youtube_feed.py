@@ -930,7 +930,7 @@ def addon_ready(install=True):
     if not install or not addon_installable():
         return False
     xbmc.executebuiltin('InstallAddon(%s)' % ADDON, True)
-    return bool(xbmc.getCondVisibility('System.HasAddon(%s)' % ADDON))
+    return bool(xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % ADDON))
 
 
 def app_link():
