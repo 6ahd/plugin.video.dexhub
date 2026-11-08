@@ -92,7 +92,19 @@ def shares():
 
 
 def _save_shares(rows):
-    _write('nas.json', {'shares': rows})
+    data = dict(_read('nas.json', {}) or {})       # v5.10.550: keeps 'ignored' with the shares
+    data['shares'] = rows
+    _write('nas.json', data)
+
+
+def _ignored():
+    return set((_read('nas.json', {}) or {}).get('ignored') or [])
+
+
+def _ignore(share_id):
+    data = dict(_read('nas.json', {}) or {})
+    data['ignored'] = sorted(set(data.get('ignored') or []) | {share_id})
+    _write('nas.json', data)
 
 
 def _index():
@@ -290,11 +302,13 @@ def parse(parents, filename):
 
 # ── Scanning ─────────────────────────────────────────────────────────────
 
-def _size(path):
+def _stat(path):
+    """(size, modified time) of a file; v5.10.550 keeps the time for Recently added."""
     try:
-        return int(xbmcvfs.Stat(path).st_size())
+        stat = xbmcvfs.Stat(path)
+        return int(stat.st_size()), int(stat.st_mtime())
     except Exception:
-        return 0
+        return 0, 0
 
 
 def _walk(share, relative, parents, depth, out, stop):
@@ -310,7 +324,8 @@ def _walk(share, relative, parents, depth, out, stop):
         rel = _join(relative, bdmv) + '/index.bdmv'
         row = parse(parents, 'index.bdmv')
         if row:
-            row.update({'p': rel, 's': 0, 'f': (parents[-1] if parents else bdmv), 'sh': share['id']})
+            row.update({'p': rel, 's': 0, 'm': _stat(_share_url(share, rel))[1],
+                        'f': (parents[-1] if parents else bdmv), 'sh': share['id']})
             out.append(row)
         return
     for name in files:
@@ -320,10 +335,10 @@ def _walk(share, relative, parents, depth, out, stop):
         if not row:
             continue
         rel = _join(relative, name)
-        size = _size(_share_url(share, rel))
+        size, modified = _stat(_share_url(share, rel))
         if size and size < 40 * 1024 * 1024 and not row.get('disc'):
             continue
-        row.update({'p': rel, 's': size, 'f': name, 'sh': share['id']})
+        row.update({'p': rel, 's': size, 'm': modified, 'f': name, 'sh': share['id']})
         out.append(row)
     for name in dirs:
         if not _SKIP_DIRS.match(name):
@@ -348,6 +363,7 @@ def scan(progress=None, monitor=None):
         if stop() and not rows:
             return None
         _write('nas_index.json', {'at': time.time(), 'files': rows})
+        threading.Thread(target=warm_catalog, name='DexHub-nas-match', daemon=True).start()
         films = sum(1 for r in rows if r.get('se') is None)
         _log('index: %d films, %d episodes, %d discs in %.1fs' % (
             films, len(rows) - films, sum(1 for r in rows if r.get('disc')), time.time() - started))
@@ -366,7 +382,7 @@ def service_loop(monitor):
         return
     while not monitor.abortRequested():
         try:
-            if rescan_due():
+            if import_kodi_sources() or rescan_due():
                 scan(monitor=monitor)
         except Exception as exc:
             _log('scan failed: %s' % exc, xbmc.LOGWARNING)
@@ -570,7 +586,11 @@ def _scan_now():
 
 
 def setup():
-    """Settings > Sources > NAS. With nothing set up it goes straight to adding."""
+    """Settings > Sources > NAS. With nothing set up it goes straight to adding.
+    v5.10.550: the network folders already added to Kodi (its file manager or
+    video sources) are taken first, signed in as Kodi signs in."""
+    if import_kodi_sources():
+        _scan_now()
     if not is_set_up():
         if _add_nas():
             _scan_now()
@@ -598,6 +618,8 @@ def setup():
             gone = dialog.select(_t('أي مجلد تشيل؟', 'Remove which folder?'),
                                  ['%s · %s' % (r.get('host') or '', r.get('name') or '') for r in rows])
             if gone >= 0:
+                if rows[gone].get('from') == 'kodi':
+                    _ignore(rows[gone]['id'])       # not brought back from Kodi's sources
                 del rows[gone]
                 _save_shares(rows)
                 _scan_now()
@@ -628,3 +650,251 @@ def add_from_phone(address, user='', password=''):
     _save_shares(rows)
     threading.Thread(target=scan, name='DexHub-nas-scan', daemon=True).start()
     return True, '%d' % len(roots)
+
+
+# ── Kodi's own network folders (v5.10.550) ───────────────────────────────
+
+def kodi_network_sources():
+    """smb:// and nfs:// folders added in Kodi itself (its file manager or its
+    video sources), as (root, name). Kodi keeps their passwords and signs in
+    by itself, so they need no login here."""
+    from urllib.parse import unquote
+    found, seen = [], set()
+    for media in ('video', 'files'):
+        try:
+            answer = json.loads(xbmc.executeJSONRPC(json.dumps(
+                {'jsonrpc': '2.0', 'id': 1, 'method': 'Files.GetSources', 'params': {'media': media}})))
+        except Exception:
+            continue
+        for source in ((answer.get('result') or {}).get('sources') or []):
+            path, label = str(source.get('file') or ''), str(source.get('label') or '')
+            paths = [path]
+            if path.lower().startswith('multipath://'):
+                paths = [unquote(part) for part in path[len('multipath://'):].split('/') if part]
+            for one in paths:
+                if not one.lower().startswith(('smb://', 'nfs://')):
+                    continue
+                root = one if one.endswith('/') else one + '/'
+                if root.lower() in seen:
+                    continue
+                seen.add(root.lower())
+                folder = unquote(root.rstrip('/').rsplit('/', 1)[-1])
+                name = label or folder
+                if len(paths) > 1 and folder and folder.lower() != name.lower():
+                    name = '%s · %s' % (name, folder)     # one Kodi source over several folders
+                found.append((root, name))
+    return found
+
+
+def import_kodi_sources():
+    """Kodi's network folders join the shares (once; one removed here stays
+    out). Returns how many joined."""
+    try:
+        found = kodi_network_sources()
+    except Exception as exc:
+        _log('Kodi sources: %s' % exc, xbmc.LOGDEBUG)
+        return 0
+    if not found:
+        return 0
+    rows = shares()
+    known = {r['id'] for r in rows} | _ignored()
+    known_roots = {re.sub(r'^(\w+://)[^@/]*@', r'\1', r.get('root') or '').lower() for r in rows}
+    added = 0
+    for root, name in found:
+        share_id = _share_id(root)
+        if share_id in known or root.lower() in known_roots:
+            continue
+        host = re.sub(r'^\w+://(?:[^@/]*@)?', '', root).split('/')[0]
+        rows.append({'id': share_id, 'root': root, 'name': name, 'host': host, 'user': '', 'password': '',
+                     'from': 'kodi'})
+        known.add(share_id)
+        added += 1
+    if added:
+        _save_shares(rows)
+        _log('%d network folder(s) taken from Kodi\'s sources' % added)
+    return added
+
+
+# ── The files as catalogs (v5.10.550) ────────────────────────────────────
+
+KINDS = ('movie', 'series', 'recent')
+_META_LOCK = threading.Lock()
+
+
+def _groups(share='', kind='movie'):
+    """One entry per film (name and year) or per series, newest file first
+    for 'recent'."""
+    files = [r for r in (_index().get('files') or []) if not share or r.get('sh') == share]
+    groups = {}
+    for row in files:
+        series = row.get('se') is not None
+        if kind == 'movie' and series or kind == 'series' and not series:
+            continue
+        key = ('s', row.get('t')) if series else ('m', row.get('t'), row.get('y'))
+        group = groups.get(key)
+        if group is None:
+            group = groups[key] = {'series': series, 't': row.get('t'), 'name': row.get('name') or row.get('t'),
+                                   'y': None if series else row.get('y'), 'imdb': '', 'tmdb': '', 'm': 0,
+                                   'n': 0, 'order': len(groups)}
+        group['imdb'] = group['imdb'] or row.get('imdb') or ''
+        group['tmdb'] = group['tmdb'] or row.get('tmdb') or ''
+        group['m'] = max(group['m'], int(row.get('m') or 0))
+        group['n'] += 1
+    out = list(groups.values())
+    if kind == 'recent':
+        # an index read before 5.10.550 has no file times: the last read files first
+        out.sort(key=lambda g: (g['m'], g['order']), reverse=True)
+    else:
+        out.sort(key=lambda g: _norm(g['name']))
+    return out
+
+
+def _meta_key(group):
+    return '%s|%s|%s' % ('tv' if group['series'] else 'movie', group['t'], group.get('y') or '')
+
+
+def _match(group):
+    """{tmdb, imdb, title, year, poster} from TMDB for a film or series ('' ids
+    when TMDB knows no such title)."""
+    from . import tmdb_direct
+    kind = 'tv' if group['series'] else 'movie'
+    if group.get('tmdb'):
+        return {'tmdb': str(group['tmdb']), 'imdb': group.get('imdb') or ''}
+    if group.get('imdb'):
+        try:
+            found = tmdb_direct._resolve_tmdb_from_imdb(group['imdb'], 'series' if group['series'] else 'movie')
+        except Exception:
+            found = ''
+        if found:
+            return {'tmdb': str(found), 'imdb': group['imdb']}
+    params = {'query': group.get('name') or group['t']}
+    if group.get('y'):
+        params['first_air_date_year' if group['series'] else 'year'] = str(group['y'])
+    try:
+        rows = (tmdb_direct._request('/search/%s' % kind, params) or {}).get('results') or []
+        if not rows and group.get('y'):
+            params.pop('year', None)
+            params.pop('first_air_date_year', None)
+            rows = (tmdb_direct._request('/search/%s' % kind, params) or {}).get('results') or []
+    except Exception as exc:
+        _log('TMDB lookup of %s: %s' % (group.get('name'), exc), xbmc.LOGDEBUG)
+        return None                       # not cached: asked again next time
+    if not rows:
+        return {'tmdb': '', 'imdb': ''}
+    best = rows[0]
+    dated = best.get('release_date') or best.get('first_air_date') or ''
+    return {'tmdb': str(best.get('id') or ''), 'imdb': '', 'title': best.get('title') or best.get('name') or '',
+            'year': dated[:4], 'poster': tmdb_direct._image_url(best['poster_path'], 'poster')
+            if best.get('poster_path') else ''}
+
+
+def _matched(groups):
+    """TMDB's answer for every group, from nas_meta.json or asked now (six at a time)."""
+    with _META_LOCK:
+        cache = _read('nas_meta.json', {}) or {}
+    todo = [g for g in groups if _meta_key(g) not in cache]
+    if todo:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            answers = list(pool.map(_match, todo))
+        with _META_LOCK:
+            cache = _read('nas_meta.json', {}) or {}
+            for group, answer in zip(todo, answers):
+                if answer is not None:
+                    cache[_meta_key(group)] = answer
+            _write('nas_meta.json', cache)
+    return cache
+
+
+def catalog(share='', kind='movie', offset=0, limit=40):
+    """A page of the files as id rows for the catalog renderer
+    (plugin._render_idlist_rows), and the next offset or None. A title TMDB
+    does not know is left out (its file still turns up in that title's
+    sources by name)."""
+    groups = _groups(share, kind if kind in KINDS else 'movie')
+    try:
+        offset = max(0, int(offset or 0))
+    except (TypeError, ValueError):
+        offset = 0
+    page = groups[offset:offset + max(1, int(limit or 40))]
+    cache = _matched(page)
+    rows = []
+    for group in page:
+        found = cache.get(_meta_key(group)) or {}
+        if not found.get('tmdb') and not found.get('imdb'):
+            continue
+        rows.append({'_type': 'show' if group['series'] else 'movie',
+                     'title': found.get('title') or group.get('name') or '',
+                     'year': found.get('year') or group.get('y') or '',
+                     'poster': found.get('poster') or '',
+                     'ids': {'tmdb': found.get('tmdb') or '', 'imdb': found.get('imdb') or group.get('imdb') or ''}})
+    following = offset + len(page)
+    return rows, (following if following < len(groups) else None)
+
+
+def counts(share=''):
+    """(films, series) of a share, or of every share."""
+    return len(_groups(share, 'movie')), len(_groups(share, 'series'))
+
+
+def warm_catalog(limit=200):
+    """After a read: the newest titles are matched ahead, so the rows open with
+    posters at once."""
+    try:
+        _matched(_groups('', 'recent')[:limit])
+    except Exception as exc:
+        _log('matching ahead: %s' % exc, xbmc.LOGDEBUG)
+
+
+KIND_TITLES = {'movie': ('الأفلام', 'Movies'), 'series': ('المسلسلات', 'Series'),
+               'recent': ('أضيف مؤخراً', 'Recently added')}
+
+
+def list_params(share, kind, share_name=''):
+    title = _t(*KIND_TITLES[kind])
+    if share_name:
+        title = '%s  ·  %s' % (title, share_name)
+    return {'action': 'nas_list', 'share': share or '', 'kind': kind, 'title': title}
+
+
+def server_entries(media_path=None):
+    """Each share with files, as a server of the Servers tab (routes.servers_tab)."""
+    from urllib.parse import urlencode
+    card = media_path('lib_nas.jpg') if media_path else ''
+    out = []
+    for share in shares():
+        films, series = counts(share['id'])
+        if not films and not series:
+            continue
+        libs = [{'title': _t(*KIND_TITLES[kind]), 'params': list_params(share['id'], kind)}
+                for kind, count in (('movie', films), ('series', series)) if count]
+        tiles = [{'kind': 'library', 'title': lib['title'], 'label': lib['title'], 'hint': share.get('name') or '',
+                  'shape': 'landscape', 'poster': card, 'landscape': card, 'fanart': '',
+                  'params': lib['params'], 'path': 'plugin://plugin.video.dexhub/?' + urlencode(lib['params']),
+                  'folder': True, 'service': 'nas', 'brand': 'NAS', 'server': share.get('name') or '',
+                  'plot': _t('%d فيلم · %d مسلسل', '%d films · %d series') % (films, series)}
+                 for lib in libs]
+        out.append({'service': 'nas', 'brand': 'NAS', 'id': share['id'], 'name': share.get('name') or 'NAS',
+                    'key': 'nas:%s' % share['id'], 'libs': libs, 'sections': [], 'tiles': tiles})
+    return out
+
+
+def row_choices():
+    """The rows a bar section can take (homeui.bar_editor's Add rows)."""
+    out = []
+    every = shares()
+    if len(every) > 1:
+        for kind in KINDS:
+            params = list_params('', kind, 'NAS')
+            out.append(({'key': 'nas:all:%s' % kind, 'title': params['title'], 'sub': 'NAS', 'shape': 'poster',
+                         'params': params}, _t('كل المجلدات', 'Every folder')))
+    for share in every:
+        films, series = counts(share['id'])
+        for kind in KINDS:
+            if kind == 'movie' and not films or kind == 'series' and not series or \
+                    kind == 'recent' and not (films or series):
+                continue
+            params = list_params(share['id'], kind, share.get('name') or '')
+            out.append(({'key': 'nas:%s:%s' % (share['id'], kind), 'title': params['title'], 'sub': 'NAS',
+                         'shape': 'poster', 'params': params}, share.get('name') or 'NAS'))
+    return out

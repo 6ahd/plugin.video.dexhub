@@ -194,7 +194,7 @@ def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta
             link = _kodi.resolve(ctx)
             if link:
                 ctx['stream_url'] = link
-            elif link is None and _kodi.play(ctx):
+            elif link is None and _kodi.play(ctx, getattr(api, 'HANDLE', -1)):
                 return
             elif link == '':
                 if not api.xbmc.Player().isPlaying() and not _next_source(ctx, stream_key, 'no link'):

@@ -49,7 +49,7 @@ RETRY = (45.0, 90.0, 180.0, 600.0)
 # the background read waits longer than a page would for a server's menu
 PATIENCE = 12.0
 MAX_CHIPS = 8               # All plus seven servers (skin.dexhub's 8 slots; v5.10.180: all of them)
-TONES = {'plex': 'FFE5A00D', 'emby': 'FF52B54B', 'jellyfin': 'FFAA5CC3', 'silo': 'FF3FB0F0'}
+TONES = {'plex': 'FFE5A00D', 'emby': 'FF52B54B', 'jellyfin': 'FFAA5CC3', 'silo': 'FF3FB0F0', 'nas': 'FF2DD4BF'}
 _AUTH_FIELDS = ('url', 'user_id', 'profile_id', 'username', 'token')
 _refreshing = threading.Lock()
 _retry_at = 0.0
@@ -287,7 +287,19 @@ def _servers():
         # is unknown, so the Servers tab opens on its servers, not on an empty page
         _refresh_later()
     from ..homeui import servers as S
-    return S.ordered(data.get('servers') or [])     # v5.10.168: a copy saved before keeps working
+    return S.ordered(data.get('servers') or []) + _nas_servers()   # v5.10.168: a copy saved before keeps working
+
+
+def _nas_servers():
+    """v5.10.550: the NAS folders (and Kodi's own network folders) are servers
+    too: read from the NAS index here, with nothing asked over the network."""
+    try:
+        from .. import nas_sources
+        from ..skinui import rows as SR
+        return nas_sources.server_entries(SR.app().media_path)
+    except Exception as exc:
+        xbmc.log('[DexHub] servers tab: NAS: %s' % exc, xbmc.LOGINFO)
+        return []
 
 
 def accounts_changed():
@@ -512,7 +524,7 @@ def _publish_header(servers, src):
     if servers:
         win.setProperty('dhs.srv.synced', _t('متصل', 'Connected'))
     else:
-        win.setProperty('dhs.srv.synced', _t('اربط Plex أو Emby أو Jellyfin أو Silo', 'Link Plex, Emby, Jellyfin or Silo'))
+        win.setProperty('dhs.srv.synced', _t('اربط Plex أو Emby أو Jellyfin أو Silo أو NAS', 'Link Plex, Emby, Jellyfin, Silo or a NAS'))
     win.setProperty('dhs.srv.linked', u'  ·  '.join(brands))
     chosen = [s for s in servers if s['key'] == src] if src != 'all' else servers
     prefix = 'srv:' if src == 'all' else 'srv:%s:' % src

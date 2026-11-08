@@ -526,11 +526,32 @@ def resolve(ctx, seconds=90):
     return ''
 
 
-def play(ctx):
-    """The add-on plays its own result (its resolver, its player)."""
+def play(ctx, handle=-1):
+    """The add-on plays its own result (its resolver, its player).
+
+    v5.10.549: when Kodi opened Dex Hub through a resolve (PlayMedia, a Home
+    widget) it waits for an answer. Left unanswered, the failed resolve hit
+    Kodi's playlist player while the add-on (Red Light) cleared the video
+    playlist to start its own play, and Kodi 22 crashed reading the gone item
+    (LibreELEC, 8 Nov 2026: 'Error trying to retrieve an item that's out of
+    range', SIGSEGV in CPlayListPlayer::OnApplicationMessage). As in the
+    playlist hand-off, the resolve is answered first and given a moment."""
     url = str((ctx or {}).get('stream_url') or '').split('|', 1)[0]
     if not url.startswith('plugin://'):
         return False
+    try:
+        handle = int(handle)
+    except (TypeError, ValueError):
+        handle = -1
+    if handle >= 0:
+        try:
+            import xbmcgui
+            import xbmcplugin
+            xbmcplugin.setResolvedUrl(handle, False, xbmcgui.ListItem(offscreen=True))
+            _log('the waiting resolve answered before the add-on hand-off')
+            xbmc.sleep(450)
+        except Exception:
+            pass
     _log('playing through %s' % url.split('/?', 1)[0].split('/dexhub_sources', 1)[0])
     xbmc.executebuiltin('RunPlugin(%s)' % url)
     return True

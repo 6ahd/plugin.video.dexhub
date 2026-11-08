@@ -910,14 +910,14 @@ class BarEditor(xbmcgui.WindowXMLDialog):
     def add_above(self, spec):
         """'+ Above': where the new rows come from; they go above this row."""
         sources = [('dexhub', _t('صفوف Dex Hub', 'Dex Hub rows')), ('dexworld', 'DexWorld'), ('youtube', 'YouTube'),
-                   ('addon', _t('من إضافة', 'From an add-on'))]
+                   ('nas', 'NAS'), ('addon', _t('من إضافة', 'From an add-on'))]
         pick = xbmcgui.Dialog().select(_t('أضف فوق «%s»', 'Add above "%s"') % (spec.get('title') or ''),
                                        [label for _k, label in sources])
         if pick < 0:
             return
         self.insert_key = spec.get('key')
         {'dexhub': self.pick_dexhub, 'dexworld': self.pick_dexworld, 'youtube': self.pick_youtube,
-         'addon': self.pick_addons}[sources[pick][0]]()
+         'nas': self.pick_nas, 'addon': self.pick_addons}[sources[pick][0]]()
         if self.mode != 'pick':
             self.insert_key = None          # nothing opened (no rows to pick from)
 
@@ -1063,6 +1063,8 @@ class BarEditor(xbmcgui.WindowXMLDialog):
                ('dexworld', 'DexWorld', 'DexWorld', 'صفوف وكوليكشنات جاهزة', 'Ready rows and collections', 'globe.png'),
                ('youtube', 'YouTube', 'YouTube', 'قنواتك والرائج والمواضيع، أو أي بحث', 'Your channels, trending, topics or any search',
                 'circle-play.png'),
+               ('nas', 'NAS ومجلدات الشبكة', 'NAS and network folders', 'أفلام ومسلسلات وجديد مجلداتك (SMB و NFS)',
+                'Films, series and the newest of your folders (SMB, NFS)', 'server.png'),
                ('addon', 'من إضافة', 'From an add-on', 'مجلد أو كم مجلد من أي إضافة فيديو', 'A folder or several from any video add-on',
                 'layer-group.png'))
 
@@ -1078,7 +1080,7 @@ class BarEditor(xbmcgui.WindowXMLDialog):
 
     def open_source(self, key):
         {'dexhub': self.pick_dexhub, 'dexworld': self.pick_dexworld, 'youtube': self.pick_youtube,
-         'addon': self.pick_addons}[key]()
+         'nas': self.pick_nas, 'addon': self.pick_addons}[key]()
         if self.mode == 'pick' and self.pick.get('source') != 'sources':
             self.pick['back'] = 'sources'
 
@@ -1133,6 +1135,30 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         self.pick_list([search] + found, 'YouTube',
                        _t('حسابك، البث المباشر، الرائج، الأقسام، وقنواتك · حدد كم واحد تبي',
                           'Your account, live, trending, the topics and your channels · tick as many as you like'))
+
+    def pick_nas(self):
+        """v5.10.550: a NAS folder's films, series or newest files as rows (Kodi's
+        own SMB/NFS folders are taken in first)."""
+        from .. import nas_sources as N
+        xbmc.executebuiltin('ActivateWindow(busydialognocancel)')
+        try:
+            if N.import_kodi_sources():
+                N.scan()
+            elif N.is_set_up() and not (N._index().get('files') or []):
+                N.scan()
+            found = N.row_choices()
+        finally:
+            xbmc.executebuiltin('Dialog.Close(busydialognocancel)')
+        if not found:
+            if xbmcgui.Dialog().yesno('NAS', _t('ما فيه مجلدات شبكة فيها أفلام أو مسلسلات للحين. تبي تضيف NAS أو مجلد؟',
+                                               'No network folder with films or series yet. Add a NAS or a folder?')):
+                N.setup()
+                found = N.row_choices()
+            if not found:
+                return
+        self.pick_list(found, _t('NAS ومجلدات الشبكة', 'NAS and network folders'),
+                       _t('الأفلام والمسلسلات وأضيف مؤخراً لكل مجلد · حدد كم واحد تبي',
+                          'Films, series and recently added for each folder · tick as many as you like'))
 
     def pick_addons(self):
         addons = B._rpc('Addons.GetAddons', {'type': 'xbmc.addon.video', 'enabled': True, 'properties': ['name', 'thumbnail']}).get('addons') or []

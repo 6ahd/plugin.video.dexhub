@@ -25947,6 +25947,23 @@ def mdblist_list_browse(username, slug, title='', background='', media_filter='a
     return _render_idlist_rows(rows, more_url=more_url, title=title, background=background, media_filter=media_filter, force_remote=force_remote)
 
 
+def nas_list_browse(share='', kind='movie', title='', offset='0'):
+    """v5.10.550: a NAS folder's films, series or newest files as a catalog
+    (the Servers tab and a bar section's rows). Each title opens its page,
+    where the file is one of its sources."""
+    from . import nas_sources
+    try:
+        rows, following = nas_sources.catalog(share, kind, offset, _listing_page_size())
+    except Exception as exc:
+        xbmc.log('[DexHub] NAS catalog: %s' % exc, xbmc.LOGWARNING)
+        rows, following = [], None
+    if not rows:
+        return end_dir()
+    more_url = build_url(action='nas_list', share=share, kind=kind, title=title, offset=following) \
+        if following is not None else ''
+    return _render_idlist_rows(rows, more_url=more_url, title=title)
+
+
 def mdblist_list_browse_id(list_id, title='', background='', media_filter='auto', cursor='', force_remote=''):
     """Browse one of the account's own MDBList lists by numeric id (v4.1.0)."""
     force_remote = _force_remote_posters_enabled(force_remote)
@@ -28507,6 +28524,9 @@ def _dispatch(params=None):
         return collection_entry_open(set_id=params.get('set_id', ''), entry_id=params.get('entry_id', ''), media_filter=params.get('media_filter', ''))
     if action == 'trakt_list_browse':
         return trakt_list_browse(username=params.get('username', ''), slug=params.get('slug', ''), title=params.get('title', ''), background=params.get('background', ''), media_filter=params.get('media_filter', 'auto'), page=params.get('page', '0'), force_remote=params.get('force_remote', ''))
+    if action == 'nas_list':
+        return nas_list_browse(share=params.get('share', ''), kind=params.get('kind', 'movie'),
+                               title=params.get('title', ''), offset=params.get('offset', '0'))
     if action == 'mdblist_list_browse':
         return mdblist_list_browse(username=params.get('username', ''), slug=params.get('slug', ''), title=params.get('title', ''), background=params.get('background', ''), media_filter=params.get('media_filter', 'auto'), cursor=params.get('cursor', ''), force_remote=params.get('force_remote', ''))
     if action == 'youtube_play':
