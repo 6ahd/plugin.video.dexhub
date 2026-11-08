@@ -6029,6 +6029,24 @@ def _hub_search_unified_render(query, providers_list, include_tmdb=False, collec
         _unique_jobs.append(_job)
     jobs = _unique_jobs
 
+    # v5.10.547: catalogs that refused (HTTP 4xx) or never answered in the
+    # last searches sit out a while (search_rest), unless nothing else is left
+    try:
+        from . import search_rest as _search_rest
+        _resting = _search_rest.resting()
+    except Exception:
+        _search_rest, _resting = None, {}
+    if _resting:
+        def _job_name(_job):
+            return str(((_job[0] or {}).get('name') if isinstance(_job[0], dict) else _job[0]) or '')
+        _active = [_job for _job in jobs if _job_name(_job) not in _resting]
+        _left_out = sorted(set(_job_name(_job) for _job in jobs) & set(_resting))
+        if _active and _left_out:
+            jobs = _active
+            xbmc.log('[DexHub] search: left out for now: %s'
+                     % ', '.join('%s (%s)' % (n, _resting[n]) for n in _left_out), xbmc.LOGINFO)
+    _job_started = {}
+
     # Plex servers join the SAME parallel search — one job per server,
     # results interleaved into the type sections below.
 
@@ -6060,6 +6078,10 @@ def _hub_search_unified_render(query, providers_list, include_tmdb=False, collec
         _hit = _search_cache_get(_ck)
         if _hit is not None:
             return _hit
+        try:
+            _job_started.setdefault(str((job[0] or {}).get('name') or ''), time.monotonic())
+        except Exception:
+            pass
 
         def _keep(value):
             # Never cache a failure: the next attempt must be allowed to retry.
@@ -6300,14 +6322,30 @@ def _hub_search_unified_render(query, providers_list, include_tmdb=False, collec
         _own_waiting = set(id(_job) for _job in jobs if any(_job is _o for _o in _own_jobs))
         if _own_jobs:
             _ceiling = max(_ceiling, 6)     # it answers in 2 to 4 s: a 4 s ceiling cut it off
+        # v5.10.547: answers saved from the last few minutes are used at once.
+        # They used to wait for a search worker like any request, and a search
+        # typed right after another queued them behind the slow catalogs still
+        # running from the one before (5.6 s for a repeat of a 2 s search).
+        _cached_pairs, _to_fetch = [], []
+        for _job in jobs:
+            try:
+                _hit = _search_cache_get(_job_cache_key(_job))
+            except Exception:
+                _hit = None
+            if _hit is not None:
+                _cached_pairs.append((_job, _hit))
+            else:
+                _to_fetch.append(_job)
         _search_race = start_parallel_race(
-            _run_one, jobs,
-            workers=max(2, min(4, parallel_workers(), len(jobs))) + len(_own_waiting),
+            _run_one, _to_fetch,
+            workers=max(2, min(4, parallel_workers(), len(_to_fetch) or 1)) + len(_own_waiting),
             timeout=float(_ceiling), lane='search',
         )
 
-        for idx, (job, result) in enumerate(
-                _iter_search_race(
+        def _search_completions():
+            for _pair in _cached_pairs:
+                yield _pair
+            for _pair in _iter_search_race(
                     _search_race, lambda: kept_count[0],
                     lambda: bool(relevant_sources),
                     should_stop=loader.is_stopped,
@@ -6322,7 +6360,11 @@ def _hub_search_unified_render(query, providers_list, include_tmdb=False, collec
                     quiet_seconds=1.5,
                     fallback_seconds=float(_ceiling),
                     hold=lambda: bool(_own_waiting),
-                ), start=1):
+            ):
+                yield _pair
+
+        _completions = _search_completions()
+        for idx, (job, result) in enumerate(_completions, start=1):
             if loader.is_stopped():
                 break
             provider, cat, media_type = job
@@ -6412,6 +6454,16 @@ def _hub_search_unified_render(query, providers_list, include_tmdb=False, collec
                         import traceback as _tb
                         xbmc.log('[DexHub] search: early results failed:\n%s' % _tb.format_exc(),
                                  xbmc.LOGWARNING)
+        # a break (or one while saved answers were still being read) leaves the
+        # race running: end it here, as _iter_search_race's own exit does
+        try:
+            _completions.close()
+        except Exception:
+            pass
+        try:
+            _search_race.cancel()
+        except Exception:
+            pass
         was_cancelled = loader.is_cancelled()
         loader.set_finalizing()
 
@@ -6431,6 +6483,20 @@ def _hub_search_unified_render(query, providers_list, include_tmdb=False, collec
         if isinstance(_j[0], dict):
             _expected.add(_j[0].get('name') or '?')
     _silent = sorted(_expected - answered - set(failed))
+    # v5.10.547: remember who refused or ran the whole limit without answering
+    if _search_rest is not None and not was_cancelled:
+        try:
+            _now = time.monotonic()
+            for _name, _why in failed.items():
+                if _search_rest.refused(_why):
+                    _search_rest.mark(_name, _search_rest.REFUSED_MINUTES, 'refused')
+            for _name in _silent:
+                _since = _job_started.get(_name)
+                if _since is not None and _now - _since >= float(_ceiling) - 0.5:
+                    _search_rest.mark(_name, _search_rest.SLOW_MINUTES, 'no answer')
+            _search_rest.clear(answered)
+        except Exception:
+            pass
     try:
         xbmc.log('[DexHub] search done: %d results | answered=%d/%d | failed=%s | timed_out=%s'
                  % (total_count, len(answered), len(_expected),
@@ -16958,7 +17024,7 @@ def _append_stream_entries_from_data(entries, data, provider, request_id, media_
             rp = 0.0
         if rp > 1.0 and rp < 95.0:
             payload['resume_percent'] = rp
-        cache_key = cache_store.put('stream', payload)
+        cache_key = cache_store.put_later('stream', payload)  # v5.10.547: one commit per answer, flush() below
         _diag.trace('cache-written', _row_index, _row_started)
         _row_tags = facts.get('tags') or {}
         _stype, _stype_label, _stype_color = facts.get('source_type') or (
@@ -17037,6 +17103,10 @@ def _append_stream_entries_from_data(entries, data, provider, request_id, media_
                                         provider=facts.get('addon') or provider_name),
         })
         _diag.trace('row-ready', _row_index, _row_started)
+    try:
+        cache_store.flush()
+    except Exception:
+        pass
     # Publish the growing index once per provider, not once per result.
     try:
         _publish_last_streams_index(canonical_id, season, episode, entries, poster=art.get('poster') or '')

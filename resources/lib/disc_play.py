@@ -37,16 +37,29 @@ def _probe(url):
     the file is served from (after redirects) when it is a disc image, else ''.
     Kodi sizes the image with a HEAD request, which some resolver links refuse
     (AIOStreams answers 405) while the address they redirect to answers it."""
+    import time
     import urllib.request
-    request = urllib.request.Request(url, headers={'Range': 'bytes=32768-34815', 'User-Agent': 'Kodi'})
-    try:
-        with urllib.request.urlopen(request, timeout=10) as answer:
-            named = answer.headers.get('Content-Disposition') or ''
-            head = answer.read(2048)
-            final = answer.geturl() or url
-    except Exception as exc:
-        _log('probe failed: %s' % exc)
+    # v5.10.546: an AIOStreams usenet link answers only once the file is
+    # ready, ~35 s after the first ask (The Batman, 8 Nov 2026); the old 10 s
+    # wait gave up, so the disc went to FFmpeg without its Blu-ray menu.
+    # Asking again after a timeout reaches the same, by then warmer, file.
+    started = time.time()
+    named, head, final = '', b'', ''
+    for timeout in (45, 30):
+        request = urllib.request.Request(url, headers={'Range': 'bytes=32768-34815', 'User-Agent': 'Kodi'})
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as answer:
+                named = answer.headers.get('Content-Disposition') or ''
+                head = answer.read(2048)
+                final = answer.geturl() or url
+            break
+        except Exception as exc:
+            _log('probe failed after %.1f s: %s' % (time.time() - started, exc))
+            if 'timed out' not in str(exc).lower() or xbmc.Monitor().abortRequested():
+                return ''
+    if not final:
         return ''
+    _log('probe answered in %.1f s' % (time.time() - started))
     # a file named .iso, or ISO 9660 "CD001" / UDF "BEA01", "NSR0x" descriptors
     if re.search(r'\.(?:iso|img)\b', named, re.I) or any(
             mark in head[:16] for mark in (b'CD001', b'BEA01', b'NSR02', b'NSR03')):

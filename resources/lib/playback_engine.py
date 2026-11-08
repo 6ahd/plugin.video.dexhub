@@ -17,26 +17,72 @@ def _attach_before_mode(api):
         return False
 
 
-def _configure_content_lookup(item, stream_url, switching=False):
+_MIME_BY_EXT = {'mkv': 'video/x-matroska', 'mp4': 'video/mp4',
+                'm4v': 'video/mp4', 'webm': 'video/webm',
+                'avi': 'video/x-msvideo', 'ts': 'video/mp2t',
+                'm2ts': 'video/mp2t', 'm3u8': 'application/vnd.apple.mpegurl',
+                'mpd': 'application/dash+xml'}
+_STREAMING_HINTS = ('m3u8', '.mpd', 'manifest', '/hls', 'hls/', 'dash/', '/dash', 'playlist')
+_FILE_ENDPOINTS = ('/playback/', '/usenet/stream/', '/debrid/', '/dl/', '/download/', '/resolve/')
+
+
+def _ctx_file_extension(ctx):
+    """The media file's extension as the source named it (AIOStreams and
+    other Stremio add-ons give behaviorHints.filename even when the link
+    itself is an endpoint with no extension)."""
+    ctx = ctx if isinstance(ctx, dict) else {}
+    hints = ctx.get('behaviorHints') if isinstance(ctx.get('behaviorHints'), dict) else {}
+    for raw in (ctx.get('filename'), hints.get('filename'), ctx.get('stream_filename')):
+        name = str(raw or '').strip().lower()
+        if '.' in name:
+            extension = name.rsplit('.', 1)[-1]
+            if extension in _MIME_BY_EXT:
+                return extension
+    return ''
+
+
+def _ctx_is_file(ctx, path):
+    """True when the source is a single media file (a debrid, usenet or
+    download link), not a live or adaptive stream."""
+    ctx = ctx if isinstance(ctx, dict) else {}
+    hints = ctx.get('behaviorHints') if isinstance(ctx.get('behaviorHints'), dict) else {}
+    if hints.get('videoSize') or hints.get('filename') or ctx.get('filename'):
+        return True
+    if ctx.get('size_bytes') or ctx.get('stream_video_size') or ctx.get('info_hash'):
+        return True
+    return any(mark in path for mark in _FILE_ENDPOINTS)
+
+
+def _configure_content_lookup(item, stream_url, switching=False, ctx=None):
     """Known HTTP media files need no MIME HEAD request on the GUI thread.
 
     On a source switch, an opaque endpoint is left for the input stream's
     content probe, without guessing a MIME type or issuing a GUI MIME HEAD.
-    Initial playback of an unknown endpoint keeps Kodi's usual detection.
+
+    v5.10.547: a first play of an endpoint with no extension did the HEAD
+    too. Kodi sends it from its GUI thread, and an AIOStreams debrid or usenet
+    link answers only once the file is ready: on the CoreELEC box The Batman
+    froze the screen for 27 s (two 10 s HEAD timeouts) before Kodi opened it.
+    A file source now takes its type from the file name the source gave, or
+    is left to the player's own probe; a link that may be HLS or DASH keeps
+    Kodi's detection.
     """
     from urllib.parse import urlsplit
     try:
         parsed = urlsplit(str(stream_url).split('|', 1)[0])
         if parsed.scheme.lower() not in ('http', 'https'):
             return False
-        extension = parsed.path.lower().rsplit('.', 1)[-1]
-        mime = {'mkv': 'video/x-matroska', 'mp4': 'video/mp4',
-                'm4v': 'video/mp4', 'webm': 'video/webm',
-                'avi': 'video/x-msvideo', 'ts': 'video/mp2t',
-                'm2ts': 'video/mp2t', 'm3u8': 'application/vnd.apple.mpegurl',
-                'mpd': 'application/dash+xml'}.get(extension)
+        path = parsed.path.lower()
+        tail = path.rsplit('/', 1)[-1]
+        extension = tail.rsplit('.', 1)[-1] if '.' in tail else ''
+        mime = _MIME_BY_EXT.get(extension)
         if not mime and not switching:
-            return False
+            whole = (path + '?' + parsed.query.lower())
+            if any(hint in whole for hint in _STREAMING_HINTS):
+                return False
+            mime = _MIME_BY_EXT.get(_ctx_file_extension(ctx))
+            if not mime and not _ctx_is_file(ctx, path):
+                return False
         if mime:
             item.setMimeType(mime)
         item.setContentLookup(False)
@@ -316,7 +362,7 @@ def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta
         _switch_lookup = 0 <= api.time.time() - _switch_stamp < 15
     except Exception:
         pass
-    if _configure_content_lookup(item, stream_url, switching=_switch_lookup):
+    if _configure_content_lookup(item, stream_url, switching=_switch_lookup, ctx=ctx):
         api.xbmc.log('[DexHub] playback: MIME lookup skipped', api.xbmc.LOGINFO)
     _is_ep = bool(ctx.get('season') or ctx.get('episode'))
     _sub_ctx, _sub_ep = ctx, _is_ep

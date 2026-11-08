@@ -14,6 +14,7 @@ formatter with no fallback, so when a preset omitted the labelled fields
 every quality badge disappeared and stayed gone for several releases. As a
 standalone module it is exercised directly against real release names.
 """
+import functools
 import html
 import re
 import unicodedata
@@ -24,14 +25,25 @@ from .context import (
 )
 
 
+_GROUP_PATTERNS = {}
+
+
+def _group_pattern(patt):
+    compiled = _GROUP_PATTERNS.get(patt)
+    if compiled is None:
+        compiled = _GROUP_PATTERNS[patt] = re.compile(patt, re.I)
+    return compiled
+
+
 def _extract_group(values, patterns):
+    # v5.10.547: compiled once, and one search instead of findall (only
+    # whether a pattern occurs matters): the same list, in the same order
     seen = []
     for value in values:
         text = _normalize_ascii(value).lower()
         for patt, repl in patterns:
-            for _ in re.findall(patt, text, re.I):
-                if repl not in seen:
-                    seen.append(repl)
+            if repl not in seen and _group_pattern(patt).search(text):
+                seen.append(repl)
     return seen
 def _iter_stream_values(value):
     if value is None:
@@ -232,23 +244,46 @@ def _regional_flag_to_code(match):
         return '[%s%s]' % (chr(ord(chars[0]) - 127397), chr(ord(chars[1]) - 127397))
     except Exception:
         return ' '
+_NON_ASCII_RUN = re.compile(r'[^\x00-\x7f]+')
+_CONTROL_CHARS = re.compile(r'[\x00-\x08\x0b-\x1f]+')
+
+
+def _drop_combining(match):
+    return ''.join(ch for ch in match.group(0) if not unicodedata.combining(ch))
+
+
 def _clean_stream_text(value):
-    text = html.unescape(str(value or ''))
+    """v5.10.547: one row asks for the same text ~32 times (facts, badges,
+    source type); 434 AIOStreams rows took 4.7 s to build on a CoreELEC box,
+    mostly here. The answer depends on the text alone, so it is kept."""
+    return _clean_stream_text_cached(str(value or ''))
+
+
+@functools.lru_cache(maxsize=4096)
+def _clean_stream_text_cached(value):
+    text = html.unescape(value)
     text = _batch_replace(text, HEX_ENTITIES)
     text = COLOR_TAG_RE.sub(' ', text)
     text = REGIONAL_FLAG_RE.sub(_regional_flag_to_code, text)
     text = STREAM_ICON_RE.sub(' ', text)
     text = text.replace('\u200f', ' ').replace('\u200e', ' ').replace('\xa0', ' ')
     text = unicodedata.normalize('NFKD', text)
-    text = ''.join(ch for ch in text if not unicodedata.combining(ch))
-    text = ''.join(ch for ch in text if ch == '\n' or ch == '\t' or ord(ch) >= 32)
+    # only non-ASCII characters can be combining marks; only ASCII ones can
+    # be the control characters dropped here (\n and \t stay)
+    text = _NON_ASCII_RUN.sub(_drop_combining, text)
+    text = _CONTROL_CHARS.sub('', text)
     text = _batch_replace(text, SPECIAL_BLANKS)
     text = text.replace('•', ' | ').replace('·', ' | ').replace('—', '-').replace('–', '-')
     text = BRACKET_RE.sub(' ', text)
     text = MULTI_WS_RE.sub(' ', text).strip(' -|_')
     return text.strip()
 def _normalize_ascii(text):
-    text = _clean_stream_text(text)
+    return _normalize_ascii_cached(str(text or ''))
+
+
+@functools.lru_cache(maxsize=4096)
+def _normalize_ascii_cached(text):
+    text = _clean_stream_text_cached(text)
     text = re.sub(r'[^\x00-\x7F]', '', text)
     text = MULTI_WS_RE.sub(' ', text).strip(' -|_')
     return text

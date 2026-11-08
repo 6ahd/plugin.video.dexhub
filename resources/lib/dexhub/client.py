@@ -1212,7 +1212,10 @@ _LANE_POOL_SIZES = {}
 # v5.10.117: 'art' runs a listing's art lookups (plugin._warm_listing_art): a
 # lane of its own, so a listing rendered on a browse worker never waits on
 # its own lane
-_LANE_CAPS = {'browse': 4, 'streams': 4, 'subtitles': 3, 'revalidate': 2, 'art': 4}
+# v5.10.547: catalog search has its own six workers. It ran in the browse
+# lane's four, beside the Home rows, so a search of 17 catalogs queued most of
+# them behind slow servers: 'answered=2/17' at the 6 s limit on a CoreELEC box.
+_LANE_CAPS = {'browse': 4, 'streams': 4, 'subtitles': 3, 'revalidate': 2, 'art': 4, 'search': 6}
 
 
 def _widen_lanes_for_desktop():
@@ -1229,6 +1232,7 @@ def _widen_lanes_for_desktop():
         return
     if machine and not any(tag in machine for tag in ('arm', 'aarch', 'mips', 'riscv')):
         _LANE_CAPS['streams'] = 6
+        _LANE_CAPS['search'] = 8
 
 
 _widen_lanes_for_desktop()
@@ -1240,6 +1244,8 @@ def _physical_lane(lane):
         return 'revalidate'
     if raw == 'art':
         return 'art'
+    if raw == 'search':
+        return 'search'
     if 'stream' in raw:
         return 'streams'
     if 'subtitle' in raw:

@@ -80,8 +80,13 @@ def _row_is_disc(row):
     known = row.get('_ui_is_disc')
     if known is not None:
         return known
+    # v5.10.546: AIOStreams writes the disc tag (BR-DISK, "ISO boost") only in
+    # the stream's description, so the filter never appeared before
     text = ' '.join(str(row.get(key) or '') for key in (
-        'title', 'name', 'label', 'label2', 'filename', 'release', 'extraInfo', 'url', 'stream_url'))
+        'title', 'name', 'label', 'label2', 'filename', 'release', 'releaseTitle', 'description',
+        'stream_title', 'stream_name', 'stream_description', 'formatter_tags', 'formatter_summary',
+        'stream_desc_raw', 'stream_name_raw', 'upstream_formatter_text', 'tags',
+        'extraInfo', 'url', 'stream_url'))
     hints = row.get('behaviorHints') if isinstance(row.get('behaviorHints'), dict) else {}
     text += ' ' + str(hints.get('filename') or '')
     found = bool(_DISC_RE.search(text))

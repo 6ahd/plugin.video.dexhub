@@ -6786,7 +6786,7 @@ def _append_stream_entries_from_data(entries, data, provider, request_id, media_
             rp = 0.0
         if rp > 1.0 and rp < 95.0:
             payload['resume_percent'] = rp
-        cache_key = cache_store.put('stream', payload)
+        cache_key = cache_store.put_later('stream', payload)  # v5.10.547: one commit per answer, flush() below
         _diag.trace('cache-written', _row_index, _row_started)
         _row_tags = facts.get('tags') or {}
         _stype, _stype_label, _stype_color = facts.get('source_type') or (
@@ -6863,6 +6863,10 @@ def _append_stream_entries_from_data(entries, data, provider, request_id, media_
                                         provider=facts.get('addon') or provider_name),
         })
         _diag.trace('row-ready', _row_index, _row_started)
+    try:
+        cache_store.flush()
+    except Exception:
+        pass
     # Publish the growing index once per provider, not once per result.
     try:
         _publish_last_streams_index(canonical_id, season, episode, entries, poster=art.get('poster') or '')

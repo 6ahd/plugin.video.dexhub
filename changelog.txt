@@ -1,3 +1,15 @@
+5.10.547
+الشاشة ما عادت توقف قبل التشغيل مع روابط AIOStreams اللي ما لها امتداد (Dex Hub كان يسأل الرابط عن نوع الملف وينتظر، ووصلت لـ 27 ثانية). الحين ياخذ النوع من اسم الملف أو يخلي المشغل يعرفه بنفسه.
+قائمة المصادر تفتح أسرع: تجهيز الصفوف وترتيبها صار ياخذ تقريباً نص الوقت، وحفظها في الكاش صار دفعة وحدة بدل كتابة لكل صف.
+البحث صار له خيوطه الخاصة بدل ما يتقاسمها مع صفوف الرئيسية. الكتالوج اللي يرفض البحث (مثل خطأ 404) يرتاح 30 دقيقة، واللي ما يرد طول مدة البحث يرتاح 10 دقائق، ويرجع أول ما يرد. والبحث المكرر ياخذ النتائج المحفوظة على طول بدل ما ينتظر.
+No more frozen screen before playback with AIOStreams links that have no file extension (Dex Hub asked the link for its file type and waited, up to 27 s). It now takes the type from the file name or lets the player find it.
+The sources list opens faster: building and sorting the rows takes about half the time, and they are saved to the cache in one write instead of one per row.
+Search has its own workers instead of sharing them with the Home rows. A catalog that refuses searches (an error like 404) sits out for 30 minutes, one that never answers in time for 10 minutes, and it is back as soon as it answers. A repeated search uses the saved answers at once instead of waiting.
+
+5.10.546
+فلتر «قرص كامل ISO» وشارة ISO يظهرون الحين لنتائج AIOStreams (علامة BR-DISK / ISO عندهم مكتوبة في الوصف، وDex Hub ما كان يقراه). ورابط القرص اللي يتأخر يبدأ (يوزنت) صار Dex Hub ينتظره لحد 75 ثانية قبل ما يحكم إنه مو قرص.
+The Full disc ISO filter and the ISO badge now show for AIOStreams results (their BR-DISK / ISO tag is in the description, which Dex Hub did not read). A disc link that takes long to start (usenet) is now waited for, up to 75 s, before Dex Hub decides it is not a disc.
+
 5.10.545
 صفحة إعدادات جديدة: يمين ويسار يغيّرون القيمة في نفس السطر، والسطر اللي تحت يشرح الخيار المحدد، ورجوع يوديك للأقسام قبل ما تسكر.
 تعديل الرئيسية الجديد: تظهر الصفوف الظاهرة بس، والمخفية مطوية في سطر واحد. يمين ويسار يغيّرون شكل الصف، وزر «إضافة صفوف» واحد يفتح Dex Hub وDexWorld وYouTube وأي إضافة، ورجوع يوديك للأقسام. قائمة الصف كانت فيها أسطر فاضية (خط كودي ما فيه إيموجي)، انصلحت.
