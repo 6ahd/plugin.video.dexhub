@@ -1,3 +1,7 @@
+5.10.548
+فلتر «قرص كامل ISO» ما عاد يختفي لما AIOStreams يتعثر: الجواب اللي فيه أسطر خطأ لخدمات ما ردت ([❌] Easynews+ وProwlarr) ما عاد ينحفظ في ذاكرة النتائج، فالبحث الجاي يسأل من جديد بدل ما يعرض القائمة الناقصة (The Batman: 21 نتيجة بدل 159، وراحت الأقراص الثلاثة). ونسخ البلوراي الكاملة (ISO) صارت تشتغل في LibreELEC بعد (كانت تفشل بخطأ 'error probing input format').
+The Full disc ISO filter no longer goes missing when AIOStreams has a bad moment: an answer that carries error rows for services that failed ([❌] Easynews+, Prowlarr) is no longer kept in the results cache, so the next search asks again instead of showing the short list (The Batman: 21 results instead of 159, its 3 full discs gone). Full Blu-ray ISO copies now play on LibreELEC as well (they failed with 'error probing input format').
+
 5.10.547
 الشاشة ما عادت توقف قبل التشغيل مع روابط AIOStreams اللي ما لها امتداد (Dex Hub كان يسأل الرابط عن نوع الملف وينتظر، ووصلت لـ 27 ثانية). الحين ياخذ النوع من اسم الملف أو يخلي المشغل يعرفه بنفسه.
 قائمة المصادر تفتح أسرع: تجهيز الصفوف وترتيبها صار ياخذ تقريباً نص الوقت، وحفظها في الكاش صار دفعة وحدة بدل كتابة لكل صف.

@@ -2606,6 +2606,11 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                   order['T'] + order['V'] + order['P'])
         self._facet_rows = facets
         self.filters = values
+        _discs = len(facets.get('Q:DISC') or ())
+        if _discs != getattr(self, '_logged_discs', -1):
+            self._logged_discs = _discs
+            # v5.10.548: says in kodi.log why the Full disc filter is or is not there
+            xbmc.log('[DexHub] source filters: %d rows, %d full disc' % (len(rows), _discs), xbmc.LOGINFO)
         try:
             control = self.getControl(2100)
         except Exception:

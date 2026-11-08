@@ -68,12 +68,14 @@ def _probe(url):
 
 
 def on_coreelec():
-    """Only CoreELEC is known to open a streamed disc image this way: Kodi on
-    the Mac sat on its busy window reading one (7 Nov 2026), so elsewhere the
-    link plays as it always did."""
+    """CoreELEC and LibreELEC open a streamed disc image this way: Kodi on the
+    Mac sat on its busy window reading one (7 Nov 2026), so elsewhere the link
+    plays as it always did. v5.10.548: LibreELEC too (an x86 box handed a
+    74 GB UHD .iso straight to FFmpeg: 'error probing input format')."""
     try:
         with open('/etc/os-release', encoding='utf-8') as handle:
-            return 'coreelec' in handle.read().lower()
+            text = handle.read().lower()
+        return 'coreelec' in text or 'libreelec' in text
     except Exception:
         return False
 

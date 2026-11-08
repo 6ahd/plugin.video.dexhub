@@ -180,6 +180,22 @@ def _fetch_uncached(target, media_type, api):
             pass
 
 
+def _partial_answer(payload):
+    """True when an aggregator's answer carries error rows for services that
+    failed (AIOStreams: streamData type 'error', name '[❌] <service>')."""
+    if not isinstance(payload, dict):
+        return False
+    for row in payload.get('streams') or ():
+        if not isinstance(row, dict):
+            continue
+        data = row.get('streamData')
+        if isinstance(data, dict) and str(data.get('type') or '').lower() == 'error':
+            return True
+        if str(row.get('name') or '').lstrip().startswith(('[❌]', '❌')):
+            return True
+    return False
+
+
 def fetch(target, media_type, api):
     """Cancellation and a short per-title results cache around the real fetch.
 
@@ -219,6 +235,15 @@ def fetch(target, media_type, api):
     except Exception:
         cache_key = ''
     payload = _fetch_uncached(target, media_type, api)
+    if cache_key and _partial_answer(payload):
+        # v5.10.548: AIOStreams answers with an error row ([❌] Easynews+,
+        # Prowlarr…) for each service that failed this time. That answer is
+        # missing those services' results (The Batman on the Mac, 8 Nov: 21
+        # rows instead of 159, the 3 full discs gone), so it is not kept:
+        # the next search asks again.
+        api.xbmc.log('[DexHub] source cache: %s answered with failed services; not kept' % (
+            (provider or {}).get('name') or (provider or {}).get('id') or '?'), api.xbmc.LOGINFO)
+        cache_key = ''
     if cache_key:
         try:
             from . import results_cache as _results
