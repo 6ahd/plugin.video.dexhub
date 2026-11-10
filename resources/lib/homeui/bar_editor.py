@@ -30,6 +30,7 @@ from .. import bar_sections as B
 SECTIONS, BAR, BUTTONS, CATALOGS, ADDS, ROW_ACTIONS = 300, 310, 320, 330, 340, 350
 ICON_TABS, ICONS, STYLES, PICK_BUTTONS, PICK = 370, 380, 385, 390, 395
 A_LEFT, A_RIGHT, A_UP, A_DOWN = 1, 2, 3, 4
+A_MENU = (117, 101, 108)  # v5.10.556: the menu key (a right or long click too) picks a section up to move it
 A_BACK = {9, 10, 92, 216, 247, 257, 275, 61448, 61467}
 _t = B._t
 # v5.10.505: the styles a collection row takes (the Home's collections, DexWorld's kits)
@@ -73,6 +74,12 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         self._styles_dirty = False  # styles are written when the editor closes (a new style reloads the skin)
         self.view = []              # v5.10.545: list position -> row index (-1: the hidden rows' fold)
         self.fold_open = False
+        # v5.10.556: the sections in the bar's own order (bar_order.py; the side menu and the
+        # top bar take it when the editor closes); Menu on a section moves it
+        from .. import bar_order
+        self.order = bar_order.saved()
+        self.order_start = list(self.order)
+        self.moving = False
         select = kwargs.get('select') or ''
         if select:
             for n, e in enumerate(self.entries()):
@@ -128,9 +135,33 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         out = [{'kind': 'home', 'key': 'home'}]
         out += [{'kind': 'builtin', 'key': key, 'name': _t(ar, en)} for key, ar, en in B.KEYS]
         out += [{'kind': 'custom', 'index': n} for n in range(len(self.data['custom']))]
+        out.sort(key=lambda e: self.place(self.bar_key(e)))
         if len(self.data['custom']) < len(B.CUSTOM):
             out.append({'kind': 'add'})
+        out.append({'kind': 'order'})       # v5.10.556: the bar's icons in your own order
         return out
+
+    @staticmethod
+    def bar_key(e):
+        return 'c%d' % (e['index'] + 1) if e.get('kind') == 'custom' else e.get('key', '')
+
+    def place(self, key):
+        return self.order.index(key) if key in self.order else len(self.order)
+
+    def move_to(self, n):
+        """The section being moved (self.cur) goes to place n among the sections; the
+        bar's other entries (profile, search, the bottom group...) keep their places."""
+        es = [e for e in self.entries() if e['kind'] not in ('add', 'order')]
+        n = max(0, min(n, len(es) - 1))
+        if n == self.cur or self.cur >= len(es):
+            return
+        keys = [self.bar_key(e) for e in es]
+        key = keys.pop(self.cur)
+        keys.insert(n, key)
+        slots = sorted(self.place(k) for k in keys if k in self.order)
+        for slot, k in zip(slots, [k for k in keys if k in self.order]):
+            self.order[slot] = k
+        self.cur = n
 
     def entry(self):
         es = self.entries()
@@ -294,11 +325,18 @@ class BarEditor(xbmcgui.WindowXMLDialog):
                 n = len(c.get('rows') or [])
                 items.append(_li(c['name'], _t('قسمك · %d كتالوج', 'Yours · %d catalogs') % n,
                                  B._icon_preview(c.get('icon') or ''), kind='custom', initial=c['name'][:1].upper()))
+            elif kind == 'order':
+                items.append(_li(_t('ترتيب الأيقونات', 'Icon order'), _t('مكان كل قسم وزر في الشريط', 'Where each section and button sits on the bar'),
+                                 B.MENU_ICONS + 'sliders.png', kind='custom'))
             else:
                 items.append(_li(_t('قسم جديد', 'New section'), _t('اسم وأيقونة وكتالوجات', 'A name, an icon and catalogs'),
                                  B.MENU_ICONS + 'wand-magic-sparkles.png', kind='add'))
         for n, li in enumerate(items):
             li.setProperty('open', '1' if n == self.cur else '')
+            if self.moving and n == self.cur:
+                li.setLabel('↕  ' + li.getLabel())
+                li.setLabel2(_t('فوق وتحت للنقل، OK يحطه', 'Up/Down moves it, OK puts it here'))
+                li.setProperty('moving', '1')
         self.fill(SECTIONS, items, self.cur)
         self.fill_bar()
 
@@ -310,15 +348,17 @@ class BarEditor(xbmcgui.WindowXMLDialog):
 
         def add(key, icon, initial=''):
             items.append(_li('', '', icon, open='1' if key == open_key else '', initial=initial))
-        add('home', B.ICON_PATH % 'home')
-        for key in ('movie', 'series', 'servers'):
-            if key not in hidden:
-                add(key, B.ICON_PATH % key)
-        for n, c in enumerate(self.data['custom']):
-            add('c%d' % (n + 1), B._icon_preview(c.get('icon') or ''), c['name'][:1].upper())
-        items.append(_li('', div='1'))
-        for key in ('discover', 'live', 'library', 'dexworld', 'youtube'):
-            if key not in hidden:
+        customs = dict(('c%d' % (n + 1), c) for n, c in enumerate(self.data['custom']))
+        builtin = set(k for k, _a, _e in B.KEYS)
+        for key in self.order:              # v5.10.556: in the bar's own order
+            if key == 'home':
+                add('home', B.ICON_PATH % 'home')
+            elif key == 'divider':
+                items.append(_li('', div='1'))
+            elif key in customs:
+                c = customs[key]
+                add(key, B._icon_preview(c.get('icon') or ''), c['name'][:1].upper())
+            elif key in builtin and key not in hidden:
                 add(key, B.ICON_PATH % key)
         self.fill(BAR, items)
 
@@ -364,6 +404,13 @@ class BarEditor(xbmcgui.WindowXMLDialog):
             self.setProperty('bs.note', _t('قسم باسمك في الشريط، بأيقونة تختارها (منها أيقونات Arctic Fuse 3)، وكتالوجات من صفوف Dex Hub أو من أي إضافة في كودي، ولكل كتالوج شكله.',
                                            'A section of your own on the bar, with an icon you pick (Arctic Fuse 3\'s too), catalogs from Dex Hub\'s rows or any Kodi add-on, each in its own style.'))
             buttons = [_li(_t('+ سوّ القسم', '+ Make the section'), key='create')]
+        elif kind == 'order':
+            self.setProperty('bs.name', _t('ترتيب الأيقونات', 'Icon order'))
+            self.setProperty('bs.icon', B.MENU_ICONS + 'sliders.png')
+            self.setProperty('bs.sub', _t('القائمة الجانبية والشريط العلوي', 'The side menu and the top bar'))
+            self.setProperty('bs.note', _t('OK يفتح شاشة الترتيب: ترفع أي أيقونة بـ OK وتنقلها فوق أو تحت. وتقدر تنقل قسم من هنا مباشرة: زر القائمة (أو ضغطة طويلة على OK) على القسم ثم فوق وتحت.',
+                                           'OK opens the order screen: lift any icon with OK and carry it up or down. You can also move a section right here: the Menu key (or a long OK) on it, then Up and Down.'))
+            buttons = [_li(_t('افتح شاشة الترتيب', 'Open the order screen'), key='order')]
         else:
             n = len(c.get('rows') or [])
             self.setProperty('bs.name', c['name'])
@@ -479,13 +526,17 @@ class BarEditor(xbmcgui.WindowXMLDialog):
     def hint(self):
         focus = self.getFocusId()
         if self.edit >= 0:
-            text = _t('فوق وتحت: المكان    يمين ويسار: الشكل    OK: تم', 'Up/Down: place    Left/Right: style    OK: done')
+            text = _t('فوق وتحت: انقل الصف    يمين ويسار: الشكل    OK: حطه هنا', 'Up/Down: carry the row    Left/Right: style    OK: put it here')
+        elif focus == SECTIONS and self.moving:
+            text = _t('فوق وتحت: انقل القسم    OK: حطه هنا', 'Up/Down: move the section    OK: put it here')
         elif focus == SECTIONS:
-            text = _t('OK يفتح القسم أو يخفيه ويظهره    رجوع: إغلاق', 'OK opens a section or switches it    Back: close')
+            text = _t('OK يفتح القسم أو يخفيه ويظهره    زر القائمة: انقله فوق أو تحت    رجوع: إغلاق',
+                      'OK opens a section or switches it    Menu: move it up or down    Back: close')
         elif focus == CATALOGS and self.rix() < 0:
             text = _t('OK يفتح الصفوف المخفية أو يطويها', 'OK opens or folds the hidden rows')
         elif focus == CATALOGS:
-            text = _t('يمين ويسار: الشكل    OK: الخيارات    رجوع: الأقسام', 'Left/Right: style    OK: options    Back: sections')
+            text = _t('OK: ارفع الصف وانقله    يمين ويسار: الشكل    زر القائمة: إخفاء وتسمية وحذف    رجوع: الأقسام',
+                      'OK: lift the row and move it    Left/Right: style    Menu: hide, rename, remove    Back: sections')
         elif focus == ICONS:
             text = _t('OK يختار الأيقونة    Back رجوع', 'OK picks the icon    Back returns')
         elif focus == PICK and self.pick.get('source') == 'dexhub':
@@ -518,11 +569,30 @@ class BarEditor(xbmcgui.WindowXMLDialog):
     def onAction(self, action):
         aid = action.getId()
         focus = self.getFocusId()
+        if self.moving and focus == SECTIONS and aid in A_BACK:
+            self.stop_moving()
+            return
         if aid in A_BACK:
             self.back()
             return
+        if focus == SECTIONS and aid in A_MENU and not self.moving:
+            if self.entry()['kind'] not in ('add', 'order'):
+                self.moving = True
+                self.fill_sections()
+            self.hint()
+            return
+        if self.moving and focus == SECTIONS and aid in (A_UP, A_DOWN):
+            self.move_to(self.pos(SECTIONS))
+            self.fill_sections()
+            self.hint()
+            return
         if self.edit >= 0 and focus == CATALOGS:
             self.edit_key(aid)
+            return
+        if focus == CATALOGS and aid in A_MENU:
+            if self.rix() >= 0:
+                self.row_menu(self.rix())
+            self.hint()
             return
         if focus == CATALOGS and aid in (A_LEFT, A_RIGHT):
             # v5.10.545: the row's style, right on the row (its picture follows)
@@ -590,7 +660,15 @@ class BarEditor(xbmcgui.WindowXMLDialog):
             li.setLabel('↕ ' + B.sort_name(c['rows'][n].get('sort')))
 
     # ---------------------------------------------------------- sections
+    def stop_moving(self):
+        self.moving = False
+        self.fill_sections()
+        self.hint()
+
     def click_section(self):
+        if self.moving:
+            self.stop_moving()
+            return
         e = self.entry()
         if self.page_media(e):
             self.setFocusId(CATALOGS if (self.page or {}).get('rows') else ADDS)
@@ -600,6 +678,18 @@ class BarEditor(xbmcgui.WindowXMLDialog):
             self.setFocusId(CATALOGS if self.custom().get('rows') else ADDS)
         elif e['kind'] == 'add':
             self.create()
+        elif e['kind'] == 'order':
+            self.open_order()
+
+    def open_order(self):
+        """The order screen on the editor's own order (saved when the editor closes)."""
+        from .. import bar_order
+        self.order = bar_order.edit(self.order)
+        for n, e in enumerate(self.entries()):
+            if e['kind'] == 'order':
+                self.cur = n
+        self.fill_sections()
+        self.show()
 
     def toggle(self):
         e = self.entry()
@@ -616,7 +706,9 @@ class BarEditor(xbmcgui.WindowXMLDialog):
             return
         self.data['custom'].append({'name': name, 'icon': '', 'rows': []})
         self.save()
-        self.cur = 1 + len(B.KEYS) + len(self.data['custom']) - 1
+        # v5.10.556: the sections follow the bar's order, so the new one is looked up
+        new = len(self.data['custom']) - 1
+        self.cur = next((n for n, e in enumerate(self.entries()) if e['kind'] == 'custom' and e['index'] == new), 0)
         self.after_section_change()
         self.setFocusId(ADDS)
 
@@ -627,6 +719,8 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         if key == 'toggle':
             self.toggle()
             self.setFocusId(BUTTONS)
+        elif key == 'order':
+            self.open_order()
         elif key == 'create':
             self.create()
         elif key == 'rename' and c:
@@ -669,7 +763,11 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         if self.edit >= 0:
             self.end_edit()
         elif n >= 0:
-            self.row_menu(n)
+            # v5.10.556: OK lifts the row (Up/Down carry it, OK puts it down); its other
+            # options are on the Menu key. Ordering took OK, a menu, Move, then OK again.
+            self.edit = n
+            self.setProperty('bs.edit', '1')
+            self.refresh_catalog(n)
         elif self.view and self.pos(CATALOGS) >= 0:
             # the hidden rows' line: open or fold them, the cursor stays on it
             self.fold_open = not self.fold_open
@@ -699,7 +797,6 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         mine = not page or bool(spec.get('custom_id')) or not spec.get('known')
         menu = []
         # v5.10.545: plain words (Kodi's font has no emoji: a label with one showed empty)
-        menu = [('move', _t('نقل (فوق وتحت ثم OK)', 'Move (Up/Down, then OK)'))]
         if n > 0:
             menu.append(('top', _t('أول صف', 'Make it the first row')))
         if n < len(rows) - 1:
@@ -1354,11 +1451,18 @@ def open_editor(select=''):
         window.flush_styles()
         changed = window.rows_changed
         pages = set(window.pages_changed)
+        order = list(window.order) if window.order != window.order_start else None
     finally:
         del window
     if pages or changed:
         # one request for the layout and the sections, every tab at once
         _home_changed()
+    if order:
+        # v5.10.556: the sections moved: both bars take the order (the skin reloads once)
+        from .. import bar_order
+        bar_order.write(order)
+        xbmc.sleep(150)
+        xbmc.executebuiltin('ReloadSkin()')
     return True
 
 

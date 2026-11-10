@@ -1002,14 +1002,28 @@ def fetch_catalog(provider, media_type, catalog_id, extra=None,
                   timeout_override=None, retry=True, rate_wait=2.0, force_refresh=False):
     # a search answers what was typed now: never a stale copy of it
     search = bool(str((extra or {}).get('search') or '').strip())
-    return get_json(
-        build_resource_url(provider, 'catalog', media_type, catalog_id, extra=extra or {}),
+    url = build_resource_url(provider, 'catalog', media_type, catalog_id, extra=extra or {})
+    data = get_json(
+        url,
         ttl_seconds=0 if force_refresh else catalog_ttl(),
         timeout_override=timeout_override,
         retry=retry,
         rate_wait=rate_wait,
         stale_seconds=None if search else CATALOG_STALE_SECONDS,
     )
+    failure = data.get('dexworldError') if isinstance(data, dict) else None
+    if isinstance(failure, dict) and failure.get('code') == 'IPTV_UPSTREAM' and not search:
+        # v5.10.553: the IPTV provider turned DexWorld's server away; the list
+        # comes from the provider over the subscriber's own connection
+        try:
+            from .. import dexworld_direct
+            direct = dexworld_direct.catalog(url, failure, (extra or {}).get('skip') or 0)
+        except Exception:
+            direct = None
+        if direct:
+            _write_cache(url, direct)
+            return direct
+    return data
 
 
 def _meta_ttl_for(ttl_override=None):
@@ -1408,6 +1422,46 @@ def install_stop_signal(target, seconds):
         pass
 
 
+# v5.10.554: a run_parallel with no time limit of its own stops waiting here.
+# Longer than any real scan (Kodi add-ons have their own 120 s lane); it only
+# exists so one stuck request can never hold a call open for good.
+RUN_PARALLEL_CEILING = 180.0
+
+
+def _wait_settled(pending, timeout):
+    """concurrent.futures.wait(FIRST_COMPLETED) that also counts cancelled
+    futures as finished.
+
+    v5.10.554 (kodi.log 8 Nov 22:17, call 63 never ended): the end of a call
+    runs shutdown_lane_pools(cancel_pending=True), and ThreadPoolExecutor's
+    shutdown(cancel_futures=True) marks the queued futures CANCELLED without
+    waking as_completed() or wait(). A run_parallel still waiting in a
+    background thread (the source page's refresh) waited for them for ever,
+    and Kodi waited for that thread. Checked on Python 3.14: as_completed saw
+    1 of 4 futures and never returned."""
+    done, _rest = _future_wait(pending, timeout=timeout, return_when=FIRST_COMPLETED)
+    done = set(done)
+    for future in pending:
+        if future.done():
+            done.add(future)
+    return done
+
+
+def _kodi_monitor():
+    try:
+        import xbmc
+        return xbmc.Monitor()
+    except Exception:
+        return None
+
+
+def _kodi_quitting(monitor):
+    try:
+        return bool(monitor is not None and monitor.abortRequested())
+    except Exception:
+        return False
+
+
 class ParallelRace(object):
     """A reusable completion-order race with non-destructive polling.
 
@@ -1536,10 +1590,7 @@ class ParallelRace(object):
                 value = exc
             return [(item, value)]
 
-        done, _pending = _future_wait(
-            set(self._futures), timeout=wait_for,
-            return_when=FIRST_COMPLETED,
-        )
+        done = _wait_settled(set(self._futures), wait_for)
         rows = []
         for future in sorted(done, key=lambda f: self._futures.get(f, 0)):
             # UI cancellation may clear the future map while ``wait`` is
@@ -1600,6 +1651,11 @@ def run_parallel(func, items, workers=None, timeout=None, lane='default'):
     Returns a list of (item, result_or_exception) tuples in original order.
     v3.9.87 also handles thread quota exhaustion gracefully by falling back to
     serial execution instead of raising RuntimeError into Kodi.
+
+    v5.10.554: never waits without a limit (RUN_PARALLEL_CEILING when the
+    caller gives none), counts futures cancelled by a lane shutdown as done,
+    and stops when Kodi quits. Unfinished items come back as TimeoutError,
+    which every caller already skips.
     """
     if not items:
         return []
@@ -1614,34 +1670,35 @@ def run_parallel(func, items, workers=None, timeout=None, lane='default'):
     try:
         for idx, item in enumerate(items):
             futures[pool.submit(func, item)] = idx
-    except RuntimeError as exc:
-        for future in list(futures.keys()):
+    except Exception as exc:
+        if isinstance(exc, RuntimeError):
             try:
-                future.cancel()
+                _reset_pool_for_thread_failure(lane)
             except Exception:
                 pass
-        try:
-            _reset_pool_for_thread_failure(lane)
-        except Exception:
-            pass
         try:
             import xbmc
-            xbmc.log('[DexHub] run_parallel fell back to serial scan: %s' % exc, xbmc.LOGWARNING)
+            xbmc.log('[DexHub] run_parallel fell back to serial scan (%d of %d already queued): %s'
+                     % (len(futures), len(items), exc), xbmc.LOGWARNING)
         except Exception:
             pass
-        for idx, item in enumerate(items):
-            try:
-                results[idx] = (item, func(item))
-            except Exception as inner_exc:
-                results[idx] = (item, inner_exc)
-        return results
-    except Exception as exc:
+        # v5.10.554: an item already running in the pool is not run a second
+        # time (the old fallback sent every request again); its answer is
+        # taken when it comes, the rest run here one after another
+        submitted = dict((idx, future) for future, idx in futures.items())
         for future in list(futures.keys()):
             try:
                 future.cancel()
             except Exception:
                 pass
         for idx, item in enumerate(items):
+            future = submitted.get(idx)
+            if future is not None and not future.cancelled():
+                try:
+                    results[idx] = (item, future.result(timeout=timeout or RUN_PARALLEL_CEILING))
+                except Exception as inner_exc:
+                    results[idx] = (item, inner_exc)
+                continue
             try:
                 results[idx] = (item, func(item))
             except Exception as inner_exc:
@@ -1649,15 +1706,30 @@ def run_parallel(func, items, workers=None, timeout=None, lane='default'):
         return results
 
     pending = set(futures.keys())
+    limit = float(timeout) if timeout else RUN_PARALLEL_CEILING
+    deadline = time.monotonic() + limit
+    monitor = _kodi_monitor()
     try:
-        iterator = as_completed(futures, timeout=timeout) if timeout else as_completed(futures)
-        for future in iterator:
-            pending.discard(future)
-            idx = futures[future]
-            try:
-                results[idx] = (items[idx], future.result(timeout=0.1))
-            except Exception as exc:
-                results[idx] = (items[idx], exc)
+        while pending:
+            left = deadline - time.monotonic()
+            if left <= 0:
+                if not timeout:
+                    try:
+                        import xbmc
+                        xbmc.log('[DexHub] run_parallel stopped waiting after %.0f s: %d of %d not answered'
+                                 % (limit, len(pending), len(futures)), xbmc.LOGWARNING)
+                    except Exception:
+                        pass
+                raise TimeoutError('%d (of %d) futures unfinished' % (len(pending), len(futures)))
+            for future in _wait_settled(pending, min(0.25, left)):
+                pending.discard(future)
+                idx = futures[future]
+                try:
+                    results[idx] = (items[idx], future.result(timeout=0))
+                except Exception as exc:
+                    results[idx] = (items[idx], exc)
+            if pending and _kodi_quitting(monitor):
+                raise TimeoutError('Kodi is closing')
     except TimeoutError as exc:
         for future in list(pending):
             future.cancel()
@@ -1697,7 +1769,7 @@ def run_parallel_settle(func, items, settle=2.5, total=15.0, workers=None, lane=
     except Exception:
         return run_parallel(func, items, workers=workers, lane=lane)
     import time as _time
-    from concurrent.futures import wait, FIRST_COMPLETED
+    # (waits through _wait_settled since v5.10.554)
     if has_rows is None:
         def has_rows(value):
             return isinstance(value, dict) and bool(value.get('streams'))
@@ -1712,7 +1784,9 @@ def run_parallel_settle(func, items, settle=2.5, total=15.0, workers=None, lane=
             limit = min(limit, first_rows + settle)
         if now >= limit:
             break
-        done, pending = wait(pending, timeout=limit - now, return_when=FIRST_COMPLETED)
+        # v5.10.554: cancelled futures count as done (see _wait_settled)
+        done = _wait_settled(pending, min(0.25, limit - now))
+        pending = pending - done
         for future in done:
             idx = futures[future]
             try:
@@ -1832,7 +1906,8 @@ def iter_parallel(func, items, workers=None, timeout=None, lane='default'):
                 if left <= 0:
                     return
                 step = min(step, left)
-            done, _rest = _future_wait(pending, timeout=step, return_when=FIRST_COMPLETED)
+            # v5.10.554: cancelled futures count as done (see _wait_settled)
+            done = _wait_settled(pending, step)
             for future in done:
                 pending.discard(future)
                 idx = futures[future]

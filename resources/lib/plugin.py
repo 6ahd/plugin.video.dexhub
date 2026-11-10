@@ -17072,7 +17072,8 @@ def _append_stream_entries_from_data(entries, data, provider, request_id, media_
                                      facts.get('origin_line') or provider_name),
             'upstream_formatter_preview': _aio_preview,
             'upstream_formatter_text': _aio_description,
-            # v5.10.297: the add-on's own row text, shown as Nuvio shows it
+            # v5.10.302: the add-on's own row text, shown as Nuvio shows it
+            # (5.10.297 put it in plugin.py only; this is the builder in use)
             'stream_name_raw': str(row.get('name') or '')[:400],
             'stream_desc_raw': str(row.get('description') or row.get('title') or '')[:900],
             'stream_video_size': ((row.get('behaviorHints') or {}).get('videoSize') if isinstance(row.get('behaviorHints'), dict) else '') or '',
@@ -17268,9 +17269,12 @@ def _server_stream_rows(backend, server, ids, media_type, titles,
             except Exception:
                 pass
         used = set()
+        # v5.10.554: ids are no titles for any server (a silo: id was sent
+        # to Plex as the search text); this only covered Jellyfin before
+        from .search.native_titles import is_id_like as _id_like
         for candidate in (titles or []):
             value = str(candidate or '').strip()
-            if backend == 'jellyfin' and re.fullmatch(r'(?:tt\d+(?::\d+){0,2}|(?:imdb|tmdb|tvdb):.*)', value, flags=re.I):
+            if _id_like(value):
                 continue
             if value and value.casefold() not in used:
                 used.add(value.casefold())
@@ -17282,7 +17286,7 @@ def _server_stream_rows(backend, server, ids, media_type, titles,
                 loaded = []
             for candidate in loaded:
                 value = str(candidate or '').strip()
-                if value and value.casefold() not in used and not re.fullmatch(r'(?:tt\d+(?::\d+){0,2}|(?:imdb|tmdb|tvdb):.*)', value, flags=re.I):
+                if value and value.casefold() not in used and not _id_like(value):
                     used.add(value.casefold())
                     titles = list(titles or []) + [value]
                     yield value
@@ -17734,7 +17738,7 @@ def _collect_stream_entries(targets, media_type, canonical_id, best_meta, art, b
                             video_id='', season=None, episode=None, show_title='', resume_seconds=0.0,
                             resume_percent=0.0,
                             stop_after_first=False, show_loader=False,
-                            processed_targets=None, scan_state=None):
+                            processed_targets=None, scan_state=None, progress=None):
     entries = []
     if not targets:
         return entries
@@ -17821,6 +17825,11 @@ def _collect_stream_entries(targets, media_type, canonical_id, best_meta, art, b
                     sub_status='%d %s' % (len(entries), tr('مصدر')) if entries else '',
                 )
             if isinstance(data, Exception) or not data:
+                if progress is not None:
+                    try:
+                        progress(idx, len(targets), entries)
+                    except Exception:
+                        pass
                 continue
             before = len(entries)
             _append_stream_entries_from_data(
@@ -17833,6 +17842,13 @@ def _collect_stream_entries(targets, media_type, canonical_id, best_meta, art, b
                 _unique_count = _source_progress_unique_count(entries, _unique_rows)
             else:
                 _unique_rows = None
+            if progress is not None:
+                # v5.10.253: the player's Sources panel fills as each
+                # provider answers
+                try:
+                    progress(idx, len(targets), entries)
+                except Exception:
+                    pass
             if loader is not None:
                 loader.add_results(
                     len(entries) - before,
@@ -17962,6 +17978,7 @@ def _start_stream_session_refresh(session_key, initial_entries, remaining_target
         refresh_race = scan_race
         pending_count = len(remaining_targets)
         failed_count = 0
+        last_name = ''   # v5.10.439: the add-on that answered last (Halo)
 
         def _publish_status(done=False):
             nonlocal version
@@ -17970,6 +17987,7 @@ def _start_stream_session_refresh(session_key, initial_entries, remaining_target
                 'entries': list(entries), 'done': done, 'version': version,
                 'search_pending': pending_count,
                 'search_failed': failed_count,
+                'search_last': last_name,
             })
 
         _publish_status()
@@ -18023,6 +18041,7 @@ def _start_stream_session_refresh(session_key, initial_entries, remaining_target
                     continue
                 last_request_id = str(video_id or request_id or last_request_id or '')
                 pending_count = max(0, pending_count - 1)
+                last_name = str((provider or {}).get('name') or '')
                 if isinstance(data, Exception):
                     failed_count += 1
                 if isinstance(data, Exception) or not data:
@@ -18053,6 +18072,7 @@ def _start_stream_session_refresh(session_key, initial_entries, remaining_target
                     'version': version,
                     'search_pending': pending_count,
                     'search_failed': failed_count,
+                'search_last': last_name,
                 }):
                     break
 
@@ -18069,6 +18089,7 @@ def _start_stream_session_refresh(session_key, initial_entries, remaining_target
                     'version': version + 1,
                     'search_pending': pending_count,
                     'search_failed': failed_count,
+                'search_last': last_name,
                 })
             except Exception:
                 pass
@@ -18407,6 +18428,40 @@ def _warm_summary(found):
     return out
 
 
+# v5.10.554: copied so this file matches player_runtime.py (the two drifted apart)
+def _kodi_sources_lane(targets, media_type):
+    """v5.10.447: the Kodi source add-ons leave the shared race and search
+    in their own lane (kodi_sources.LateSearch), started now."""
+    try:
+        from .kodi_sources import split_late
+        return split_late(targets, lambda t: _fetch_stream_payload(t, media_type))
+    except Exception as exc:
+        xbmc.log('[DexHub] Kodi add-on sources lane: %s' % exc, xbmc.LOGWARNING)
+        return list(targets or []), None
+
+
+def _kodi_collect(late, convert):
+    """Nothing else found anything: wait for the Kodi add-ons (busy circle)."""
+    xbmc.executebuiltin('ActivateWindow(busydialognocancel)')
+    try:
+        return late.collect(convert)
+    finally:
+        xbmc.executebuiltin('Dialog.Close(busydialognocancel)')
+
+
+def _kodi_rows_converter(media_type, canonical_id, best_meta, art, bg, ids, **context):
+    """A Kodi add-on's answer as finished source rows, like any provider's."""
+    def convert(target, data):
+        provider, request_id = target
+        rows = []
+        _append_stream_entries_from_data(rows, data, provider, request_id, media_type, canonical_id,
+                                         best_meta, art, bg, ids, **context)
+        return _finalize_stream_entries(rows, media_type=media_type, canonical_id=canonical_id,
+                                        video_id=str(context.get('video_id') or ''))
+    return convert
+
+
+
 def streams(media_type, canonical_id, title='', resume_seconds='0', resume_percent='', preferred_provider_name='', source_provider_id='', source_mode='', seed_ids=None, ui_seed=None):
     _prepare_started = time.monotonic()
     from . import source_diagnostics
@@ -18457,6 +18512,7 @@ def streams(media_type, canonical_id, title='', resume_seconds='0', resume_perce
     targets_all = _prioritize_provider_targets(list(_stream_provider_targets(media_type, canonical_id, meta=stream_meta)), preferred_provider_name=preferred_provider_name)
     if _WARM_ONLY:
         return _warm_source_targets(targets_all, media_type)
+    targets_all, _kodi_late = _kodi_sources_lane(targets_all, media_type)
     targets, fallback_targets = _split_targets_by_source_mode(targets_all, source_provider_id=source_provider_id, source_mode=source_mode)
 
     xbmc.log('[DexHub timing] stage=source-prepare-total ms=%.1f' % ((time.monotonic() - _prepare_started) * 1000), xbmc.LOGINFO)
@@ -18504,6 +18560,11 @@ def streams(media_type, canonical_id, title='', resume_seconds='0', resume_perce
         else:
             processed_set = set((id(p), rid) for p, rid in processed_targets)
             remaining_targets = [t for t in fallback_targets if (id(t[0]), t[1]) not in processed_set]
+    if not entries and _kodi_late:
+        entries = _kodi_collect(_kodi_late, _kodi_rows_converter(
+            media_type, canonical_id, best_meta, art, bg, ids, title=title,
+            resume_seconds=resume_seconds, resume_percent=resume_percent_val))
+        _kodi_late = None
     if not entries:
         # Nothing matched anywhere — but if this item CAME from the user's own
         # server we do not need a match at all: play the file directly.
@@ -18572,13 +18633,19 @@ def streams(media_type, canonical_id, title='', resume_seconds='0', resume_perce
         'canonical_id': canonical_id,
     }
     session_key = ''
-    if remaining_targets:
+    if remaining_targets or _kodi_late:
         session_key = source_session.create(entries, done=False, version=1)
-        _start_stream_session_refresh(
-            session_key, entries, remaining_targets, media_type, canonical_id, best_meta, art, bg, ids,
-            title=title, resume_seconds=resume_seconds, resume_percent=resume_percent_val,
-            scan_race=_active_race,
-        )
+        if remaining_targets:
+            _start_stream_session_refresh(
+                session_key, entries, remaining_targets, media_type, canonical_id, best_meta, art, bg, ids,
+                title=title, resume_seconds=resume_seconds, resume_percent=resume_percent_val,
+                scan_race=_active_race,
+            )
+        if _kodi_late:
+            _kodi_late.attach(session_key, _kodi_rows_converter(
+                media_type, canonical_id, best_meta, art, bg, ids, title=title,
+                resume_seconds=resume_seconds, resume_percent=resume_percent_val),
+                base_done=not remaining_targets)
     return _show_stream_window(entries, meta, session_key=session_key)
 
 
@@ -18862,6 +18929,49 @@ def _show_imdb_for_episode(canonical_id, video_id, ids):
     return show_imdb + canonical[len(base):], vid, ids
 
 
+def _show_meta_for_targets(meta, show_canonical, ids):
+    """stream_meta for an episode first named by its own IMDb id (v5.10.554).
+
+    _show_imdb_for_episode fixed the id the add-ons are asked with, but the
+    servers (Plex, Emby, Silo, Jellyfin) read theirs from the meta: its 'id'
+    (still the episode's, and extract_ids lets a tt id win over imdb_id) and
+    its name, which was the EPISODE's. The 8 Nov log: "the show (tmdb 108978)
+    is tt9288030", then Plex was asked with imdb_id=tt33782685 for the title
+    "عنوان الحلقة 401" (TMDb's placeholder name). The show's ids and names go
+    in; the episode's name is kept aside as episode_name.
+    """
+    out = dict(meta or {})
+    base = str(show_canonical or '').split(':')[0]
+    if base:
+        out['id'] = base
+    external = dict(out.get('externalIds') or {}) if isinstance(out.get('externalIds'), dict) else {}
+    for src, ext_key, camel in (('imdb_id', 'imdb', 'imdbId'), ('tmdb_id', 'tmdb', 'tmdbId')):
+        val = str((ids or {}).get(src) or '').strip()
+        if val:
+            out[src] = val
+            out[camel] = val
+            external[ext_key] = val
+    if external:
+        out['externalIds'] = external
+    old = str(out.get('name') or out.get('title') or '').strip()
+    try:
+        from . import tmdb_direct as _td
+        names = [str(x) for x in (_td.english_titles_for((ids or {}).get('tmdb_id') or '', 'tv') or []) if x]
+    except Exception:
+        names = []
+    if names:
+        out['name'] = out['title'] = out['tvShowTitle'] = names[0]
+        if old and old.casefold() not in [x.casefold() for x in names]:
+            out['episode_name'] = old
+    elif old and re.search(r'(?:\u0627\u0644\u062d\u0644\u0642\u0629|episode)\s*\d+\s*$', old, flags=re.I):
+        # "Episode 401" / "عنوان الحلقة 401" names no show
+        out['episode_name'] = old
+        out['name'] = out['title'] = ''
+    xbmc.log('[DexHub] episode targets use the show: id=%s name=%s (was %s)'
+             % (out.get('id') or '?', out.get('name') or '-', old or '-'), xbmc.LOGINFO)
+    return out
+
+
 def episode_streams(canonical_id, video_id, season, episode, title='', media_type='', resume_seconds='0', resume_percent='', preferred_provider_name='', source_provider_id='', source_mode='', seed_ids=None, ui_seed=None):
     _prep_started = time.monotonic()
     from . import source_diagnostics
@@ -18885,11 +18995,14 @@ def episode_streams(canonical_id, video_id, season, episode, title='', media_typ
     # EPISODE's IMDb id (MobLand S2E4 came as tt43338257, the show is
     # tt31510819): every add-on was asked for tt43338257:2:4 and found no
     # streams and no subtitles. The show's TMDb id names its real IMDb id.
+    _named_by = canonical_id
     try:
         canonical_id, video_id, ids = _show_imdb_for_episode(canonical_id, video_id, ids)
     except Exception as exc:
         xbmc.log('[DexHub] show imdb check failed: %s' % exc, xbmc.LOGDEBUG)
     stream_meta = _meta_with_seed_ids(best_meta, ids)
+    if canonical_id != _named_by:
+        stream_meta = _show_meta_for_targets(stream_meta, canonical_id, ids)
     try:
         start_subtitle_prefetch(
             media_type, canonical_id, ids=ids,
@@ -18932,6 +19045,7 @@ def episode_streams(canonical_id, video_id, season, episode, title='', media_typ
     targets_all = _prioritize_provider_targets(targets_all, preferred_provider_name=preferred_provider_name)
     if _WARM_ONLY:
         return _warm_source_targets(targets_all, media_type)
+    targets_all, _kodi_late = _kodi_sources_lane(targets_all, media_type)
     targets, fallback_targets = _split_targets_by_source_mode(targets_all, source_provider_id=source_provider_id, source_mode=source_mode)
 
     # v3.9.65: same race strategy as movies — open the source picker
@@ -19004,6 +19118,12 @@ def episode_streams(canonical_id, video_id, season, episode, title='', media_typ
             else:
                 processed_set = set((id(p), rid) for p, rid in processed_targets)
                 remaining_targets = [t for t in fallback_targets if (id(t[0]), t[1]) not in processed_set]
+    if not entries and _kodi_late:
+        entries = _kodi_collect(_kodi_late, _kodi_rows_converter(
+            media_type, canonical_id, best_meta, art, bg, ids, title=title or video_id, video_id=video_id,
+            season=season, episode=episode, show_title=best_meta.get('name') or canonical_id,
+            resume_seconds=resume_seconds, resume_percent=resume_percent_val))
+        _kodi_late = None
     if not entries:
         try:
             if entries is None or _active_race is not None:
@@ -19060,14 +19180,20 @@ def episode_streams(canonical_id, video_id, season, episode, title='', media_typ
         'episode': episode,
     }
     session_key = ''
-    if remaining_targets:
+    if remaining_targets or _kodi_late:
         session_key = source_session.create(entries, done=False, version=1)
-        _start_stream_session_refresh(
-            session_key, entries, remaining_targets, media_type, canonical_id, best_meta, art, bg, ids,
-            title=title or video_id, video_id=video_id, season=season, episode=episode,
-            show_title=best_meta.get('name') or canonical_id, resume_seconds=resume_seconds, resume_percent=resume_percent_val,
-            scan_race=_active_race,
-        )
+        if remaining_targets:
+            _start_stream_session_refresh(
+                session_key, entries, remaining_targets, media_type, canonical_id, best_meta, art, bg, ids,
+                title=title or video_id, video_id=video_id, season=season, episode=episode,
+                show_title=best_meta.get('name') or canonical_id, resume_seconds=resume_seconds, resume_percent=resume_percent_val,
+                scan_race=_active_race,
+            )
+        if _kodi_late:
+            _kodi_late.attach(session_key, _kodi_rows_converter(
+            media_type, canonical_id, best_meta, art, bg, ids, title=title or video_id, video_id=video_id,
+            season=season, episode=episode, show_title=best_meta.get('name') or canonical_id,
+            resume_seconds=resume_seconds, resume_percent=resume_percent_val), base_done=not remaining_targets)
     return _show_stream_window(entries, meta, session_key=session_key)
 
 def _resolve_best_id(video_type, tmdb_id='', imdb_id='', tvdb_id='', title=''):

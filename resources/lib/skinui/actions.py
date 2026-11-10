@@ -1481,6 +1481,70 @@ def trailer_config(params, handle):
     publish_presentation()
 
 
+def title_look(params, handle):
+    """v5.10.556: the title page's look as picture cards (title_look.py); the plain
+    list below is used when that window cannot open."""
+    try:
+        import xbmcvfs
+        from .. import title_look as TL
+        if xbmcvfs.exists('special://home/addons/plugin.video.dexhub/resources/skins/Default/1080i/dexhub_look.xml') \
+                or xbmcvfs.exists('special://xbmc/addons/plugin.video.dexhub/resources/skins/Default/1080i/dexhub_look.xml'):
+            return TL.run()
+    except Exception as exc:
+        C.log('title look window: %s' % exc)
+    return _title_look_list(params, handle)
+
+
+def _title_look_list(params, handle):
+    """v5.10.556: the title page's look in one list of plain choices. The first
+    menu had three rows that flipped (layout, poster, tabs), and its poster row
+    did nothing in the cinematic layout; the user found it muddled (10 Nov
+    2026). Now each row is a whole look, the one in use is ticked, a pick
+    applies at once and the list stays until Back:
+      layout    classic with the poster / classic without it / cinematic
+      sections  all on one page / tabs
+    """
+    from ..homeui import control as CT
+    looks = (('poster', _tr('كلاسيكي مع البوستر'), _tr('البوستر على اليسار والمعلومات بجانبه')),
+             ('plain', _tr('كلاسيكي بدون بوستر'), _tr('المعلومات تبدأ من يسار الصفحة')),
+             ('cinematic', _tr('سينمائي'), _tr('صورة العمل تملأ الصفحة، بدون بوستر')))
+    sections = (('page', _tr('الأقسام كلها في صفحة وحدة'), _tr('الممثلون والمراجعات والمشابه تحت بعض، تنزل لها')),
+                ('tabs', _tr('الأقسام تبويبات'), _tr('قسم واحد يظهر تحت الأزرار، وكل قسم يتحمّل لما تفتحه')))
+    last = -1
+    while True:
+        cinematic = (xbmc.getInfoLabel('Skin.String(dh.titlelayout)') or '').strip().lower() == 'cinematic'
+        try:
+            poster = (CT._addon().getSetting('homeui_title_poster') or 'true').lower() != 'false'
+        except Exception:
+            poster = True
+        tabs = CT._skin_on('title_tabs')
+        look = 'cinematic' if cinematic else ('poster' if poster else 'plain')
+        part = 'tabs' if tabs else 'page'
+        rows = []
+        for group, current, choices in ((_tr('الشكل'), look, looks), (_tr('أقسام الصفحة'), part, sections)):
+            for key, name, line in choices:
+                li = xbmcgui.ListItem('%s  %s' % ('●' if key == current else '○', name),
+                                      '%s · %s' % (group, line), offscreen=True)
+                rows.append((key, li))
+        pick = xbmcgui.Dialog().select(_tr('شكل صفحة العمل'), [li for _k, li in rows],
+                                       preselect=last if last >= 0 else [k for k, _l in rows].index(look), useDetails=True)
+        if pick < 0:
+            return
+        last = pick
+        key = rows[pick][0]
+        try:
+            if key in ('poster', 'plain', 'cinematic'):
+                if key != 'cinematic' and poster != (key == 'poster'):
+                    CT.apply_entry('title_poster', key == 'poster')
+                if cinematic != (key == 'cinematic'):
+                    CT.set_skin_string('dh.titlelayout', 'cinematic' if key == 'cinematic' else '')
+            elif tabs != (key == 'tabs'):
+                CT.set_skin_string('dh.titletabs', 'on' if key == 'tabs' else '')
+        except Exception as exc:
+            C.log('title look: %s' % exc)
+        xbmc.sleep(150)
+
+
 def _social(name):
     # v5.10.406: the title page's Reviews and Pictures rows (title_social)
     def run(params, handle):
@@ -1494,6 +1558,7 @@ ROUTES = {
     'skin_review_write': _social('review_write'),
     'skin_art_set': _social('art_set'),
     'skin_trailer_config': trailer_config,
+    'skin_title_look': title_look,
     'skin_row_shape': row_shape,
     'skin_row_follow': row_follow,
     'skin_publish': publish,

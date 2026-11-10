@@ -91,6 +91,27 @@ def shares():
     return list((_read('nas.json', {}) or {}).get('shares') or [])
 
 
+def _protocol(share):
+    root = str((share or {}).get('root') or '')
+    return root.split('://', 1)[0].lower() if '://' in root else 'local'
+
+
+def brand(share=None):
+    """SMB, NFS or NAS: the name the user knows the source by (v5.10.554).
+
+    The user linked SMB shares and the search said "NAS". One share is named
+    by its own protocol; the whole source by the one its shares share, and
+    NAS only when they mix (or are local folders)."""
+    if share is not None:
+        return {'smb': 'SMB', 'nfs': 'NFS'}.get(_protocol(share), 'NAS')
+    kinds = set(_protocol(s) for s in shares())
+    if kinds == {'smb'}:
+        return 'SMB'
+    if kinds == {'nfs'}:
+        return 'NFS'
+    return 'NAS'
+
+
 def _save_shares(rows):
     data = dict(_read('nas.json', {}) or {})       # v5.10.550: keeps 'ignored' with the shares
     data['shares'] = rows
@@ -326,6 +347,8 @@ def _walk(share, relative, parents, depth, out, stop):
         if row:
             row.update({'p': rel, 's': 0, 'm': _stat(_share_url(share, rel))[1],
                         'f': (parents[-1] if parents else bdmv), 'sh': share['id']})
+            if not row.get('q'):
+                row['q'] = _bdmv_quality(_share_url(share, rel))
             out.append(row)
         return
     for name in files:
@@ -405,7 +428,7 @@ def targets(meta, canonical_id, media_type, ids=None, season=None, episode=None)
     meta = meta or {}
     year = str(meta.get('year') or meta.get('releaseInfo') or meta.get('release_date')
                or meta.get('first_air_date') or '')[:4]
-    return [({'id': PROVIDER_ID, 'name': 'NAS', '_title': meta.get('name') or meta.get('title') or '',
+    return [({'id': PROVIDER_ID, 'name': brand(), '_title': meta.get('name') or meta.get('title') or '',
               '_titles': candidates(meta, media_type), '_year': year, '_ids': dict(ids or {}),
               '_media_type': media_type, '_enrich_titles': True,
               '_season': season, '_episode': episode}, str(canonical_id))]
@@ -432,10 +455,89 @@ def _matches(files, names, imdb, year, season, episode):
     return out
 
 
+def _words_meet(one, other):
+    """Every word of the shorter name is in the longer one ("f1" and "f1 movie")."""
+    a, b = set(one.split()), set(other.split())
+    return bool(a and b) and (a <= b or b <= a)
+
+
+def _by_tmdb(files, tmdb, names, season, episode):
+    """v5.10.551: a file named unlike the title's page ("F1 The Movie" for TMDB's
+    "F1") is found by its TMDB id: the NAS titles sharing words with the page's
+    names are looked up on TMDB (cached with the catalog's matches)."""
+    episodic = season not in (None, '', 0, '0') and episode not in (None, '', 0, '0')
+    groups = _groups('', 'series' if episodic else 'movie')
+    try:
+        with _META_LOCK:
+            cache = _read('nas_meta.json', {}) or {}
+        hits = [g for g in groups if (cache.get(_meta_key(g)) or {}).get('tmdb') == tmdb]
+        if not hits:
+            near = [g for g in groups if _meta_key(g) not in cache and g.get('t')
+                    and any(_words_meet(g['t'], n) for n in names if n)][:12]
+            if near:
+                cache = _matched(near)
+                hits = [g for g in near if (cache.get(_meta_key(g)) or {}).get('tmdb') == tmdb]
+    except Exception as exc:
+        _log('TMDB id lookup: %s' % exc, xbmc.LOGDEBUG)
+        return []
+    if not hits:
+        return []
+    wanted = {(g['t'], g.get('y')) for g in hits}
+    out = []
+    for row in files:
+        if episodic:
+            if row.get('se') == int(season) and row.get('ep') == int(episode) and (row.get('t'), None) in wanted:
+                out.append(row)
+        elif row.get('se') is None and (row.get('t'), row.get('y')) in wanted:
+            out.append(row)
+    if out:
+        _log('%d file(s) found by TMDB id %s' % (len(out), tmdb))
+    return out
+
+
 def _size_label(size):
     if not size:
         return ''
     return '%.1f GB' % (size / 1024.0 ** 3) if size >= 1024 ** 3 else '%d MB' % (size // 1024 ** 2)
+
+
+_GIB = 1024 ** 3
+
+
+def _bdmv_quality(url):
+    """A Blu-ray folder's picture from its index.bdmv: a 4K UHD disc's index
+    starts INDX0300, a Blu-ray's INDX0200 or INDX0100 (v5.10.554)."""
+    try:
+        handle = xbmcvfs.File(url)
+        try:
+            head = handle.readBytes(8)
+        finally:
+            handle.close()
+        head = bytes(head or b'')
+    except Exception:
+        return ''
+    if head.startswith(b'INDX0300'):
+        return '2160P'
+    if head.startswith(b'INDX'):
+        return '1080P'
+    return ''
+
+
+def _disc_quality(row):
+    """The picture of a full disc whose name does not say it (v5.10.554).
+
+    The user's "F1 THE MOVIE ISO" (86.79 GB) showed as 480p, not Blu-ray:
+    a disc with no 2160p/1080p in its name fell to SD. A disc's size tells
+    it: a 4K UHD Blu-ray is a BD-66/BD-100 (over 48 GB), a Blu-ray a BD-25/
+    BD-50, a DVD under 9 GB. A Blu-ray folder (size 0) was read at the scan
+    (_bdmv_quality); an index from before that is at least a Blu-ray."""
+    name = str(row.get('f') or '').lower()
+    size = int(row.get('s') or 0)
+    if re.search(r'(?<![a-z0-9])(?:uhd|4k|2160p?)(?![a-z0-9])', name) or size >= 48 * _GIB:
+        return '2160P'
+    if size >= 10 * _GIB or (not size and str(row.get('p') or '').lower().endswith('index.bdmv')):
+        return '1080P'
+    return 'SD'
 
 
 def payload(provider):
@@ -458,19 +560,27 @@ def payload(provider):
             found = _matches(files, names, imdb, provider.get('_year'), season, episode)
         except Exception as exc:
             _log('title lookup: %s' % exc, xbmc.LOGDEBUG)
+    if not found and ids.get('tmdb_id'):
+        found = _by_tmdb(files, str(ids.get('tmdb_id')), names, season, episode)
     by_id = {s['id']: s for s in shares()}
     streams = []
     for row in found:
         share = by_id.get(row.get('sh'))
         if not share:
             continue
-        facts = ' · '.join(x for x in (_size_label(row.get('s')), 'ISO' if row.get('disc') else '',
-                                       share.get('name')) if x)
-        quality = (row.get('q') or ('2160P' if row.get('disc') and 'uhd' in (row.get('f') or '').lower() else 'SD'))
+        disc = bool(row.get('disc'))
+        quality = row.get('q') or (_disc_quality(row) if disc else 'SD')
+        # v5.10.554: a full disc reads as Blu-ray like every other source
+        # (UHD BluRay for 4K), with ISO or BDMV after it
+        kind = ''
+        if disc:
+            kind = '%s %s' % ('UHD BluRay' if quality == '2160P' else 'BluRay' if quality != 'SD' else 'DVD',
+                              'BDMV' if str(row.get('p') or '').lower().endswith('index.bdmv') else 'ISO')
+        facts = ' · '.join(x for x in (kind, _size_label(row.get('s')), share.get('name')) if x)
         where = share.get('host') or ''
         if not where or '/' in where:
             where = share.get('name') or ''
-        stream = {'name': '[COLOR %s]NAS[/COLOR] %s\n%s' % (COLOR, where, quality.replace('P', 'p')),
+        stream = {'name': '[COLOR %s]%s[/COLOR] %s\n%s' % (COLOR, brand(share), where, quality.replace('P', 'p')),
                   'title': '%s\n%s' % (row.get('f') or '', facts),
                   'url': _share_url(share, row['p']),
                   'behaviorHints': {'bingeGroup': 'dexhub-nas-%s' % share['id'], 'filename': row.get('f') or ''}}

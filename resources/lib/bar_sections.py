@@ -22,7 +22,8 @@ import uuid
 
 KEYS = (('movie', 'الأفلام', 'Movies'), ('series', 'المسلسلات', 'Series'), ('servers', 'السيرفرات', 'Servers'),
         ('discover', 'Discover', 'Discover'), ('live', 'Live TV', 'Live TV'), ('library', 'مكتبتي', 'My Library'),
-        ('dexworld', 'DexWorld', 'DexWorld'), ('youtube', 'YouTube', 'YouTube'))   # v5.10.496, .497
+        ('dexworld', 'DexWorld', 'DexWorld'), ('youtube', 'YouTube', 'YouTube'),   # v5.10.496, .497
+        ('addons', 'الإضافات', 'Add-ons'))   # v5.10.551: back on the bar (it was in no menu)
 CUSTOM = ('c1', 'c2', 'c3')
 # the bar's own icons a section can take (skin.dexhub's dexhub/nav/<name>.png);
 # v5.10.481: any picture too (Dex Hub's menu icons, Arctic Fuse 3's icons when

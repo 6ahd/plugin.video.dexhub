@@ -1786,7 +1786,15 @@ def search_server(server, query, media_type='', limit=40):
     unified search waited on the slowest chain. DPlex fans the same
     /library/sections/<key>/search requests out across a small pool; this does
     the same, so a whole server now costs roughly ONE round-trip.
+
+    v5.10.554: an empty query answers nothing. Plex answers it with the
+    start of the whole library (the 8 Nov log: "11 Rebels | 12 Monkeys |
+    12 Years a Slave ..."), and the id step asked it on every lookup with no
+    title, then fetched every one of those items to check its ids — the
+    6 s HOMEMEDIA kept running out of.
     """
+    if not str(query or '').strip():
+        return []
     wanted = {'movie': '1', 'show': '2', 'series': '2', 'episode': '4'}.get((media_type or '').lower(), '')
     sections = [lib for lib in libraries(server) if lib.get('type') in ('movie', 'show')]
     # v3.9.238: only fan out to sections that can actually CONTAIN the wanted
@@ -1840,8 +1848,17 @@ def search_server(server, query, media_type='', limit=40):
 
     # Fast server-wide search first.  Newer Plex agents reliably expose this
     # endpoint even when a library's legacy /search endpoint returns no rows.
+    #
+    # v5.10.555: /library/all filters by title=, it ignores query=. Asked
+    # with query= it answered every search with the start of the library
+    # (the box's HOMEMEDIA, 501 films: "The Batman" gave 11 Rebels, 12
+    # Monkeys, 12 Years a Slave, ...). Those rows filled the limit, so the
+    # loop below stopped before the libraries' own searches were read, and
+    # each row cost a metadata request: the server's 6 s went on them and
+    # no title was ever found by name there. title= on the same server:
+    # "years a slave" finds 12 Years a Slave with its ids.
     global_params = {
-        'query': query,
+        'title': query,
         'includeGuids': 1,
         'X-Plex-Container-Start': 0,
         'X-Plex-Container-Size': int(limit),
@@ -1854,6 +1871,12 @@ def search_server(server, query, media_type='', limit=40):
         global_rows = _rows(root, base)
     except PlexError:
         pass
+    # a server that ignores the filter too: only rows sharing a word with it
+    words = [w for w in re.findall(r'\w+', str(query).casefold()) if len(w) > 1 or w.isdigit()]
+    if words:
+        global_rows = [row for row in global_rows
+                       if any(w in ' '.join(str(row.get(k) or '') for k in ('title', 'raw_title', 'original_title')).casefold()
+                              for w in words)]
 
     def _one(library):
         params = {'query': query, 'limit': int(limit), 'includeGuids': 1}
@@ -2325,8 +2348,15 @@ def find_all_by_ids(server, ids, media_type='movie', title='', limit=10):
                         found.append(detailed)
     if _scan_should_stop(server, 'title-search'):
         return found
+    # v5.10.554: no title, or an id in its place (silo:..., tt...), is no
+    # search: the ids were already asked above
     try:
-        rows = search_server(server, title or '', media_type=kind, limit=max(20, int(limit)))
+        from .search.native_titles import is_id_like as _id_like
+        _no_title = _id_like(title)
+    except Exception:
+        _no_title = not str(title or '').strip()
+    try:
+        rows = [] if _no_title else search_server(server, title, media_type=kind, limit=max(20, int(limit)))
     except Exception:
         rows = []
     for row in rows or []:

@@ -466,8 +466,34 @@ class HeadlessTitle(object):
         self._play_target = target
         return play_label, status, target
 
+    def _logo_fallback(self):
+        """v5.10.552: a page opened from a server card (Silo, Plex) kept the
+        server's art, which has no logo, so the name showed as plain text
+        while the Home showed the work's logo. TMDb's logo (in the language
+        the Home uses) fills it: from the cache, else asked once."""
+        if self.hero.get('clearlogo') or self.hero.get('_logo_tried'):
+            return
+        self.hero['_logo_tried'] = True
+        tmdb_id = str(self.tmdb_id or self.hero.get('tmdb_id') or '')
+        imdb_id = str(self._imdb() or '')
+        if not (tmdb_id or imdb_id):
+            return
+        try:
+            from .. import tmdb_direct as T
+            media = 'series' if self.series else 'movie'
+            art = T.art_cached_only(tmdb_id, imdb_id, media) or T.art_for(tmdb_id, imdb_id, media) or {}
+        except Exception as exc:
+            xbmc.log('[DexHub] title page logo: %s' % exc, xbmc.LOGDEBUG)
+            return
+        logo = str(art.get('clearlogo') or '').strip()
+        if logo.lower().endswith('.svg'):
+            logo = logo[:-4] + '.png'
+        if logo:
+            self.hero['clearlogo'] = logo
+
     def publish(self):
         """The page's live labels (see the module's doc)."""
+        self._logo_fallback()
         label, status, target = self.play_choice()
         try:
             from .. import tracking

@@ -3313,6 +3313,31 @@ STRINGS.update({
     'قوي': 'Strong',
     'مفتاحك ✓': 'Your key ✓',
     'المفتاح المشترك': 'The shared key',
+    'مفتاح MDBList': 'MDBList key',
+    'التقييمات كاملة: IMDb وRotten Tomatoes وMetacritic وTrakt وLetterboxd': 'Every rating: IMDb, Rotten Tomatoes, Metacritic, Trakt and Letterboxd',
+    'من TMDb Helper': 'From TMDb Helper',
+    'غير مضاف': 'Not added',
+    'زر الإضافات في الشريط': 'Add-ons button on the bar',
+    'كلاسيكي مع البوستر': 'Classic with the poster',
+    'البوستر على اليسار والمعلومات بجانبه': 'The poster on the left, the details beside it',
+    'كلاسيكي بدون بوستر': 'Classic without the poster',
+    'المعلومات تبدأ من يسار الصفحة': 'The details start at the left of the page',
+    'صورة العمل تملأ الصفحة، بدون بوستر': "The title's picture fills the page, no poster",
+    'الأقسام كلها في صفحة وحدة': 'All sections on one page',
+    'الممثلون والمراجعات والمشابه تحت بعض، تنزل لها': 'Cast, reviews and more like this, one under another',
+    'الأقسام تبويبات': 'Sections as tabs',
+    'قسم واحد يظهر تحت الأزرار، وكل قسم يتحمّل لما تفتحه': 'One section shows under the buttons; each loads when you open it',
+    'كلاسيكي بالبوستر أو بدونه أو سينمائي، والأقسام صفحة وحدة أو تبويبات': 'Classic with or without the poster, or cinematic; sections on one page or as tabs',
+    'أقسام الصفحة': 'Page sections',
+    'ترتيب أيقونات الشريط': 'Bar icon order',
+    'فوق وتحت في القائمة الجانبية، ونفس الترتيب في الشريط العلوي': 'Up and down in the side menu, and the same order in the top bar',
+    'يفتح إضافات كودي بضغطة؛ يظهر لما يكون قسم الإضافات مخفي من الشريط، عشان ما يتكرر': "Opens Kodi's add-ons in one press; shows when the Add-ons section is hidden from the bar, so there is only one",
+    'زر الرجوع للسكين الثاني في الشريط': 'Other skin button on the bar',
+    'بجانب زر الطاقة، يرجعك لسكينك الثاني بضغطة': 'Beside the power button, back to your other skin in one press',
+    'الطقس في لوحة التنبيهات': 'Weather in the alerts panel',
+    'يظهر لما تفتح الجرس، إذا فيه إضافة طقس مفعّلة في إعدادات كودي': "Shows when you open the bell, if a weather add-on is set in Kodi's settings",
+    'حرارة المعالج والرام': 'CPU temperature and RAM',
+    'تظهر في لوحة التنبيهات لما تفتح الجرس': 'Shown in the alerts panel when you open the bell',
     'مثل مصدر الميتاداتا': 'Same as metadata',
     'مثل Nuvio (بيانات المصدر)': "Like Nuvio (the source's data)",
     'لا يوجد حساب مربوط': 'No account linked',
@@ -3813,3 +3838,22 @@ STRINGS.update({
     'الصوت والترجمة والتريلر': 'Audio, subtitles and trailers',
     'أفلامك ومسلسلاتك في الـNAS تطلع مع المصادر': 'Films and series on your NAS show with the sources',
 })
+
+STRINGS.update({'الشكل العام': 'Look', 'نظيف · شاشة كاملة': 'Clean · full screen',
+                'Dex Hub، أو نظيف: القائمة الجانبية تنطوي في زر صغير، والخلفية بملء الشاشة، وصفحة العمل على نفس الخلفية':
+                    'Dex Hub, or Clean: the side menu folds into one small pill, the backdrop fills the screen, and the title page sits on the same picture',
+                'شكل Dex Hub المعتاد بأقسامه وتخطيطاته': 'The usual Dex Hub look with its sections and layouts',
+                'قائمة جانبية تنطوي، خلفية بملء الشاشة، والأسماء تحت البطاقات': 'A side menu that folds away, a full-screen backdrop, names under the cards'})  # v5.10.552
+
+STRINGS.update({'بوسترات بشعار العمل': 'Posters with the logo',
+                'البوستر أغمق شوي وشعار العمل واضح عليه من تحت، مثل Apple TV': 'The poster a little darker with the work\'s logo clear at the bottom, as on Apple TV',
+                'اللغة': 'Language', 'مشاهد مخيفة': 'Intense'})  # v5.10.552
+
+# v5.10.556: the title page's tabs option
+STRINGS.update({'صفحة العمل بتبويبات': 'Title page with tabs',
+                'قسم واحد يظهر تحت الأزرار (الحلقات، الممثلون، أعمال مشابهة…) وكل قسم يتحمّل لما تفتحه':
+                'One section shows under the buttons (episodes, cast, related…) and each loads when you open it'})
+
+# v5.10.556: the title page's look menu
+for _ar, _en in (('تخطيط الصفحة', 'Page layout'), ('مفعّل', 'On'), ('مطفأ', 'Off'), ('سينمائي', 'Cinematic'), ('كلاسيكي', 'Classic')):
+    STRINGS.setdefault(_ar, _en)

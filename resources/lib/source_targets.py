@@ -4,11 +4,26 @@ The caller supplies Kodi and compatibility adapters; Home/catalog code does not
 belong here. Relative feature imports remain lazy and retain package semantics.
 """
 
+def _name_of(meta):
+    """The item's name, never an id standing in for a missing one.
+
+    v5.10.554: a Silo row that arrived without a title carried its id as the
+    name (silo:287b...:movie-tmdb-414906) and Plex was asked to search for it.
+    """
+    from .search.native_titles import is_id_like
+    for key in ('name', 'title'):
+        value = str((meta or {}).get(key) or '').strip()
+        if value and not is_id_like(value):
+            return value
+    return ''
+
+
 def build_targets(api, media_type, canonical_id, meta=None, season=None, episode=None):
+    from .search.native_titles import is_id_like as _id_like
     targets = []
     native_targets = []
     seen = set()
-    meta = api._meta_with_seed_ids(meta or {}, api._apply_anime_id_policy(api._enrich_stream_ids(api.extract_ids(meta or {}), media_type, meta=meta or {}, canonical_id=canonical_id, title=(meta or {}).get('name') or (meta or {}).get('title') or ''), media_type))
+    meta = api._meta_with_seed_ids(meta or {}, api._apply_anime_id_policy(api._enrich_stream_ids(api.extract_ids(meta or {}), media_type, meta=meta or {}, canonical_id=canonical_id, title=_name_of(meta)), media_type))
     # Jellyfin needs the seeded identity AND the same title variants as Plex.
     # A localized name or a canonical tt... label alone cannot find an
     # English library through Jellyfin's public title-search API.
@@ -17,7 +32,7 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
         for server in api.jellyfin_client.servers():
             native_targets.append(({
                 'id': '__jellyfin__', 'name': 'Jellyfin • %s' % server.get('name', 'Jellyfin'),
-                '_server': server, '_title': (meta or {}).get('name') or (meta or {}).get('title') or '',
+                '_server': server, '_title': _name_of(meta),
                 '_titles': _jf_titles(meta or {}, media_type), '_enrich_titles': True,
                 '_year': (meta or {}).get('year') or str((meta or {}).get('first_air_date') or (meta or {}).get('release_date') or '')[:4],
                 '_ids': api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id)),
@@ -71,7 +86,7 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
                         str(canonical_id).lower().startswith(_p) for _p in _own(_prov)):
                     from .search.native_titles import candidates as _names
                     _prov['_bridge'] = {
-                        'titles': _names(meta or {}, media_type) + [(meta or {}).get('name') or '', (meta or {}).get('title') or ''],
+                        'titles': _names(meta or {}, media_type) + [_name_of(meta)],
                         'year': (meta or {}).get('year') or str((meta or {}).get('first_air_date') or (meta or {}).get('release_date') or '')[:4],
                         'season': season, 'episode': episode,
                         'ids': api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id))}
@@ -93,7 +108,7 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
     # Connected Plex servers join the SAME parallel scan as a built-in
     try:
         if api.emby_client.is_signed_in() and api._get_bool_setting('emby_in_sources', True):
-            _em_title = (meta or {}).get('name') or (meta or {}).get('title') or ''
+            _em_title = _name_of(meta)
             _em_ids = api.extract_ids(meta or {})
             for _esrv in api.emby_client.servers():
                 native_targets.append(({
@@ -108,7 +123,7 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
     # separate source/account so it cannot overwrite or conflict with Emby.
     try:
         if api.silo_client.is_signed_in():
-            _si_title = (meta or {}).get('name') or (meta or {}).get('title') or ''
+            _si_title = _name_of(meta)
             _si_ids = api.extract_ids(meta or {})
             _si_titles = []
             for _key in ('originalTitle', 'original_title', 'tvShowTitle',
@@ -116,7 +131,7 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
                          'grandparentTitle', 'name', 'title', 'en_title',
                          'english_title', 'en_showname', 'ar_title', 'ar_showname'):
                 _value = str((meta or {}).get(_key) or '').strip()
-                if _value and _value.casefold() not in [x.casefold() for x in _si_titles]:
+                if _value and not _id_like(_value) and _value.casefold() not in [x.casefold() for x in _si_titles]:
                     _si_titles.append(_value)
             if _si_title and _si_title.casefold() not in [x.casefold() for x in _si_titles]:
                 _si_titles.insert(0, _si_title)
@@ -140,7 +155,7 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
         if not _plex_signed_in:
             api.xbmc.log('[DexHub] Plex Native skipped: no account and no usable cached servers', api.xbmc.LOGWARNING)
         if _plex_signed_in and _plex_enabled:
-            _pl_title = (meta or {}).get('name') or (meta or {}).get('title') or ''
+            _pl_title = _name_of(meta)
             # Build the native Plex identifiers BEFORE any title enrichment.
             # Older builds referenced _pl_ids inside the TMDb title helpers
             # before assigning it; the surrounding broad try/except swallowed
@@ -154,7 +169,7 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
                          'grandparentTitle', 'name', 'title', 'en_title',
                          'english_title', 'en_showname', 'ar_title', 'ar_showname'):
                 _value = str((meta or {}).get(_key) or '').strip()
-                if _value and _value.casefold() not in [x.casefold() for x in _pl_titles]:
+                if _value and not _id_like(_value) and _value.casefold() not in [x.casefold() for x in _pl_titles]:
                     _pl_titles.append(_value)
             # Remote title enrichment runs inside the native provider job.
 

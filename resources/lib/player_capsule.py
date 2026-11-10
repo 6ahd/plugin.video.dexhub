@@ -157,10 +157,43 @@ def _words(rows):
     return ' · '.join(PG.SHORT[cid][en] for _r, _i, cid in picked)
 
 
+# v5.10.552: Apple's card: each reason on its own line with a letter in a square
+_LETTERS = {'PROFANITY': ('L', 'اللغة', 'Language'), 'VIOLENCE': ('V', 'العنف', 'Violence'),
+            'NUDITY': ('N', 'العري', 'Nudity'), 'ALCOHOL': ('D', 'المخدرات', 'Drugs'),
+            'FRIGHTENING': ('I', 'مشاهد مخيفة', 'Intense')}
+
+
+def _reasons(rows):
+    """[(letter, word)] for the categories rated severe, then moderate (four at most)."""
+    try:
+        from . import parents_guide as PG
+        en = 2 if PG._english() else 1
+    except Exception:
+        return []
+    rank = {'SEVERE': 0, 'MODERATE': 1}
+    picked = sorted((rank[sid], i, cid) for i, (cid, sid) in enumerate(rows or []) if sid in rank and cid in _LETTERS)
+    return [(_LETTERS[cid][0], _LETTERS[cid][en]) for _r, _i, cid in picked][:4]
+
+
+def _stacked(cert):
+    """'TV-MA' as Apple draws it: TV over MA."""
+    if re.match(r'^TV-[A-Z0-9]+$', cert or '', re.I):
+        return cert[:2] + '[CR]' + cert[3:]
+    return cert
+
+
 def card(ctx, text, rating='', guide=None, place='top_left'):
     """The Home properties the skin draws the card from ({} for nothing to say)."""
     info = '  ·  '.join(x for x in (_video(text), _audio(text), rating) if x)
     props = {'place': place, 'card.cert': _cert(ctx), 'card.words': _words(guide), 'card.info': info}
+    props['card.stack'] = _stacked(props['card.cert'])
+    props['card.tall'] = '1' if '[CR]' in props['card.stack'] else ''
+    reasons = _reasons(guide)
+    for n in range(1, 5):
+        letter, word = reasons[n - 1] if n <= len(reasons) else ('', '')
+        props['card.l%d' % n] = letter
+        props['card.w%d' % n] = word
+    props['card.n'] = str(len(reasons))
     if not any(props[k] for k in ('card.cert', 'card.words', 'card.info')):
         return {}
     # the bar beside it is as tall as the lines (tools/release/skin_capsule.py CARD_LINES)

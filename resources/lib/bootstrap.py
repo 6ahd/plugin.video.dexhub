@@ -206,6 +206,10 @@ def _run_inner():
         # v5.10.521: DexWorld's rows on Home, Movies, TV Shows, or none (home_seed.choose)
         from .home_seed import choose as _dexworld_rows
         return _dexworld_rows()
+    if _home_params.get('action') == 'bar_order':
+        # v5.10.556: the bar's icons in your own order (side menu and top bar)
+        from .bar_order import run as _bar_order
+        return _bar_order()
     if _home_params.get('action') == 'bar_sections':
         # v5.10.479: which sections the Home bar shows, and your own
         from .bar_sections import open_page as _bar_page
