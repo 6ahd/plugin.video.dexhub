@@ -915,6 +915,15 @@ STRINGS = {
     'لم يُعثر على ترجمات لهذا المحتوى.': 'No subtitles found for this title.',
     'لا يوجد تشغيل نشط. شغّل الفيديو أولاً.': 'No active playback. Start the video first.',
     'تعذّر تحميل ملف الترجمة.': 'Could not download the subtitle file.',
+    # v5.10.557
+    'ما اشتغل، رجّعنا لك المصادر واللي فشل معلَّم': 'Nothing played: the sources are back, the failed ones marked',
+    'الرابط ما اشتغل': 'The link did not play',
+    'ما اشتغل': 'Did not play',
+    # v5.10.558
+    'Usenet: مزودك ومفهرساتك': 'Usenet: your provider and indexers',
+    'مزود NNTP ومفهرسات Newznab، والتشغيل من المزود مباشرة': 'An NNTP provider and Newznab indexers, played straight from the provider',
+    'سجّل دخول حسابك وملفاته تطلع مع المصادر': 'Sign in and its files show among the sources',
+    'الفلتر المثبّت ما طابق أي مصدر هنا، عرضنا الكل': 'The kept filter matched no source here: all are shown',
     'فشل تطبيق الترجمة: %s': 'Failed to apply subtitle: %s',
     '🔍 بحث عن ترجمة (أثناء التشغيل)': '🔍 Search subtitle (during playback)',
     'ترجمة — %s': 'Subtitle — %s',

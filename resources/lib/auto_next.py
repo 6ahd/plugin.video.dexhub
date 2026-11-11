@@ -7,6 +7,11 @@ sources were shown in (dexhub.last_streams, the player's Sources panel's
 list), from the same resume point, up to TRIES times a title. A stop by the
 user, or a source that played and ended, never does this (companion.py
 decides). Setting: auto_next_source (on by default).
+
+v5.10.557: when that ends with nothing playing (the tries are used up, the list
+has no other source, or the setting is off), the title's sources come back by
+themselves, with the ones that failed moved to the end and marked, instead of a
+notification over the title page. Setting: sources_back_on_fail (on by default).
 """
 import json
 import time
@@ -53,10 +58,56 @@ def _rows(home, item):
     return [row for row in data.get('rows') or [] if row.get('k')]
 
 
+def _setting_on(key):
+    try:
+        from .settings_cache import cached_addon
+        return (cached_addon().getSetting(key) or 'true').lower() != 'false'
+    except Exception:
+        return True
+
+
+def _give_up(home, item, ctx, state, text):
+    """Nothing played: say so, and bring the title's sources back with the failed ones marked
+    (once in 20 seconds a title, so a failure reported twice opens one page)."""
+    tried = [str(key) for key in state.get('tried') or []]
+    marks = [[str(row.get('l') or ''), str(row.get('p') or '')] for row in _rows(home, item)
+             if str(row.get('k')) in tried]
+    home.setProperty('dexhub.failed_sources',
+                     json.dumps({'item': item, 'keys': tried, 'marks': marks, 't': time.time()}))
+    url = ''
+    if _setting_on('sources_back_on_fail') and time.time() - float(state.get('back_t') or 0) > _TWICE:
+        try:
+            from .safe_helpers import _source_picker_url_from_ctx
+            url = _source_picker_url_from_ctx(ctx) or ''
+        except Exception as exc:
+            xbmc.log('[DexHub] sources back: %s' % exc, xbmc.LOGWARNING)
+    state['back_t'] = time.time() if url else state.get('back_t') or 0
+    home.setProperty(_STATE, json.dumps(state))
+    if not url:
+        _notify(text)
+        return
+    xbmc.log('[DexHub] no source played (%d tried): the sources come back' % len(tried), xbmc.LOGINFO)
+    _notify('ما اشتغل، رجّعنا لك المصادر واللي فشل معلَّم')
+    xbmc.executebuiltin('RunPlugin(%s)' % url)
+
+
+def failed_marks(item):
+    """({stream keys}, {(name, add-on)}) of the sources that failed for this title a moment
+    ago: the sources page moves them to the end and marks them."""
+    try:
+        data = json.loads(xbmcgui.Window(10000).getProperty('dexhub.failed_sources') or '{}')
+    except ValueError:
+        return set(), set()
+    if data.get('item') != item or time.time() - float(data.get('t') or 0) > _FRESH:
+        return set(), set()
+    return (set(str(key) for key in data.get('keys') or []),
+            set((str(name), str(addon)) for name, addon in data.get('marks') or [] if name))
+
+
 def try_next(ctx, reason=''):
     """Play the next untried source of ctx's title; False when there is none
     (or this failure was handled a moment ago)."""
-    if not enabled() or not isinstance(ctx, dict):
+    if not isinstance(ctx, dict):
         return False
     current = str(ctx.get('stream_key') or '')
     if not current or not (ctx.get('canonical_id') or ctx.get('video_id')):
@@ -70,16 +121,17 @@ def try_next(ctx, reason=''):
     if current not in tried:
         tried.append(current)
     state.update(tried=tried, last=current, last_t=time.time())
+    if not enabled():
+        _give_up(home, item, ctx, state, 'الرابط ما اشتغل')
+        return False
     if len(tried) > TRIES:
-        home.setProperty(_STATE, json.dumps(state))
-        _notify('ما اشتغل ولا مصدر من المصادر اللي جربناها')
+        _give_up(home, item, ctx, state, 'ما اشتغل ولا مصدر من المصادر اللي جربناها')
         return False
     from . import cache_store
     following = next((row for row in _rows(home, item)
                       if str(row['k']) not in tried and cache_store.get('stream', str(row['k']))), None)
     if following is None:
-        home.setProperty(_STATE, json.dumps(state))
-        _notify('الرابط ما اشتغل، وما فيه مصدر ثاني بالقائمة')
+        _give_up(home, item, ctx, state, 'الرابط ما اشتغل، وما فيه مصدر ثاني بالقائمة')
         return False
     key = str(following['k'])
     home.setProperty(_STATE, json.dumps(state))

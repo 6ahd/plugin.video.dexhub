@@ -820,6 +820,16 @@ if __name__ == '__main__':
         nas_sources.service_loop(xbmc.Monitor())
 
     threading.Thread(target=_nas_worker, name='DexHub-nas', daemon=True).start()
+
+    def _usenet_worker():
+        # v5.10.558: the service owns the Usenet engine's process (usenet_engine)
+        try:
+            from resources.lib import usenet_engine
+            if usenet_engine.binary_name():
+                usenet_engine.service_loop(xbmc.Monitor())
+        except Exception as exc:
+            xbmc.log('[DexHub] Usenet engine worker: %s' % exc, xbmc.LOGWARNING)
+    threading.Thread(target=_usenet_worker, name='DexHub-usenet', daemon=True).start()
     _retire_apple_tv_addon()
     try:
         import xbmcaddon

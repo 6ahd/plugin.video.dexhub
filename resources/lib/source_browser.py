@@ -1740,6 +1740,26 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         self.retry_source = kwargs.get('retry_source')
         self.selected = None
         self.active_filter = 'ALL'
+        # v5.10.557: the filter panel's choice; one saved with "Keep it" starts on
+        try:
+            from . import source_filter
+            self.smart = source_filter.remembered()
+        except Exception:
+            self.smart = {}
+        self._smart_keep = self._smart_kept = bool(self.smart)
+        # v5.10.557: the sources that failed for this title a moment ago (auto_next brought
+        # the page back): moved to the end and marked
+        self._failed_keys, self._failed_marks = set(), set()
+        try:
+            from . import auto_next
+            from .skinui.osd_sources import _item_key
+            _meta = self.meta if isinstance(self.meta, dict) else {}
+            if not _meta.get('canonical_id'):           # the page's details may not carry the ids
+                _meta = next((row for row in (kwargs.get('results') or []) if isinstance(row, dict)), {})
+            self._failed_keys, self._failed_marks = auto_next.failed_marks(
+                _item_key(_meta.get('canonical_id'), _meta.get('season'), _meta.get('episode')))
+        except Exception as _silent_exc:
+            log.silent('RESULTS_WIN', _silent_exc)
         # --- dexhub-407-patch ---
         # v5.10.447: TRaSH Guides' order unless the user picked another
         try:
@@ -2699,8 +2719,56 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             log.silent('RESULTS_WIN', _silent_exc)
     def _results_for_filter(self, filter_value):
         # --- dexhub-407-patch --- filter first, then apply the active sort
-        return _sorted_rows(self._filtered_rows(filter_value), getattr(self, 'active_sort', 'S:DEFAULT'),
+        rows = self._filtered_rows(filter_value)
+        # v5.10.557: the filter panel's choice (several groups at once) narrows what the tab shows
+        smart = getattr(self, 'smart', None)
+        if smart:
+            from . import source_filter
+            kept = source_filter.apply(rows, smart, self._smart_minutes(), getattr(self, '_anime', False))
+            if not kept and rows and getattr(self, '_smart_kept', False) and str(filter_value or 'ALL') == 'ALL':
+                # a kept filter that leaves this title with nothing steps aside for it
+                self._smart_kept = False
+                self.smart = {}
+                try:
+                    xbmcgui.Dialog().notification('Dex Hub', tr('الفلتر المثبّت ما طابق أي مصدر هنا، عرضنا الكل'),
+                                                  xbmcgui.NOTIFICATION_INFO, 4000)
+                except Exception as _silent_exc:
+                    log.silent('RESULTS_WIN', _silent_exc)
+            else:
+                rows = kept
+        rows = _sorted_rows(rows, getattr(self, 'active_sort', 'S:DEFAULT'),
                             anime=getattr(self, '_anime', False))
+        if self._failed_keys or self._failed_marks:
+            rows = ([row for row in rows if not self._row_failed(row)] +
+                    [row for row in rows if self._row_failed(row)])
+        return rows
+
+    def _row_failed(self, row):
+        """This source did not play a moment ago."""
+        if str(row.get('stream_key') or '') in self._failed_keys:
+            return True
+        return (str(row.get('name') or row.get('stream_title') or '?'),
+                str(row.get('provider') or row.get('provider_name_raw') or '')) in self._failed_marks
+
+    def _smart_minutes(self, lookup=False):
+        # the running time turns a size into a bitrate; asked of TMDb once, only when the
+        # panel opens or a kept bitrate choice needs it
+        from . import source_filter
+        meta = self.meta if isinstance(self.meta, dict) else {}
+        minutes = getattr(self, '_smart_min', 0) or source_filter.minutes_of(meta)
+        if not minutes and (lookup or (getattr(self, 'smart', None) or {}).get('rate')) \
+                and not getattr(self, '_smart_min_asked', False):
+            self._smart_min_asked = True
+            minutes = source_filter.minutes_lookup(meta)
+        self._smart_min = minutes
+        return minutes
+
+    def _smart_text(self):
+        smart = getattr(self, 'smart', None)
+        if not smart:
+            return ''
+        from . import source_filter
+        return source_filter.summary(smart)
 
     def _filtered_rows(self, filter_value):
         cached = getattr(self, '_facet_rows', {}).get(str(filter_value or 'ALL'))
@@ -2994,6 +3062,8 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         """
         row = row if isinstance(row, dict) else {}
         name = _kodi_safe_text(row.get('name') or '')
+        if (self._failed_keys or self._failed_marks) and self._row_failed(row):
+            name = u'%s  \u00b7  %s' % (tr('ما اشتغل'), name)
         # v5.10.165: the properties are gathered here and put on a fresh
         # offscreen ListItem for each display (_make_result_item)
         li = _PropRecorder()
@@ -3286,7 +3356,8 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                 log.silent('RESULTS_WIN', _silent_exc)
         visible_all = self._results_for_filter(self.active_filter)
         # v5.10.442: an empty list says it is the filter, not the search
-        _empty = (tr('لا توجد نتائج بهذا الفلتر') if not visible_all and self.active_filter != 'ALL' else '')
+        _empty = (tr('لا توجد نتائج بهذا الفلتر') if not visible_all and
+                  (self.active_filter != 'ALL' or getattr(self, 'smart', None)) else '')
         if self.getProperty('halo_empty') != _empty:
             self.setProperty('halo_empty', _empty)
         from .stream_ranking import recommendation
@@ -3333,18 +3404,21 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         _info_bits = []
         if self.active_filter != 'ALL':
             _info_bits.append(_filter_label(self.active_filter))
+        _smart_text = self._smart_text()
+        if _smart_text:
+            _info_bits.append(_smart_text)
         if getattr(self, 'active_sort', 'S:DEFAULT') != 'S:DEFAULT':
             _info_bits.append(_sort_mode_label(self.active_sort))
         self.setProperty('filter_info', (u'| %s' % u'  \u00b7  '.join(_info_bits)) if _info_bits else '')
         # v5.10.447: the tab track's end names the filter that is on, or
         # says Left opens the filters; the drawer says what is on
-        _on = str(self.active_filter or 'ALL') != 'ALL'
+        _on = str(self.active_filter or 'ALL') != 'ALL' or bool(_smart_text)
         # the value alone fits the track's end ("4K / 2160P", not "Quality • 4K / 2160P")
-        _hint = _filter_label(self.active_filter).split(u' \u2022 ')[-1] if _on else tr('\u25c0  الفلاتر')
+        _hint = (_smart_text or _filter_label(self.active_filter).split(u' \u2022 ')[-1]) if _on else tr('\u25c0  الفلاتر')
         for _key, _value in (('halo_filter_hint', _hint), ('halo_filter_on', '1' if _on else ''),
                              ('halo_drawer_on', u'  \u00b7  '.join(
                                  [_sort_mode_label(getattr(self, 'active_sort', 'S:DEFAULT'))] +
-                                 ([_filter_label(self.active_filter)] if _on else [])))):
+                                 ([_smart_text or _filter_label(self.active_filter)] if _on else [])))):
             if self.getProperty(_key) != _value:
                 self.setProperty(_key, _value)
         self._build_provider_chips()
@@ -3637,6 +3711,12 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             return False
 
     def _open_filters(self):
+        # v5.10.557: the filters are a panel of their own (source_filter): several groups at
+        # once, counts on every chip, smart picks. The old drawer stays as the fallback.
+        if self._closing or self._mode_dialog_open:
+            return False
+        if self._open_filter_panel():
+            return True
         if len(self.filters or []) <= 1:
             return False
         self.setProperty('filters_visible', 'true')
@@ -3653,6 +3733,55 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                 self.getControl(2100).selectItem(values.index(want))
         except Exception as _silent_exc:
             log.silent('RESULTS_WIN', _silent_exc)
+        return True
+
+    def _open_filter_panel(self):
+        rows = [row for row in (self.results or []) if isinstance(row, dict)]
+        if not rows:
+            return False
+        from . import source_filter
+        before = dict((g, set(v)) for g, v in (getattr(self, 'smart', None) or {}).items() if v)
+        state = {'changed': False}
+
+        def follow(chosen, sort):
+            """The list shows the choice at once, while the panel is still open."""
+            chosen = dict((g, set(v)) for g, v in chosen.items() if v)
+            changed = chosen != (getattr(self, 'smart', None) or {})
+            if changed:
+                self._smart_kept = False        # the user's own choice never steps aside
+                self.smart = chosen
+                self._render_limit = self._render_chunk
+                state['changed'] = True
+            if sort and sort != self.active_sort:
+                self._apply_filter(sort)        # stores the order and draws the list again
+            elif changed:
+                self._apply_filter(self.active_filter, keep_cursor=False)
+
+        self._mode_dialog_open = True
+        try:
+            sorts = [(key, _sort_mode_label(key).split(u' \u2022 ')[-1]) for key, _label in SORT_MODES]
+            chosen, sort, keep = source_filter.run(rows, self._smart_minutes(lookup=True), before, self.active_sort,
+                                                   sorts, getattr(self, '_smart_keep', False), on_change=follow,
+                                                   edge=not getattr(self, '_halo', True),
+                                                   anime=getattr(self, '_anime', False))
+        except Exception as exc:
+            xbmc.log('[DexHub] filter panel failed, the drawer opens instead: %s' % exc, xbmc.LOGWARNING)
+            self._mode_dialog_open = False
+            return False
+        self._mode_dialog_open = False
+        self._action_guard['filter'] = time.monotonic()
+        follow(chosen, sort)
+        chosen = dict((g, set(v)) for g, v in chosen.items() if v)
+        if keep != getattr(self, '_smart_keep', False) or (keep and chosen != before):
+            source_filter.remember(chosen if keep else {})
+        self._smart_keep = bool(keep and chosen)
+        if state['changed']:
+            xbmc.log('[DexHub] source filter: %s' % (source_filter.summary(chosen) or 'cleared'), xbmc.LOGINFO)
+        try:
+            self.setFocusId(2000)
+        except Exception as _silent_exc:
+            log.silent('RESULTS_WIN', _silent_exc)
+        self._drain_pending_updates()
         return True
 
     def _close_filters(self):

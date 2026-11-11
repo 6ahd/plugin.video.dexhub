@@ -477,6 +477,10 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
                  'flag': 'dexhub/osd/legacy/style.png', 'opens': True},
                 {'id': 'online', 'label': _t('بحث عن ترجمة', 'Find subtitles'), 'value': online,
                  'flag': 'dexhub/osd/legacy/search.png', 'opens': True, 'busy': self.searching},
+                # v5.10.557: a subtitle file of the viewer's own
+                {'id': 'file', 'label': _t('ترجمة من ملف', 'Subtitle from a file'),
+                 'value': _t('من الجهاز، الشبكة، أو اللي رفعته من الجوال', 'This device, the network, or sent from a phone'),
+                 'flag': 'dexhub/osd/legacy/download.png', 'opens': True},
                 {'id': 'off', 'label': _t('بدون ترجمة', 'No subtitles'), 'value': '', 'current': not enabled,
                  'flag': 'dexhub/osd/legacy/x.png'}]
         langs = {}
@@ -756,6 +760,9 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
         if rid == 'online':
             self.show_view('online')
             return
+        if rid == 'file':
+            self.load_file()
+            return
         if rid == 'back':
             self.go_back()
             return
@@ -778,6 +785,77 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
             self.fill_side()
             return
         self._take(row)
+
+    def load_file(self):
+        """v5.10.557: a subtitle file of the viewer's own (the user: "add loading a local
+        subtitle"). Kodi's file browser opens on the folder the phone page's Files sends to
+        (special://home/dexhub-files), and reaches this device, USB sticks and the network
+        sources too. The file is copied next to Dex Hub's own subtitle files, its text turned
+        into what Kodi reads (an Arabic file saved as Windows-1256 would show as noise), then
+        shown."""
+        import xbmcvfs
+        start = 'special://home/dexhub-files/'
+        try:
+            if not xbmcvfs.exists(start):
+                xbmcvfs.mkdirs(start)
+        except Exception:
+            pass
+        kinds = ('srt', 'ass', 'ssa', 'vtt', 'sub', 'smi', 'sup', 'idx', 'txt')
+        try:
+            path = xbmcgui.Dialog().browse(1, _t('اختر ملف الترجمة', 'Choose the subtitle file'), 'files',
+                                           '|'.join('.' + k for k in kinds), False, False, start)
+        except Exception as exc:
+            C.log('subtitle page: file browser: %s' % exc, xbmc.LOGWARNING)
+            return
+        if not path or path == start or path.endswith('/'):
+            return
+        ext = path.rsplit('.', 1)[-1].lower() if '.' in path[-6:] else ''
+        if ext not in kinds:
+            self.setProperty('side_hint', _t('هذا مو ملف ترجمة', 'That is not a subtitle file'))
+            return
+        local = path
+        try:
+            from ..playback import subtitle_files as sf
+            from ..playback import subtitle_names
+            name = os.path.basename(path.rstrip('/')).rsplit('.', 1)[0]
+            stem = sf._safe_subtitle_filename_part(name or 'subtitle', limit=60) or 'subtitle'
+            target = os.path.join(sf._subs_tmp_dir(), '%s - %s.%s' % (stem, _t('ملفي', 'my file'), ext))
+            handle = xbmcvfs.File(path)
+            try:
+                payload = bytes(handle.readBytes())
+            finally:
+                handle.close()
+            if ext in ('srt', 'ass', 'ssa', 'vtt', 'smi', 'txt', 'sub') and payload:
+                try:
+                    from .. import subtitle_encoding
+                    # a file that is not UTF-8 is read in the viewer's subtitle language's
+                    # old encoding (Arabic: Windows-1256), then marked for Kodi
+                    payload = subtitle_encoding.normalize(payload, (list(_preferred() or []) + ['ar'])[0])
+                    fixed = subtitle_encoding.for_kodi(payload, ext)
+                    payload = fixed if isinstance(fixed, (bytes, bytearray)) else (
+                        fixed.encode('utf-8') if isinstance(fixed, str) else payload)
+                except Exception as exc:
+                    C.log('subtitle page: encoding left as is: %s' % exc, xbmc.LOGDEBUG)
+            if payload:
+                with open(target, 'wb') as out:
+                    out.write(payload)
+                local = target
+                subtitle_names.remember(local, name, _t('ملفي', 'My file'), '')
+        except Exception as exc:
+            C.log('subtitle page: own file used in place: %s' % exc, xbmc.LOGWARNING)
+        try:
+            player = xbmc.Player()
+            player.setSubtitles(local)
+            player.showSubtitles(True)
+            C.log('subtitle page: showing the viewer\'s own file %s' % os.path.basename(local))
+            self.setProperty('side_hint', _t('تعمل الآن: %s', 'Showing: %s') % os.path.basename(path))
+        except Exception as exc:
+            C.log('subtitle page: could not show %s: %s' % (local, exc), xbmc.LOGWARNING)
+            self.setProperty('side_hint', _t('ما قدرت أشغّل هذا الملف', 'Could not show this file'))
+            return
+        xbmc.sleep(400)         # Kodi adds the file a moment after setSubtitles
+        if not self.closed:
+            self.fill_side()
 
     def _take(self, row):
         """Show a subtitle (off, a track, an add-on's result) or play an audio track."""

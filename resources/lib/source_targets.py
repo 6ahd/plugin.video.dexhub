@@ -300,6 +300,27 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
             combined_targets = list(_nas) + list(combined_targets)
     except Exception as _nas_exc:
         api.xbmc.log('[DexHub] NAS sources: %s' % _nas_exc, api.xbmc.LOGWARNING)
+    # v5.10.557: EasyNews itself, when the viewer signed in (easynews_source)
+    try:
+        from .easynews_source import targets as _easynews_targets
+        _easynews = _easynews_targets(meta, canonical_id, media_type,
+                                      ids=api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id)),
+                                      season=season, episode=episode)
+        if _easynews:
+            combined_targets = list(combined_targets) + list(_easynews)
+    except Exception as _easynews_exc:
+        api.xbmc.log('[DexHub] EasyNews source: %s' % _easynews_exc, api.xbmc.LOGWARNING)
+    # v5.10.558: the viewer's own Usenet indexers and provider (usenet_source), played through
+    # the engine on this device
+    try:
+        from .usenet_source import targets as _usenet_targets
+        _usenet = _usenet_targets(meta, canonical_id, media_type,
+                                  ids=api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id)),
+                                  season=season, episode=episode)
+        if _usenet:
+            combined_targets = list(combined_targets) + list(_usenet)
+    except Exception as _usenet_exc:
+        api.xbmc.log('[DexHub] Usenet source: %s' % _usenet_exc, api.xbmc.LOGWARNING)
     # v5.10.373: in a watch party whose host shares its own link, «Dex Hub+»
     # goes first (one quick call to the hub, no scan)
     try:

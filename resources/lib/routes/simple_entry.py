@@ -797,6 +797,16 @@ def playback_quality():
          _txt('أفلامك ومسلسلاتك في الـNAS (SMB أو NFS) تطلع مع المصادر وتشتغل مباشرة.',
               'Films and series on your NAS (SMB or NFS) show up as sources and play directly.'),
          folder=False)
+    _add(_txt('Usenet (مزودك ومفهرساتك)', 'Usenet (your provider and indexers)'), 'usenet_setup',
+         'root_sources.png',
+         _txt('أضف مزود NNTP ومفهرس Newznab، والنسخ تطلع مع مصادر كل عمل وتشتغل من المزود مباشرة على هذا الجهاز.',
+              'Add an NNTP provider and a Newznab indexer: releases show among every title\'s sources and play straight from the provider on this device.'),
+         folder=False)
+    _add(_txt('EasyNews', 'EasyNews'), 'easynews_setup',
+         'root_sources.png',
+         _txt('سجّل دخول حسابك في EasyNews، وملفاته تطلع مع مصادر كل عمل وتشتغل من اتصالك مباشرة.',
+              'Sign in to your EasyNews account: its files show among every title\'s sources and play over your own connection.'),
+         folder=False)
     _add(_txt('الجودة والفلاتر', 'Quality & Filters'), 'setup_quality',
          'cat_4k.png', folder=False)
     _add(_txt('الحلقات وأزرار التخطي', 'Episodes & Skip Buttons'),
@@ -2190,6 +2200,14 @@ def dispatch():
         _close_native_settings_dialog()
         from resources.lib import nas_sources
         return nas_sources.setup()
+    if action == 'easynews_setup':
+        _close_native_settings_dialog()
+        from resources.lib import easynews_source
+        return easynews_source.setup()
+    if action == 'usenet_setup':
+        _close_native_settings_dialog()
+        from resources.lib import usenet_source
+        return usenet_source.setup()
     if action == 'source_addons':
         _close_native_settings_dialog()
         from resources.lib import source_addons

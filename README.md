@@ -248,6 +248,8 @@ Built in Python 3 on Kodi's own APIs (xbmc, xbmcgui, xbmcplugin, xbmcvfs), with 
 * Player Info page: based on the Player Info screen of [Lucent](https://github.com/djdirty60/Lucent) by djdirty60
 * Sport: the big match card in My games follows the design of [Lucent](https://github.com/djdirty60/Lucent) by djdirty60
 * Sport data: ESPN and FotMob
+* Usenet playback: the engine that reads a release from your NNTP provider is the Usenet engine of [NuvioTV](https://github.com/NuvioMedia/NuvioTV) ([pull request 4426](https://github.com/NuvioMedia/NuvioTV/pull/4426) by haaihond), GPL-3.0. It is not part of Dex Hub: it ships as a separate add-on, `script.dexhub.usenet`, built unchanged from that source with its licence and source statement inside, and Dex Hub only starts it and talks to it over 127.0.0.1
+* Release quality tiers and the Clean filter: data from [TRaSH Guides](https://github.com/TRaSH-Guides/Guides)
 
 ## Disclaimer
 

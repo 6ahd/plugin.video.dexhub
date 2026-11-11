@@ -188,6 +188,32 @@ def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta
     # v5.10.447: a Kodi add-on's row: that add-on resolves and plays it.
     # v5.10.448: one that can (POV) only resolves it, and Dex Hub plays the
     # link here like any other source (one waiting screen, one player)
+    # v5.10.558: a Usenet row: its NZB link becomes the film's address on this device
+    try:
+        from . import usenet_source as _usenet
+        if _usenet.is_row(ctx):
+            link = _usenet.resolve(ctx)
+            if link:
+                ctx['stream_url'] = link
+            else:
+                _next_source(ctx, stream_key, 'no link')
+                return
+    except Exception as _usenet_exc:
+        api.xbmc.log('[DexHub] Usenet playback: %s' % _usenet_exc, api.xbmc.LOGWARNING)
+    # v5.10.557: an EasyNews row: its members link is turned into the file's own address
+    try:
+        from . import easynews_source as _easynews
+        if _easynews.is_row(ctx):
+            link = _easynews.resolve(ctx)
+            if link:
+                ctx['stream_url'] = link
+            else:
+                if not _next_source(ctx, stream_key, 'no link'):
+                    api.xbmcgui.Dialog().notification('Dex Hub', api.tr('لا يوجد رابط تشغيل'),
+                                                      api.xbmcgui.NOTIFICATION_WARNING, 4000)
+                return
+    except Exception as _easynews_exc:
+        api.xbmc.log('[DexHub] EasyNews playback: %s' % _easynews_exc, api.xbmc.LOGWARNING)
     try:
         from . import kodi_sources as _kodi
         if _kodi.is_kodi_row(ctx):

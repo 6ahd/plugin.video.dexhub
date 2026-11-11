@@ -44,6 +44,16 @@ def _fetch_uncached(target, media_type, api):
             from .. import nas_sources as _nas
             payload = _nas.payload(provider)
             return payload
+        if (provider or {}).get('id') == '__usenet__':
+            # v5.10.558: the viewer's Newznab indexers (usenet_source)
+            from .. import usenet_source as _usenet
+            payload = _usenet.payload(provider)
+            return payload
+        if (provider or {}).get('id') == '__easynews__':
+            # v5.10.557: EasyNews itself, with the viewer's own sign-in (easynews_source)
+            from .. import easynews_source as _easynews
+            payload = _easynews.payload(provider)
+            return payload
         if (provider or {}).get('id') == '__kodi__':
             # v5.10.447: Red Light, Fen Light, Umbrella or POV (kodi_sources)
             from .. import kodi_sources as _kodi

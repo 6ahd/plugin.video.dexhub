@@ -12,6 +12,15 @@ the format matches when every group passes.
 What is judged is the release: the file name when the add-on gives one, and
 the add-on's own lines with it (they carry the audio and HDR facts many
 names leave out). Source, resolution and remux are read from that text.
+
+v5.10.557 (measured on 1,635 sources of one film: 124 had a release group tier):
+- the release group is read from more names: a library file's tags ({edition-Extended},
+  {tmdb-19995}) are set aside first, and a name that lost its dash (POV and Red Light hand
+  "... x265 QTZ mkv") gives its last word when TRaSH knows that word as a group;
+- tier(): the group's tier, by the group alone when the name carries no source word (a
+  library file renamed "[1080p AVC DTS]-FraMeSToR");
+- rejects(): the formats TRaSH scores below zero that a row matches (x265 at HD, AV1, Dolby
+  Vision with no HDR fallback, 3D, upscaled, low quality groups): the filter's "No rejects".
 """
 import json
 import os
@@ -38,6 +47,12 @@ _RESOLUTIONS = ((re.compile(r'(?<!\d)(?:2160p?|4k|uhd)(?!\d)', re.I), 2160),
                 (re.compile(r'(?<!\d)1080[pi]?(?!\d)', re.I), 1080),
                 (re.compile(r'(?<!\d)720p?(?!\d)', re.I), 720),
                 (re.compile(r'(?<!\d)(?:576p?|480p?|360p?)(?!\d)', re.I), 480))
+# what a media server adds to a file's name: {edition-Extended}, {imdb-tt0499549}, [tmdb-19995]
+_TAGS = re.compile(r'\s*\{[^}]*\}|\s*\[(?:imdb|tmdb|tvdb)[^\]]*\]', re.I)
+_EXT_WORD = re.compile(r'[ .](?:mkv|mp4|avi|ts|m2ts|webm)\s*$', re.I)
+_LAST_WORD = re.compile(r'([A-Za-z0-9][A-Za-z0-9@_]{1,20})\s*$')
+_TIER = re.compile(r'\bTier 0?(\d)\b')
+_KNOWN = {}
 _BRDISK = re.compile(r'\b(?:bdmv|complete[ ._-]?(?:uhd[ ._-]?)?blu[ ._-]?ray|iso)\b', re.I)
 
 
@@ -104,12 +119,44 @@ def release_facts(text, episode=False):
         if pattern.search(text):
             resolution = value
             break
-    first = text.split('\n', 1)[0].strip()
+    first = _TAGS.sub('', text.split('\n', 1)[0]).strip()
     leading = _LEADING_GROUP.match(first)
     if leading and not source:
         source = 3 if episode else 7      # "[Group] Title - 05": a fansub/web release, as Sonarr reads it
     found = leading or _GROUP.search(first)
-    return source, modifier, resolution, (found.group(1).strip() if found else '')
+    group = found.group(1).strip() if found else ''
+    if not group:
+        # a name that lost its dash: its last word, when TRaSH knows it as a group
+        word = _LAST_WORD.search(_EXT_WORD.sub('', first))
+        if word and group_tier(word.group(1), episode, any_format=True):
+            group = word.group(1)
+    return source, modifier, resolution, group
+
+
+def group_tier(group, episode=False, anime=False, any_format=False):
+    """The lowest release group tier TRaSH puts this group in (1, 2, 3...), 0 when in none.
+    any_format: 1 when any of TRaSH's formats names the group (a tier or a low quality list)."""
+    group = str(group or '').strip()
+    if not group:
+        return 0
+    key = (group.lower(), bool(episode), bool(anime), bool(any_format))
+    if key in _KNOWN:
+        return _KNOWN[key]
+    best = 0
+    for name, _default, _anime, anime_only, specs in _table().get('sonarr' if episode else 'radarr') or ():
+        tier = _TIER.search(str(name))
+        if (anime_only and not anime) or (not tier and not any_format):
+            continue
+        if any(kind == 'G' and not negate and value.search(group) for kind, negate, _req, value in specs):
+            number = int(tier.group(1)) if tier else 9
+            if any_format:
+                best = 1
+                break
+            best = number if not best else min(best, number)
+    if len(_KNOWN) > 4000:
+        _KNOWN.clear()
+    _KNOWN[key] = best
+    return best
 
 
 def _matches(specs, text, facts):
@@ -180,20 +227,62 @@ def entry_score(entry, anime=False, prefer=''):
         release = entry.get('filename') or str(entry.get('stream_desc_raw') or '').split('\n', 1)[0]
         extra = ' '.join(str(entry.get(k) or '') for k in ('stream_name_raw', 'stream_desc_raw', 'name', 'label2'))
         value, names = score(release, extra, anime=anime)
-        source, modifier, _res, _group = release_facts(release or extra)
+        episode = bool(_EPISODE.search(' '.join((str(release), extra))))
+        _source, _modifier, _res, group = release_facts(release or extra, episode)
         cached = cached if isinstance(cached, dict) else {}
-        cached[key] = [value, names, bool(_DISC.search(release or extra))]
+        cached[key] = [value, names, bool(_DISC.search(release or extra)), group, episode]
         entry['_trash'] = cached
-    value, _names, disc = cached[key]
+    value, disc = cached[key][0], cached[key][2]
     if prefer == 'web' and disc:
         value -= _WEB_FIRST_PENALTY
     return value
 
 
-def reason(entry, anime=False):
-    """'TRaSH 8450 · Remux Tier 01 · TrueHD ATMOS · DV Boost' for the row."""
+def _kept(entry, anime=False):
     entry_score(entry, anime=anime)
-    value, names, _disc = entry['_trash']['anime' if anime else 'default']
+    kept = entry['_trash']['anime' if anime else 'default']
+    return kept if len(kept) >= 5 else list(kept) + ['', False]
+
+
+def tier(entry, anime=False):
+    """The release group's tier for a source row (1, 2, 3...; 0 when its group is in none):
+    the lowest of the tier formats the release matches, else the group's own tier (a library
+    file whose name has no source word matches no format though its group is known)."""
+    _value, names, _disc, group, episode = _kept(entry, anime)[:5]
+    tiers = [int(m.group(1)) for m in (_TIER.search(str(name)) for name in names or ()) if m]
+    if tiers:
+        return min(tiers)
+    return group_tier(group, episode, anime)
+
+
+def rejects(entry, anime=False):
+    """The formats TRaSH scores below zero that the row matches (['x265 (HD)', 'Upscaled'])."""
+    _value, names, _disc, _group, episode = _kept(entry, anime)[:5]
+    if not names:
+        return []
+    low = _LOW.get((episode, anime))
+    if low is None:
+        low = _LOW[(episode, anime)] = set(
+            name for name, default, anime_score, _only, _specs in _table().get('sonarr' if episode else 'radarr') or ()
+            if (anime_score if anime else default) < -100)
+    return [name for name in names if name in low]
+
+
+_LOW = {}
+
+
+def reason(entry, anime=False):
+    """'TRaSH 8450 · Remux Tier 01 · TrueHD ATMOS · DV Boost' for the row; what TRaSH rejects
+    it for comes first ('TRaSH -9500 · rejected: x265 (HD) · ...'), then its tier."""
+    value, names = _kept(entry, anime)[:2]
     if not names:
         return ''
-    return 'TRaSH %d  ·  %s' % (value, '  ·  '.join(names[:4]))
+    low = rejects(entry, anime)
+    rest = [name for name in names if name not in low]
+    rest.sort(key=lambda name: 0 if _TIER.search(str(name)) else 1)
+    if not any(_TIER.search(str(name)) for name in rest):
+        number = tier(entry, anime)
+        if number:
+            rest.insert(0, 'Tier %02d' % number)
+    parts = (['rejected: %s' % ', '.join(low[:2])] if low else []) + rest[:4 - (1 if low else 0)]
+    return 'TRaSH %d  ·  %s' % (value, '  ·  '.join(parts))
