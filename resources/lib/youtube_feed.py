@@ -395,12 +395,20 @@ TV_VERSION = '7.20251029.10.00'
 TV_UA = 'Mozilla/5.0 (ChromiumStylePlatform) Cobalt/Version'
 ACCOUNT_KEEP = 600
 _token = {'value': '', 'until': 0.0}
+_token_lock = threading.Lock()
 
 
 def _tv_token():
     """The add-on's TV access token (renewed by the add-on when it runs out); '' unlinked."""
     if _token['value'] and time.time() < _token['until']:
         return _token['value']
+    with _token_lock:       # 5.10.564: the shelves read at once: one renewal, the others wait for it
+        if _token['value'] and time.time() < _token['until']:
+            return _token['value']
+        return _renew_token()
+
+
+def _renew_token():
     try:
         _addon_code()
         network_guard()
@@ -417,14 +425,17 @@ def _tv_token():
     return _token['value']
 
 
-def _tv_ask(browse_id):
+def _tv_ask(browse_id, continuation=''):
     token = _tv_token()
     if not token:
         return None
     network_guard()
-    body = {'browseId': browse_id,
-            'context': {'client': {'clientName': 'TVHTML5', 'clientVersion': TV_VERSION,
+    body = {'context': {'client': {'clientName': 'TVHTML5', 'clientVersion': TV_VERSION,
                                    'hl': R.language(), 'gl': R.country()}}}
+    if continuation:
+        body['continuation'] = continuation
+    else:
+        body['browseId'] = browse_id
     request = Request(API % 'browse', data=json.dumps(body).encode('utf-8'),
                       headers={'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token,
                                'User-Agent': TV_UA, 'X-Youtube-Client-Name': '7',
@@ -458,7 +469,8 @@ def account_info():
                 found = json.loads(answer.read().decode('utf-8'))
             accounts = _walk(found, 'accountItem', [])
             chosen = next((a for a in accounts if a.get('isSelected')), accounts[0] if accounts else {})
-            info = {'name': _text(chosen.get('accountName')), 'premium': bool(chosen.get('shouldShowPremiumLogo'))}
+            info = {'name': _text(chosen.get('accountName')), 'premium': bool(chosen.get('shouldShowPremiumLogo')),
+                    'photo': _first_url(chosen.get('accountPhoto') or {})}       # 5.10.564: the rail's picture
     except Exception as exc:
         _log('account info: %s' % exc.__class__.__name__)
     if info:
@@ -495,6 +507,16 @@ def _tile(t):
     if 'PLAYLIST' in kind and cid:
         return {'kind': 'playlist', 'id': cid, 'title': title, 'thumb': thumb, 'big': thumb,
                 'channel': lines[0] if lines else '', 'count': ''}
+    if 'SHORTS' in kind:
+        # 5.10.564: a Short (the TV app's own shelf of them): its portrait picture
+        reel = (t.get('onSelectCommand') or {}).get('reelWatchEndpoint') or {}
+        vid = reel.get('videoId') or cid
+        if not vid:
+            return None
+        return {'kind': 'short', 'id': vid, 'title': title, 'channel': lines[0] if lines else '',
+                'when': lines[1] if len(lines) > 1 else '', 'cid': '', 'avatar': '', 'live': False, 'length': '',
+                'thumb': thumb or 'https://i.ytimg.com/vi/%s/oar2.jpg' % vid,
+                'big': 'https://i.ytimg.com/vi/%s/frame0.jpg' % vid}
     if 'VIDEO' not in kind or not cid:
         return None
     length, live, pct = '', False, 0
@@ -541,6 +563,8 @@ def account(page):
     items, seen = [], set()
     for t in _walk(answer, 'tileRenderer', []):
         item = _tile(t)
+        if item and item['kind'] == 'short':
+            continue                    # a landscape row: the Shorts have their own shelf
         if item and item['id'] not in seen:
             seen.add(item['id'])
             items.append(item)
@@ -548,6 +572,89 @@ def account(page):
         with _lock:
             _mem[key] = (now, items)
     return items
+
+
+def _shelf_title(shelf):
+    header = shelf.get('headerRenderer') or {}
+    for node in _walk(header, 'title', []):
+        text = _text(node) if isinstance(node, dict) else ''
+        if text:
+            return text
+    return _text(shelf.get('title'))
+
+
+def _section_next(answer):
+    """The next page of a TV page's sections (not a shelf's own next cards)."""
+    for section in _walk(answer, 'sectionListRenderer', []) + _walk(answer, 'sectionListContinuation', []):
+        for more in (section or {}).get('continuations') or []:
+            token = ((more or {}).get('nextContinuationData') or {}).get('continuation')
+            if token:
+                return token
+    return ''
+
+
+def tv_page(browse_id, pages=3):
+    """5.10.564: a page of the YouTube TV app (its Home, Subscriptions, Music,
+    Live, Gaming, Sports, News) as the app shows it: its shelves in order,
+    each [title, items, shape] (tall: Shorts; round: channels; wide: the
+    rest), the next pages of shelves read on. [] when not linked or it fails."""
+    if not linked():
+        return []
+    key = 'tv:%s:%d' % (browse_id, pages)
+    now = time.time()
+    with _lock:
+        held = _mem.get(key)
+        if held and now - held[0] < ACCOUNT_KEEP:
+            return held[1]
+    shelves, seen, token = [], set(), ''
+    for page in range(pages):
+        try:
+            answer = _tv_ask(browse_id, token) or {}
+        except Exception as exc:
+            _log('tv page %s: %s' % (browse_id, exc.__class__.__name__))
+            break
+        for shelf in _walk(answer, 'shelfRenderer', []):
+            items = []
+            for t in _walk(shelf, 'tileRenderer', []):
+                item = _tile(t)
+                if item and item['id'] not in seen:
+                    seen.add(item['id'])
+                    items.append(item)
+            if not items:
+                continue
+            kinds = set(i['kind'] for i in items)
+            shape = 'tall' if kinds == {'short'} else ('round' if kinds == {'channel'} else 'wide')
+            if shape == 'wide':
+                items = [i for i in items if i['kind'] != 'short']
+            title = _shelf_title(shelf) or ('Shorts' if shape == 'tall' else '')
+            shelves.append([title, items, shape])
+        token = _section_next(answer)
+        if not token:
+            break
+    if shelves:
+        with _lock:
+            _mem[key] = (now, shelves)
+    return shelves
+
+
+def tv_shorts():
+    """The Shorts the TV app offers, a shelf for each place it offers them (its
+    Home, Subscriptions and topics), the places read at once (first page only)."""
+    places = (('FEtopics', _t('من صفحتك الرئيسية', 'From your Home')),
+              ('FEsubscriptions', _t('من اشتراكاتك', 'From your subscriptions')),
+              ('FEtopics_music', _t('موسيقى', 'Music')), ('FEtopics_gaming', _t('ألعاب', 'Gaming')),
+              ('FEtopics_sports', _t('رياضة', 'Sports')))
+    pages = _parallel(lambda place: tv_page(place[0], pages=1), places, workers=5)
+    out, seen = [], set()
+    for (browse_id, where), shelves in zip(places, pages):
+        for title, items, shape in shelves or []:
+            if shape != 'tall':
+                continue
+            fresh = [i for i in items if i['id'] not in seen]
+            seen.update(i['id'] for i in fresh)
+            if fresh:
+                out.append([where, fresh, 'tall'])
+    return out
 
 
 def account_continue():
@@ -680,7 +787,49 @@ def chips():
     return out
 
 
+# 5.10.564: the side rail, in the YouTube TV app's order (its own Search,
+# Home, Shorts, Music, Subscriptions, Library, Live, Gaming, Sports, News,
+# Settings), then what Dex Hub adds: Trending, and the Arabic pages.
+# (key, label, icon, a line above it)
+TV_PAGES = {'home': 'FEtopics', 'subscriptions': 'FEsubscriptions', 'music': 'FEtopics_music',
+            'live': 'FEtopics_live', 'gaming': 'FEtopics_gaming', 'sport': 'FEtopics_sports', 'news': 'FEtopics_news'}
+
+
+def rail():
+    out = [('search', _t('بحث', 'Search'), 'search', False), ('home', _t('الرئيسية', 'Home'), 'home', False),
+           ('shorts', 'Shorts', 'shorts', False), ('music', _t('موسيقى', 'Music'), 'music', True),
+           ('subscriptions', _t('الاشتراكات', 'Subscriptions'), 'subscriptions', False),
+           ('library', _t('المكتبة', 'Library'), 'library', False), ('live', _t('مباشر', 'Live'), 'live', True),
+           ('gaming', _t('ألعاب فيديو', 'Gaming'), 'gaming', False), ('sport', _t('رياضة', 'Sports'), 'sports', False),
+           ('news', _t('أخبار', 'News'), 'news', False), ('trending', _t('الرائج', 'Trending'), 'trending', True)]
+    if arabic():
+        # the Syrian, Turkish and Gulf pages as one: the rail stays the app's length
+        out += [('arabic', _t('مسلسلات عربية', 'Arabic series'), 'tv', False), ('kids', _t('أطفال', 'Kids'), 'kids', False)]
+    return out + [('settings', _t('الإعدادات', 'Settings'), 'settings', True)]
+
+
 def rows_of(chip):
+    if linked() and chip in TV_PAGES:
+        # the TV app's own page, shelf by shelf; Dex Hub's continue watching first
+        rows = [{'title': '', 'kind': 'tv', 'browse': TV_PAGES[chip], 'slots': 18}]
+        if chip == 'home':
+            rows.insert(0, _own('a_continue', 'متابعة المشاهدة', 'Continue watching'))
+            rows.append(_own('list', 'قائمتي', 'My list'))
+        elif chip == 'subscriptions':
+            rows.append(_own('a_channels', 'اشتراكاتك', 'Your subscriptions'))
+        elif chip == 'music' and arabic():
+            rows += _arabic_rows('music')[:3]
+        return rows
+    if chip == 'shorts':
+        if linked():
+            return [{'title': '', 'kind': 'shorts', 'slots': 12}]
+        return _rows(('فيديوهات قصيرة', 'Short videos', '#shorts', params('video', length='short')),
+                     ('قصيرة رائجة هذا الأسبوع', 'Short and trending this week', '#shorts',
+                      params('video', date='week', length='short')))
+    if chip == 'subscriptions':
+        return [_own('new', 'جديد قنواتك', 'New from your channels'),
+                _own('follows', 'قنواتك', 'Your channels'),
+                _own('channels', '', '', slots=16)]
     if linked() and chip in ('home', 'library'):
         return _account_rows(chip)
     if chip == 'library':
@@ -699,6 +848,8 @@ def rows_of(chip):
         if chip == 'music' and arabic():
             extra = _arabic_rows('music')[:3]
         return [{'title': '', 'kind': 'topic', 'name': chip, 'slots': 10}] + extra
+    if chip == 'arabic':
+        return _arabic_rows('turkish') + _arabic_rows('shami') + _arabic_rows('gulf')
     if chip in ('shami', 'turkish', 'gulf', 'kids'):
         return _arabic_rows(chip)
     # home: what is mine first, then live and trending, then the rest
@@ -740,6 +891,10 @@ def _account_rows(chip):
 def fill(row):
     """[(title, items, shape)] a row answers: shape wide (videos) or round (channels)."""
     kind = row['kind']
+    if kind == 'tv':
+        return [tuple(s) for s in tv_page(row['browse'])[:row.get('slots', 1)]]
+    if kind == 'shorts':
+        return [tuple(s) for s in tv_shorts()[:row.get('slots', 1)]]
     if kind == 'a_continue':
         found = account_continue()
         return [(row['title'], found, 'wide')] if found else []
@@ -1326,8 +1481,29 @@ def dexhub_url(video_id, title=''):
     return 'plugin://plugin.video.dexhub/?' + urlencode(query)
 
 
+MUSIC_QUEUE = 'dexhub.yt.music.q'      # 5.10.564: the music player's songs {id: [title, artist, picture]}
+
+
+def music_notice(video_id):
+    """A song of the music player's queue starts while the player is not on the
+    screen: Kodi's notice at the top says which, with its picture."""
+    try:
+        import xbmcgui
+        home = xbmcgui.Window(10000)
+        if home.getProperty('dexhub.yt.music') != '1' or home.getProperty('dexhub.yt.music.open') == '1':
+            return
+        info = (json.loads(home.getProperty(MUSIC_QUEUE) or '{}') or {}).get(video_id)
+        if info:
+            _log('music: now playing %s' % video_id)
+            xbmcgui.Dialog().notification(info[0] or 'YouTube', ('\u266a  ' + info[1]) if info[1] else '\u266a',
+                                          info[2] or '', 5000, False)
+    except Exception as exc:
+        _log('music notice: %s' % exc.__class__.__name__)
+
+
 def player_item(video_id, title=''):
     """A ListItem for ``video_id`` with all its qualities, or None (then the add-on plays it)."""
+    music_notice(video_id)
     import sys
     import xbmcaddon
     import xbmcgui
