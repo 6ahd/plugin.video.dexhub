@@ -2009,6 +2009,35 @@ class _BaseWindow(xbmcgui.WindowXML):
             return ''
         return 'plugin://%s/?%s' % (TMDBH_ID, urlencode(params))
 
+    def _nas_title_page(self, tile, path):
+        """v5.10.561: a title of the NAS section opens the skin's title page,
+        whose Play plays the NAS file directly (skinui/actions._nas_route)."""
+        if not R.is_dexhub_path(path):
+            return False
+        params = R.params_of(path)
+        if not params.get('dh_nas'):
+            return False
+        try:
+            from ..skinui import common as SC
+            from ..skinui.items import title_over_window
+            media = 'series' if str(params.get('media_type') or tile.get('media_type') or '') in ('series', 'anime', 'tv') \
+                or params.get('action') == 'series_meta' else 'movie'
+            canonical = params.get('canonical_id') or tile.get('imdb_id') or (
+                'tmdb:%s' % tile['tmdb_id'] if tile.get('tmdb_id') else '')
+            if not canonical:
+                return False
+            q = {'m': media, 'id': canonical, 'i': SC.short_id('%s|%s' % (media, canonical)),
+                 'title': params.get('title') or tile.get('title') or '', 'nas': '1'}
+            for key, value in (('tmdb', params.get('tmdb_id') or tile.get('tmdb_id')),
+                               ('imdb', params.get('imdb_id') or tile.get('imdb_id')),
+                               ('year', str(tile.get('year') or '')[:4])):
+                if value:
+                    q[key] = value
+            self.stop_trailer(wait=False)
+            return bool(title_over_window(self, q))
+        except Exception:
+            return False
+
     def _vod_title_page(self, tile, path):
         """v5.10.560: an IPTV film or series opens its title page, as the
         skin's rows do (the skin's page, skin.dexhub). TMDb first (the
@@ -2091,6 +2120,8 @@ class _BaseWindow(xbmcgui.WindowXML):
             return
         path = tile.get('path') or ''
         if helper and self.title_page() == 'dexhub' and self._vod_title_page(tile, path):
+            return
+        if helper and self.title_page() == 'dexhub' and self._nas_title_page(tile, path):
             return
         from ..catalog_navigation import folder_ref
         ref = folder_ref(R.params_of(path)) if R.is_dexhub_path(path) else None

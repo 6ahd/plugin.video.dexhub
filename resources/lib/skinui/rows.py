@@ -1964,6 +1964,8 @@ class Context(object):
         if server:
             # v5.10.194: the server show the page plays its episodes from
             query.append(('srv', urlencode(sorted((k, v) for k, v in server.items() if k != 'ui_seed_key'))))
+        if params.get('dh_nas'):
+            query.append(('nas', '1'))      # v5.10.561: Play on its page plays the NAS file
         for key, value in (('src', source), ('tmdb', tile.get('tmdb_id') or ''),
                            ('imdb', tile.get('imdb_id') or ''), ('title', name),
                            ('year', tile.get('year') or '')):

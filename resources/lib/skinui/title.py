@@ -729,9 +729,14 @@ class HeadlessTitle(object):
         if self.q.get('vs'):
             from ..homeui import vod
             iptv = vod.episode_routes(self.q['vs'], number, hero.get('title') or '', self.tmdb_id)
+        nas = self.q.get('nas') == '1'
         for row in rows:
             if iptv:
                 row = dict(row, path=iptv.get(_int(row.get('episode'))) or row.get('path') or '')
+            elif nas:
+                # v5.10.561: the NAS section's series: an episode plays its NAS file
+                from .actions import _nas_route
+                row = dict(row, path=_nas_route(self, number, row.get('episode'), row.get('video_id') or ''))
             progress = self.progress.get((number, _int(row.get('episode'))))
             started = bool(progress and (self._watched(progress) or self._percent(progress) > 0))
             label = ET.list_label(self.tr, _int(row.get('episode')), row.get('title'), started=started)

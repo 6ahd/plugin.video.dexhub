@@ -395,10 +395,30 @@ def _hero_tile(t, params):
     return tile
 
 
+def _nas_route(t, season=None, episode=None, video_id=''):
+    """v5.10.561: a title opened from the NAS section plays its NAS file
+    directly: the NAS as the only source, its best file starting at once
+    (Sources on the page still searches everything)."""
+    args = {'action': 'play_item', 'media_type': 'series' if t.series else 'movie',
+            'canonical_id': t.canonical, 'title': t.hero.get('title') or '',
+            # quick_same: the NAS search only, and its first (best) file starts,
+            # whatever "how titles play" says; nothing found opens the sources page
+            'source_provider_id': '__nas__', 'source_mode': 'quick_same',
+            'tmdb_id': t.hero.get('tmdb_id') or t.tmdb_id or '', 'imdb_id': t.hero.get('imdb_id') or ''}
+    if season not in (None, '') and episode not in (None, ''):
+        args.update({'season': str(season), 'episode': str(episode), 'video_id': video_id or t.canonical})
+    return C.BASE + '?' + urlencode([(k, v) for k, v in args.items() if v not in (None, '')])
+
+
 def play(params, handle):
     from . import rows
     from ..homeui import rows as R
     clear_trailer_mark()
+    if params.get('nas') == '1':
+        t = _title(params)
+        if not t.series:
+            launch('RunPlugin(%s)' % _arg(_nas_route(t)))
+            return None
     if _same_page(params):
         exact = dialog_label('Property(dhs.play)')
         if exact.startswith(C.BASE) and R.params_of(exact).get('action') in R.PLAYER_ACTIONS:
@@ -470,6 +490,11 @@ def _play_episode(t, ctx, row, params, choose=False):
     from ..homeui import rows as R
     if not row:
         notify(_tr('لا توجد حلقات لهذا المسلسل في مصادر البيانات'))
+        return
+    if (params.get('nas') or (getattr(t, 'q', None) or {}).get('nas')) == '1' and not choose:
+        # v5.10.561: the NAS section's series: the episode's NAS file directly
+        launch('RunPlugin(%s)' % _arg(_nas_route(t, row.get('season'), row.get('episode'),
+                                                  row.get('video_id') or '')))
         return
     vs = params.get('vs') or (getattr(t, 'q', None) or {}).get('vs')
     if vs:
@@ -936,7 +961,7 @@ def open_title(params, handle):
     def show(li):
         if vplay:
             li.setProperty('dhs.play', vplay)
-        extra = [(k, v) for k, v in (('vs', vs), ('ip', '1' if iptv else '')) if v]
+        extra = [(k, v) for k, v in (('vs', vs), ('ip', '1' if iptv else ''), ('nas', q.get('nas') or '')) if v]
         if extra and li.getProperty('dhs.q'):
             li.setProperty('dhs.q', li.getProperty('dhs.q') + '&' + urlencode(extra))
         xbmc.executebuiltin('Dialog.Close(movieinformation,true)', True)

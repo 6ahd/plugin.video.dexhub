@@ -25905,7 +25905,7 @@ def trakt_list_browse(username, slug, title='', background='', media_filter='aut
                ('movies' if any_movie and not any_series else 'videos'))
     end_dir(content=content)
 
-def _render_idlist_rows(rows, more_url='', title='', background='', media_filter='auto', force_remote=False):
+def _render_idlist_rows(rows, more_url='', title='', background='', media_filter='auto', force_remote=False, origin=''):
     """Shared renderer for id-shaped catalog rows (v4.1.0).
 
     Consumes rows shaped {'_type','title','year'/'release_year','overview',
@@ -26041,6 +26041,10 @@ def _render_idlist_rows(rows, more_url='', title='', background='', media_filter
         except Exception:
             pass
         path, path_is_folder = _content_click_path(media_type=media_type, canonical_id=canonical, title=display_name, tmdb_id=tmdb, imdb_id=ids_out.get('imdb_id') or '', tvdb_id=tvdb, source_provider_id='virtual.collection.trakt', ui_seed=art)
+        if origin == 'nas' and path.startswith('plugin://'):
+            # v5.10.561: a title of the NAS section: its page plays the NAS file
+            # directly (skinui/actions), Sources still searches every source
+            path += ('&' if '?' in path else '?') + 'dh_nas=1'
         ctx_menu = [(tr('تغيير مصدر الميتاداتا'), 'RunPlugin(%s)' % build_url(action='meta_pick_target', target_key='virtual.collection.trakt', title=tr('الكوليكشن • عناصر Trakt')))] + _build_source_picker_menu(media_type=media_type, canonical_id=canonical, title=display_name, source_provider_id='virtual.collection.trakt') + _build_player_chooser_menu(media_type=media_type, canonical_id=canonical, title=display_name, tmdb_id=tmdb, imdb_id=ids_out.get('imdb_id') or '', tvdb_id=tvdb, source_provider_id='virtual.collection.trakt')
         _studio = info.get('studio') or ''
         _studio_text = ', '.join(_studio) if isinstance(_studio, (list, tuple)) else str(_studio or '')
@@ -26087,7 +26091,7 @@ def nas_list_browse(share='', kind='movie', title='', offset='0'):
         return end_dir()
     more_url = build_url(action='nas_list', share=share, kind=kind, title=title, offset=following) \
         if following is not None else ''
-    return _render_idlist_rows(rows, more_url=more_url, title=title)
+    return _render_idlist_rows(rows, more_url=more_url, title=title, origin='nas')
 
 
 def mdblist_list_browse_id(list_id, title='', background='', media_filter='auto', cursor='', force_remote=''):

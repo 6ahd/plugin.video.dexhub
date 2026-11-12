@@ -1,3 +1,7 @@
+5.10.561
+الـNAS ومجلدات الشبكة (SMB وNFS): أي فيلم أو مسلسل من قسم الـNAS يفتح صفحة العمل، و«تشغيل» يشغّل ملفه من الـNAS على طول (أفضل نسخة، أو ملف الحلقة نفسها)، وكذا الضغط على حلقة. زر «المصادر» يبحث مثل أي عمل، وملف الـNAS يطلع بينها.
+NAS and network folders (SMB, NFS): a film or series from the NAS section opens the title page, and Play starts its NAS file at once (the best copy, or that episode's file), as does choosing an episode. Sources searches as for any title, with the NAS file among the results.
+
 5.10.560
 ثيم المصادر الجديد Aura صار الافتراضي: زجاج فوق خلفية العمل وتاخذ ألوانها، اسم النسخة كامل، شارات متدرجة الألوان، ومربعات تفاصيل الملف (الصورة، الصوت، الحجم، المجموعة، التقييم). ولوحة الفلتر الجانبية بنفس الألوان.
 New Aura sources theme, now the default: glass over the title's artwork, taking its colours, the full release name, gradient badges, and tiles with the file's details (picture, sound, size, group, score). The side filter panel matches it.

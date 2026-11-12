@@ -51,6 +51,8 @@ def helper_path(q):
 
 def open_title(params, handle=-1):
     q = dict((k, v) for k, v in params.items() if k not in ('action', 'u', 'page'))
+    if 'dh_nas=1' in (params.get('u') or ''):
+        q['nas'] = '1'      # v5.10.561: the NAS section's title: Play plays the NAS file
     choice = mode()
     target = helper_path(q) if choice == 'tmdbhelper' else ''
     if target and xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % HELPER):
