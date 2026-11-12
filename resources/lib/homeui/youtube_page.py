@@ -823,6 +823,7 @@ def _watch(known, resume, loading=None):
         except RuntimeError:
             pass
         del loading
+    _to_player(player, monitor)
     seen = {}                          # id -> (position, total)
     current = ''
     subtitles_due = 0
@@ -850,6 +851,32 @@ def _watch(known, resume, loading=None):
         monitor.waitForAbort(1.0)
     if current in seen:
         _keep(known, current, *seen[current])
+
+
+def _to_player(player, monitor):
+    """v5.10.563: the video in Kodi's full-screen player. Kodi 22 left it
+    behind the page at times (heard, not seen): Dex Hub's own playback has
+    the companion's guard for that, a YouTube video had none. Only from the
+    Home or a Dex Hub page; a window the user opened meanwhile is left alone."""
+    cond = xbmc.getCondVisibility
+    for _attempt in range(6):
+        try:
+            if not player.isPlayingVideo() or cond('Window.IsActive(fullscreenvideo)'):
+                return
+            window = xbmcgui.getCurrentWindowId()
+            if window not in (10000, 10025) and not 13000 <= window < 13100:
+                return
+            for name in ('busydialog', 'busydialognocancel'):
+                if cond('Window.IsActive(%s)' % name):
+                    xbmc.executebuiltin('Dialog.Close(%s,true)' % name)
+            if _attempt == 0:
+                xbmc.log('[DexHub] youtube: the video started behind window %s; opening the player' % window,
+                         xbmc.LOGINFO)
+            xbmc.executebuiltin('ActivateWindow(fullscreenvideo)')
+        except RuntimeError:
+            return
+        if monitor.waitForAbort(0.5):
+            return
 
 
 def _keep(known, video_id, position, total):

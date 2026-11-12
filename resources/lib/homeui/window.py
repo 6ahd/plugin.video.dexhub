@@ -2718,6 +2718,7 @@ class _BaseWindow(xbmcgui.WindowXML):
         options = [('open', self.tr('عرض القنوات'))]
         if kind in ('m3u', 'xtream'):
             options += [('refresh', self.tr('تحديث الآن')), ('rename', self.tr('تغيير الاسم')),
+                        ('servers', self.tr('عناوين السيرفر')),      # v5.10.563
                         ('remove', self.tr('حذف من البث المباشر'))]
         elif key == 'dw':
             options += [('unlink', self.tr('فصل الاشتراك'))]
@@ -2745,6 +2746,10 @@ class _BaseWindow(xbmcgui.WindowXML):
             try:
                 self._modal(work)
             finally:
+                self.live_refresh()
+        elif action == 'servers':
+            from . import live_iptv
+            if self._modal(lambda: live_iptv.manage_addresses(self.app, dict(source.get('conf') or {}))):
                 self.live_refresh()
         elif action == 'rename':
             conf = dict(source.get('conf') or {})

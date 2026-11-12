@@ -275,7 +275,13 @@ def title_over_window(window, q, appear=8.0, settle=2.0):
             if getattr(window, '_closing', False):
                 return
             if xbmc.getCondVisibility('Window.IsActive(fullscreenvideo)'):
-                window.close_window()
+                # v5.10.563: only a page that is a dialog sits over the
+                # player. A full window (the IPTV and NAS pages: Browse, Grid)
+                # is already under it in Kodi's history, and closing it is
+                # Kodi's "previous window": the player was left, the film
+                # played on behind the page
+                if isinstance(window, xbmcgui.WindowXMLDialog):
+                    window.close_window()
                 return
             if xbmcgui.getCurrentWindowDialogId() != own:
                 shown, since = True, 0.0     # the title page, its sources list, a menu

@@ -1,3 +1,13 @@
+5.10.563
+IPTV: لما المزوّد يرد بخطأ 5xx (مثل HTTP 513 وقت إضافة اشتراك Xtream) يسأله Dex Hub مرة ثانية بعد ثانيتين قبل ما يقول إنه تعذر. ولو استمر، الرسالة توضح إنه رمز خاص بالمزوّد (غالباً حد الاتصالات أو الأجهزة، أو حجب لعنوان الجهاز) مو خطأ من Dex Hub.
+IPTV: when a provider answers with a 5xx (like HTTP 513 when adding an Xtream account), Dex Hub asks once more two seconds later before giving up. If it stays, the message says it is the provider's own code (usually a connection or device limit, or the device's address blocked), not a Dex Hub error.
+IPTV: أكثر من عنوان سيرفر لنفس الاشتراك (Xtream أو M3U). وقت الإضافة اكتب العناوين وبينها مسافة، أو لو تعذر الوصول يعرض عليك تضيف عنوان ثاني، ومن قائمة المصدر «عناوين السيرفر» تضيف وتحذف وتختار الحالي. إذا تعذر العنوان الحالي (خطأ اتصال أو سيرفر) يجرب Dex Hub البقية بالترتيب، واللي يرد يصير هو الحالي.
+IPTV: several server addresses for one subscription (Xtream or M3U). When adding it, type them with spaces between; or, when it cannot be reached, you are offered to add another; and the source's "Server addresses" menu adds, removes and picks the one in use. When the address in use fails (a network or server error), Dex Hub tries the others in order and keeps the one that answers.
+IPTV: فيلم أو حلقة من صفحة IPTV أو الـNAS كان يشتغل ورا الصفحة بدل ما يفتح المشغل (من 5.10.560). صار يفتح المشغل.
+IPTV: a film or episode from the IPTV or NAS page played on behind the page instead of opening the player (since 5.10.560). The player opens now.
+YouTube: الفيديو أحياناً يشتغل ورا الصفحة (صوت بدون صورة) على كودي 22. صار يفتح المشغل لما يبدأ.
+YouTube: a video sometimes played behind the page (sound, no picture) on Kodi 22. The player opens once it starts.
+
 5.10.562
 صفحة المصادر (Aura): التقييمات صارت أصغر، وتطلع كاملة بدون ما ينقص آخر واحد عند حافة اللوحة (اللي ما تكفيها المساحة ما تنعرض). والقصة تطلع بالعربي إذا لغة البيانات عربي (كانت تطلع بالإنجليزي).
 Sources page (Aura): the ratings are smaller and always whole, none cut at the panel's edge (one with no room is left out). The plot is in Arabic when the metadata language is Arabic (it showed in English).

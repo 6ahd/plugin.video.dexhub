@@ -195,6 +195,11 @@ def _status_text(status):
         return 'العنوان غير موجود على السيرفر (HTTP 404)'
     if status == 429:
         return 'السيرفر مشغول، حاول بعد قليل (HTTP 429)'
+    if status == 509 or status >= 512:
+        # v5.10.562: not a standard code: the provider's own refusal (509 is
+        # Xtream's "too many connections"; 513 was seen when adding an account)
+        return ('المزوّد رد برمز خاص فيه (HTTP %d)، مو خطأ من Dex Hub. غالباً الاشتراك وصل حد '
+                'الاتصالات أو الأجهزة، أو المزوّد حاجب عنوان جهازك. جرّب بعد شوي أو كلّم المزوّد') % status
     return 'رد السيرفر بخطأ (HTTP %d)' % status
 
 

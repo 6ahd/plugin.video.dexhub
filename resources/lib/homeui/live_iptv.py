@@ -469,10 +469,13 @@ def playlist(profile, conf, refresh=False, progress=None):
                 and (not refresh or float(data.get('ts') or 0) >= asked)):
             return data
         tmp = _cache_file(profile, _temp_name('m3u', conf))
-        try:
-            LS.download(conf['url'], tmp, timeout=DOWNLOAD_TIMEOUT, limit=M3U_LIMIT, progress=check)
+        def fetch(trial):
+            LS.download(trial['url'], tmp, timeout=DOWNLOAD_TIMEOUT, limit=M3U_LIMIT, progress=check)
             with LS.open_text(tmp) as handle:
-                header_epg, groups, channels = parse_m3u(handle, conf['url'])
+                return parse_m3u(handle, trial['url'])
+        try:
+            # v5.10.563: from whichever of its addresses answers
+            header_epg, groups, channels = failover(conf, fetch)
         finally:
             try:
                 os.remove(tmp)
@@ -864,7 +867,82 @@ def _xt_base(conf):
     return str(conf.get('server') or '').rstrip('/')
 
 
+# ------------------------------------------------ several server addresses
+# v5.10.563: one account, several addresses (sellers give a few, and one may
+# be turned away on a network: a Cloudflare 403, or a 513 from the seller's
+# own proxy). conf['alts'] keeps the others; a request that fails with a
+# network or server error is tried on each in turn, and the address that
+# answered becomes the source's own (saved), so streams and the next
+# requests go there.
+def _addr_key(conf):
+    return 'url' if conf.get('kind') == 'm3u' else 'server'
+
+
+def addresses(conf):
+    """The source's addresses, the current one first."""
+    out = []
+    for address in [conf.get(_addr_key(conf))] + list(conf.get('alts') or []):
+        address = str(address or '').strip()
+        if _addr_key(conf) == 'server':
+            address = address.rstrip('/')
+        if address and address not in out:
+            out.append(address)
+    return out
+
+
+def _worth_next(exc):
+    if isinstance(exc, Refused):
+        return False                    # the account itself: no address helps
+    if not (isinstance(exc, LS.SourceError) or LS._network(exc)):
+        return False
+    return LS.safe(exc) not in ('أُلغي', 'المصدر غير موجود')
+
+
+def _use_address(conf, address):
+    key = _addr_key(conf)
+    others = [a for a in addresses(conf) if a != address]
+    conf[key], conf['alts'] = address, others
+    LS.log('live: source %s answered on another of its addresses' % conf.get('id'))
+    try:
+        from .. import profile_scope as _scope
+        profile = _scope.ScopedPath('homeui')
+        saved = LS.get_saved(profile, conf.get('id'))
+        if saved is not None:
+            saved[key], saved['alts'] = address, others
+            LS.save_source(profile, saved)
+    except Exception:
+        pass
+
+
+def failover(conf, call):
+    """call(conf) on the current address, then on each other one; the first
+    failure is said when none answers."""
+    tried = addresses(conf)
+    if len(tried) < 2:
+        return call(conf)
+    key, first = _addr_key(conf), None
+    for index, address in enumerate(tried):
+        trial = conf if index == 0 else dict(conf, **{key: address})
+        try:
+            result = call(trial)
+        except Exception as exc:
+            if not _worth_next(exc):
+                raise
+            if first is None:
+                first = exc
+            continue
+        if index:
+            _use_address(conf, address)
+        return result
+    raise first
+
+
 def xt_api(conf, timeout=15, **params):
+    """The panel's answer, from whichever of the account's addresses answers."""
+    return failover(conf, lambda trial: _xt_api_once(trial, timeout, params))
+
+
+def _xt_api_once(conf, timeout, params):
     """v5.10.533: one request at a time to a panel (the rows, the VOD and the
     channels went at once, and some panels turn a burst away with 403 although
     the account is fine), and a 401 or 403 asked once more on a new connection
@@ -876,10 +954,12 @@ def xt_api(conf, timeout=15, **params):
         try:
             return LS.http_json(address, timeout=timeout)
         except LS.SourceError as exc:
-            if not re.search(r'HTTP 40[13]\b', str(exc)):
+            # v5.10.562: a 5xx too (a panel's own codes, like 509 or 513, for
+            # a burst or a busy moment): asked once more before it is said
+            if not re.search(r'HTTP (40[13]|5\d\d)\b', str(exc)):
                 raise
             xbmc.log('[DexHub] live: panel %s said %s to %s, asking once more' % (
-                urlsplit(_xt_base(conf)).hostname or '?', re.search(r'40[13]', str(exc)).group(0),
+                urlsplit(_xt_base(conf)).hostname or '?', re.search(r'40[13]|5\d\d', str(exc)).group(0),
                 params.get('action') or 'login'), xbmc.LOGINFO)
         time.sleep(2.0)
         return LS.http_json(address, headers={'Connection': 'close'}, timeout=timeout)
@@ -1011,8 +1091,9 @@ def _xt_full(profile, conf):
     _xt_full_tried[conf['id']] = now
     query = [('username', conf.get('username') or ''), ('password', conf.get('password') or ''),
              ('action', 'get_live_streams')]
-    raw = LS.http_bytes('%s/player_api.php?%s' % (_xt_base(conf), urlencode(query)),
-                        {'Accept': 'application/json'}, 30, limit=XT_FULL_LIMIT)
+    raw = failover(conf, lambda trial: LS.http_bytes(
+        '%s/player_api.php?%s' % (_xt_base(trial), urlencode(query)),
+        {'Accept': 'application/json'}, 30, limit=XT_FULL_LIMIT))
     try:
         reply = json.loads(raw.decode('utf-8-sig', 'replace') or 'null')
     except Exception:
@@ -1319,10 +1400,11 @@ def _same_source(profile, kind, address, username=''):
     for conf in LS.saved(profile):
         if conf.get('kind') != kind:
             continue
-        if kind == 'm3u' and _address_mark(conf.get('url')) == mark:
+        # v5.10.563: its spare addresses count too
+        marks = [_address_mark(a) for a in addresses(conf)]
+        if kind == 'm3u' and mark in marks:
             return conf
-        if (kind == 'xtream' and _address_mark(conf.get('server')) == mark
-                and str(conf.get('username') or '') == username):
+        if kind == 'xtream' and mark in marks and str(conf.get('username') or '') == username:
             return conf
     return None
 
@@ -1333,6 +1415,83 @@ def _open_existing(app, dialog, conf):
     if dialog.yesno('Dex Hub', app.tr('هذا المصدر مضاف من قبل باسم "%s". تفتحه؟') % label):
         return ('m3u:%s' if conf.get('kind') == 'm3u' else 'xt:%s') % conf['id']
     return ''
+
+
+def _ask_other_address(tr, conf):
+    """Another address of the source, typed in; '' when none (v5.10.563)."""
+    if conf.get('kind') == 'm3u':
+        return _ask_address(tr, tr('رابط ثاني لنفس القائمة')) or ''
+    text, prompt = '', tr('عنوان سيرفر ثاني لنفس الحساب، مثل http://example.com:8080')
+    while True:
+        text = _ask(prompt, text, private=True)
+        if not text:
+            return ''
+        try:
+            return _xt_server(text)[0]
+        except ValueError:
+            prompt = tr('رابط غير صالح، صححه')
+
+
+def _offer_address(tr, dialog, conf, exc, heading='تعذر ربط الاشتراك'):
+    """After a failure to reach the source: another address to try, added to
+    it (True), or nothing more (False). v5.10.563."""
+    question = tr('رابط ثاني لنفس القائمة؟') if conf.get('kind') == 'm3u' else tr('تضيف عنوان سيرفر ثاني لنفس الحساب؟')
+    if not dialog.yesno('Dex Hub', '%s\n%s\n\n%s' % (tr(heading), tr(LS.safe(exc)), question),
+                        nolabel=tr('إلغاء'), yeslabel=tr('أضف عنوان')):
+        return False
+    address = _ask_other_address(tr, conf)
+    if not address:
+        return False
+    known = addresses(conf)
+    if address in known:
+        return True                     # the same again: tried once more
+    # the new address is asked first; the ones that failed stay as spares
+    conf[_addr_key(conf)], conf['alts'] = address, known
+    return True
+
+
+def manage_addresses(app, conf):
+    """The source's addresses: which is used, another added, one removed.
+    True when something changed (v5.10.563)."""
+    from .options import choose
+    tr, dialog, changed = app.tr, xbmcgui.Dialog(), False
+    while True:
+        conf = LS.get_saved(app.profile, conf.get('id')) or conf
+        known = addresses(conf)
+        labels = []
+        for index, address in enumerate(known):
+            try:
+                parts = urlsplit(address.split('|', 1)[0])
+                where = parts.netloc.rsplit('@', 1)[-1] or address
+            except ValueError:
+                where = _host(address) or '?'
+            labels.append(('%s  (%s)' % (where, tr('الحالي'))) if index == 0 else where)
+        labels.append('+ ' + tr('أضف عنوان'))
+        choice = choose(tr('عناوين السيرفر'), labels, subtitle=tr('إذا تعذر الحالي تُجرّب البقية بالترتيب'))
+        if choice < 0:
+            return changed
+        if choice == len(known):
+            address = _ask_other_address(tr, conf)
+            if address and address not in known:
+                conf['alts'] = known[1:] + [address]
+                LS.save_source(app.profile, conf)
+                changed = True
+            continue
+        actions = ([] if choice == 0 else [('use', tr('اجعله الحالي'))]) + \
+                  ([('drop', tr('احذف'))] if len(known) > 1 else [])
+        if not actions:
+            continue
+        pick = choose(labels[choice], [label for _key, label in actions])
+        if pick < 0:
+            continue
+        address = known[choice]
+        if actions[pick][0] == 'use':
+            conf[_addr_key(conf)], conf['alts'] = address, [a for a in known if a != address]
+        else:
+            rest = [a for a in known if a != address]
+            conf[_addr_key(conf)], conf['alts'] = rest[0], rest[1:]
+        LS.save_source(app.profile, conf)
+        changed = True
 
 
 def add_m3u(app):
@@ -1365,12 +1524,18 @@ def add_m3u(app):
         return ''
     conf = {'id': uuid.uuid4().hex[:10], 'kind': 'm3u', 'name': name or _host(url), 'url': url,
             'epg': guide_url, 'added': int(time.time())}
-    try:
-        data = _progress_call(tr, 'جاري تحميل القائمة…',
-                              lambda progress: playlist(app.profile, conf, refresh=True, progress=progress))
-    except Exception as exc:
-        dialog.ok('Dex Hub', '%s\n%s' % (tr('تعذر تحميل القائمة'), tr(LS.safe(exc))))
-        return ''
+    while True:
+        try:
+            data = _progress_call(tr, 'جاري تحميل القائمة…',
+                                  lambda progress: playlist(app.profile, conf, refresh=True, progress=progress))
+            break
+        except Exception as exc:
+            # v5.10.563: another address of the same playlist may be offered
+            if _worth_next(exc) and _offer_address(tr, dialog, conf, exc, heading='تعذر تحميل القائمة'):
+                continue
+            if not _worth_next(exc):
+                dialog.ok('Dex Hub', '%s\n%s' % (tr('تعذر تحميل القائمة'), tr(LS.safe(exc))))
+            return ''
     LS.save_source(app.profile, conf)
     LS.log('M3U playlist added (%d channels)' % len(data.get('channels') or []))
     dialog.notification('Dex Hub', tr('أُضيفت القائمة: %d قناة') % len(data.get('channels') or []),
@@ -1411,20 +1576,26 @@ def add_xtream(app, prefilled=None):
     # v5.10.110: Cancel at any step ends the setup; a mistyped server is asked
     # for again with what was typed, and the seller's get.php address fills
     # the username and the password (only what is missing is asked for)
-    text, prompt = '', tr('عنوان السيرفر مع المنفذ، مثل http://example.com:8080')
+    # v5.10.563: several addresses of the account, apart by spaces: the
+    # first is used, the others are tried when it fails
+    hint = '%s (%s)' % (tr('عنوان السيرفر مع المنفذ، مثل http://example.com:8080'),
+                        tr('لأكثر من عنوان افصل بينها بمسافة'))
+    text, prompt = '', hint
     while True:
         text = _ask(prompt, text, private=True)
         if not text:
             return ''
         try:
-            server, username, password = _xt_server(text)
+            words = [w for w in re.split(r'[\s,]+', text) if w]
+            server, username, password = _xt_server(words[0])
+            alts = [_xt_server(w)[0] for w in words[1:]]
             break
         except ValueError:
             prompt = tr('رابط غير صالح، صححه')
-    return _add_xtream_account(app, tr, dialog, server, username, password)
+    return _add_xtream_account(app, tr, dialog, server, username, password, alts)
 
 
-def _add_xtream_account(app, tr, dialog, server, username, password):
+def _add_xtream_account(app, tr, dialog, server, username, password, alts=()):
     if not username:
         username = _ask(tr('اسم المستخدم'), private=True)
         if not username:
@@ -1441,6 +1612,8 @@ def _add_xtream_account(app, tr, dialog, server, username, password):
         return ''
     conf = {'id': uuid.uuid4().hex[:10], 'kind': 'xtream', 'name': name or _host(server),
             'server': server, 'username': username, 'password': password, 'added': int(time.time())}
+    if alts:
+        conf['alts'] = [a for a in alts if a and a != server]
 
     def work(progress):
         login(conf)
@@ -1448,12 +1621,19 @@ def _add_xtream_account(app, tr, dialog, server, username, password):
         if progress(0) is False:
             raise LS.SourceError('أُلغي')
         categories(app.profile, conf, refresh=True)
-    try:
-        _progress_call(tr, 'جاري التحقق من الاشتراك…', work)
-    except Exception as exc:
-        dialog.ok('Dex Hub', '%s\n%s' % (tr('تعذر ربط الاشتراك'), tr(LS.safe(exc))))
-        LS.drop_cache(app.profile, conf['id'])
-        return ''
+    while True:
+        try:
+            _progress_call(tr, 'جاري التحقق من الاشتراك…', work)
+            break
+        except Exception as exc:
+            # v5.10.563: the server could not be reached (not the account
+            # refused): another address of the same account may be offered
+            if _worth_next(exc) and _offer_address(tr, dialog, conf, exc):
+                continue
+            if not _worth_next(exc):
+                dialog.ok('Dex Hub', '%s\n%s' % (tr('تعذر ربط الاشتراك'), tr(LS.safe(exc))))
+            LS.drop_cache(app.profile, conf['id'])
+            return ''
     LS.save_source(app.profile, conf)
     LS.log('Xtream account added')
     dialog.notification('Dex Hub', tr('أُضيف الاشتراك'), xbmcgui.NOTIFICATION_INFO, 2500, sound=False)
