@@ -46,6 +46,8 @@ def initialize_defaults():
         addon.setSetting('homeui_background_style','fullscreen')
         addon.setSetting('homeui_title_page','Dex Hub')
         addon.setSetting('catalog_click_mode','Dex Hub')
+        # v5.10.560: the skin's own look too, once skin.dexhub is in use (skin_defaults)
+        addon.setSetting('skin_defaults_pending','true')
         addon.setSetting('interface_defaults_v6','true')
     except Exception:
         return False

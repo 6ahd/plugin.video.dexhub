@@ -1275,7 +1275,36 @@ def _carry_enrichment(items, old, language, ctx=None):
             if old_src.get(key) and not src.get(key):
                 src[key] = old_src[key]
         src['enriched'] = _ekey(language)
+        if ctx is not None:
+            _late_title_props(ctx, item, dict(src, kind='work'))
     return complete
+
+
+def _late_title_props(ctx, item, tile):
+    """v5.10.560: a title whose ids came only from the TMDb pass (a Continue
+    Watching title that resumes on its server, native_resume) gets its title
+    page then: Info on it opened an empty page before. True when added."""
+    props = item.get('props') or {}
+    if props.get('kind') != 'work' or props.get('dhs.q'):
+        return False
+    src = item.get('src') or {}
+    tile = dict(tile or {})
+    tile['kind'] = 'work'
+    for key in ('media_type', 'title', 'show', 'year', 'path', 'imdb_id', 'tmdb_id'):
+        if not tile.get(key) and src.get(key):
+            tile[key] = src[key]
+    if not (tile.get('imdb_id') or tile.get('tmdb_id')):
+        return False
+    try:
+        if not ctx.info_page(tile):
+            return False
+        props.update(ctx.title_props(tile))
+    except Exception:
+        return False
+    props['dhs.open_title'] = ''
+    props['dhs.raw'] = tile.get('path') or ''
+    item['props'] = props
+    return True
 
 
 # --------------------------------------------------------------------------
@@ -2097,6 +2126,8 @@ def enrich(tab, row_id, limit=ENRICH_ITEMS, stop=None, batch=6):
         for key, name in (('imdb_id', 'imdb'), ('tmdb_id', 'tmdb')):
             if tile.get(key) and not ids.get(name):
                 ids[name] = tile[key]
+        if _late_title_props(ctx, item, tile):
+            changed = True
         # the hero's meta line follows the new genres and runtime
         merged = {'kind': 'work', 'year': info.get('year') or '', 'rating': info.get('rating') or 0,
                   'duration': info.get('duration') or 0, 'genres': info.get('genres') or [],

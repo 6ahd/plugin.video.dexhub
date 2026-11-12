@@ -2237,6 +2237,7 @@ STRINGS = {
     'مفتاح اشتراكك محفوظ في إضافة Dex IPTV. تستخدمه هنا؟': 'Your subscription key is saved in the Dex IPTV add-on. Use it here?',
     'مفتاح اشتراك DexWorld (API Key)': 'DexWorld subscription key (API Key)',
     'تعذر ربط الاشتراك': 'The subscription could not be linked',
+    'المفتاح حساس لحالة الأحرف (الكبيرة والصغيرة)': 'The key is case-sensitive (capital and small letters)',
     'رُبط اشتراك DexWorld': 'DexWorld subscription linked',
     'رابط manifest.json لإضافة Stremio فيها قنوات': 'manifest.json address of a Stremio add-on with channels',
     'تعذر إضافة الإضافة': 'The add-on could not be added',

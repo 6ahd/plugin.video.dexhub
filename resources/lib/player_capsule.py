@@ -278,6 +278,11 @@ def _why_not():
     from .trailer_mark import playing_is_trailer
     if playing_is_trailer():
         return 'a trailer'
+    # v5.10.560: a live channel has no age rating; the card read the last
+    # film's play context (a beIN channel showed '4K · DD+ Atmos 5.1')
+    if '/live/' in path or path.startswith('pvr:') or xbmc.getCondVisibility(
+            'Player.IsLive | VideoPlayer.HasEpg | String.StartsWith(Player.FilenameAndPath,pvr://)'):
+        return 'a live channel'
     return ''
 
 

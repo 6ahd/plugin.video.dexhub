@@ -1,3 +1,25 @@
+5.10.560
+ثيم المصادر الجديد Aura صار الافتراضي: زجاج فوق خلفية العمل وتاخذ ألوانها، اسم النسخة كامل، شارات متدرجة الألوان، ومربعات تفاصيل الملف (الصورة، الصوت، الحجم، المجموعة، التقييم). ولوحة الفلتر الجانبية بنفس الألوان.
+New Aura sources theme, now the default: glass over the title's artwork, taking its colours, the full release name, gradient badges, and tiles with the file's details (picture, sound, size, group, score). The side filter panel matches it.
+IPTV: أي فيلم أو مسلسل يفتح صفحة العمل بالبوستر والتبويبات. التشغيل يشغّل ملف المزوّد على طول، و«المصادر» يبحث مثل أي عمل ويطلع ملف المزوّد بينها باسم IPTV VOD. البيانات من TMDb أول، وإذا ما لقى ياخذ من المزوّد (البوستر والقصة والسنة والنوع)، والمسلسل ياخذ مواسمه وحلقاته من المزوّد. بدون خلفية تصير الخلفية البوستر مكبّر ولون الصفحة يتبعه. البوستر يطلع على طول، والأسماء تتنظف (مثل «4K-TOP - اسم الفيلم (2026)»).
+IPTV: every film and series opens the title page, with its poster and tabs. Play starts the provider's file at once; Sources searches as for any title and lists the provider's file among the rest as IPTV VOD. TMDb comes first, the provider fills what it lacks (poster, plot, year, genre), and a series TMDb doesn't know takes its seasons and episodes from the provider. With no backdrop the poster fills the page and the page takes its colour. The poster shows at once, and names are cleaned (like "4K-TOP - Title (2026)").
+IPTV: تشغيل الأفلام والحلقات من حساب Xtream كان يقول «تعذر تشغيل VOD من المصدر» على الأجهزة اللي فيها بروفايلات (كان يدوّر على الحساب في المجلد الغلط). وقسم أفلام أو مسلسلات عليه فلتر محفوظ كان يقول «نوع VOD غير مدعوم».
+IPTV: films and episodes of an Xtream account said "VOD could not be played" on devices with profiles (the account was looked for in the wrong folder), and a films or series category with a saved filter said "VOD type not supported".
+DexWorld: لما المزوّد يحجب سيرفر DexWorld، Dex Hub يجيب القنوات والأفلام والمسلسلات والمفضلة من المزوّد على اتصالك ويشغّل مباشرة. أول ما يعرف إن المصدر محجوب يفتح الأقسام من المزوّد على طول لمدة ساعة (كل قسم في ثانية تقريباً بدل 20 ثانية وأكثر). ينتظر رابط التشغيل 30 ثانية بدل 12. ولو كتبت مفتاح الاشتراك بأحرف صغيرة، يجرب أشكاله المعتادة لأن المفتاح حساس للأحرف.
+DexWorld: when the provider turns DexWorld's server away, Dex Hub reads channels, films, series and favourites from the provider over your connection and plays them directly. Once a source is known to be blocked, its categories open from the provider at once for an hour (about a second each instead of 20 s or more). Streams get 30 s instead of 12. A subscription key typed in small letters is tried in its usual casings, as keys are case-sensitive.
+القنوات المباشرة: العناوين الفاصلة مثل «##### beIN SPORTS #####» ما تطلع كقنوات. والقناة ما تاخذ بطاقة تقييم الفيلم اللي قبلها.
+Live TV: headings like "##### beIN SPORTS #####" no longer show as channels, and a channel no longer gets the rating card of the film before it.
+زر المعلومات في الهوم: على عنصر «أكمل المشاهدة» اللي يكمل من السيرفر (Plex وغيره) كان يفتح صفحة فاضية، الحين يفتح صفحة العمل.
+Info on the Home: a Continue Watching item resumed from a server (Plex and others) opened an empty page; it opens the title's page now.
+الواجهة الافتراضية للتثبيت الجديد: الهوم السينمائي، تكبير ناعم للتحديد، التريلر داخل البطاقة، قائمة جانبية أيقونات تختفي مع التمرير، وصفحة العمل بالتبويبات ولون يتبع العمل. اللي غيّر هالخيارات يبقى على اختياره.
+The default look of a new install: the cinema Home, soft zoom focus, trailers in the card, an icon side menu that hides while scrolling, and the title page with tabs and its artwork's colour. Anyone who changed these keeps their choice.
+
+5.10.559
+Usenet على Apple TV: المحرك صار داخل تطبيق Dex Hub لـ Apple TV نفسه، وإضافة المحرك تشغّله لما تختار مصدر Usenet.
+Usenet on Apple TV: the engine now lives inside the Dex Hub Apple TV app itself, and the engine add-on starts it when a Usenet source is picked.
+في إعدادات Usenet: الضغط على حالة المحرك يشغّله ويقول لك النتيجة (لما يكون داخل التطبيق).
+In Usenet's setup, pressing the engine's state starts it and says what happened (where the engine is inside the app).
+
 5.10.558
 Usenet مصدر مباشر: أضف مزود NNTP ومفهرس Newznab من الإعدادات ← المصادر ← Usenet، والنسخ تطلع مع مصادر كل عمل وتشتغل من مزودك مباشرة على الجهاز نفسه، بدون سيرفر وسيط. يحتاج «محرك Usenet»، وهو برنامج مستقل من مشروع NuvioTV (رخصة GPL-3.0) ومو جزء من Dex Hub ولا داخل ملفه؛ صفحة الإعداد تقول وين ينحط. يشتغل على الماك و CoreELEC، وما يشتغل على أندرويد ولا Apple TV. في تجربة على الماك: نسخة 14 GB انفتحت في ثانيتين والتقديم خلال ثانية.
 Usenet as a source of its own: add an NNTP provider and a Newznab indexer under Settings > Sources > Usenet, and releases show among every title's sources and play straight from your provider on this device, with no server in between. It needs the "Usenet engine", a separate program from the NuvioTV project (GPL-3.0) that is not part of Dex Hub nor inside its zip; the setup page says where it goes. It runs on Mac and CoreELEC, not on Android or Apple TV. In a trial on a Mac a 14 GB release opened in two seconds and seeks took about a second.

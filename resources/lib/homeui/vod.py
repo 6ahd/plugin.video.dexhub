@@ -340,7 +340,7 @@ def page_tiles(params, app):
         series = str(params.get('vod_series') or '')
         if series:
             data = cached(app, src, 'series:'+series,
-                          lambda: ST._client().fetch_meta(provider, 'series', series, timeout_override=12)) or {}
+                          lambda: ST._client().fetch_meta(provider, 'series', series, timeout_override=ST.stream_wait(provider))) or {}
             meta = data.get('meta') or {};videos = meta.get('videos') or []
             season = str(params.get('season') or '')
             if not season:
@@ -370,31 +370,83 @@ def page_tiles(params, app):
             and (m.get('id') or m.get('stream_id') or m.get('series_id'))], more
 
 
-def play(params):
-    import xbmc, xbmcaddon, xbmcgui, xbmcvfs
-    addon = xbmcaddon.Addon('plugin.video.dexhub')
-    app = type('PlaybackSource', (), {'profile':os.path.join(xbmcvfs.translatePath(addon.getAddonInfo('profile')), 'homeui')})()
+def provider_info(route='', vs=''):
+    """v5.10.560: what an Xtream provider says of a film (its play route) or a
+    series ('<source>|<id>'): plot, genres, year, rating, poster, backdrop.
+    {} for another kind of source or when it cannot be read."""
+    if vs:
+        src, _sep, mid = str(vs).partition('|')
+        action, key, field = 'get_series_info', 'series_id', 'info'
+    else:
+        params = R.params_of(route or '')
+        src, mid = str(params.get('live_src') or ''), str(params.get('id') or '')
+        action, key, field = 'get_vod_info', 'vod_id', 'info'
+    if not (src.startswith('xt:') and mid.isdigit()):
+        return {}
+    app = _series_app()
+    try:
+        conf = XT._conf(app, src)
+        data = cached(app, src, '%s:%s' % (action, mid),
+                      lambda: XT.xt_api(conf, **{'action': action, key: mid})) or {}
+    except Exception:
+        return {}
+    info = (data.get(field) if isinstance(data, dict) else None) or {}
+    if not isinstance(info, dict):
+        return {}
+    backdrop = info.get('backdrop_path') or ''
+    if isinstance(backdrop, list):
+        backdrop = backdrop[0] if backdrop else ''
+    genres = [g.strip() for g in re.split(r'[,/|]', str(info.get('genre') or '')) if g.strip()][:3]
+    year = re.search(r'(19|20)\d{2}', str(info.get('releasedate') or info.get('releaseDate')
+                                         or info.get('release_date') or info.get('year') or ''))
+    try:
+        rating = round(float(info.get('rating') or 0), 1)
+    except (TypeError, ValueError):
+        rating = 0
+    return {'plot': str(info.get('plot') or info.get('description') or '').strip(),
+            'genres': genres, 'year': year.group(0) if year else '', 'rating': rating,
+            'poster': info.get('movie_image') or info.get('cover') or info.get('cover_big') or '',
+            'fanart': str(backdrop or ''),
+            'director': str(info.get('director') or '').strip(),
+            'cast': str(info.get('cast') or info.get('actors') or '').strip()}
+
+
+def direct_stream(params, choose=False):
+    """v5.10.560: the stream of a VOD route's params (the provider's file),
+    as play() starts it; None when there is none. ``choose``: several of a
+    Stremio source are offered in a list (play), else the first is taken."""
+    import xbmcgui
+    from .. import profile_scope
+    app = type('PlaybackSource', (), {'profile': profile_scope.ScopedPath('homeui')})()
     src = str(params.get('live_src') or '');mid = str(params.get('id') or '')
     if params.get('vod_type') not in TYPES:raise LS.SourceError('نوع VOD غير مدعوم')
-    if not mid:return
+    if not mid:return None
     if src.startswith('xt:'):
         conf = XT._conf(app,src);ext = str(params.get('ext') or 'mp4')
         if not re.fullmatch(r'[A-Za-z0-9]{1,8}',ext):ext='mp4'
         if not mid.isdigit():raise LS.SourceError('معرّف VOD غير صالح')
         kind = 'series' if params.get('vod_type')=='series' else 'movie'
         address = '%s/%s/%s/%s/%s.%s' % (XT._xt_base(conf),kind,quote(str(conf.get('username') or ''),safe=''),quote(str(conf.get('password') or ''),safe=''),mid,ext)
-        stream = LS.stream_for(address)
-    else:
-        provider = ST.provider_for(src)
-        if not provider:raise LS.SourceError('المصدر غير موجود')
-        found = ST._client().fetch_streams(provider,params.get('vod_type') or 'movie',mid,timeout_override=12) or {}
-        streams = [s for s in found.get('streams') or [] if isinstance(s,dict) and s.get('url')]
-        if not streams:raise LS.SourceError('لا توجد روابط تشغيل لهذا العمل')
-        at = xbmcgui.Dialog().select(params.get('title') or 'VOD',[s.get('title') or s.get('name') or 'Stream %d'%(i+1) for i,s in enumerate(streams)]) if len(streams)>1 else 0
-        if at<0:return
-        chosen=streams[at];hints=chosen.get('behaviorHints') or {}
-        headers=(hints.get('proxyHeaders') or {}).get('request') or {}
-        stream=LS.stream_for(chosen['url'],headers,props=chosen.get('properties') or {})
+        return LS.stream_for(address)
+    provider = ST.provider_for(src)
+    if not provider:raise LS.SourceError('المصدر غير موجود')
+    found = ST._client().fetch_streams(provider,params.get('vod_type') or 'movie',mid,timeout_override=ST.stream_wait(provider)) or {}
+    streams = [s for s in found.get('streams') or [] if isinstance(s,dict) and s.get('url')]
+    if not streams:raise LS.SourceError('لا توجد روابط تشغيل لهذا العمل')
+    at = 0
+    if choose and len(streams)>1:
+        at = xbmcgui.Dialog().select(params.get('title') or 'VOD',[s.get('title') or s.get('name') or 'Stream %d'%(i+1) for i,s in enumerate(streams)])
+        if at<0:return False
+    chosen=streams[at];hints=chosen.get('behaviorHints') or {}
+    headers=(hints.get('proxyHeaders') or {}).get('request') or {}
+    return LS.stream_for(chosen['url'],headers,props=chosen.get('properties') or {})
+
+
+def play(params):
+    import xbmc, xbmcaddon, xbmcgui, xbmcvfs
+    if not str(params.get('id') or ''):return
+    stream = direct_stream(params, choose=True)
+    if stream is False:return
     if not stream:raise LS.SourceError('تعذر تشغيل هذا العمل')
     resume = _resume_point(params)
     if resume is None:
@@ -416,6 +468,103 @@ def play(params):
     refresh_guard.restore()
     from .player_handoff import play_video
     play_video(stream['url'], item)
+
+
+_TAG = re.compile(r'^\s*(?:\|[^|]{1,10}\|\s*|\[[^\]]{1,10}\]\s*|[A-Z0-9]{1,6}(?:[-_ ][A-Z0-9]{1,6})?\s*(?::|\s-|\s\|)\s+)')
+_YEAR = re.compile(r'\s*[\(\[]((?:19|20)\d{2})[\)\]]\s*$')
+
+
+def clean_title(name):
+    """(title, year) of a panel's film or series name for its title page
+    (v5.10.560): '4K-TOP - Heart of the Beast (2026)' -> ('Heart of the
+    Beast', '2026'); 'AR: …', '|EN| …', '[4K] …' lose their tag too."""
+    text = str(name or '').strip()
+    year = ''
+    match = _YEAR.search(text)
+    if match:
+        year, text = match.group(1), text[:match.start()].strip()
+    for _ in range(3):
+        stripped = _TAG.sub('', text, count=1).strip()
+        if not stripped or stripped == text:
+            break
+        text = stripped
+    return (text or str(name or '').strip()), year
+
+
+def _series_app():
+    from .. import profile_scope
+    return type('SeriesPage', (), {'profile': profile_scope.ScopedPath('homeui'),
+                                   'tr': staticmethod(lambda text: text)})()
+
+
+def series_rows(vs, title=''):
+    """v5.10.560: ([(season, label)], {season: [episode rows]}) of an IPTV
+    series from its provider, for a title page TMDb knows nothing of. The
+    rows have the page's shape (season, episode, title, plot, thumb, path)."""
+    src, _sep, sid = str(vs or '').partition('|')
+    if not (src and sid):
+        return [], {}
+    app = _series_app()
+    base = {'live_src': src, 'vod_type': 'series', 'vod_series': sid, 'id': sid, 'title': title or ''}
+    try:
+        cards, _more = page_tiles(dict(base), app)
+    except Exception:
+        return [], {}
+    numbers = []
+    for card in cards or []:
+        number = R.params_of(card.get('path') or '').get('season')
+        if str(number or '').isdigit() and int(number) not in numbers:
+            numbers.append(int(number))
+    seasons, episodes = [], {}
+    for number in numbers:
+        try:
+            tiles, _more = page_tiles(dict(base, season=str(number)), app)
+        except Exception:
+            continue
+        rows = []
+        for tile in tiles or []:
+            route = tile.get('path') or ''
+            q = R.params_of(route)
+            if q.get('action') != 'home_vod_play' or not str(q.get('episode') or '').isdigit():
+                continue
+            name = tile.get('title') or ''
+            name = re.sub(r'\s*[—-]\s*S\d+\s*:\s*E\d+\s*$', '', name).strip()
+            # a panel names its episodes '4K-AR - Show - S01E01': no name of
+            # their own, the page says "Episode 1"
+            if re.search(r'(?i)(?:^|[\s._-])S\d{1,2}\s*E\d{1,3}(?:$|[\s._-])', name) or \
+                    clean_title(name)[0] == clean_title(title)[0]:
+                name = ''
+            rows.append({'season': number, 'episode': int(q['episode']), 'title': name,
+                         'plot': tile.get('plot') or '', 'thumb': tile.get('landscape') or '',
+                         'aired': '', 'video_id': '', 'path': route, 'menu': []})
+        if rows:
+            rows.sort(key=lambda r: r['episode'])
+            episodes[number] = rows
+            seasons.append(number)
+    return seasons, episodes
+
+
+def episode_routes(vs, season, title='', tmdb=''):
+    """v5.10.560: {episode number: play route} of an IPTV series' season,
+    for its title page (the skin's): ``vs`` is '<source>|<series id>'.
+    {} when the source has no such season or cannot be read."""
+    src, _sep, sid = str(vs or '').partition('|')
+    if not (src and sid and str(season).isdigit()):
+        return {}
+    app = _series_app()
+    params = {'live_src': src, 'vod_type': 'series', 'vod_series': sid, 'id': sid,
+              'title': title or '', 'season': str(int(season)), 'tmdb_id': tmdb or ''}
+    try:
+        tiles, _more = page_tiles(params, app)
+    except Exception:
+        return {}
+    out = {}
+    for tile in tiles or []:
+        route = tile.get('path') or ''
+        q = R.params_of(route)
+        if q.get('action') == 'home_vod_play' and str(q.get('episode') or '').isdigit():
+            out.setdefault(int(q['episode']), route)
+    return out
 
 
 def _clock(seconds):

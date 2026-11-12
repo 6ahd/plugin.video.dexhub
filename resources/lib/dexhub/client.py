@@ -1003,6 +1003,16 @@ def fetch_catalog(provider, media_type, catalog_id, extra=None,
     # a search answers what was typed now: never a stale copy of it
     search = bool(str((extra or {}).get('search') or '').strip())
     url = build_resource_url(provider, 'catalog', media_type, catalog_id, extra=extra or {})
+    if not search and 'dexworld' in url.lower():
+        # v5.10.560: a DexWorld source its provider blocks for the server
+        # opens from the provider at once (the server took 20-80 s to say 403)
+        try:
+            from .. import dexworld_direct
+            direct = dexworld_direct.before_catalog(url, (extra or {}).get('skip') or 0)
+        except Exception:
+            direct = None
+        if direct:
+            return direct
     data = get_json(
         url,
         ttl_seconds=0 if force_refresh else catalog_ttl(),
@@ -1041,6 +1051,16 @@ def _meta_ttl_for(ttl_override=None):
 
 def fetch_meta(provider, media_type, item_id, timeout_override=None,
                retry=True, rate_wait=2.0, ttl_override=None):
+    if str(item_id or '').startswith(('dexhd_', 'dex_series_')):
+        # v5.10.560: a DexWorld series, from the provider itself (DexWorld's
+        # server gets 403 for it); None leaves any other add-on's alone
+        try:
+            from .. import dexworld_direct
+            local = dexworld_direct.local_meta(build_resource_url(provider, 'meta', media_type, item_id), item_id)
+        except Exception:
+            local = None
+        if local is not None:
+            return local
     return get_json(
         build_resource_url(provider, 'meta', media_type, item_id),
         ttl_seconds=_meta_ttl_for(ttl_override),
@@ -1079,6 +1099,16 @@ def fetch_streams(provider, media_type, video_id, timeout_override=None):
     # failures, skip the call entirely and return an empty stream list
     # so the parallel race in plugin.streams doesn't wait on a known-
     # broken addon for the full timeout.
+    if str(video_id or '').startswith('dexhd_'):
+        # v5.10.560: a DexWorld film or episode Dex Hub listed from the
+        # provider itself: its own file, without asking DexWorld's server
+        try:
+            from .. import dexworld_direct
+            local = dexworld_direct.local_streams(build_resource_url(provider, 'stream', media_type, video_id), video_id)
+        except Exception:
+            local = None
+        if local is not None:
+            return local
     pid = (provider or {}).get('id') or (provider or {}).get('base_url') or ''
     force = bool((provider or {}).get('_force_stream_refresh'))
     if pid and not force and _provider_health_should_skip(pid):

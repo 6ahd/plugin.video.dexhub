@@ -197,7 +197,10 @@ class HeroFocus(threading.Thread):
         if now - getattr(self, '_tone_checked', -1e9) > 2.0:
             self._tone_checked = now
             self._tone_wanted = xbmc.getInfoLabel('Skin.String(dh.pagetone)') == 'artwork'
-        if not self._tone_wanted:
+        # v5.10.560: an IPTV title's page always takes its art's colour (its
+        # poster when the provider has no backdrop)
+        iptv_page = guistate.video_info_up() and bool(C.prop('dhs.tp.iptv'))
+        if not (self._tone_wanted or iptv_page):
             art_colour.stop_following()
             return
         info = xbmc.getInfoLabel

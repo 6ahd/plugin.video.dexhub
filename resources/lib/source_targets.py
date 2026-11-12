@@ -321,6 +321,16 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
             combined_targets = list(combined_targets) + list(_usenet)
     except Exception as _usenet_exc:
         api.xbmc.log('[DexHub] Usenet source: %s' % _usenet_exc, api.xbmc.LOGWARNING)
+    # v5.10.560: the IPTV provider's own file, for a title its IPTV page opened
+    try:
+        from .iptv_vod_source import targets as _iptv_targets
+        _iptv = _iptv_targets(meta, canonical_id, media_type,
+                              ids=api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id)),
+                              season=season, episode=episode)
+        if _iptv:
+            combined_targets = list(_iptv) + list(combined_targets)
+    except Exception as _iptv_exc:
+        api.xbmc.log('[DexHub] IPTV VOD source: %s' % _iptv_exc, api.xbmc.LOGWARNING)
     # v5.10.373: in a watch party whose host shares its own link, «Dex Hub+»
     # goes first (one quick call to the hub, no scan)
     try:

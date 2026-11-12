@@ -1120,6 +1120,10 @@ def xt_tiles(app, params, card, count=LS.ROW_LIMIT):
     src = params['live_src']
     conf = _conf(app, src)
     items = streams(app.profile, conf, params['category'])
+    # v5.10.560: panels put headings in the list as channels
+    # ('##### beIN SPORTS HD #####'): the first "channel" of a category was one
+    from ..dexworld_direct import _separator
+    items = [i for i in items if not _separator(str((list(i) + [''])[0] or ''))]
     start = int(params.get('start') or 0)
     tiles = []
     for item in items[start:start + count]:

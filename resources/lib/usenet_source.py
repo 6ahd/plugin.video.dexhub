@@ -489,6 +489,21 @@ def _edit_indexer(i, new=False):
 
 def _engine_note():
     from . import usenet_engine
+    if usenet_engine.in_app() and not usenet_engine.binary():
+        # the engine is inside the app: start it now and say what happened
+        busy = xbmcgui.DialogProgressBG()
+        busy.create('Usenet', _t('يشغّل المحرك…', 'Starting the engine…'))
+        try:
+            where = usenet_engine.ensure()
+        finally:
+            busy.close()
+        if where:
+            xbmcgui.Dialog().ok('Usenet', _t('المحرك داخل التطبيق واشتغل. (من NuvioTV، رخصة GPL-3.0، إضافة مستقلة عن Dex Hub)',
+                                             'The engine is inside the app and it started. (From NuvioTV, GPL-3.0, an add-on apart from Dex Hub)'))
+        else:
+            xbmcgui.Dialog().ok('Usenet', _t('المحرك داخل التطبيق لكنه ما اشتغل:\n%s', 'The engine is inside the app but it did not start:\n%s')
+                                % (usenet_engine.state_note() or _t('ما رد', 'no answer')))
+        return
     xbmcgui.Dialog().ok('Usenet', _t(
         'المحرك إضافة مستقلة اسمها «Usenet engine (for Dex Hub)» (من NuvioTV، رخصة GPL-3.0) ومو جزء من Dex Hub. ثبّتها من ملف zip أو من المستودع.\nأو حط البرنامج بيدك في:\n%s\nباسم: %s',
         'The engine is an add-on of its own, "Usenet engine (for Dex Hub)" (from NuvioTV, GPL-3.0), not part of Dex Hub. Install it from a zip or the repository.\nOr put the program by hand in:\n%s\nnamed: %s')
@@ -527,7 +542,9 @@ class SetupWindow(xbmcgui.WindowXMLDialog):
         data = config()
         ready = usenet_engine.available()
         self.setProperty('un.engine.ok', '1' if ready else '')
-        self.setProperty('un.engine', _t('المحرك مركّب وجاهز', 'The engine is on this device') if ready
+        self.setProperty('un.engine', (_t('المحرك داخل التطبيق', 'The engine is inside the app')
+                                       if usenet_engine.in_app() and not usenet_engine.binary()
+                                       else _t('المحرك مركّب وجاهز', 'The engine is on this device')) if ready
                          else _t('المحرك مو مركّب على هذا الجهاز', 'The engine is not on this device'))
         for cid, rows, key, add in ((self.PROVIDERS, data['providers'], 'providers', _t('إضافة مزود', 'Add a provider')),
                                     (self.INDEXERS, data['indexers'], 'indexers', _t('إضافة مفهرس', 'Add an indexer'))):
@@ -634,7 +651,9 @@ def _setup_list():
             return True
         what = rows[choice][1]
         changed = False
-        if what == 'engine':
+        if what == 'engine' and usenet_engine.in_app() and not usenet_engine.binary():
+            _engine_note()
+        elif what == 'engine':
             dialog.ok('Usenet', _t(
                 'المحرك إضافة مستقلة اسمها «Usenet engine (for Dex Hub)» (من NuvioTV، رخصة GPL-3.0) ومو جزء من Dex Hub. ثبّتها من ملف zip أو من المستودع.\nأو حط البرنامج بيدك في:\n%s\nباسم: %s',
                 'The engine is an add-on of its own, "Usenet engine (for Dex Hub)" (from NuvioTV, GPL-3.0), not part of Dex Hub. Install it from a zip or the repository.\nOr put the program by hand in:\n%s\nnamed: %s')

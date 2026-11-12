@@ -39,6 +39,11 @@ def _fetch_uncached(target, media_type, api):
             from .. import party_share as _party
             payload = _party.payload(provider)
             return payload
+        if (provider or {}).get('id') == '__iptv__':
+            # v5.10.560: the IPTV provider's own file (iptv_vod_source)
+            from .. import iptv_vod_source as _iptv
+            payload = _iptv.payload(provider)
+            return payload
         if (provider or {}).get('id') == '__nas__':
             # v5.10.543: films and episodes on the viewer's NAS (nas_sources)
             from .. import nas_sources as _nas
@@ -221,7 +226,7 @@ def fetch(target, media_type, api):
             return {'streams': [], '_source_status': 'cancelled'}
     except Exception:
         pass
-    if (provider or {}).get('id') in ('__party__', '__kodi__', '__nas__'):
+    if (provider or {}).get('id') in ('__party__', '__kodi__', '__nas__', '__iptv__'):
         # v5.10.373: a ticket of this moment, never from the results cache
         # (v5.10.447: nor a Kodi add-on's list: its saved copy is what plays)
         return _fetch_uncached(target, media_type, api)

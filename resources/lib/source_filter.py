@@ -618,7 +618,14 @@ def run(rows, minutes, chosen, sort, sorts, keep, on_change=None, edge=False, an
     import xbmcaddon
     path = xbmcaddon.Addon('plugin.video.dexhub').getAddonInfo('path')
     _log('%d rows, running time %d min' % (len(rows), minutes))
-    window = FilterWindow('dexhub_filter.xml', path, 'Default', '1080i', rows=rows, minutes=minutes,
+    skin_file = 'dexhub_filter.xml'
+    try:        # v5.10.560: the Aura sources theme has the panel in its own quiet colours
+        from .ui_preferences import value as _pref
+        if _pref('sources_row_style') == 'aura':
+            skin_file = 'dexhub_filter_aura.xml'
+    except Exception:
+        pass
+    window = FilterWindow(skin_file, path, 'Default', '1080i', rows=rows, minutes=minutes,
                           chosen=chosen, sort=sort, sorts=sorts, keep=keep, on_change=on_change, anime=anime)
     try:
         window.doModal()

@@ -56,7 +56,10 @@ def write(order):
     for n, key in enumerate(order, 1):
         xbmc.executebuiltin('Skin.SetString(dh.ord.%d,%s)' % (n, key))
     for n, key in enumerate(order):
-        for name, other in (('up', order[n - 1] if n > 0 else ''), ('dn', order[n + 1] if n + 1 < len(order) else '')):
+        # v5.10.560: the side menu wraps: Up on the first goes to the last, Down on the last to the first
+        for name, other in (('up', order[n - 1]), ('dn', order[(n + 1) % len(order)])):
+            if other == key:
+                other = ''
             if other:
                 xbmc.executebuiltin('Skin.SetString(dh.%s.%s,%s)' % (name, key, other))
             else:

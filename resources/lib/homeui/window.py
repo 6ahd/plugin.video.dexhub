@@ -2009,6 +2009,77 @@ class _BaseWindow(xbmcgui.WindowXML):
             return ''
         return 'plugin://%s/?%s' % (TMDBH_ID, urlencode(params))
 
+    def _vod_title_page(self, tile, path):
+        """v5.10.560: an IPTV film or series opens its title page, as the
+        skin's rows do (the skin's page, skin.dexhub). TMDb first (the
+        provider's id, else a search by the cleaned name and year), the
+        provider's poster, plot and year where TMDb has nothing; the page's
+        Play (a film) and episodes (a series) play the provider's own files.
+        True when the page opened."""
+        if not R.is_dexhub_path(path):
+            return False
+        params = R.params_of(path)
+        film = (params.get('action') == 'home_vod_play' and params.get('vod_type') == 'movie'
+                and not params.get('episode'))
+        # a series (its seasons list): its page's episodes play the provider's files
+        show = (params.get('action') == 'home_vod_list' and params.get('vod_type') == 'series'
+                and params.get('vod_series') and not params.get('season') and params.get('live_src'))
+        if not (film or show):
+            return False
+        tmdb = str(params.get('tmdb_id') or tile.get('tmdb_id') or '').strip()
+        imdb = str(params.get('imdb_id') or tile.get('imdb_id') or '').strip()
+        tmdb = tmdb if tmdb.isdigit() and tmdb != '0' else ''
+        imdb = imdb if re.fullmatch(r'tt\d+', imdb) else ''
+        try:
+            from ..skinui import common as SC
+            from ..skinui.items import title_over_window
+            from ..skinui.title_seed import save_iptv
+            from .vod import clean_title
+            src = params.get('live_src') or ''
+            item_id = params.get('vod_series') if show else params.get('id')
+            canonical = imdb or ('tmdb:%s' % tmdb if tmdb else 'iptv:%s:%s' % (src, item_id or ''))
+            media = 'movie' if film else 'series'
+            name, named_year = clean_title(params.get('title') or tile.get('title') or '')
+            q = {'m': media, 'id': canonical, 'i': SC.short_id('%s|%s' % (media, canonical)),
+                 'title': name, 'ip': '1'}
+            year = str(tile.get('year') or '')[:4]
+            if year.isdigit():
+                q['year'] = year
+            elif named_year:
+                q['year'] = named_year
+            if film:
+                q['vplay'] = path
+            else:
+                q['vs'] = '%s|%s' % (src, params['vod_series'])
+            if tmdb:
+                q['tmdb'] = tmdb
+            if imdb:
+                q['imdb'] = imdb
+            # what the provider says of it, for whatever TMDb has not (title_seed)
+            save_iptv(q['i'], {'title': name, 'year': q.get('year') or '',
+                               'poster': params.get('poster') or tile.get('poster') or '',
+                               'fanart': params.get('fanart') or tile.get('fanart') or '',
+                               'plot': tile.get('plot') or '', 'rating': tile.get('rating') or 0,
+                               'genres': list(tile.get('genres') or [])[:3],
+                               'route': path if film else ''})
+            # Sources on the page: the provider's file is one of them (iptv_vod_source)
+            try:
+                from .. import iptv_vod_source, profile_scope
+                from . import live_sources as LS, live_stremio as ST
+                if src.startswith('xt:'):
+                    where = (LS.get_saved(profile_scope.ScopedPath('homeui'), src.split(':', 1)[1]) or {}).get('name') or ''
+                else:
+                    where = (ST.provider_for(src) or {}).get('name') or ''
+                iptv_vod_source.bind({'canonical': canonical, 'tmdb': tmdb, 'imdb': imdb, 'src': src,
+                                      'title': name, 'raw': params.get('title') or '', 'provider': where,
+                                      'vplay': path if film else '', 'vs': q.get('vs') or ''})
+            except Exception:
+                pass
+            self.stop_trailer(wait=False)
+            return bool(title_over_window(self, q))
+        except Exception:
+            return False
+
     def open_path(self, tile, helper=True):
         """Open a captured Dex Hub item the way its native listing would.
 
@@ -2019,6 +2090,8 @@ class _BaseWindow(xbmcgui.WindowXML):
             self.watch_channel(tile)
             return
         path = tile.get('path') or ''
+        if helper and self.title_page() == 'dexhub' and self._vod_title_page(tile, path):
+            return
         from ..catalog_navigation import folder_ref
         ref = folder_ref(R.params_of(path)) if R.is_dexhub_path(path) else None
         if ref is not None:
@@ -2112,6 +2185,16 @@ class _BaseWindow(xbmcgui.WindowXML):
         self.app.open_grid(params, title=title, shape=shape, page_tile={'hero': hero})
 
     def show_info(self, tile):
+        # v5.10.560: Info on a movie or show opens its Dex Hub page; the
+        # skin's info dialog is only for what that page cannot show
+        try:
+            from . import details
+            if tile and self.title_page() == 'dexhub' and details.supported(tile):
+                self.stop_trailer(wait=False)
+                self.app.open_details(tile)
+                return
+        except Exception:
+            pass
         li = (tile or {}).get('_src_li')
         if li is None:
             return

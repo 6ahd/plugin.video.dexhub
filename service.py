@@ -923,6 +923,16 @@ if __name__ == '__main__':
     except Exception as exc:
         xbmc.log('[DexHub] Home autostart not started: %s' % exc, xbmc.LOGWARNING)
 
+    # v5.10.560: a fresh install's skin look (skin_defaults), once skin.dexhub is in use
+    try:
+        from resources.lib import skin_defaults as _skin_defaults
+        if (_setting('interface_defaults_v6', 'false') or 'false') != 'true' or _skin_defaults.pending():
+            import threading as _thr_skin
+            _thr_skin.Thread(target=_skin_defaults.watch, args=(xbmc.Monitor(),),
+                             name='DexHub-skin-defaults', daemon=True).start()
+    except Exception as exc:
+        xbmc.log('[DexHub] skin defaults not started: %s' % exc, xbmc.LOGWARNING)
+
     _publish_core_props('')
     _publish_badge_props()
     # v5.10.142: a pack's or the folder's badges need skin.dexhub 3.19 (an

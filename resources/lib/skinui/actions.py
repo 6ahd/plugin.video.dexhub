@@ -471,6 +471,18 @@ def _play_episode(t, ctx, row, params, choose=False):
     if not row:
         notify(_tr('لا توجد حلقات لهذا المسلسل في مصادر البيانات'))
         return
+    vs = params.get('vs') or (getattr(t, 'q', None) or {}).get('vs')
+    if vs:
+        # v5.10.560: an IPTV series' page plays the provider's own episode
+        from ..homeui import vod
+        try:
+            route = vod.episode_routes(vs, int(row.get('season') or 0), t.hero.get('title') or '',
+                                       t.tmdb_id).get(int(row.get('episode') or 0))
+        except Exception:
+            route = ''
+        if route:
+            launch('RunPlugin(%s)' % _arg(route))
+            return
     if choose:
         command = next((m[1] for m in row.get('menu') or [] if m and len(m) > 1), '')
         extra = {'media_type': 'episode', 'season': str(row.get('season')), 'episode': str(row.get('episode'))}
@@ -910,11 +922,33 @@ def open_title(params, handle):
     from . import title as T
     q = T.query_of(params)
     q.pop('page', None)
+    # v5.10.560: an IPTV film's page plays its own file (the provider's VOD)
+    vplay = q.pop('vplay', '')
+    # an IPTV series: '<source>|<series id>', kept in the page's query so its
+    # episodes list and Play find the provider's episodes (title.episode_items)
+    vs = q.pop('vs', '')
+    from ..homeui import rows as R
+    if not (vplay.startswith(C.BASE) and R.params_of(vplay).get('action') in R.PLAYER_ACTIONS):
+        vplay = ''
+
+    iptv = q.get('ip') == '1'
+
+    def show(li):
+        if vplay:
+            li.setProperty('dhs.play', vplay)
+        extra = [(k, v) for k, v in (('vs', vs), ('ip', '1' if iptv else '')) if v]
+        if extra and li.getProperty('dhs.q'):
+            li.setProperty('dhs.q', li.getProperty('dhs.q') + '&' + urlencode(extra))
+        xbmc.executebuiltin('Dialog.Close(movieinformation,true)', True)
+        # the skin draws an IPTV title's page with its poster and tabs
+        # (Includes_DexHub.xml dhs_tp_cin / dhs_tp_tabs); the page clears it
+        C.set_prop('dhs.tp.iptv', '1' if iptv else '')
+        C.show_info(li)
+
     from .title_seed import cached_item
     seeded = cached_item(q)
     if seeded is not None:
-        xbmc.executebuiltin('Dialog.Close(movieinformation,true)', True)
-        C.show_info(I.listitem(seeded))
+        show(I.listitem(seeded))
         return None
     tile = None
     # the related title's own data, as the page that listed it knew it
@@ -936,11 +970,23 @@ def open_title(params, handle):
                 'path': C.url('item_open', media_type=media, canonical_id=q.get('id') or '',
                               title=q.get('title') or '', tmdb_id=q.get('tmdb') or ''),
                 'folder': media == 'series'}
+    if iptv:
+        # v5.10.560: the poster the VOD page already showed, at once (and as
+        # the backdrop when the provider has none); TMDb's art follows
+        from .title_seed import iptv as iptv_seed
+        seed = iptv_seed(q.get('i'))
+        for key in ('poster', 'plot', 'rating', 'genres'):
+            if seed.get(key) and not tile.get(key):
+                tile[key] = seed[key]
+        if not tile.get('year') and seed.get('year'):
+            tile['year'] = seed['year']
+        if not tile.get('fanart'):
+            tile['fanart'] = seed.get('fanart') or seed.get('poster') or ''
+        if not tile.get('landscape'):
+            tile['landscape'] = tile['fanart']
     ctx = rows.Context('all')
     item = ctx.item(tile, {'shape': 'poster'})
-    li = I.listitem(item)
-    xbmc.executebuiltin('Dialog.Close(movieinformation,true)', True)
-    C.show_info(li)
+    show(I.listitem(item))
     return None
 
 

@@ -844,8 +844,10 @@ def run(params):
         from . import vod
         try:
             return vod.play(params)
-        except Exception:
-            _log('VOD playback failed', xbmc.LOGWARNING)
+        except Exception as exc:
+            import re as _re
+            reason = _re.sub(r'\w+://\S+', '<address>', str(exc))[:120]     # an address carries the account
+            _log('VOD playback failed: %s %s' % (type(exc).__name__, reason), xbmc.LOGWARNING)
             xbmcgui.Dialog().notification('Dex Hub', 'تعذر تشغيل VOD من المصدر', xbmcgui.NOTIFICATION_WARNING, 4000)
             return None
     if action == 'home_vod_series':

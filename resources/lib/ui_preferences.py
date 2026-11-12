@@ -17,7 +17,7 @@ OPTIONS = {
     'player_ppi_page': ('dexhub', ('dexhub', 'tiny'), 'زر PPI في المشغل', 'PPI button in the player'),
     'player_badges_brightness': ('solid', ('solid', 'soft'), 'وضوح رموز الجودة', 'Badge appearance'),
     # v5.10.286: two new Home layouts (cinema, netflix); cinematic stays the default
-    'homeui_layout_mode': ('cinematic', ('legacy', 'cinema', 'netflix', 'two_rows', 'cinematic', 'shelf', 'spotlight_posters'), 'وضع الواجهة', 'Home layout'),
+    'homeui_layout_mode': ('cinema', ('legacy', 'cinema', 'netflix', 'two_rows', 'cinematic', 'shelf', 'spotlight_posters'), 'وضع الواجهة', 'Home layout'),
     'homeui_nav_position': ('top', ('top', 'side'), 'مكان تبويبات الأقسام', 'Section tabs position'),
     'remember_last_source': ('false', None, 'إعادة آخر نسخة شغّلتها للعمل', 'Replay the last version played for this title'),
     'continue_known_source_direct': ('true', None, 'متابعة المشاهدة من المصدر المعروف', 'Resume the known source directly'),
@@ -43,7 +43,7 @@ OPTIONS = {
     # v5.10.301: the sources window's rows; v5.10.438: the Halo theme (its own
     # search screen and sources page); v5.10.442: three themes: Prism (the
     # page like Nuvio TV, key "full"), Compact and Halo
-    'sources_row_style': ('halo', ('full', 'compact', 'halo', 'classic'), 'ثيم البحث والمصادر', 'Search and sources theme'),
+    'sources_row_style': ('aura', ('full', 'compact', 'halo', 'classic', 'aura'), 'ثيم البحث والمصادر', 'Search and sources theme'),
     # v5.10.298: the player bar's look (osd_look.py): style, darkness, colour
     'player_osd_style': ('classic', ('classic', 'glass', 'cinematic', 'minimal'), 'نمط شريط المشغّل', 'Player bar style'),
     'player_osd_dim': ('70', ('0', '15', '30', '50', '60', '70', '80', '85', '95'), 'تعتيم خلفية المشغّل', 'Player background darkness'),
@@ -108,15 +108,15 @@ OPTIONS = {
     # v5.10.365: the Home's rows and pictures made ready while the screensaver runs
     'homeui_ss_preload': ('true', None, 'تجهيز الرئيسية وقت شاشة التوقف', 'Prepare the Home during the screensaver'),
     # v5.10.326: the trailer behind the page or inside the focused card
-    'homeui_trailer_mode': ('background', ('background', 'card'), 'مكان التريلر', 'Trailer place'),
+    'homeui_trailer_mode': ('card', ('background', 'card'), 'مكان التريلر', 'Trailer place'),
     'homeui_carousel': ('true', None, 'تدوير البانر', 'Banner carousel'),
     'homeui_carousel_interval': ('10', tuple(str(n) for n in range(5, 31)), 'مدة البانر', 'Banner interval'),
     'homeui_kenburns': ('true', None, 'تحريك الخلفيات', 'Animated backgrounds'),
     'homeui_focus_gif': ('true', None, 'الصور المتحركة', 'Animated images'),
     'homeui_plot_scroll': ('false', None, 'تحريك النبذة', 'Scrolling plot'),
     # v5.10.288: side rail as icons only; top bar hidden while scrolling the rows
-    'homeui_nav_icons_only': ('false', None, 'القائمة الجانبية أيقونات فقط', 'Sidebar as icons only'),
-    'homeui_nav_autohide': ('false', None, 'إخفاء القائمة عند التمرير', 'Hide the menu while scrolling'),
+    'homeui_nav_icons_only': ('true', None, 'القائمة الجانبية أيقونات فقط', 'Sidebar as icons only'),
+    'homeui_nav_autohide': ('true', None, 'إخفاء القائمة عند التمرير', 'Hide the menu while scrolling'),
     # v5.10.380: immediate tab focus, with IPTV kept click-only
     'homeui_nav_focus_open': ('true', None, 'فتح الأقسام بالتمرير', 'Open sections on focus'),
     # v5.10.424: the Home comes whole at Kodi's start (skinui/startup_splash.py, skin.dexhub 3.28.139)
@@ -132,13 +132,13 @@ OPTIONS = {
     # v5.10.322 (GitHub #20): the rating at the end of the meta line; the
     # two rows layout with smaller buttons and row names and a wider plot
     'homeui_rating_inline': ('true', None, 'التقييم في سطر التفاصيل', 'Rating on the details line'),
-    'homeui_compact_hero': ('true', None, 'هيرو الصفين أصغر', 'Smaller two rows hero'),
+    'homeui_compact_hero': ('false', None, 'هيرو الصفين أصغر', 'Smaller two rows hero'),
     'homeui_hide_plot': ('false', None, 'إخفاء الحبكة في الواجهة الرئيسية', 'Hide the plot on the Home'),
     # v5.10.189: the top bar's tabs are icons; names only on request
     'homeui_nav_names': ('false', None, 'أسماء الأقسام في الشريط العلوي', 'Tab names in the top bar'),
     # v5.10.450: 'tvos' (the default) is Apple TV's focus as Nuvio measured it:
     # the card grows 9% (posters 14%), rises 8 px and casts a shadow
-    'homeui_focus_motion': ('tvos', ('tvos', 'zoom', 'lift', 'pop', 'glow'), 'حركة التحديد', 'Focus motion'),
+    'homeui_focus_motion': ('zoom', ('tvos', 'zoom', 'lift', 'pop', 'glow'), 'حركة التحديد', 'Focus motion'),
     # v5.10.451: no focus growth, card skeleton pulse, page
     # transitions or moving backdrops (skin.dexhub 3.28.170, dhs.pref.homeui_calm_motion)
     'homeui_calm_motion': ('false', None, 'حركة أقل', 'Reduce motion'),
@@ -532,6 +532,7 @@ def edit(key, txt):
         'compact': txt('مختصرة · بشاراتك الخاصة', 'Compact · your own badges'),
         'halo': txt('Halo · جاهز بشاراته', 'Halo · ready-made, its own badges'),
         'classic': txt('كلاسيكي · كل التقييمات فوق', 'Classic · every rating on top'),
+        'aura': txt('Aura · زجاج فوق الخلفية وتفاصيل الملف', 'Aura · glass over the artwork, file details'),
     }
     shown = [labels.get(v, v + txt(' ثوانٍ', ' seconds') if key.endswith(('delay', 'interval')) else v) for v in choices]
     if key == 'player_badges_opacity':  # v5.10.286

@@ -306,6 +306,8 @@ class HeadlessTitle(object):
         step('tmdb', self._load_tmdb)
         step('tmdb apply', self._apply_tmdb)
         step('extras', self._extras_from_tmdb)
+        if self.q.get('ip'):
+            step('iptv', self._iptv_fill)
         if self.series:
             # Publish the season index without waiting for metadata providers.
             self._seed_seasons()
@@ -321,6 +323,34 @@ class HeadlessTitle(object):
             self.tmdb_id or 'none', len(self.cast), len(self.related), len(self.seasons),
             ', read again in %d min' % (THIN_TTL // 60) if data.get('thin') else ''))
         return self
+
+    def _iptv_fill(self):
+        """v5.10.560: an IPTV title (q 'ip'): TMDb first, then what its
+        provider says (title_seed.iptv); no backdrop: its poster fills the
+        page (the page colour follows it); a series TMDb has no seasons for
+        takes its provider's seasons and episodes."""
+        from .title_seed import iptv
+        seed = iptv(self.title_id)
+        for key in ('title', 'plot', 'year', 'poster', 'fanart', 'rating', 'genres'):
+            if seed.get(key) and not self.hero.get(key):
+                self.hero[key] = seed[key]
+        if not self.hero.get('plot') or not self.hero.get('genres'):
+            # the provider's own page of the title (get_vod_info / get_series_info)
+            from ..homeui import vod
+            more = vod.provider_info(seed.get('route') or '', self.q.get('vs') or '')
+            for key in ('plot', 'genres', 'year', 'rating', 'poster', 'fanart', 'director'):
+                if more.get(key) and not self.hero.get(key):
+                    self.hero[key] = more[key]
+        if not (self.hero.get('fanart') or self.hero.get('landscape')) and self.hero.get('poster'):
+            self.hero['fanart'] = self.hero['poster']
+        if self.series and self.q.get('vs') and not (self.tmdb or {}).get('seasons'):
+            from ..homeui import vod
+            from ..homeui.details import season_label
+            numbers, episodes = vod.series_rows(self.q['vs'], self.hero.get('title') or '')
+            if numbers:
+                self.episodes = dict(episodes)
+                self.seasons = [(n, season_label(self.tr, n, '', self.hero.get('title'))) for n in numbers]
+                self._episodes_ready = True
 
     def _snapshot(self):
         return {
@@ -517,7 +547,9 @@ class HeadlessTitle(object):
                  'dhs.tp.director': self.hero.get('director') or '',
                  'dhs.tp.released': self.hero.get('released') or '',
                  'dhs.tp.studio': self.hero.get('studio') or '',
-                 'dhs.tp.starring': ', '.join(c.get('name') for c in (self.cast or [])[:2] if c.get('name'))}
+                 'dhs.tp.starring': ', '.join(c.get('name') for c in (self.cast or [])[:2] if c.get('name')),
+                 # v5.10.560: an IPTV title's page: poster layout with tabs (the skin)
+                 'dhs.tp.iptv': '1' if self.q.get('ip') else ''}
         numbers = [n for n, _label in self.seasons]
         season_idx, ep_idx, season = 0, 0, ''
         if numbers:
@@ -692,7 +724,14 @@ class HeadlessTitle(object):
         backdrop = (hero.get('landscape') or hero.get('fanart') or page.get('landscape')
                     or page.get('fanart') or '')
         items = []
+        # v5.10.560: an IPTV series' page plays the provider's episodes
+        iptv = {}
+        if self.q.get('vs'):
+            from ..homeui import vod
+            iptv = vod.episode_routes(self.q['vs'], number, hero.get('title') or '', self.tmdb_id)
         for row in rows:
+            if iptv:
+                row = dict(row, path=iptv.get(_int(row.get('episode'))) or row.get('path') or '')
             progress = self.progress.get((number, _int(row.get('episode'))))
             started = bool(progress and (self._watched(progress) or self._percent(progress) > 0))
             label = ET.list_label(self.tr, _int(row.get('episode')), row.get('title'), started=started)

@@ -291,6 +291,16 @@ def provider_for(src):
     return None
 
 
+def stream_wait(provider, default=12):
+    """Seconds to wait for a stream (v5.10.560): DexWorld's server took
+    about 24.5 s for every stream on 12 Nov 2026, and 12 s gave up on all
+    of them; other add-ons keep ``default``."""
+    try:
+        return 30 if dexworld_parts(provider) else default
+    except Exception:
+        return default
+
+
 def _dexworld_of(src):
     if src == 'dw':
         key = live_key()
@@ -619,16 +629,30 @@ def resolve(tile, app):
     provider = dict(provider, _force_stream_refresh=True)    # a live address may expire
     info = tile.get('stream') or {}
     ctype, cid = info.get('type') or 'tv', info.get('id') or ''
+    # v5.10.560: a DexWorld channel whose provider account is known plays
+    # from the provider at once (DexWorld's /stream/ took 25-80 s that day)
     try:
-        data = _client().fetch_streams(provider, ctype, cid, timeout_override=12) or {}
+        from .. import dexworld_direct
+        parts = _dexworld_of(tile.get('src'))
+        address = dexworld_direct.channel_address(parts[0], parts[1], cid) if parts else ''
+    except Exception:
+        address = ''
+    if address:
+        stream = LS.stream_for(address, {}, key=path, logo=tile.get('logo') or '')
+        if stream:
+            _streams[path] = (time.time(), stream)
+            return stream
+    try:
+        wait = stream_wait(provider)
+        data = _client().fetch_streams(provider, ctype, cid, timeout_override=wait) or {}
         chosen = pick(data.get('streams'))
         if chosen is None and ctype == 'channel':
             # a Stremio "channel" may hold videos: the first one is its live stream
-            meta = (_client().fetch_meta(provider, ctype, cid, timeout_override=10) or {}).get('meta') or {}
+            meta = (_client().fetch_meta(provider, ctype, cid, timeout_override=wait) or {}).get('meta') or {}
             videos = [v for v in meta.get('videos') or [] if isinstance(v, dict) and v.get('id')]
             if videos:
                 data = _client().fetch_streams(provider, ctype, str(videos[0]['id']),
-                                               timeout_override=12) or {}
+                                               timeout_override=wait) or {}
                 chosen = pick(data.get('streams'))
     except Exception as exc:
         LS.log('channel stream not found: %s' % LS.failure(exc), xbmc.LOGWARNING)
@@ -776,11 +800,25 @@ def link(app):
     if not key:
         return ''
     _busy(True)
-    try:
-        check_key(key)
-    except Exception as exc:
+    # v5.10.560: DexWorld's keys are case-sensitive (a capital letter typed
+    # in lower case gets 403) and Kodi's keyboard starts in lower case: the
+    # key's other usual casings are tried before giving up
+    tried, error = [], None
+    for candidate in (key, key[:1].upper() + key[1:], key.capitalize(), key.lower(), key.upper()):
+        if candidate in tried:
+            continue
+        tried.append(candidate)
+        try:
+            check_key(candidate)
+        except Exception as exc:
+            error = error or exc
+            continue
+        key, error = candidate, None
+        break
+    if error is not None:
         _busy(False)
-        dialog.ok('DexWorld', '%s\n%s' % (tr('تعذر ربط الاشتراك'), tr(LS.safe(exc))))
+        dialog.ok('DexWorld', '%s\n%s\n%s' % (tr('تعذر ربط الاشتراك'), tr(LS.safe(error)),
+                                             tr('المفتاح حساس لحالة الأحرف (الكبيرة والصغيرة)')))
         return ''
     _busy(False)
     try:

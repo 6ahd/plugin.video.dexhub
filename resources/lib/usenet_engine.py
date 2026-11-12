@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""The Usenet engine beside Kodi (v5.10.558).
+"""The Usenet engine beside Kodi (v5.10.558; inside the app since v5.10.559).
 
 Dex Hub can play a Usenet release straight from the viewer's own NNTP provider: a separate
 program (the engine) reads the release's articles and serves the film on this device as an
@@ -22,6 +22,12 @@ Two sides:
   property; the service starts the engine and publishes its port and token the same way.
 - a plugin call uses it (open, close): one release becomes one session with a stream address.
 The engine listens on 127.0.0.1 only, on a random port, and its control calls need the token.
+
+Inside the app (v5.10.559): Apple TV lets no app start a second program, so there the engine
+is a library in the app and the engine add-on (script.dexhub.usenet, GPL-3.0) loads it in its
+own service. That add-on says it is there with the Home property dexhub.usenet.inapp; Dex Hub
+asks it to start and stop through Home properties (_AppEngine) and talks to the engine over
+127.0.0.1 exactly as elsewhere. Dex Hub itself never loads the library.
 """
 import json
 import os
@@ -42,6 +48,9 @@ FOLDER = 'special://profile/addon_data/plugin.video.dexhub/usenet/'
 ENGINE_ADDON = 'script.dexhub.usenet'
 WANT, PORT, TOKEN, SESSION, STATE = ('dexhub.usenet.want', 'dexhub.usenet.port', 'dexhub.usenet.token',
                                      'dexhub.usenet.session', 'dexhub.usenet.state')
+INAPP, APP_START, APP_STOP, APP_PORT, APP_STATE = ('dexhub.usenet.inapp', 'dexhub.usenet.app.start',
+                                                   'dexhub.usenet.app.stop', 'dexhub.usenet.app.port',
+                                                   'dexhub.usenet.app.state')
 _IDLE_STOP = 600            # the engine stops ten minutes after its last session ended
 _SESSION_IDLE = 45          # a session whose film is not playing any more is closed
 
@@ -88,8 +97,18 @@ def binary():
     return ''
 
 
+def in_app():
+    """True where the engine is a library inside the app and its add-on's service is up."""
+    return _home().getProperty(INAPP) == '1'
+
+
 def available():
-    return bool(binary())
+    return bool(binary()) or in_app()
+
+
+def state_note():
+    """What the engine add-on said about its last start inside the app ('' when nothing)."""
+    return _home().getProperty(APP_STATE)
 
 
 # ------------------------------------------------------------ the service's side
@@ -161,6 +180,48 @@ class _Engine(object):
                 pass
 
 
+class _AppEngine(object):
+    """The engine inside the app: its add-on owns the library; start and stop are asked for
+    through Home properties and answered the same way."""
+
+    proc = None
+
+    def __init__(self):
+        self.port = 0
+        self.token = ''
+        self.idle_since = time.time()
+
+    def running(self):
+        return bool(self.port) and _home().getProperty(APP_PORT) == str(self.port)
+
+    def start(self):
+        home = _home()
+        self.token = secrets.token_hex(32)
+        home.clearProperty(APP_PORT)
+        home.clearProperty(APP_STOP)
+        home.setProperty(APP_STATE, '')
+        home.setProperty(APP_START, self.token)
+        started = time.time()
+        while time.time() - started < 20:
+            port = home.getProperty(APP_PORT)
+            if port.isdigit() and int(port) > 0:
+                self.port = int(port)
+                self.idle_since = time.time()
+                _log('started inside the app on port %d' % self.port)
+                return True
+            if home.getProperty(APP_STATE).startswith('failed'):
+                break
+            xbmc.sleep(100)
+        home.clearProperty(APP_START)
+        _log('did not start inside the app: %s' % (home.getProperty(APP_STATE) or 'no answer'), xbmc.LOGWARNING)
+        return False
+
+    def stop(self):
+        if self.port:
+            _home().setProperty(APP_STOP, '1')
+        self.port = 0
+
+
 def service_loop(monitor):
     """Run by the service: starts the engine when a plugin call asks, publishes where it is,
     closes a session whose film stopped, and stops the engine after ten idle minutes."""
@@ -171,6 +232,11 @@ def service_loop(monitor):
     while not monitor.abortRequested():
         try:
             if home.getProperty(WANT) and not engine.running():
+                if not binary() and in_app():
+                    if not isinstance(engine, _AppEngine):
+                        engine = _AppEngine()
+                elif isinstance(engine, _AppEngine):
+                    engine = _Engine()
                 home.setProperty(STATE, 'starting')
                 if engine.start():
                     home.setProperty(TOKEN, engine.token)
@@ -225,7 +291,7 @@ def _request(port, token, method, path, body=None, seconds=120):
         return exc.code, exc.read().decode('utf-8', 'replace')[:300].strip(), dict(exc.headers)
 
 
-def ensure(seconds=15):
+def ensure(seconds=25):
     """(port, token) of the running engine, started by the service when needed; None when it
     is not on this device or did not start."""
     if not available():

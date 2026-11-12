@@ -1965,6 +1965,7 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         # "previous item's poster appears briefly" issue.
         self.setProperty('dexhub.results.fanart', _fanart or '')
         self.setProperty('dexhub.results.clearlogo', _clearlogo or '')
+        self._aura_tint(_fanart)
         # v3.9.89: _poster is always either a TMDb URL, a vetted addon
         # URL, or the local portrait placeholder — never empty, never
         # landscape — so no extra fallback is needed here.
@@ -2301,6 +2302,35 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         except Exception as _silent_exc:
             log.silent('RESULTS_WIN', _silent_exc)
 
+    def _aura_tint(self, url):
+        """v5.10.560: the Aura page's colour bloom: the backdrop's own colour (art_colour), read in
+        the background; Lucent's pale glow until then, and for a picture with no colour of its own."""
+        if not getattr(self, '_aura', False):
+            return
+        # on Home: the page's XML reads it there, so the filter panel open over the page (the active
+        # window then) does not turn the glows white
+        home = xbmcgui.Window(10000)
+        if not getattr(self, '_aura_tint_set', False):
+            self._aura_tint_set = True
+            home.setProperty('dexhub.aura.tint', '40D6F0FF')
+            home.setProperty('dexhub.aura.tint2', '26D6F0FF')
+        url = str(url or '').strip()
+        if not url or url == getattr(self, '_aura_tint_url', ''):
+            return
+        self._aura_tint_url = url
+
+        def read():
+            try:
+                from . import art_colour
+                found = art_colour.colour(url) or {}
+                accent = str(found.get('accent') or '')
+                if len(accent) == 8 and getattr(self, '_aura_tint_url', '') == url:
+                    home.setProperty('dexhub.aura.tint', '73' + accent[2:])
+                    home.setProperty('dexhub.aura.tint2', '40' + accent[2:])
+            except Exception as _silent_exc:
+                log.silent('RESULTS_WIN', _silent_exc)
+        threading.Thread(target=read, name='DexHub-aura-tint').start()
+
     def _halo_stop_search(self):
         """Keep what was found and stop asking the add-ons still searching."""
         if self.session_key:
@@ -2338,6 +2368,8 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                                                       'Shows your own badges: the badge pack you picked')),
                  'halo': (('Halo', 'Halo'), ('جاهز: تصميمه وشاراته الملونة، والبحث ونتايجه في صفحة وحدة',
                                              'Ready-made: its own design and coloured badges, the search and results on one page')),
+                 'aura': (('Aura', 'Aura'), ('الخلفية واضحة والألواح زجاج: كل مصدر بالكلام مع شاراته الملونة، وتفاصيل الملف المحدد كمربعات',
+                                             'Clear artwork under glass panels: each source in words with coloured badges, and the selected file\'s details as tiles')),
                  'classic': (('كلاسيكي', 'Classic'), ('التصميم السابق: البوستر يسار، وكل التقييمات فوق بكبسولات زجاج',
                                                       'The earlier page: the poster on the left, every rating on top as glass chips'))}
         current = pref_value('sources_row_style')
@@ -2495,6 +2527,7 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                     self.setProperty('dexhub.results.poster', _kodi_safe_text(art.get('poster') or ''))
                 if art.get('fanart'):
                     self.setProperty('dexhub.results.fanart', _kodi_safe_text(art.get('fanart') or ''))
+                    self._aura_tint(art.get('fanart'))
                 if art.get('clearlogo'):
                     self.setProperty('dexhub.results.clearlogo', _kodi_safe_text(art.get('clearlogo') or ''))
                 # v3.9.144: hero TEXT filled from the same TMDb meta_for call.
@@ -3322,6 +3355,32 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         if elite_images:
             li.setProperty('fmt_focus_label', '')
 
+        if getattr(self, '_aura', False):     # v5.10.560: the Aura theme's words
+            try:
+                _m = self.meta if isinstance(self.meta, dict) else {}
+                _work = [_m.get(k) for k in ('originaltitle', 'original_title', 'title_en', 'en_title', 'title',
+                                             'tvshowtitle', 'showname') if _m.get(k)]
+                for _key, _value in _aura_props(row, getattr(self, '_smart_min', 0) or self._smart_minutes(lookup=True),
+                                                getattr(self, '_anime', False), _work).items():
+                    li.setProperty(_key, _value)
+                if (self._failed_keys or self._failed_marks) and self._row_failed(row):
+                    li.setProperty('aura_head', u'%s  \u00b7  %s' % (tr('ما اشتغل'), li.props.get('aura_head', '')))
+                # its coloured badges: every fact but the resolution (the pill says it); unlike
+                # Halo's, none is dropped for being in the add-on's name, which this row does not show
+                _ab = []
+                for tag in tags:
+                    _u = str(tag.get('text') or '').strip().upper()
+                    if not _u or _u in ('2160P', '4K', '1080P', '720P', '480P', 'UHD', 'SD') or _u in _ab:
+                        continue
+                    if _u.startswith('HDR') and any(x.startswith('HDR') for x in _ab):
+                        continue
+                    _ab.append(_u)      # every fact as a badge, as Lucent's results page (12 Nov)
+                for _i in range(8):
+                    _t = _ab[_i] if _i < len(_ab) else ''
+                    li.setProperty('aura_b%d' % (_i + 1), _kodi_safe_text(_HALO_NAMES.get(_t, _t)))
+                    li.setProperty('aura_t%d' % (_i + 1), _halo_tone(_t))
+            except Exception as _silent_exc:
+                log.silent('RESULTS_WIN', _silent_exc)
         li.setProperty('source_info', _kodi_safe_text(row.get('source_info') or ''))
         li.setProperty('qtone', _quality_tone(row))
         return name, li.props
@@ -3429,8 +3488,11 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             if keep_cursor:
                 previous_pos = int(control.getSelectedPosition())
                 current_item = control.getSelectedItem()
+                # v5.10.560: on the first row the cursor stays on the first row when late sources
+                # come in (it followed that source, which the new order could put last: the page
+                # then opened on its worst row); further down it keeps to the source it is on
                 previous_key = (current_item.getProperty('result_identity')
-                                if current_item else '')
+                                if current_item and previous_pos > 0 else '')
         except Exception:
             control = None
         # Only materialize the first chunk through Kodi's Python/C++ bridge.
@@ -3758,6 +3820,7 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                 self._apply_filter(self.active_filter, keep_cursor=False)
 
         self._mode_dialog_open = True
+        self.setProperty('sf_open', '1')        # v5.10.560: Aura's glass panel: the page's left column steps aside
         try:
             sorts = [(key, _sort_mode_label(key).split(u' \u2022 ')[-1]) for key, _label in SORT_MODES]
             chosen, sort, keep = source_filter.run(rows, self._smart_minutes(lookup=True), before, self.active_sort,
@@ -3767,8 +3830,10 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         except Exception as exc:
             xbmc.log('[DexHub] filter panel failed, the drawer opens instead: %s' % exc, xbmc.LOGWARNING)
             self._mode_dialog_open = False
+            self.clearProperty('sf_open')
             return False
         self._mode_dialog_open = False
+        self.clearProperty('sf_open')
         self._action_guard['filter'] = time.monotonic()
         follow(chosen, sort)
         chosen = dict((g, set(v)) for g, v in chosen.items() if v)
@@ -4098,6 +4163,164 @@ def _halo_tone(text):
 _HALO_NAMES = {'DTS-X': 'DTS:X', 'DTSX': 'DTS:X', 'BLURAY': 'BLU-RAY', 'TRUEHD': 'TrueHD', 'H264': 'H.264',
                'H265': 'H.265', 'WEB-DL': 'WEB', 'WEBDL': 'WEB', 'DTS-HDMA': 'DTS-HD MA', 'DDP': 'DD+'}
 
+_AURA_CH = re.compile(r'(?<![0-9.])(?:([57])[ .](1)|(2)[ .](0))(?![0-9])')
+_AURA_SOUND = (('FLAC', r'(?<![A-Z0-9])FLAC'), ('PCM', r'(?<![A-Z0-9])L?PCM'), ('Dolby Digital', r'(?<![A-Z0-9])(?:AC[ ._-]?3|DD)(?![A-Z+])'),
+               ('AAC', r'(?<![A-Z0-9])AAC'), ('Opus', r'(?<![A-Z0-9])OPUS'), ('MP3', r'(?<![A-Z0-9])MP3'))
+_AURA_FILE = re.compile(r'[^\s/\\|]+\.(?:mkv|mp4|m2ts|ts|avi|iso|m4v|wmv|mov)\b', re.I)
+
+
+_AURA_EXT = re.compile(r'\.(mkv|mp4|m2ts|ts|avi|iso|m4v|wmv|mov)$', re.I)
+
+
+def _aura_release_name(name, work=''):
+    """v5.10.560: a release's name without the title's own words and year (the page shows the title
+    in large already) and without dots: 'John.Wick.Chapter.3.Parabellum.2019.PROPER.UHD.BluRay.2160p
+    .TrueHD.Atmos.7.1.DV.HEVC.HYBRID.REMUX-FraMeSToR' -> 'PROPER UHD BluRay 2160p TrueHD Atmos 7.1 DV
+    HEVC HYBRID REMUX-FraMeSToR' (the user, 12 Nov 2026: the name came cut off)."""
+    text = _AURA_EXT.sub('', str(name or '').strip())
+    for one in (work if isinstance(work, (list, tuple)) else [work]):
+        words = [w for w in re.split(r'[^0-9a-z]+', str(one or '').lower()) if w]
+        if not words:
+            continue
+        # the title's words in order at the start, whatever separates them, then a year
+        pattern = r'^\W*' + r'[\W_]+'.join(re.escape(w) for w in words) + r'[\W_]*(?:\(?(?:19|20)\d\d\)?[\W_]*)?'
+        cut = re.sub(pattern, '', text, count=1, flags=re.I)
+        if len(cut) >= 6 and cut != text:
+            text = cut
+            break
+    text = re.sub(r'(?<=\D)\.|\.(?=\D)|_', ' ', text)        # dots between words, not in 7.1 or 5.1
+    text = re.sub(r'[\[\]{}]', ' ', text)
+    text = re.sub(r'\s*-\s*(?=[A-Za-z0-9]+$)', '-', text.strip())
+    text = re.sub(r'\b([HhXx]) (26[45])\b', r'\1.\2', text)       # H.265, x264
+    return re.sub(r'\s{2,}', ' ', text).strip(' -.')
+
+
+def _aura_props(row, minutes=0, anime=False, work=''):
+    """v5.10.560: the Aura theme's row and its file details, as words instead of badges.
+    Row: aura_kind (Remux, WEB...), aura_head ('Dolby Vision · TrueHD Atmos 7.1'), aura_sub
+    ('FraMeSToR · 80.3 GB · ~82 Mbps'), aura_tier, aura_ready. Details of the selected row:
+    aura_big, aura_video, aura_audio, aura_size, aura_release, aura_file."""
+    from . import source_filter as F
+    from .i18n import is_english
+    en = is_english()
+    fact = F.facts(row, minutes, anime)
+    name = lambda key: F.NAMES.get(key, (key, key))[1 if en else 0]
+    blob = _row_quality_blob(row)
+    pics = [name(k) for k in ('DV', 'HDR10+', 'HDR') if k in fact.get('pic', ())]
+    aud = fact.get('aud', ())
+    codec = next((k for k in ('TRUEHD', 'DTSX', 'DTSHD', 'DDP', 'DTS') if k in aud), '')
+    sound = name(codec) if codec else ''
+    if codec == 'DDP':
+        sound = 'DD+'
+    if 'ATMOS' in aud:
+        sound = (sound + ' Atmos').strip()
+    if not sound:
+        sound = next((label for label, pattern in _AURA_SOUND if re.search(pattern, blob)), '')
+    # the channels: from the release's own name, after its sound format ('TrueHD.7.1', 'DDP5.1')
+    names = ' '.join(str(row.get(k) or '') for k in ('stream_desc_raw', 'stream_title', 'filename', 'name'))
+    channels = _AURA_CH.search(' '.join(str(b) for b in (row.get('audio_bits') or ()))) or \
+        _AURA_CH.search(names.upper().split('P ', 1)[-1])
+    if channels and sound:
+        sound = '%s %s.%s' % (sound, channels.group(1) or channels.group(3), channels.group(2) or channels.group(4))
+    video = ('AV1' if re.search(r'(?<![A-Z0-9])AV1(?![A-Z0-9])', blob) else
+             'HEVC' if re.search(r'HEVC|[HX][ .]?265', blob) else
+             'H.264' if re.search(r'[HX][ .]?264|(?<![A-Z0-9])AVC(?![A-Z0-9])', blob + ' ' + names.upper()) else
+             'XviD' if re.search(r'XVID|DIVX', blob) else '')
+    res = {'4K': '4K', '1080': '1080p', '720': '720p', 'SD': 'SD'}.get(fact.get('res'), '')
+    kind = name(fact['rel']) if fact.get('rel') else ''
+    group = ''
+    try:
+        from . import trash_guides
+        group = str(trash_guides._kept(row, anime)[3] or '')
+    except Exception:
+        pass
+    size = _sort_size_bytes(row)
+    size_text = _nuvio_size(row.get('stream_video_size')) or str(row.get('size_label') or '').strip()
+    if size_text in ('--', '0', '0 B'):
+        size_text = ''
+    rate = ''
+    if size > 0 and minutes:
+        mbps = size * 8.0 / (minutes * 60.0) / 1000000.0
+        if 0.2 <= mbps < 200:                  # a season pack's size is not one episode's
+            rate = ('~%d Mbps' % round(mbps)) if mbps >= 10 else ('~%.1f Mbps' % mbps)
+    tier = fact.get('tier') or ''
+    hints = row.get('behaviorHints') if isinstance(row.get('behaviorHints'), dict) else {}
+    filename = str(row.get('filename') or hints.get('filename') or '').strip()
+    if not filename:
+        for text in (row.get('stream_title'), row.get('stream_desc_raw'), row.get('stream_name_raw'), row.get('name')):
+            found = _AURA_FILE.search(str(text or ''))
+            if found:
+                filename = found.group(0)
+                break
+    if not filename:
+        filename = _nuvio_text(row.get('stream_title') or row.get('stream_desc_raw') or row.get('name') or '',
+                               lines=1).replace('\n', ' ')
+    # the row's line says which copy it is (its kind and its release group): the picture and the
+    # sound are its badges, the resolution its pill, so nothing is said twice (the user, 12 Nov
+    # 2026: "the data is repeated")
+    head = '  ·  '.join(x for x in (kind, group) if x)
+    if not head:
+        head = _nuvio_text(row.get('stream_desc_raw') or row.get('stream_title') or
+                           row.get('stream_name_raw') or row.get('name') or '', lines=1).replace('\n', ' ')
+    chan = ('%s.%s' % (channels.group(1) or channels.group(3), channels.group(2) or channels.group(4))) if channels else ''
+    ready = row.get('cached')
+    if row.get('in_library'):
+        ready_text, ready_kind = tr('في حسابك'), 'lib'
+    elif ready is True or ready is False:
+        ready_text, ready_kind = (tr('جاهز'), 'ok') if ready else (tr('غير جاهز'), 'no')
+    else:
+        # neither: how it is served (Direct, Usenet...), as the other themes write it
+        ready_text = re.sub(r'\[/?(?:COLOR|B|I)[^\]]*\]', '', str(row.get('source_type_label') or '')).strip()
+        ready_text, ready_kind = (ready_text[:1].upper() + ready_text[1:].lower() if ready_text.isupper() else ready_text), ''
+    score = ''
+    try:
+        kept = trash_guides._kept(row, anime)
+        score = str(int(kept[0])) if kept[1] else ''
+    except Exception:
+        pass
+    dash = lambda text: text or u'\u2013'
+    codec_name = name(codec) if codec else re.sub(r'\s+\d\.\d$', '', sound).replace(' Atmos', '').strip()
+    if codec == 'DDP':
+        codec_name = 'DD+'
+    extra = '  ·  '.join(x for x in ('Atmos' if 'ATMOS' in aud else '',
+                                     ('%s.%s' % (channels.group(1) or channels.group(3), channels.group(2) or channels.group(4)))
+                                     if channels and sound else '') if x)
+    if 'ATMOS' in aud and not codec:
+        codec_name, extra = 'Atmos', extra.replace('Atmos', '').strip(' ·')
+    flags = []
+    for label, pattern in (('Hybrid', r'HYBRID'), ('Proper', r'(?<![A-Z])PROPER'), ('Repack', r'(?<![A-Z])REPACK'),
+                           ('IMAX', r'(?<![A-Z])IMAX'), ('Extended', r'(?<![A-Z])EXTENDED'),
+                           ('Remastered', r'REMASTERED'), ("Director's cut", r'DIRECTOR.?S[ ._-]?CUT'),
+                           ('Unrated', r'(?<![A-Z])UNRATED'), ('Criterion', r'(?<![A-Z])CRITERION')):
+        if re.search(pattern, blob) or re.search(pattern, names.upper()):
+            flags.append(label)
+    bits = re.search(r'(?<![0-9])(8|10|12)[ ._-]?BIT', blob) or re.search(r'(?<![0-9])(8|10|12)[ ._-]?BIT', names.upper())
+    title = _aura_release_name(filename, work)
+    meta = '  ·  '.join(x for x in (size_text, str(row.get('addon') or row.get('provider_name_raw') or row.get('provider') or '').upper(),
+                                    rate) if x)
+    ready_tone = {'ok': 'FF4CC38A', 'no': 'FFF2B84B', 'lib': 'FF7FD1FF'}.get(ready_kind, '')
+    meta2 = ('[COLOR %s][B]%s[/B][/COLOR]  ·  %s' % (ready_tone, ready_text, meta) if ready_tone and meta else
+             '[COLOR %s][B]%s[/B][/COLOR]' % (ready_tone, ready_text) if ready_tone else meta)
+    out = {'aura_title': title, 'aura_meta': meta, 'aura_meta2': meta2, 'aura_res2': {'4K': '2160p', '1080p': 'Full HD', '720p': 'HD'}.get(res, ''),
+           'aura_bits': ('%s-bit' % bits.group(1)) if bits else '', 'aura_kind2': dash(kind),
+           'aura_flags': '  ·  '.join(flags[:2]),
+           'aura_pic': dash(pics[0] if pics else ('SDR' if res else '')), 'aura_pic2': pics[1] if len(pics) > 1 else '',
+           'aura_snd': dash(codec_name), 'aura_snd2': extra, 'aura_codec': dash(video), 'aura_group': dash(group),
+           'aura_gb': dash(size_text), 'aura_rate': rate, 'aura_score': dash(score),
+           # the line under the copy's name: its channels and edition (the bitrate is under its size)
+           'aura_sub2': '  ·  '.join(x for x in [chan] + flags[:2] if x),
+           'aura_q': res, 'aura_kind': kind, 'aura_head': head,
+           'aura_sub': '  ·  '.join(x for x in (group, size_text, rate) if x),
+           'aura_tier': ('Tier %s' % tier[1:]) if tier else '', 'aura_ready': ready_text, 'aura_rk': ready_kind,
+           'aura_big': ' '.join(x for x in (res, pics[0] if pics else kind) if x),
+           'aura_video': '  ·  '.join(x for x in [video, res] + pics if x),
+           'aura_audio': sound, 'aura_size': '  ·  '.join(x for x in (size_text, rate) if x),
+           'aura_release': '  ·  '.join(x for x in (kind, group) if x), 'aura_file': filename}
+    # aura_rk and aura_q are compared by the page: kept bare (the anchor is a character)
+    return dict((key, value if key in ('aura_rk', 'aura_q', 'aura_meta2') or value == u'\u2013' else _bidi_anchor(_kodi_safe_text(value)))
+                for key, value in out.items())
+
+
 def _is_anime_title(meta):
     """An anime title: in the anime id mapping (anime_ids), or Anime among
     its genres."""
@@ -4121,7 +4344,8 @@ def open_sources_window(results, meta, play_mode=MODE_ASK, session_key='', retry
         from .ui_preferences import value as _pref
         # v5.10.481: and Classic (sources_classic.xml, 5.10.441's page: the
         # poster on the left, the logo and every rating on top, the groups as tabs)
-        skin_xml = {'halo': 'sources_halo.xml', 'full': 'sources_nuvio.xml',
+        # v5.10.560: and Aura (sources_aura.xml: rows as words, the selected file's details)
+        skin_xml = {'halo': 'sources_halo.xml', 'full': 'sources_nuvio.xml', 'aura': 'sources_aura.xml',
                     'classic': 'sources_classic.xml'}.get(_pref('sources_row_style'), 'sources_results.xml')
     except Exception:
         pass
@@ -4138,14 +4362,35 @@ def open_sources_window(results, meta, play_mode=MODE_ASK, session_key='', retry
     win._halo = skin_xml != 'sources_classic.xml'
     win._prism = skin_xml == 'sources_nuvio.xml'     # v5.10.447: its quality share bar
     # v5.10.479: Compact shows them under the picture; v5.10.481: Classic on top
-    win._want_ratings = skin_xml in ('sources_results.xml', 'sources_classic.xml')
+    win._want_ratings = skin_xml in ('sources_results.xml', 'sources_classic.xml', 'sources_aura.xml')   # v5.10.560: Aura
     win._anime = _is_anime_title(meta)                # v5.10.447: TRaSH's anime scores
+    win._aura = skin_xml == 'sources_aura.xml'        # v5.10.560
+    if win._aura:
+        from .i18n import is_english
+        # Aura's highlight (the 4K pill, the tab under the cursor, what is on in its filter) and the
+        # text colour on it: gold, as its gradient badges (the user did not want white)
+        try:
+            _home = xbmcgui.Window(10000)
+            _home.setProperty('dexhub.aura.rec', '★ RECOMMENDED' if is_english() else '★ موصى به')
+            _home.setProperty('dexhub.aura.hi', 'FFE8C35A')      # Lucent's Gold focus colour
+            _home.setProperty('dexhub.aura.ht', 'FF0B1119')      # and its on-focus navy
+        except Exception:
+            pass
     try:
         from .i18n import is_english
         _en = is_english()
         for _key, _ar, _enw in (('halo_streams', 'المصادر', 'Streams'),        # v5.10.438
                                 ('halo_stop', 'وقّف البحث', 'Stop searching'),  # v5.10.439
                                 ('halo_cancel', 'إلغاء', 'Cancel'),
+                                ('aura_l_sel', 'المصدر المحدد', 'Selected source'),      # v5.10.560
+                                ('aura_l_res', 'الدقة', 'Resolution'), ('aura_l_pic', 'الصورة', 'Picture'),
+                                ('aura_l_video', 'الفيديو', 'Video'), ('aura_l_audio', 'الصوت', 'Sound'),
+                                ('aura_l_size', 'الحجم', 'Size'), ('aura_l_group', 'الفريق', 'Group'),
+                                ('aura_l_rel', 'الإصدار', 'Release'), ('aura_l_ratings', 'التقييمات', 'Ratings'),
+                                ('aura_l_dist', 'المصادر حسب الجودة', 'Sources by quality'),
+                                ('aura_l_rec', '★ موصى به', '★ RECOMMENDED'),
+                                ('aura_l_score', 'تقييم TRaSH', 'TRaSH score'),
+                                ('aura_l_src', 'المصدر', 'Source'), ('aura_l_file', 'اسم الملف', 'File name'),
                                 ('halo_filters', 'الفلتر', 'Filters')):
             win.setProperty(_key, _enw if _en else _ar)
     except Exception:
