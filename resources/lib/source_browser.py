@@ -2096,8 +2096,11 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         return True
 
     def _start_remote_meta_enrich(self):
-        if self.meta.get('_dexhub_meta_source_id') not in (None, '', 'auto'):
-            return
+        # v5.10.565: a title whose metadata source the user chose (Nuvio's
+        # TMDb, a catalog's own) keeps its pictures, but its plot in the
+        # metadata language and its ratings are still read: the catalogs of a
+        # Nuvio profile carry that mark, and their plots stayed in English
+        strict = self.meta.get('_dexhub_meta_source_id') not in (None, '', 'auto')
         if self.meta.get('_dexhub_helper_cache_only') and not getattr(self, '_want_ratings', False):
             # v5.10.479: Compact's ratings under the picture are read even then, in the background
             return
@@ -2132,7 +2135,10 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                 want_arabic = meta_language() == 'ar' and not re.search(u'[؀-ۿ]', plot_now)
             except Exception:
                 want_arabic = False
-            needs = needs or not self.meta.get('year') or want_ratings or want_arabic
+            if strict:
+                needs = want_ratings or want_arabic
+            else:
+                needs = needs or not self.meta.get('year') or want_ratings or want_arabic
             if not needs or not (tmdb_id or imdb_id or title):
                 return
         except Exception:
@@ -2162,9 +2168,16 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                     if text:
                         remote = dict(remote, plot=text)
                 update = {}
-                if remote.get('studio_logos'):
+                if strict:
+                    # the chosen source's pictures and text stay: the plot only, when it is Arabic now
+                    if want_arabic and re.search(u'[\u0600-\u06FF]', str(remote.get('plot') or '')):
+                        update['plot'] = remote['plot']
+                    remote_keys = ()
+                else:
+                    remote_keys = ('poster', 'fanart', 'clearlogo', 'plot', 'year', 'rating', 'studio')
+                if remote.get('studio_logos') and not strict:
                     update['studio_logos'] = list(remote.get('studio_logos') or [])
-                for key in ('poster', 'fanart', 'clearlogo', 'plot', 'year', 'rating', 'studio'):
+                for key in remote_keys:
                     value = remote.get(key)
                     if key == 'plot' and not value:
                         value = remote.get('overview') or remote.get('description')
@@ -2173,7 +2186,7 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                 genres = remote.get('genre') or remote.get('genres') or ''
                 if isinstance(genres, (list, tuple)):
                     genres = ' / '.join(str(g) for g in genres[:3] if g)       # v5.10.479: not ['Family', ...]
-                if genres:
+                if genres and not strict:
                     update['genre'] = genres
                 window = window_ref()
                 if update and window is not None:

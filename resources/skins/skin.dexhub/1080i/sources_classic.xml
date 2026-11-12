@@ -263,7 +263,7 @@
 
                 <!-- Plot: two lines (Python keeps it short enough), no cut third line -->
                 <control type="textbox">
-                    <left>0</left><top>204</top><width>1020</width><height>54</height>
+                    <left>0</left><top>202</top><width>1020</width><height>62</height>
                     <font>font_tiny</font>
                     <textcolor>FF8E94A6</textcolor>
                     <shadowcolor>FF000000</shadowcolor>

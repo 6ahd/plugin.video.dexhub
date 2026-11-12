@@ -186,6 +186,7 @@ def discover(seconds=4.0):
     [(address, name, scheme)]."""
     mine = _local_ip()
     if not mine or mine.startswith('127.'):
+        _log('no local address to look around (%r)' % mine, xbmc.LOGWARNING)
         return []
     base = mine.rsplit('.', 1)[0]
     found, lock = {}, threading.Lock()
@@ -227,6 +228,8 @@ def discover(seconds=4.0):
         worker.start()
     for worker in lookups:
         worker.join(0.8)
+    _log('looked on %s.0/24: %d machine(s) sharing files%s' % (
+        base, len(found), (' (%s)' % ', '.join('%s %s' % (s, h) for h, s in sorted(found.items()))) if found else ''))
     return sorted(((h, names.get(h) or '', s) for h, s in found.items()),
                   key=lambda row: tuple(int(x) for x in row[0].split('.')))
 
@@ -614,6 +617,8 @@ def _sign_in(address):
     listed = _listdir(address)
     if listed is not None and (listed[0] or listed[1]):
         return '', '', listed
+    _log('%s: %s as guest' % (re.sub(r'//[^@/]*@', '//', address),
+                               'nothing listed' if listed is not None else 'refused or unreachable'))
     dialog = xbmcgui.Dialog()
     for _attempt in range(3):
         user = dialog.input(_t('اسم المستخدم في الـNAS', 'NAS username'))
@@ -764,9 +769,21 @@ def add_from_phone(address, user='', password=''):
 
 # ── Kodi's own network folders (v5.10.550) ───────────────────────────────
 
+_MOUNTS = ('/var/media/', '/media/', '/mnt/', '/storage/', '/Volumes/')
+
+
+def _mounted(path):
+    """v5.10.565: a video folder of Kodi's on a mounted disk or share. CoreELEC
+    and LibreELEC often mount a NAS as a folder (a .mount unit, autofs, USB):
+    Kodi lists it as /storage/... or /var/media/..., which was left out, so the
+    NAS never came for those who mounted it that way."""
+    plain = str(path or '').replace('\\', '/')
+    return plain.startswith(_MOUNTS) and not plain.startswith(('/storage/.', '/storage/emulated'))
+
+
 def kodi_network_sources():
     """smb:// and nfs:// folders added in Kodi itself (its file manager or its
-    video sources), as (root, name). Kodi keeps their passwords and signs in
+    video sources), and its video folders on mounted disks, as (root, name). Kodi keeps their passwords and signs in
     by itself, so they need no login here."""
     from urllib.parse import unquote
     found, seen = [], set()
@@ -782,7 +799,7 @@ def kodi_network_sources():
             if path.lower().startswith('multipath://'):
                 paths = [unquote(part) for part in path[len('multipath://'):].split('/') if part]
             for one in paths:
-                if not one.lower().startswith(('smb://', 'nfs://')):
+                if not (one.lower().startswith(('smb://', 'nfs://')) or (media == 'video' and _mounted(one))):
                     continue
                 root = one if one.endswith('/') else one + '/'
                 if root.lower() in seen:
@@ -814,7 +831,7 @@ def import_kodi_sources():
         share_id = _share_id(root)
         if share_id in known or root.lower() in known_roots:
             continue
-        host = re.sub(r'^\w+://(?:[^@/]*@)?', '', root).split('/')[0]
+        host = re.sub(r'^\w+://(?:[^@/]*@)?', '', root).split('/')[0] if '://' in root else 'local'
         rows.append({'id': share_id, 'root': root, 'name': name, 'host': host, 'user': '', 'password': '',
                      'from': 'kodi'})
         known.add(share_id)
