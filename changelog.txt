@@ -1,3 +1,7 @@
+5.10.562
+صفحة المصادر (Aura): التقييمات صارت أصغر، وتطلع كاملة بدون ما ينقص آخر واحد عند حافة اللوحة (اللي ما تكفيها المساحة ما تنعرض). والقصة تطلع بالعربي إذا لغة البيانات عربي (كانت تطلع بالإنجليزي).
+Sources page (Aura): the ratings are smaller and always whole, none cut at the panel's edge (one with no room is left out). The plot is in Arabic when the metadata language is Arabic (it showed in English).
+
 5.10.561
 الـNAS ومجلدات الشبكة (SMB وNFS): أي فيلم أو مسلسل من قسم الـNAS يفتح صفحة العمل، و«تشغيل» يشغّل ملفه من الـNAS على طول (أفضل نسخة، أو ملف الحلقة نفسها)، وكذا الضغط على حلقة. زر «المصادر» يبحث مثل أي عمل، وملف الـNAS يطلع بينها.
 NAS and network folders (SMB, NFS): a film or series from the NAS section opens the title page, and Play starts its NAS file at once (the best copy, or that episode's file), as does choosing an episode. Sources searches as for any title, with the NAS file among the results.

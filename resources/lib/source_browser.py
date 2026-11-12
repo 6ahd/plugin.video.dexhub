@@ -2123,7 +2123,16 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                 # v5.10.482: of the ratings the user shows (three chosen: three is all)
                 picked = _ratings.chosen()
                 want_ratings = len(shown) < min(4, len(picked)) or ('imdb' in picked and 'imdb' not in shown)
-            needs = needs or not self.meta.get('year') or want_ratings
+            # v5.10.562: the plot in the metadata language: an Arabic user saw
+            # Cinemeta's English overview (TMDb was asked in English first, for its logos)
+            want_arabic = False
+            try:
+                from .meta_source import meta_language
+                plot_now = str(self.meta.get('plot') or self.meta.get('description') or self.meta.get('overview') or '')
+                want_arabic = meta_language() == 'ar' and not re.search(u'[؀-ۿ]', plot_now)
+            except Exception:
+                want_arabic = False
+            needs = needs or not self.meta.get('year') or want_ratings or want_arabic
             if not needs or not (tmdb_id or imdb_id or title):
                 return
         except Exception:
@@ -2145,6 +2154,13 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                     title=title, year=year) or {}
                 if not isinstance(remote, dict) or not remote:
                     return
+                if want_arabic:
+                    local = tmdb_direct.meta_for(
+                        tmdb_id=tmdb_id or str(remote.get('tmdb_id') or ''), imdb_id=imdb_id,
+                        media_type=media_type, title=title, year=year, language_override='ar-SA') or {}
+                    text = local.get('plot') or local.get('overview') or local.get('description')
+                    if text:
+                        remote = dict(remote, plot=text)
                 update = {}
                 if remote.get('studio_logos'):
                     update['studio_logos'] = list(remote.get('studio_logos') or [])

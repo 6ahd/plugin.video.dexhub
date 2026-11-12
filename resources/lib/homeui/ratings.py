@@ -21,6 +21,26 @@ LIMIT = 6
 NAMES = {'imdb': 'IMDb', 'tmdb': 'TMDb', 'rt_crit': 'Rotten Tomatoes', 'rt_aud': 'Popcornmeter',
          'metacritic': 'Metacritic', 'trakt': 'Trakt', 'letterboxd': 'Letterboxd', 'mdblist': 'MDBList',
          'mal': 'MyAnimeList'}
+# v5.10.562: the Aura sources page's ratings row (740 px, 10 px apart): each
+# chip's width there (tools/make_halo_picker.py draws the same numbers). A chip
+# that would not fit whole is left out, not cut in half at the panel's edge.
+ROW_CHIPS = {'imdb': 136, 'tmdb': 124, 'rt_crit': 146, 'rt_aud': 146, 'metacritic': 114,
+             'trakt': 146, 'letterboxd': 132, 'mdblist': 114, 'mal': 136}
+ROW_ROOM, ROW_GAP = 740, 10
+
+
+def row_fit(values, prefix='dexhub.rating.'):
+    """The ratings (of those with a value, in ORDER) whose chips fit the row whole."""
+    fit, used = [], 0
+    for key in ORDER:
+        if not values.get(prefix + key):
+            continue
+        need = ROW_CHIPS[key] + (ROW_GAP if fit else 0)
+        if used + need > ROW_ROOM:
+            break
+        fit.append(key)
+        used += need
+    return fit
 
 
 def chosen(saved=None):
