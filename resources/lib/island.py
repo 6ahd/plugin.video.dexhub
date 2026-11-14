@@ -295,7 +295,8 @@ def _words(home):
     """v5.10.372: the island's own words, in the interface's language."""
     words = {'dhs.island.t.hint': _t('والتنبيهات، اضغط OK', 'and alerts, press OK'),
              'dhs.island.t.playing': _t('يعرض الحين', 'Now playing'),
-             'dhs.island.t.party': _t('مشاهدة جماعية', 'Watch party')}
+             'dhs.island.t.party': _t('مشاهدة جماعية', 'Watch party'),
+             'dhs.island.t.intro': _t('تحديد المقدمة', 'Mark intro')}
     for prop, text in words.items():
         if home.getProperty(prop) != text:
             home.setProperty(prop, text)

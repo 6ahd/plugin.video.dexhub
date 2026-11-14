@@ -5127,7 +5127,7 @@ def hub_search_menu(query=''):
     # v4.9.0: TMDb used to short-circuit this route. As soon as it returned
     # one row DexWorld, Plex and Emby were never searched at all. TMDb is now
     # one bounded parallel job in the same coordinator as every other source.
-    rows = store.list_providers()
+    rows = store.enabled_providers()
     return _hub_search_unified_render(query, rows, include_tmdb=True)
 
 
@@ -5154,7 +5154,7 @@ def hub_search_collect(query, progress=None, should_stop=None, partial=None):
     except Exception:
         pass
     out = {'progress': progress, 'should_stop': should_stop, 'partial': partial}
-    _hub_search_unified_render(query, store.list_providers(), include_tmdb=True, collect=out)
+    _hub_search_unified_render(query, store.enabled_providers(), include_tmdb=True, collect=out)
     return list(out.get('rows') or []), out.get('status') or 'empty'
 
 
@@ -11334,11 +11334,19 @@ def providers():
         if total >= 2:
             ctx_menu.append(('تغيير ترتيب المصدر',
                 'RunPlugin(%s)' % build_url(action='provider_set_position', provider_id=provider_id)))
+        enabled = store.is_enabled(row)
         ctx_menu.extend([
             (tr('تغيير مصدر الميتاداتا'), 'RunPlugin(%s)' % build_url(action='meta_pick_for_provider', provider_id=provider_id)),
+            (tr('تعطيل الإضافة') if enabled else tr('تفعيل الإضافة'),
+             'RunPlugin(%s)' % build_url(action='provider_toggle_enabled', provider_id=provider_id)),
             ('تحديث المصدر', 'RunPlugin(%s)' % build_url(action='refresh_provider', provider_id=provider_id)),
             ('إزالة المصدر', 'RunPlugin(%s)' % build_url(action='remove_provider', provider_id=provider_id)),
         ])
+        if not enabled:
+            # v5.10.566: a switched-off add-on stays in the list, greyed, marked off
+            display_label = '[COLOR FF8A8F98]%s[/COLOR]' % label
+            position_badge = '%s · %s' % (tr('معطّلة'), position_badge)
+            plot = tr('الإضافة معطّلة: ما تجيب كتالوجات ولا مصادر. فعّلها من قائمتها.') + '\n' + plot
         add_item(display_label, build_url(action='provider_menu', provider_id=provider_id),
                  label2=position_badge,
                  info={'title': display_label, 'plot': plot},
@@ -11353,6 +11361,10 @@ def provider_menu(provider_id):
         return end_dir()
     pname = provider.get('name') or 'Provider'
     summary = _provider_summary(provider)
+    if not store.is_enabled(provider):
+        add_item(tr('تفعيل الإضافة'), build_url(action='provider_toggle_enabled', provider_id=provider_id),
+                 is_folder=False, info={'title': tr('تفعيل الإضافة'),
+                                        'plot': tr('الإضافة معطّلة: ما تجيب كتالوجات ولا مصادر.')})
 
     for catalog in _provider_catalogs(provider):
         cname = catalog.get('name') or catalog.get('id') or 'Catalog'
@@ -11383,6 +11395,23 @@ def provider_menu(provider_id):
     # Management stays on the provider row context menu. Duplicating Refresh
     # and Delete as normal catalogue rows made this page look like Settings.
     end_dir()
+
+
+def provider_toggle_enabled(provider_id):
+    """v5.10.566 (GitHub #28): switch an add-on off, or back on, without removing it."""
+    provider = store.get_provider(provider_id)
+    if not provider:
+        return
+    turn_on = not store.is_enabled(provider)
+    store.set_provider_enabled(provider_id, turn_on)
+    name = provider.get('name') or provider_id
+    notify((tr('تم تفعيل: %s') if turn_on else tr('تم تعطيل: %s')) % name)
+    try:
+        from .homeui.bar_editor import _home_changed
+        _home_changed()
+    except Exception as exc:
+        xbmc.log('[DexHub] add-on switch: the Home was not rebuilt: %s' % exc, xbmc.LOGWARNING)
+    xbmc.executebuiltin('Container.Refresh')
 
 
 def remove_provider(provider_id):
@@ -13106,7 +13135,7 @@ def search(media_type, provider_id=None, query=''):
 
 def _provider_order_for_id(media_type, canonical_id):
     rows = []
-    for provider in store.list_providers():
+    for provider in store.enabled_providers():
         if supports_resource(provider, 'stream', media_type=media_type, item_id=canonical_id) or supports_resource(provider, 'meta', media_type=media_type, item_id=canonical_id):
             rows.append(provider)
     # Bug fix: previously, if the strict idPrefix filter matched 0 providers
@@ -13116,7 +13145,7 @@ def _provider_order_for_id(media_type, canonical_id):
     # stream-capable providers and let each provider decide whether it can
     # actually resolve the ID — this matches Stremio's own behavior.
     if not rows:
-        for provider in store.list_providers():
+        for provider in store.enabled_providers():
             if supports_resource(provider, 'stream', media_type=media_type) or supports_resource(provider, 'meta', media_type=media_type):
                 rows.append(provider)
     return rows
@@ -13442,7 +13471,7 @@ def _ordered_stream_candidate_ids(provider_ids, season=None, episode=None):
 def _anime_prefix_providers():
     """Installed addons whose stream resource only accepts anime ids."""
     out = []
-    for provider in store.list_providers():
+    for provider in store.enabled_providers():
         for prefix in _stream_resource_id_prefixes(provider):
             if str(prefix).split(':')[0] in ('kitsu', 'mal', 'anilist', 'anidb'):
                 out.append(provider)
@@ -28341,6 +28370,8 @@ def _dispatch(params=None):
         return refresh_provider(params.get('provider_id'))
     if action == 'remove_provider':
         return remove_provider(params.get('provider_id'))
+    if action == 'provider_toggle_enabled':
+        return provider_toggle_enabled(params.get('provider_id'))
     if action == 'catalog':
         return catalog(params.get('provider_id'), params.get('media_type'), params.get('catalog_id'), params.get('label', ''), params.get('page', '0'), genre=params.get('genre', ''), year=params.get('year', ''), force_remote=params.get('force_remote', ''), nuvio=params.get('nuvio', ''), meta_target=params.get('meta_target', ''), cursor=params.get('cursor', ''), extras=params.get('extras', ''))
     if action == 'catalog_all':

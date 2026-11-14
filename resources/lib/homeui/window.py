@@ -3818,6 +3818,15 @@ class BrowseWindow(_BaseWindow):
                             kind = self.tr(kind)
                         tab['label'] = '%s  ·  %s' % (label, kind)
                     tabs.append(tab)
+        # v5.10.566 (GitHub #28): an add-on switched off in its menu shows no rows
+        try:
+            from .. import store as _st
+            off = set(str(p.get('id')) for p in _st.list_providers() or [] if not _st.is_enabled(p))
+        except Exception:
+            off = set()
+        if off:
+            tabs = [t for t in tabs if not (t.get('path') and
+                                             str(R.params_of(t['path']).get('provider_id') or '') in off)]
         wrap = getattr(api, '_wrap_tokenized_url', None)
         media_filter = media if media in ('movie', 'series') else ''
         # v5.10.236: Group recommendation rows: an add-on's "Because you
@@ -4247,8 +4256,11 @@ class BrowseWindow(_BaseWindow):
             tiles.append({'kind': 'addon', 'source_id': row.get('id') or '', 'content': 'stremio',
                           'title': name, 'label': name, 'shape': 'square', 'under': '1',
                           'poster': icon, 'landscape': icon, 'icon': icon, 'fanart': art.get('fanart') or '',
-                          'plot': manifest.get('description') or '', 'version': manifest.get('version') or '',
-                          'author': 'Stremio', 'initials': R.initials(name)})
+                          'plot': (self.tr('الإضافة معطّلة: ما تجيب كتالوجات ولا مصادر. فعّلها من قائمتها.') + '\n'
+                                   if row.get('enabled') is False else '') + (manifest.get('description') or ''),
+                          'version': manifest.get('version') or '',
+                          'author': self.tr('معطّلة') if row.get('enabled') is False else 'Stremio',
+                          'initials': R.initials(name)})
         plus = self.app.media_path('addons_plus.png')
         if not os.path.exists(plus):
             plus = os.path.join(self.app.addon_path, 'resources', 'media', 'addons_plus.png')

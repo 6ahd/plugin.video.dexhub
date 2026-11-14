@@ -79,7 +79,7 @@ def choose(tr):
     # v5.10.543: the NAS, last, on until switched off here
     nas_index = len(providers) + len(kodi)
     if nas:
-        labels.append('NAS  ·  %s' % tr('الـNAS ومجلدات الشبكة'))
+        labels.append('%s  ·  %s' % (nas_sources.brand(), tr('الـNAS ومجلدات الشبكة')))
         if nas_sources.PROVIDER_ID not in off:
             pre.append(nas_index)
     picked = xbmcgui.Dialog().multiselect(tr('الإضافات اللي يبحث فيها عن المصادر'), labels, preselect=pre)

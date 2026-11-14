@@ -947,7 +947,14 @@ def addons_row():
         li.setProperty('dh.kind', 'stremio')
         _video_tag(li)
         provider_id = row.get('id')
+        enabled = store.is_enabled(row)
+        if not enabled:
+            li.setLabel('[COLOR FF8A8F98]%s[/COLOR]' % name)
+            li.setLabel2(_txt('معطّلة', 'Off'))
+            li.setProperty('dh.disabled', 'true')
         li.addContextMenuItems([
+            (_txt('تعطيل الإضافة', 'Turn the add-on off') if enabled else _txt('تفعيل الإضافة', 'Turn the add-on on'),
+             'RunPlugin(%s)' % _url(action='provider_toggle_enabled', provider_id=provider_id)),
             (_txt('تحديث المصدر', 'Refresh the source'), 'RunPlugin(%s)' % _url(action='refresh_provider', provider_id=provider_id)),
             (_txt('إزالة المصدر', 'Remove the source'), 'RunPlugin(%s)' % _url(action='remove_provider', provider_id=provider_id))])
         items.append((_url(action='provider_menu', provider_id=provider_id), li, True))
@@ -2219,6 +2226,11 @@ def dispatch():
         return tmdbh_install_action()
     if action == 'simple_watching':
         return watching_dialog()
+    if action == 'intro_mark':
+        # v5.10.566: the player bar's Mark intro button
+        from resources.lib import intro_marks
+        intro_marks.mark()
+        return None
     if action in ('hub_extra', 'party', 'party_join', 'party_leave', 'party_player', 'party_invite'):
         # v5.10.366: DexCloud
         _close_native_settings_dialog()

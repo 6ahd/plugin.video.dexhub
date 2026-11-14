@@ -493,7 +493,7 @@ def list_available_meta_sources():
     ]
     seen = set()
     for row in _store.list_providers() or []:
-        if not _provider_looks_like_meta_source(row):
+        if not _provider_looks_like_meta_source(row) or (row or {}).get('enabled') is False:
             continue
         pid = row.get('id') or ''
         if not pid or pid in seen:

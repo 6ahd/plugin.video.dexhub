@@ -299,7 +299,7 @@ def _resolve_imdb_for_subtitles(ctx, timeout_seconds=None):
 
 
 def _provider_order(ctx):
-    rows = list(store.list_providers())
+    rows = [row for row in store.list_providers() if (row or {}).get('enabled') is not False]
     preferred = str(ctx.get('provider_id') or '').strip()
     if not preferred:
         return rows

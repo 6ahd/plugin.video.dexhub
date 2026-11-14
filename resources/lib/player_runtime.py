@@ -3388,7 +3388,7 @@ _CATEGORY_LIKE_EXTRAS = {'genre', 'year', 'category', 'language', 'country',
 
 def _provider_order_for_id(media_type, canonical_id):
     rows = []
-    for provider in store.list_providers():
+    for provider in store.enabled_providers():
         if supports_resource(provider, 'stream', media_type=media_type, item_id=canonical_id) or supports_resource(provider, 'meta', media_type=media_type, item_id=canonical_id):
             rows.append(provider)
     # Bug fix: previously, if the strict idPrefix filter matched 0 providers
@@ -3398,7 +3398,7 @@ def _provider_order_for_id(media_type, canonical_id):
     # stream-capable providers and let each provider decide whether it can
     # actually resolve the ID — this matches Stremio's own behavior.
     if not rows:
-        for provider in store.list_providers():
+        for provider in store.enabled_providers():
             if supports_resource(provider, 'stream', media_type=media_type) or supports_resource(provider, 'meta', media_type=media_type):
                 rows.append(provider)
     return rows
@@ -3705,7 +3705,7 @@ def _ordered_stream_candidate_ids(provider_ids, season=None, episode=None):
 def _anime_prefix_providers():
     """Installed addons whose stream resource only accepts anime ids."""
     out = []
-    for provider in store.list_providers():
+    for provider in store.enabled_providers():
         for prefix in _stream_resource_id_prefixes(provider):
             if str(prefix).split(':')[0] in ('kitsu', 'mal', 'anilist', 'anidb'):
                 out.append(provider)

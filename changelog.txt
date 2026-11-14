@@ -1,3 +1,11 @@
+5.10.566
+زر «تحديد المقدمة» في المشغل: تضغطه أول المقدمة وآخرها، وتتخطاها بقية حلقات الموسم لما ما يكون لها وقت في TheIntroDB. وضغطه على عمل محدد له يعيد التحديد أو ينساه. فعّله من «أزرار المشغل» (مخفي بالبداية لأن الشريط ممتلئ). يحتاج سكين Dex Hub 3.28.228.
+A Mark intro button in the player: press it where the intro starts and where it ends, and the season's other episodes skip it when TheIntroDB has no times for them. On a title that has a mark it marks again or forgets it. Turn it on in Player buttons (hidden at first, as the bar is full). Needs the Dex Hub skin 3.28.228.
+الـNAS: مجلدات SMB وNFS صارت تظهر باسمها في قسم السيرفرات والكتالوجات بدل «NAS». ولو ما انبحث الـNAS (مو مضاف، أو ما انقرت مجلداته، أو مطفي في إضافات البحث) يكتب السبب في السجل.
+NAS: SMB and NFS folders are named as such in Servers and the catalogs instead of "NAS". When the NAS is not searched (none set up, its folders not read yet, or switched off in the search add-ons) the log says why.
+تعطيل الإضافة: قائمة أي إضافة (ضغط مطوّل في الإضافات) فيها «تعطيل الإضافة» و«تفعيل الإضافة». المعطّلة تبقى مثبّتة لكنها باهتة ومكتوب عليها «معطّلة»، وما تجيب صفوف في الرئيسية ولا كتالوجات ولا مصادر ولا ترجمات ولا بحث، لين تفعّلها (GitHub #28).
+Turn an add-on off: every add-on's menu (long press in Add-ons) has Turn the add-on off and Turn the add-on on. An add-on turned off stays installed, greyed and marked Off, and gives no Home rows, catalogs, sources, subtitles or search results until it is turned on again (GitHub #28).
+
 5.10.565
 صفحة المصادر: القصة صارت تطلع بالعربي حتى للأعمال اللي تجي من كتالوجات بروفايل Nuvio (كانت تبقى بالإنجليزي لأن الصفحة ما تكمّل بياناتها عشان ما تغيّر صورها)، والتقييمات كذلك تنقرا لها. الصور تبقى من المصدر اللي اخترته. وفي ثيم «كلاسيكي» القصة صارت سطرين كاملين بدل ما ينقص الثاني تحت التبويبات.
 Sources page: the plot is in Arabic for titles from a Nuvio profile's catalogs too (it stayed English: the page left those titles alone so as not to change their pictures), and their ratings are read as well. The pictures stay the chosen source's. In Classic the plot shows two whole lines; the second was cut under the tabs.

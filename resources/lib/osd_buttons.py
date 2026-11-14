@@ -22,7 +22,8 @@ import xbmcgui
 SETTING = 'osd_buttons'
 SLOTS = 10     # skin.dexhub draws 9 slots, skin.dexhub.tvos 10 (with External)
 # bar order, left to right; "-" = hidden by default
-DEFAULT = ('sources', 'episodes', 'info', 'party', 'audio', 'subtitles', 'subsync', '-nextsub', 'external', 'video', 'ppi')
+# v5.10.566: '-intro' (Mark intro) hidden at first: the bar's nine slots are full and PPI would drop off
+DEFAULT = ('sources', 'episodes', 'info', 'party', 'audio', 'subtitles', 'subsync', '-nextsub', '-intro', 'external', 'video', 'ppi')
 KEYS = tuple(k.lstrip('-') for k in DEFAULT)
 NAMES = {
     'sources': ('المصادر', 'Sources'),
@@ -36,6 +37,7 @@ NAMES = {
     'video': ('إعدادات المشغل', 'Player settings'),
     'ppi': ('معلومات التشغيل PPI', 'PPI playback info'),
     'party': ('مشاهدة جماعية', 'Watch party'),     # v5.10.372
+    'intro': ('تحديد المقدمة', 'Mark intro'),      # v5.10.566
 }
 # when the skin shows a kept button
 NOTES = {
@@ -59,12 +61,13 @@ DOES = {
     'video': ('إعدادات الصورة والتشغيل', 'Picture and playback settings'),
     'ppi': ('معلومات التشغيل وأوضاع Dolby Vision', 'Playback info and Dolby Vision modes'),
     'party': ('تبدأ مشاهدة جماعية بهذا العمل، أو تفتح المشاهدة اللي أنت فيها', 'Starts a watch party with this title, or opens the one you are in'),
+    'intro': ('اضغطه أول المقدمة وآخرها، وتتخطاها بقية حلقات الموسم', 'Press it where the intro starts and ends; the season\'s other episodes skip it'),
 }
 # the bar's icons, copies of the OSD's own (resources/media/osdbar)
 ICONS = {
     'sources': 'layers', 'episodes': 'list-video', 'info': 'info', 'audio': 'audio-lines', 'subtitles': 'captions',
     'subsync': 'subsync', 'nextsub': 'subnext', 'external': 'external', 'video': 'ratio', 'ppi': 'ppi',
-    'party': 'party',
+    'party': 'party', 'intro': 'intro',
 }
 LEFT_ICONS = ('pause-f', 'skip-back', 'skip-forward', 'stop-f')
 

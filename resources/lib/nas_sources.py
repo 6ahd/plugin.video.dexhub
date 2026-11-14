@@ -418,13 +418,27 @@ def service_loop(monitor):
 
 # ── Searching ────────────────────────────────────────────────────────────
 
+_WHY = {}
+
+
+def _skip(reason):
+    """v5.10.566: why the NAS was not searched, said once per reason while Kodi runs
+    (a box that never searched it left nothing in its log to go on)."""
+    if not _WHY.get(reason):
+        _WHY[reason] = True
+        _log('not searched: %s' % reason)
+    return []
+
+
 def targets(meta, canonical_id, media_type, ids=None, season=None, episode=None):
-    if not is_set_up() or not _index().get('files'):
-        return []
+    if not is_set_up():
+        return _skip('no NAS or network folder set up')
+    if not _index().get('files'):
+        return _skip('its folders were not read yet, or hold no films or episodes (%d share(s))' % len(shares()))
     try:
         from .source_addons import skipped
         if PROVIDER_ID in skipped():
-            return []      # switched off in "Add-ons searched for sources"
+            return _skip('switched off in "Add-ons searched for sources"')
     except Exception:
         pass
     from .search.native_titles import candidates
@@ -696,7 +710,7 @@ def _scan_now():
         xbmcgui.Dialog().notification('Dex Hub', _t('القراءة شغالة أصلًا', 'Already reading'), xbmcgui.NOTIFICATION_INFO, 2500)
         return
     films, episodes = counted
-    xbmcgui.Dialog().notification('Dex Hub', _t('الـNAS: %d فيلم و%d حلقة', 'NAS: %d films, %d episodes') % (films, episodes),
+    xbmcgui.Dialog().notification('Dex Hub', _t('%s: %d فيلم و%d حلقة', '%s: %d films, %d episodes') % (brand(), films, episodes),
                                   xbmcgui.NOTIFICATION_INFO, 4000)
 
 
@@ -998,10 +1012,11 @@ def server_entries(media_path=None):
         tiles = [{'kind': 'library', 'title': lib['title'], 'label': lib['title'], 'hint': share.get('name') or '',
                   'shape': 'landscape', 'poster': card, 'landscape': card, 'fanart': '',
                   'params': lib['params'], 'path': 'plugin://plugin.video.dexhub/?' + urlencode(lib['params']),
-                  'folder': True, 'service': 'nas', 'brand': 'NAS', 'server': share.get('name') or '',
+                  'folder': True, 'service': 'nas', 'brand': brand(share), 'server': share.get('name') or '',
                   'plot': _t('%d فيلم · %d مسلسل', '%d films · %d series') % (films, series)}
                  for lib in libs]
-        out.append({'service': 'nas', 'brand': 'NAS', 'id': share['id'], 'name': share.get('name') or 'NAS',
+        # v5.10.566: an SMB share said "NAS" here though it is SMB (the search already said SMB)
+        out.append({'service': 'nas', 'brand': brand(share), 'id': share['id'], 'name': share.get('name') or brand(share),
                     'key': 'nas:%s' % share['id'], 'libs': libs, 'sections': [], 'tiles': tiles})
     return out
 
@@ -1012,8 +1027,8 @@ def row_choices():
     every = shares()
     if len(every) > 1:
         for kind in KINDS:
-            params = list_params('', kind, 'NAS')
-            out.append(({'key': 'nas:all:%s' % kind, 'title': params['title'], 'sub': 'NAS', 'shape': 'poster',
+            params = list_params('', kind, brand())
+            out.append(({'key': 'nas:all:%s' % kind, 'title': params['title'], 'sub': brand(), 'shape': 'poster',
                          'params': params}, _t('كل المجلدات', 'Every folder')))
     for share in every:
         films, series = counts(share['id'])
@@ -1022,6 +1037,6 @@ def row_choices():
                     kind == 'recent' and not (films or series):
                 continue
             params = list_params(share['id'], kind, share.get('name') or '')
-            out.append(({'key': 'nas:%s:%s' % (share['id'], kind), 'title': params['title'], 'sub': 'NAS',
-                         'shape': 'poster', 'params': params}, share.get('name') or 'NAS'))
+            out.append(({'key': 'nas:%s:%s' % (share['id'], kind), 'title': params['title'], 'sub': brand(share),
+                         'shape': 'poster', 'params': params}, share.get('name') or brand(share)))
     return out
