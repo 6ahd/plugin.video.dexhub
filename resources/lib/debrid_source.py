@@ -78,6 +78,13 @@ def _torrent_player():
     return False
 
 
+def _owned(service_id, info_hash):
+    try:
+        return bool(services.service(service_id).owned(info_hash))     # the account's list, kept 5 minutes
+    except Exception:
+        return False
+
+
 def _sid(request_id):
     text = str(request_id or '')
     return text if text.startswith('tt') else ''
@@ -122,6 +129,8 @@ def annotate(payload, provider=None, request_id=''):
         row = dict(row)
         hints = dict(_hints(row))
         hints['dexhubDebrid'] = {'service': service_id, 'state': state}
+        if state == 'cached' and _owned(service_id, info_hash):
+            hints['dexhubDebrid']['owned'] = True          # shows "In your account"
         row['behaviorHints'] = hints
         mark = '[%s+]' % badge if state == 'cached' else ('[%s ⏳]' % badge if state == 'uncached' else '[%s]' % badge)
         row['name'] = '%s %s' % (mark, str(row.get('name') or '').strip())
@@ -232,7 +241,7 @@ def _cloud_payload(provider):
                 if service.id == 'premiumize':
                     if item.get('link') and files.is_video(name):
                         found.append(_row(name, '', item.get('size'), service.id, _t('☁ ملفاتي', '☁ My files'),
-                                          url=item['link']))
+                                          url=item['link'], extra={'owned': True}))
                 elif item.get('hash'):
                     found.append(_row(name, item['hash'], item.get('size'), service.id, _t('☁ ملفاتي', '☁ My files'),
                                       extra={'owned': True}))

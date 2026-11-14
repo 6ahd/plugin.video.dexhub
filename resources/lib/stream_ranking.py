@@ -455,7 +455,8 @@ def stream_sort_key(entry, settings, preferred_source=None):
         q_rank,
         trash,
         access_bonus,
-        0,      # was the release type: TRaSH's score holds it now
+        # v5.10.568: within the same quality, ready (cached) first, then maybe, then not ready
+        {True: 2, None: 1, False: 0}.get(entry.get('cached') if entry.get('cached') in (True, False) else None, 1),
         debrid_bonus,
         remembered_bonus,
         0,      # was the audio preference: in TRaSH's score too
