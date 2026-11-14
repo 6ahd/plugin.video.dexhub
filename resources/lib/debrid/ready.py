@@ -81,6 +81,11 @@ def assign(hashes, sid=''):
                 if (answers.get(service.id) or {}).get(info_hash) == 'uncached':
                     choice = (service.id, 'uncached')
                     break
+        if choice is None:
+            for service in linked:              # v5.10.571: ready, but nothing in it plays
+                if (answers.get(service.id) or {}).get(info_hash) == 'junk':
+                    choice = (service.id, 'junk')
+                    break
         if choice:
             out[info_hash] = choice
     return out
@@ -90,6 +95,6 @@ def order_for(info_hash, first=''):
     """The services to try for one torrent at play time, the likeliest first."""
     info_hash = str(info_hash or '').lower()
     linked = services.linked()
-    rank = {'cached': 0, None: 1, 'uncached': 2, 'failed': 3}
+    rank = {'cached': 0, None: 1, 'uncached': 2, 'failed': 3, 'junk': 4}
     ordered = sorted(linked, key=lambda s: (0 if s.id == first else 1, rank.get(hashcache.get(s.id, info_hash), 1)))
-    return [s for s in ordered if hashcache.get(s.id, info_hash) != 'failed'] or ordered[:1]
+    return [s for s in ordered if hashcache.get(s.id, info_hash) not in ('failed', 'junk')] or ordered[:1]

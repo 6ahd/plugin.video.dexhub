@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 """Public torrent add-ons, added for the viewer, only the ones that work today (v5.10.570).
 
+v5.10.571: MediaFusion and Comet on the addresses that answer today; Knightcrawler,
+gone for good, is no longer tried.
+
 Once a Debrid account is linked, Dex Hub tries every well-known torrent
 add-on with a real search (a film everyone has) and adds the ones that
 answer with torrents, without any key: they only name the torrents (their
@@ -21,12 +24,14 @@ from . import accounts, net
 # name: its addresses, the likeliest first (all keyless)
 CANDIDATES = (
     ('Torrentio', ('https://torrentio.strem.fun/sort=qualitysize|qualityfilter=threed,480p,scr,cam/manifest.json',)),
-    ('Comet', ('https://comet.feels.legal/manifest.json', 'https://comet.elfhosted.com/manifest.json')),
+    ('Comet', ('https://comet.feels.legal/manifest.json', 'https://cometfortheweebs.midnightignite.me/manifest.json',
+               'https://comet.elfhosted.com/manifest.json')),
     ('Peerflix', ('https://addon.peerflix.mov/manifest.json',)),
-    ('MediaFusion', ('https://mediafusion.elfhosted.com/manifest.json',)),
+    ('MediaFusion', ('https://mediafusion.stremio.ru/manifest.json',
+                     'https://mediafusionfortheweebs.midnightignite.me/manifest.json',
+                     'https://mediafusion.elfhosted.com/manifest.json')),
     ('Meteor', ('https://meteorfortheweebs.midnightignite.me/manifest.json',)),
     ('TorrentsDB', ('https://torrentsdb.com/manifest.json',)),
-    ('Knightcrawler', ('https://knightcrawler.elfhosted.com/manifest.json',)),
 )
 PROBE_ID = 'tt0111161'          # The Shawshank Redemption: every torrent index has it
 WEEK = 7 * 24 * 3600

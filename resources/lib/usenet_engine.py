@@ -32,6 +32,7 @@ asks it to start and stop through Home properties (_AppEngine) and talks to the 
 import json
 import os
 import platform
+import re
 import secrets
 import subprocess
 import sys
@@ -348,3 +349,50 @@ def open_release(nzb_url, servers, season=None, episode=None, headers=None, priv
                                             float(answer.get('size') or 0) / 1073741824.0))
     return {'url': 'http://127.0.0.1:%d%s' % (port, answer.get('path')), 'filename': answer.get('filename') or '',
             'size': int(answer.get('size') or 0), 'id': answer.get('id')}
+
+
+_DISC_CLIP = re.compile(r'^(http://127\.0\.0\.1:\d+/stream/[^/]+/)BDMV/STREAM/[^/]+\.m2ts$', re.I)
+
+
+def disc_menu(url):
+    """A whole Blu-ray release (a disc image or its BDMV folders) opened in its menus:
+    bluray://<the session's folder>/menu, or '' (its main film plays as it is).
+
+    The engine of script.dexhub.usenet 1.1.0 serves the disc's whole folder beside the film
+    (index.bdmv, MovieObject.bdmv, the playlists, clips and their folders); an older engine
+    serves the playlists and clips only, which Kodi cannot open as a disc (v5.10.572)."""
+    found = _DISC_CLIP.match(str(url or '').split('|', 1)[0])
+    if not found:
+        return ''
+    try:
+        from .debrid import accounts
+        if not accounts.option('disc_menus'):
+            return ''
+    except Exception:
+        pass
+    base = found.group(1)
+    try:
+        request = urllib.request.Request(base + 'BDMV/index.bdmv', method='HEAD')
+        with urllib.request.urlopen(request, timeout=20) as answer:
+            if answer.status != 200:
+                return ''
+    except Exception:
+        _log('a whole disc, its folder not served by this engine: its main film plays')
+        return ''
+    from .debrid.discserver import kodi_encode
+    from .debrid import bdinfo
+
+    def small(rel):
+        with urllib.request.urlopen(base + rel, timeout=30) as answer:
+            return answer.read(1 << 20)
+
+    try:
+        index = small('BDMV/index.bdmv')
+        listing = small('BDMV/PLAYLIST/').decode('utf-8', 'replace')
+        names = re.findall(r'href="(\d{5}\.mpls)"', listing, re.I)
+    except Exception as exc:
+        _log('a whole disc, its index not read (%s): its main film plays' % exc)
+        return ''
+    target, how = bdinfo.path(kodi_encode(base), index, names, lambda name: small('BDMV/PLAYLIST/' + name))
+    _log('a whole disc: opened on its %s' % how)
+    return target

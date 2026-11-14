@@ -272,6 +272,16 @@ def run_job(job, monitor=None, valid=None):
             apply_job = None
             job['discovery'] = False
             job['attach_rows'] = []
+        # v5.10.572: a disc in its menus keeps its own subtitle: no file is picked for
+        # it (a file there never shows, and picking one plays the main movie again,
+        # disc_menu.watch); the files still join the list for the viewer to choose
+        try:
+            in_disc_menus = bool(xbmc.getCondVisibility('VideoPlayer.HasMenu'))
+        except Exception:
+            in_disc_menus = False
+        if in_disc_menus:
+            apply_job = None
+            explicit_subtitle = True
         if not explicit_subtitle and same_session():
             try:
                 from .subtitle_files import _force_preferred_subtitle_on_player
@@ -306,6 +316,12 @@ def run_job(job, monitor=None, valid=None):
         # before, so the last one, often Chinese, ended up showing)
         attach, counts = _attacher(player, job, stream_key)
         attach_rows = job.get('attach_rows') or []
+        # v5.10.572: a subtitle the viewer chose, carried over to this play (a source
+        # switch, a disc played again as its main movie), is the whole subtitle list's
+        # point: no more files are added, and none is selected over it
+        carried = bool((ctx or {}).get('source_switch_reuse_subtitle') and (ctx or {}).get('switch_subtitle_path'))
+        if carried:
+            attach_rows = []
         if attach_rows and same_session():
             attach(attach_rows)
 
@@ -317,7 +333,7 @@ def run_job(job, monitor=None, valid=None):
                 pass
 
         # Stage 4 — background broker discovery.
-        if job.get('discovery') and not kodi_monitor.abortRequested() \
+        if job.get('discovery') and not carried and not kodi_monitor.abortRequested() \
                 and same_session():
             _discover_and_attach(player, job, stream_key, attach=attach, counts=counts)
 

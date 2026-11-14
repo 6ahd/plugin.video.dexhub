@@ -29,7 +29,9 @@ UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like 
 _HASH = re.compile(r'^[a-f0-9]{40}$')
 _WORD = re.compile(r'[a-z0-9]+')
 _RES = re.compile(r'(?<![a-z0-9])(2160p|4k|uhd|1080p|720p|576p|480p)(?![a-z0-9])', re.I)
-_BAD = re.compile(r'(?<![a-z0-9])(cam|camrip|hdcam|ts|telesync|hdts|tc|telecine|scr|screener|dvdscr)(?![a-z0-9])', re.I)
+_BAD = re.compile(r'(?<![a-z0-9])(cam|camrip|hdcam|tcam|ts|telesync|hdts|tc|hdtc|telecine|scr|screener|dvdscr)(?![a-z0-9])', re.I)
+# names some indexes give a torrent whose real name they never learned
+_NO_NAME = ('invalid magnet', 'noname', 'no name', 'unknown')
 
 # id: (label, films, series)
 SITES = (
@@ -40,17 +42,20 @@ SITES = (
     ('tpb', 'The Pirate Bay', True, True),
     ('knaben', 'Knaben', True, True),
     ('zilean', 'Zilean (DMM)', True, True),
+    ('torz', 'StremThru Torz', True, True),
 )
 # every address a site answers on: the one that worked last is asked first
 MIRRORS = {
-    'yts': ('https://yts.mx', 'https://yts.lt', 'https://yts.am'),
+    'yts': ('https://yts.lt', 'https://movies-api.accel.li', 'https://yts.mx', 'https://yts.am'),
     'eztv': ('https://eztvx.to', 'https://eztv.re', 'https://eztv.wf'),
     'therarbg': ('https://therarbg.to', 'https://therarbg.com'),
-    'torrentgalaxy': ('https://torrentgalaxy.online',),
+    'torrentgalaxy': ('https://torrentgalaxy.online', 'https://torrentgalaxy.info'),
     'tpb': ('https://apibay.org',),
     'knaben': ('https://api.knaben.org',),
-    'zilean': ('https://zileanfortheweebs.midnightignite.me', 'https://zilean.elfhosted.com'),
+    'zilean': ('https://zileanfortheweebs.midnightignite.me', 'https://zilean.stremio.ru', 'https://zilean.elfhosted.com'),
+    'torz': ('https://stremthru.13377001.xyz', 'https://stremthru.stremio.ru'),
 }
+TORZ_KEEP = 200             # Torz names every torrent it knows: the best-seeded ones are kept
 DOWN_FOR = 30 * 60          # a site no address of which answered is left out this long
 
 
@@ -212,8 +217,37 @@ def zilean(q):
     return out
 
 
+def torz(q):
+    """StremThru's torrent index by IMDb id (v5.10.571). Every torrent lists its files, the
+    episode's own file marked, so a season or series pack holding the episode is found
+    with the file to play."""
+    if not q['imdb']:
+        return []
+    sid = q['imdb'] if not q['episodic'] else '%s:%d:%d' % (q['imdb'], q['season'], q['episode'])
+    data = _site_get('torz', '/v0/torrents?%s' % urllib.parse.urlencode({'sid': sid}))
+    items = ((data or {}).get('data') or {}).get('items') or []
+    items = sorted((r for r in items if isinstance(r, dict)), key=lambda r: -(r.get('seeders') or 0))
+    out = []
+    for r in items:
+        listed = [{'name': f.get('n') or f.get('p') or ''} for f in r.get('files') or [] if isinstance(f, dict)]
+        if files.no_video(listed):
+            continue                      # a program or an archive under a film's name
+        extra = None
+        if q['episodic']:
+            mine = [f for f in r.get('files') or [] if isinstance(f, dict) and f.get('sid') == sid]
+            if mine:
+                f = max(mine, key=lambda f: f.get('s') or 0)
+                extra = {'fit': True, 'fileIdx': f.get('i'), 'filename': f.get('n') or ''}
+            elif any(isinstance(f, dict) and str(f.get('sid') or '*') not in ('*', '') for f in r.get('files') or []):
+                continue                  # its files are named, none is this episode
+        out.append((r.get('name'), r.get('hash'), r.get('size'), r.get('seeders'), True, extra))
+        if len(out) >= TORZ_KEEP:
+            break
+    return out
+
+
 RUN = {'yts': yts, 'eztv': eztv, 'therarbg': therarbg, 'torrentgalaxy': torrentgalaxy, 'tpb': tpb,
-       'knaben': knaben, 'zilean': zilean}
+       'knaben': knaben, 'zilean': zilean, 'torz': torz}
 
 
 # ================================================================ the source
@@ -327,23 +361,53 @@ def payload(provider):
     with lock:
         rows = list(found)
     streams, seen = [], {}
-    for site, (name, info_hash, size, seeders, by_id) in rows:
+    same = {}                     # one release under several hashes (re-uploads): name and size
+    for site, found in rows:
+        name, info_hash, size, seeders, by_id = found[:5]
+        extra = (found[5] if len(found) > 5 else None) or {}
         info_hash = str(info_hash or '').lower()
-        if not _HASH.match(info_hash) or not name or not _fits(name, q, by_id):
+        if not _HASH.match(info_hash) or not name or str(name).strip().lower() in _NO_NAME:
             continue
-        if info_hash in seen:
-            seen[info_hash]['_sites'].add(labels[site])
+        if _BAD.search(str(name)) or not (extra.get('fit') or _fits(name, q, by_id)):
+            continue
+        size = _size(size)
+        twin = (' '.join(_words(name)), round(size / 1e7)) if size else None
+        old = seen.get(info_hash) or (same.get(twin) if twin else None)
+        if old is not None:
+            old['_sites'].add(labels[site])
+            try:
+                if int(seeders or 0) > int(old.get('_seeders') or 0):
+                    old['_seeders'] = seeders
+            except (TypeError, ValueError):
+                pass
+            if extra.get('fileIdx') is not None and old.get('fileIdx') is None:
+                old['fileIdx'] = extra['fileIdx']
+                old['behaviorHints']['filename'] = extra.get('filename') or old['behaviorHints']['filename']
+            seen[info_hash] = old
             continue
         res = _RES.search(str(name))
-        size = _size(size)
-        hints = {'bingeGroup': 'dexhub-scrapers', 'filename': str(name)}
+        hints = {'bingeGroup': 'dexhub-scrapers', 'filename': str(extra.get('filename') or name)}
         if size:
             hints['videoSize'] = size
         row = {'name': 'Dex Hub\n%s' % (res.group(1).upper().replace('UHD', '2160P').replace('4K', '2160P') if res else ''),
                'title': str(name), 'infoHash': info_hash, 'behaviorHints': hints,
                '_sites': {labels[site]}, '_seeders': seeders}
+        if extra.get('fileIdx') is not None:
+            row['fileIdx'] = extra['fileIdx']
         seen[info_hash] = row
+        if twin:
+            same[twin] = row
         streams.append(row)
+    rank = {'2160P': 0, '1080P': 1, '720P': 2, '576P': 3, '480P': 4}
+
+    def _order(row):
+        try:
+            seeds = int(row.get('_seeders') or 0)
+        except (TypeError, ValueError):
+            seeds = 0
+        return (rank.get(row['name'].split('\n')[-1], 5), -seeds)
+
+    streams.sort(key=_order)
     for row in streams:
         facts = ['%.2f GB' % (row['behaviorHints']['videoSize'] / 1073741824.0) if row['behaviorHints'].get('videoSize') else '',
                  ('\U0001F464 %s' % row['_seeders']) if row.get('_seeders') else '',

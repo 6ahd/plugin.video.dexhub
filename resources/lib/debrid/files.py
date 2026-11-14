@@ -9,6 +9,9 @@ Every video file gets points; the best one wins:
   samples, trailers, extras and openings/endings -500.
 A series asked for an episode never gets a file of another episode: when no
 file names the episode, only a torrent with a single video file is played.
+A film that comes as a whole Blu-ray disc (BDMV folders, no loose video)
+plays the disc's main stream: its largest BDMV/STREAM .m2ts, when that one
+holds most of the disc.
 """
 import re
 
@@ -27,9 +30,34 @@ _EP_ONLY = re.compile(r'(?:(?<![a-z0-9])(?:e|ep|episode)[ ._-]*(\d{1,4})(?![0-9]
 _WORD = re.compile(r'[a-z0-9]+')
 
 
+_DISC_STREAM = re.compile(r'(^|/)bdmv/stream/[^/]+\.m2ts$', re.I)
+MAIN_SHARE = 0.6            # the main stream holds at least this much of the disc's streams
+
+
 def is_video(name):
     low = str(name or '').lower()
     return low.endswith(VIDEO) and not _DISC.search(low.replace('\\', '/'))
+
+
+def no_video(listed):
+    """True when a torrent's file list is known and holds nothing that plays: no video file and
+    no Blu-ray disc (a fake release's .exe, an archive, only pictures or text)."""
+    names = [str((f or {}).get('name') or (f or {}).get('short_name') or '') for f in listed or [] if isinstance(f, dict)]
+    if not names:
+        return False                       # not listed: nothing is known
+    return not any(is_video(n) or _DISC_STREAM.search(n.replace('\\', '/')) for n in names)
+
+
+def disc_main(files):
+    """The main movie stream of a whole Blu-ray disc in the list, or None."""
+    streams = [f for f in files or [] if _DISC_STREAM.search(str(f.get('name') or '').replace('\\', '/'))]
+    if not streams:
+        return None
+    biggest = max(streams, key=lambda f: float(f.get('size') or 0))
+    total = sum(float(f.get('size') or 0) for f in streams)
+    if total <= 0 or float(biggest.get('size') or 0) < MAIN_SHARE * total:
+        return None
+    return biggest
 
 
 def episodes_in(name):
@@ -102,9 +130,10 @@ def score(item, season=None, episode=None, title='', year='', file_idx=None, fil
 def pick(files, season=None, episode=None, title='', year='', file_idx=None, filename=''):
     """The chosen file (one of `files`, each {'name', 'size', 'index'?}), or None."""
     videos = [f for f in files or [] if is_video(f.get('name'))]
-    if not videos:
-        return None
     episodic = season not in (None, '', 0, '0') and episode not in (None, '', 0, '0')
+    if not videos:
+        # a series disc holds several episodes in numbered streams: no way to tell which
+        return None if episodic else disc_main(files)
     season = int(season) if episodic else None
     episode = int(episode) if episodic else None
     ranked = sorted(videos, key=lambda f: (score(f, season, episode, title, year, file_idx, filename),

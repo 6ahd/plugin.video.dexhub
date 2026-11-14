@@ -19326,7 +19326,7 @@ def _append_a4k_ids_to_url(url, ctx):
     # properties for a4k/subtitle addons.
     if lower.startswith(('http://', 'https://', 'ftp://', 'smb://', 'nfs://', 'dav://', 'davs://', 'file://')):
         return url
-    if lower.startswith(('plugin://', 'magnet:')) or '|ids=' in lower or '&ids=' in lower:
+    if lower.startswith(('plugin://', 'magnet:', 'bluray://', 'udf://')) or '|ids=' in lower or '&ids=' in lower:
         return url
     ids = _ids_from_playback_ctx(ctx)
     payload = {}

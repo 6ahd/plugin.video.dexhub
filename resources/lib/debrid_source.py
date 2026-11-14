@@ -110,13 +110,16 @@ def annotate(payload, provider=None, request_id=''):
         return payload
     keep_unready = accounts.option('cache_and_play')
     player = None
-    out, dropped = [], 0
+    out, dropped, junk = [], 0, 0
     for row in streams:
         info_hash = row_hash(row)
         if not info_hash or info_hash not in chosen:
             out.append(row)
             continue
         service_id, state = chosen[info_hash]
+        if state == 'junk':                 # no video inside (a fake .exe, an archive): never offered
+            junk += 1
+            continue
         badge = accounts.BADGES.get(service_id, 'DB')
         if state == 'uncached' and not keep_unready:
             if player is None:
@@ -140,6 +143,9 @@ def annotate(payload, provider=None, request_id=''):
     if dropped:
         _log('%s: %d torrents no linked service has ready were left out' % (
             (provider or {}).get('name') or '?', dropped))
+    if junk:
+        _log('%s: %d torrents with no video inside (a program, an archive) were left out' % (
+            (provider or {}).get('name') or '?', junk))
     copy = dict(payload)
     copy['streams'] = out
     return copy

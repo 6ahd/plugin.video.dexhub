@@ -1077,4 +1077,10 @@ def play_selected(api, stream_key, resume_seconds='', resume_percent='', fallbac
         ctx['source_switch_reuse_subtitle'] = True
         ctx['play_with_subtitles'] = False
         ctx['selected_subtitle'] = ''
+        try:
+            # v5.10.572: DexSubtitles' own automatic pick keeps away from a subtitle the
+            # viewer chose and Dex Hub carries over (a disc played again as its main movie)
+            api.xbmcgui.Window(10000).setProperty('dexhub.sub.carried', str(int(api.time.time())))
+        except Exception:
+            pass
     api._play_with_context(ctx, stream_key, fallback_keys=fallback)

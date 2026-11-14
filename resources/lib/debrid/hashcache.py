@@ -4,6 +4,7 @@
   cached      the service has it: plays at once          (kept 6 hours)
   uncached    the service does not have it               (kept 2 hours)
   failed      it was tried and did not play               (kept 6 hours)
+  junk        the service has it, but no video in it      (kept 24 hours; never offered)
 A play that works marks the torrent cached; one that does not marks it
 failed, so the next search shows the truth without asking again.
 """
@@ -14,7 +15,7 @@ import time
 
 from . import accounts
 
-KEEP = {'cached': 6 * 3600, 'uncached': 2 * 3600, 'failed': 6 * 3600}
+KEEP = {'cached': 6 * 3600, 'uncached': 2 * 3600, 'failed': 6 * 3600, 'junk': 24 * 3600}
 LIMIT = 6000          # per service
 _LOCK = threading.RLock()
 _STATE = {}

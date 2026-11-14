@@ -37,6 +37,8 @@ DEFAULT_OPTIONS = {
     'auto_sources': True,
     # a torrent the service does not have yet is added and waited for (off: only cached ones play)
     'cache_and_play': False,
+    # a whole Blu-ray disc (BDMV folders) opens in its own menus (discserver); off: its main film plays
+    'disc_menus': True,
 }
 
 # Replaced by tests: the folder that holds debrid.json.

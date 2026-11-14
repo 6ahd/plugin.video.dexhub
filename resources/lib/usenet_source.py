@@ -116,6 +116,30 @@ def _api(indexer, params, seconds=20):
         return answer.read()
 
 
+def _refusal(raw):
+    """The indexer's own words when it refused (Newznab <error description=...>), else ''."""
+    try:
+        root = ET.fromstring(raw)
+    except Exception:
+        return ''
+    if root.tag == 'error':
+        return str(root.get('description') or root.get('code') or 'error')
+    return ''
+
+
+def _tell_once(name, why):
+    """An indexer that refuses says why, once per Kodi session (a daily limit, an IP limit, a key)."""
+    try:
+        home = xbmcgui.Window(10000)
+        mark = 'dexhub.usenet.refused.%s' % re.sub(r'\W', '', name.lower())
+        if home.getProperty(mark):
+            return
+        home.setProperty(mark, '1')
+        xbmcgui.Dialog().notification('Usenet: %s' % name, why[:120], xbmcgui.NOTIFICATION_WARNING, 6000)
+    except Exception:
+        pass
+
+
 def _releases(raw):
     """A Newznab answer as [{title, link, size, age, password}]."""
     out = []
@@ -184,13 +208,24 @@ def _search_one(indexer, provider, out):
     started = time.time()
     for params in calls:
         try:
-            found = _releases(_api(indexer, dict(params, limit=100)))
+            raw = _api(indexer, dict(params, limit=100))
         except urllib.error.HTTPError as exc:
-            _log('%s refused the search (%s)' % (name, exc.code), xbmc.LOGWARNING)
+            try:
+                why = _refusal(exc.read()) or 'HTTP %s' % exc.code
+            except Exception:
+                why = 'HTTP %s' % exc.code
+            _log('%s refused the search: %s' % (name, why), xbmc.LOGWARNING)
+            _tell_once(name, why)
             return
         except Exception as exc:
             _log('%s did not answer: %s' % (name, exc), xbmc.LOGWARNING)
             return
+        why = _refusal(raw)               # some indexers refuse with a 200 and an <error>
+        if why:
+            _log('%s refused the search: %s' % (name, why), xbmc.LOGWARNING)
+            _tell_once(name, why)
+            return
+        found = _releases(raw)
         if found:
             _log('%s: %d releases (%s), %.1fs' % (name, len(found), params['t'], time.time() - started))
             out.append((name, found))
@@ -286,7 +321,8 @@ def resolve(ctx):
         except Exception:
             pass
         return ''
-    return opened['url']
+    # v5.10.572: a whole Blu-ray release plays in its menus (or its main title when its menu is Java)
+    return usenet_engine.disc_menu(opened['url']) or opened['url']
 
 
 # ------------------------------------------------------------ setting up

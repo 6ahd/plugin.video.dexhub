@@ -51,6 +51,9 @@ def menu():
         cache_play = accounts.option('cache_and_play')
         labels.append(_t('تشغيل غير الجاهز بعد تحميله: %s', 'Play what is not ready once it downloads: %s') % (
             _t('شغّال', 'On') if cache_play else _t('مطفي', 'Off')))
+        disc_menus = accounts.option('disc_menus')
+        labels.append(_t('أقراص البلوراي الكاملة بقائمتها (TorBox وUsenet): %s', 'Whole Blu-ray discs in their menus (TorBox, Usenet): %s') % (
+            _t('شغّال', 'On') if disc_menus else _t('مطفي، الفيلم الرئيسي بس', 'Off, the main film only')))
         labels.append(_t('إضافة مصادر التورنت الشغالة (Torrentio وComet وMediaFusion وغيرها)',
                          'Add the torrent sources that work now (Torrentio, Comet, MediaFusion and more)'))
         labels.append(_t('مواقع التورنت المدمجة (YTS وEZTV وTheRARBG وغيرها)', 'Built-in torrent sites (YTS, EZTV, TheRARBG and more)'))
@@ -73,6 +76,8 @@ def menu():
         elif choice == len(rows) + 1:
             accounts.set_option('cache_and_play', not cache_play)
         elif choice == len(rows) + 2:
+            accounts.set_option('disc_menus', not disc_menus)
+        elif choice == len(rows) + 3:
             from . import autosources
             progress = xbmcgui.DialogProgress()
             progress.create('Dex Hub', _t('نجرّب كل مصدر ببحث حقيقي…', 'Trying every source with a real search…'))

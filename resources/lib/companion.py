@@ -1075,6 +1075,13 @@ def _is_internal_navigation_path(path):
 
 class CompanionPlayer(xbmc.Player):
     def onAVStarted(self):
+        try:
+            # v5.10.572: a subtitle put on a disc in its menus from anywhere (Kodi's
+            # subtitle dialog, any subtitle add-on) gets the main-movie offer too
+            from . import disc_menu
+            disc_menu.watch()
+        except Exception:
+            pass
         if not self._foreign_active:
             try:
                 from . import nowplaying   # 5.10.302: the Home keeps the playing title's logo
@@ -1427,10 +1434,13 @@ class CompanionPlayer(xbmc.Player):
                 return str(left or '') == str(right or '')
 
         def _dialog_active():
-            # getCurrentWindowDialogId is available on Kodi 19+ and catches
-            # subtitle-service pickers even when their skin XML name differs.
+            # v5.10.572: a modal dialog only (a subtitle picker is one). A dialog that
+            # stays open through playback without being modal (dialog 12002 on
+            # Kodi 22 with the Dex Hub skin) kept the subtitle from ever coming back
+            # (a disc played again as its main movie, 14 Nov 2026).
             try:
-                return int(xbmcgui.getCurrentWindowDialogId() or 0) > 0
+                if xbmc.getCondVisibility('System.HasModalDialog'):
+                    return True
             except Exception:
                 pass
             for cond in ('Window.IsActive(subtitlesearch)',

@@ -423,10 +423,12 @@ class TorBox(Service):
         hashes = list(hashes)
         for start in range(0, len(hashes), 100):
             part = hashes[start:start + 100]
+            # v5.10.571: with its files, so a "ready" torrent holding no video (a fake .exe,
+            # an archive) is known before it is offered (The Uprising, 14 Nov 2026: three)
             for row in self._get('torrents/checkcached', {'hash': ','.join(part), 'format': 'list',
-                                                          'list_files': 'false'}) or []:
+                                                          'list_files': 'true'}) or []:
                 if isinstance(row, dict) and row.get('hash'):
-                    out[str(row['hash']).lower()] = 'cached'
+                    out[str(row['hash']).lower()] = 'junk' if files.no_video(row.get('files')) else 'cached'
             for info_hash in part:
                 out.setdefault(info_hash.lower(), 'uncached')
         return out
@@ -447,17 +449,36 @@ class TorBox(Service):
         answer = net.post('%s/%s' % (self.API, path), headers=self._head(), raw=net.multipart(fields), timeout=30)
         return ((answer or {}).get('data') or {}).get(key)
 
+    def _delete(self, kind, item_id):
+        if kind == 'usenet':
+            path, body = 'usenet/controlusenetdownload', {'usenet_id': item_id, 'operation': 'delete'}
+        else:
+            path, body = 'torrents/controltorrent', {'torrent_id': item_id, 'operation': 'delete'}
+        try:
+            net.post('%s/%s' % (self.API, path), headers=self._head(), json_body=body, timeout=20)
+        except Exception as exc:
+            accounts.log('TorBox: not removed again: %s' % exc, True)
+        self.forget_library()
+
     def resolve(self, info_hash, want, wait=15, kind='torrents', link=''):
+        """A torrent added here only to play it stays while its link plays (TorBox's links
+        need it in the account) and is removed again when nothing of it can play."""
         area, id_name = ('usenet', 'usenet_id') if kind == 'usenet' else ('torrents', 'torrent_id')
         only_cached = not accounts.option('cache_and_play')
+        item_id, added = None, False
         try:
             mine = self.owned(info_hash) if kind != 'usenet' else None
-            item_id = mine.get('id') if mine else self._create(kind, link or magnet(info_hash), (want or {}).get('name'),
-                                                               only_cached)
+            if mine:
+                item_id = mine.get('id')
+            else:
+                item_id = self._create(kind, link or magnet(info_hash), (want or {}).get('name'), only_cached)
+                added = bool(item_id)
+                if added:
+                    self.forget_library()
             if not item_id:
                 return ''
             end = time.time() + wait
-            chosen = None
+            chosen, finished, pool = None, False, []
             while True:
                 item = self._get('%s/mylist' % area, {'id': item_id, 'bypass_cache': 'true'}) or {}
                 if isinstance(item, list):
@@ -465,17 +486,36 @@ class TorBox(Service):
                 pool = [{'name': f.get('name') or f.get('short_name') or '', 'size': f.get('size') or 0,
                          'index': i, 'id': f.get('id')} for i, f in enumerate(item.get('files') or [])]
                 if pool and (item.get('download_finished') or item.get('download_present') or item.get('cached')):
+                    finished = True
                     chosen = files.pick(pool, **_want(want))
                     break
                 if time.time() > end or not _wait(1):
                     break
+            result = ''
+            if chosen:
+                from . import discserver
+                result = discserver.offer(self.id, item_id, pool, chosen, area)
+            if chosen and not result:
+                result = str(self._get('%s/requestdl' % area, {'token': self.token(), id_name: item_id,
+                                                              'file_id': chosen['id'], 'redirect': 'false'}) or '')
             if not chosen:
-                return ''
-            return str(self._get('%s/requestdl' % area, {'token': self.token(), id_name: item_id,
-                                                        'file_id': chosen['id'], 'redirect': 'false'}) or '')
+                accounts.log('TorBox: no fitting file' if finished else 'TorBox: not ready')
+            # still downloading with "play once downloaded" on: left for the viewer
+            if not result and added and (finished or only_cached):
+                self._delete(kind, item_id)
+            return result
         except net.HttpError as why:
             accounts.log('TorBox: %s' % why)
+            if added:
+                self._delete(kind, item_id)
             return ''
+
+    def file_link(self, item_id, file_id, kind='torrents'):
+        """The link of one file of a torrent or Usenet download in the account (a whole disc's
+        files, discserver)."""
+        area, id_name = ('usenet', 'usenet_id') if kind == 'usenet' else ('torrents', 'torrent_id')
+        return str(self._get('%s/requestdl' % area, {'token': self.token(), id_name: item_id,
+                                                    'file_id': file_id, 'redirect': 'false'}) or '')
 
     def search(self, kind, ids, season=None, episode=None, timeout=20):
         """TorBox's own search (kind 'torrents' or 'usenet'), cached releases first."""

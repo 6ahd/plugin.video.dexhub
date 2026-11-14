@@ -74,6 +74,10 @@ class Remote(object):
                 return 200, 'text/html; charset=utf-8', self.page
             if route == 'api/state':
                 return self._json(200, self._session().state())
+            if route == 'api/bot':
+                # v5.10.573: DexCloud's Telegram bot (the hub asks; its account page never lets this through)
+                from . import bot_feed
+                return self._json(200, bot_feed.answer(req.get('query') or ''))
             if route.startswith('api/img/'):
                 try:
                     data, ctype = phone_setup.IMAGES.read(route[len('api/img/'):])
@@ -158,6 +162,14 @@ def _serve(remote, req):
         notice = req.get('notice') or {}
         if isinstance(notice, dict) and notice.get('kind') == 'play':
             _play(notice.get('item'))
+            return
+        if isinstance(notice, dict) and notice.get('kind') == 'open':
+            # v5.10.573: a title of a Home row from the Telegram bot, as OK runs it
+            try:
+                from . import bot_feed
+                bot_feed.run(notice)
+            except Exception as exc:
+                _log('open: %s' % exc)
             return
         try:
             from . import cloud_profile

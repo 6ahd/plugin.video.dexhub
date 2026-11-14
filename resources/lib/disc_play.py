@@ -9,6 +9,12 @@ source failed. Wrapped as udf://<link>/BDMV/index.bdmv, Kodi opens it with
 its Blu-ray reader instead and reads the image in ranges over HTTP: the
 film plays, with its menus where the device and Kodi's Blu-ray setting
 allow (CoreELEC).
+
+v5.10.572: elsewhere (the Mac, where Kodi hung reading an image through udf://,
+Apple TV, Android, Windows) Dex Hub reads the image's file system itself over
+ranges of the link and serves the disc as a folder on 127.0.0.1
+(debrid/discserver.offer_image): Kodi opens it as bluray://…/menu, with its
+menus, or its main title when the menu is Java (BD-J).
 """
 import re
 from urllib.parse import quote, urlsplit
@@ -84,7 +90,7 @@ def wrap(url, ctx=None):
     """The address Kodi should open: a disc image as udf://…/BDMV/index.bdmv,
     anything else unchanged."""
     raw = str(url or '')
-    if not raw.lower().startswith(('http://', 'https://')) or not on_coreelec():
+    if not raw.lower().startswith(('http://', 'https://')) or raw.lower().startswith('http://127.0.0.1'):
         return raw
     link = raw.split('|', 1)[0]
     path = urlsplit(link).path.lower()
@@ -95,6 +101,13 @@ def wrap(url, ctx=None):
     final = _probe(link)
     if not final:
         return raw
+    if not on_coreelec():
+        from .debrid import discserver
+        headers = raw.split('|', 1)[1] if '|' in raw else ''
+        served = discserver.offer_image(final + ('|' + headers if headers else ''))
+        if served:
+            _log('opening a Blu-ray image as a folder served by Dex Hub')
+        return served or raw
     link = final
     _log('opening a Blu-ray image through udf')
     return 'udf://%s/BDMV/index.bdmv' % quote(link, safe='')

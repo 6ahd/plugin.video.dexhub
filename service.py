@@ -969,6 +969,13 @@ if __name__ == '__main__':
     else:
         xbmc.log('[DexHub] Lightweight Mode — poster proxy skipped', xbmc.LOGINFO)
 
+    # v5.10.571: whole Blu-ray discs from a Debrid account, served to Kodi's disc reader (127.0.0.1 only)
+    try:
+        from resources.lib.debrid import discserver as _discserver
+        _discserver.start()
+    except Exception as exc:
+        xbmc.log('[DexHub] disc server not started: %s' % exc, xbmc.LOGWARNING)
+
     # v3.9.27: launch the library-index sync scheduler. Runs the first
     # sync 30s after Kodi boot, then every `index_sync_interval_hours`.
     # Activated only when the user has enabled hybrid/fast mode — in
