@@ -314,6 +314,12 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
                                season=season, episode=episode)
         if _packs:
             combined_targets = list(combined_targets) + list(_packs)
+        from .torrent_scrapers import targets as _scraper_targets
+        _own = _scraper_targets(meta, canonical_id, media_type,
+                                ids=api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id)),
+                                season=season, episode=episode)
+        if _own:
+            combined_targets = list(combined_targets) + list(_own)
     except Exception as _debrid_exc:
         api.xbmc.log('[DexHub] Debrid sources: %s' % _debrid_exc, api.xbmc.LOGWARNING)
     # v5.10.557: EasyNews itself, when the viewer signed in (easynews_source)

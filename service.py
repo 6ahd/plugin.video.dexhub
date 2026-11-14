@@ -1133,6 +1133,19 @@ if __name__ == '__main__':
 
     monitor = _DexHubMonitor()
 
+    # v5.10.569: after a Kodi settings restore, the add-ons it belongs to are installed again
+    try:
+        import threading as _thr
+
+        def _restore_missing():
+            if monitor.waitForAbort(20):
+                return
+            from resources.lib import kodi_backup as _kb
+            _kb.install_missing()
+        _thr.Thread(target=_restore_missing, name='DexHub-restore-addons', daemon=True).start()
+    except Exception as exc:
+        xbmc.log('[DexHub] restore add-ons not started: %s' % exc, xbmc.LOGWARNING)
+
     if xbmc.getCondVisibility('System.Platform.TVOS'):
         from resources.lib.infuse_progress import run as _infuse_returns
         import threading as _thr

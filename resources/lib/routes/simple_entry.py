@@ -2271,7 +2271,18 @@ def dispatch():
     if action in ('backup_new', 'backup_restore'):
         _close_native_settings_dialog()
         from resources.lib import backup
-        (backup.backup_dialog if action == 'backup_new' else backup.restore_dialog)()
+        if action == 'backup_new':
+            backup.backup_dialog()
+        else:
+            # v5.10.569: a Kodi ZIP or a Dex Hub JSON, whichever is picked
+            from resources.lib import kodi_backup
+            kodi_backup.restore()
+        return None
+    if action in ('kodi_backup_full', 'kodi_backup_settings'):
+        # v5.10.569: the whole of Kodi, or Kodi's settings with every add-on's
+        _close_native_settings_dialog()
+        from resources.lib import kodi_backup
+        kodi_backup.create('full' if action == 'kodi_backup_full' else 'settings')
         return None
     if action == 'simple_trakt':
         return trakt_dialog()

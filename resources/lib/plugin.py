@@ -6956,6 +6956,14 @@ def config_backup_menu():
             add_item(title, build_url(action='phone_setup', section=section), is_folder=False,
                      art=root_art('settings'), info={'title':title, 'plot':description})
         return end_dir(content='files', cache=False)
+    add_item(tr('نسخة كاملة لكودي'), build_url(action='kodi_backup_full'),
+             is_folder=False, art=root_art('settings'),
+             info={'title': tr('نسخة كاملة لكودي'),
+                   'plot': tr('كل شي: الإضافات والإعدادات والمكتبة. جهاز جديد يصير نفس القديم')})
+    add_item(tr('نسخة إعدادات كودي كلها'), build_url(action='kodi_backup_settings'),
+             is_folder=False, art=root_art('settings'),
+             info={'title': tr('نسخة إعدادات كودي كلها'),
+                   'plot': tr('إعدادات كودي وكل الإضافات وبياناتها، بدون الإضافات نفسها')})
     add_item(tr('نسخة احتياطية جديدة'), build_url(action='backup_new'),
              is_folder=False, art=root_art('settings'),
              info={'title': tr('نسخة احتياطية جديدة'),

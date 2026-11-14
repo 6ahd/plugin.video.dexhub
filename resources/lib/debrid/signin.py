@@ -51,7 +51,8 @@ def menu():
         cache_play = accounts.option('cache_and_play')
         labels.append(_t('تشغيل غير الجاهز بعد تحميله: %s', 'Play what is not ready once it downloads: %s') % (
             _t('شغّال', 'On') if cache_play else _t('مطفي', 'Off')))
-        labels.append(_t('إضافة Torrentio وComet للمصادر', 'Add Torrentio and Comet to the sources'))
+        labels.append(_t('إضافة Torrentio وComet وPeerflix للمصادر', 'Add Torrentio, Comet and Peerflix to the sources'))
+        labels.append(_t('مواقع التورنت المدمجة (YTS وEZTV وTheRARBG وغيرها)', 'Built-in torrent sites (YTS, EZTV, TheRARBG and more)'))
         choice = dialog.select(_t('Debrid: حساباتك', 'Debrid: your accounts'), labels)
         if choice < 0:
             return True
@@ -70,9 +71,12 @@ def menu():
                 accounts.set_option('stremthru', not stremthru)
         elif choice == len(rows) + 1:
             accounts.set_option('cache_and_play', not cache_play)
-        else:
+        elif choice == len(rows) + 2:
             from . import autosources
             autosources.install(announce=True)
+        else:
+            from .. import torrent_scrapers
+            torrent_scrapers.choose()
 
 
 def manage(service):

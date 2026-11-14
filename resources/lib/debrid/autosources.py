@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Torrent sources added for the viewer once a Debrid account is linked.
 
-Torrentio and Comet are added without any key: they only name the torrents
+Torrentio, Comet and Peerflix are added without any key: they only name the torrents
 (their hashes); Dex Hub asks the viewer's own service which ones are ready
 and plays them through it. Nothing has to be pasted or configured.
 An add-on already in the list (any address on the same host) is left as it is.
@@ -13,6 +13,7 @@ from . import accounts
 SOURCES = (
     ('Torrentio', 'https://torrentio.strem.fun/sort=qualitysize|qualityfilter=threed,480p,scr,cam/manifest.json'),
     ('Comet', 'https://comet.feels.legal/manifest.json'),
+    ('Peerflix', 'https://addon.peerflix.mov/manifest.json'),
 )
 
 

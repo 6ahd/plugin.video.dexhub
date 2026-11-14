@@ -54,6 +54,11 @@ def _fetch_uncached(target, media_type, api):
             from .. import usenet_source as _usenet
             payload = _usenet.payload(provider)
             return payload
+        if (provider or {}).get('id') == '__dexscrapers__':
+            # v5.10.569: Dex Hub's own torrent scrapers (torrent_scrapers)
+            from .. import torrent_scrapers as _scrapers
+            payload = _scrapers.payload(provider)
+            return payload
         if (provider or {}).get('id') == '__scraperpacks__':
             # v5.10.568: CocoScrapers and its kin, played through the viewer's Debrid (scraper_packs)
             from .. import scraper_packs as _packs

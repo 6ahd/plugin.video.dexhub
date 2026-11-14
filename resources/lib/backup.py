@@ -53,7 +53,9 @@ FILES = {
                     'collection_covers.json'),     # v5.10.426: covers chosen on the account page
     'accounts': ('trakt_token.json', 'simkl_token.json', 'nuvio_token.json', 'stremio_token.json',
                  'nuvio_profiles.json', 'nuvio_profile_prefs.json',
-                 'plex_account.json', 'plex_servers.json', 'plex_client_id.txt'),
+                 'plex_account.json', 'plex_servers.json', 'plex_client_id.txt',
+                 # v5.10.569: Dex Hub's own Debrid, EasyNews and Usenet sign-ins
+                 'debrid.json', 'easynews.json', 'usenet.json'),
 }
 # settings that are sign-ins or keys travel with accounts
 _SECRET = ('auth', 'token', 'password', 'passwd', 'api_key', 'apikey', 'secret', 'session', 'cookie', 'pin_code',
@@ -251,11 +253,11 @@ def read_file(path):
     return json.loads(bytes(raw).decode('utf-8-sig'))
 
 
-def restore_dialog():
+def restore_dialog(path=''):
     if xbmc.getCondVisibility('System.Platform.TVOS'):
         from .phone_setup import run
         return run(section='backup')
-    path = xbmcgui.Dialog().browse(1, _t('ملف النسخة الاحتياطية', 'Backup file'), 'files', '.json')
+    path = path or xbmcgui.Dialog().browse(1, _t('ملف النسخة الاحتياطية', 'Backup file'), 'files', '.json')
     if not path:
         return False
     try:
@@ -292,10 +294,16 @@ def restore_dialog():
 
 
 def menu():
-    """Backup or restore (Menu, System)."""
+    """Backup or restore (Menu, System).
+    v5.10.569: a whole-Kodi backup or Kodi's settings (kodi_backup), or Dex Hub alone (below)."""
     if xbmc.getCondVisibility('System.Platform.TVOS'):
         from .phone_setup import run
         return run(section='backup')
+    from . import kodi_backup
+    return kodi_backup.menu()
+
+
+def dexhub_menu():
     from .homeui.options import choose
     options = [_t('نسخة احتياطية جديدة', 'New backup'), _t('استرجاع من نسخة', 'Restore from a backup')]
     pick = choose(_t('النسخ الاحتياطي', 'Backup'), options,
