@@ -2226,6 +2226,16 @@ def dispatch():
         return tmdbh_install_action()
     if action == 'simple_watching':
         return watching_dialog()
+    if action == 'disc_subtitle_offer':
+        # v5.10.567: DexSubtitles put a subtitle file on a disc in its menus
+        from resources.lib import disc_menu
+        disc_menu.offer(str(params.get('path') or ''), str(params.get('name') or ''))
+        return None
+    if action == 'disc_subtitle':
+        # v5.10.567: a subtitle file on a disc in its menus: play the main movie again
+        from resources.lib import disc_menu
+        disc_menu.replay(str(params.get('path') or ''), str(params.get('name') or ''))
+        return None
     if action == 'intro_mark':
         # v5.10.566: the player bar's Mark intro button
         from resources.lib import intro_marks

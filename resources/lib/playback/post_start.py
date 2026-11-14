@@ -569,6 +569,11 @@ def _attacher(player, job, stream_key):
             showing_rank = _rank(state[3]) if (state and state[2]) else 99
             best = min(r.get('_rank', 99) for r in prepared)
             switch_on = show and best < showing_rank
+            if switch_on and xbmc.getCondVisibility('VideoPlayer.HasMenu'):
+                # v5.10.567: a disc in its menus never shows a subtitle file (its
+                # clock is the disc's); keep the disc's own subtitle on
+                switch_on = False
+                xbmc.log('[DexHub] subtitles: a disc in its menus keeps its own subtitle', xbmc.LOGINFO)
             if switch_on:
                 # setSubtitles selects the file it adds: the best one last
                 prepared = sorted(prepared, key=lambda r: -r.get('_rank', 99))

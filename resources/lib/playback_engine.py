@@ -872,7 +872,19 @@ def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta
             _usable = resume_seconds >= 30.0 or (_switching and resume_seconds > 1.0)
             if _usable and total_for_resume > 0.0 and resume_seconds > total_for_resume - 90.0:
                 _usable = False
-            if _usable and api._get_bool_setting('native_start_offset', True):
+            _disc = False
+            try:
+                # v5.10.567: a disc image opened at an offset always goes to its
+                # menus (Kodi applies its Blu-ray playback setting only at the
+                # start), where subtitle files never line up; it starts at 0 and
+                # the companion seeks once the main movie plays
+                from . import disc_menu
+                _disc = disc_menu.is_disc(stream_url)
+            except Exception:
+                pass
+            if _usable and _disc:
+                api.xbmc.log('[DexHub] native resume skipped for a disc image: it opens at its start', api.xbmc.LOGINFO)
+            elif _usable and api._get_bool_setting('native_start_offset', True):
                 item.setProperty('StartOffset', '%.3f' % resume_seconds)
                 try:
                     api.xbmc.log('[DexHub] native resume: StartOffset=%.1fs (companion verifies, seeks only if needed)' % resume_seconds, api.xbmc.LOGINFO)

@@ -1873,6 +1873,12 @@ class CompanionPlayer(xbmc.Player):
 
                 if generation != self._resume_generation or not self._player_looks_active(require_real_media=True):
                     return
+                if xbmc.getCondVisibility('VideoPlayer.HasMenu'):
+                    # v5.10.567: a disc in its menus plays what the disc chooses;
+                    # a seek there lands in its intro or menu loop, not the film
+                    success = True
+                    _monitor('resume-skipped-disc-menu', title=self.ctx.get('title') or '', target_seconds='%.1f' % target)
+                    return
                 total = stable_total
                 seek_to = target
                 # Only derive from percent when there is no usable absolute

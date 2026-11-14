@@ -265,6 +265,15 @@ def _toggle_passthrough():
     xbmcgui.Window(10000).setProperty(PASSTHROUGH, 'false' if now else 'true')
 
 
+
+def _disc_offer(local):
+    """v5.10.567: a subtitle file on a disc in its menus never shows; offer the main movie."""
+    try:
+        from .. import disc_menu
+        disc_menu.offer(local, os.path.basename(local))
+    except Exception as exc:
+        C.log('subtitle page: disc offer: %s' % exc, xbmc.LOGDEBUG)
+
 class SubtitleWindow(xbmcgui.WindowXMLDialog):
 
     def __init__(self, *args, **kwargs):
@@ -848,6 +857,7 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
             player.setSubtitles(local)
             player.showSubtitles(True)
             C.log('subtitle page: showing the viewer\'s own file %s' % os.path.basename(local))
+            _disc_offer(local)
             self.setProperty('side_hint', _t('تعمل الآن: %s', 'Showing: %s') % os.path.basename(path))
         except Exception as exc:
             C.log('subtitle page: could not show %s: %s' % (local, exc), xbmc.LOGWARNING)
@@ -946,6 +956,7 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
             except Exception as exc:
                 C.log('subtitle page: could not show %s: %s' % (local, exc), xbmc.LOGWARNING)
             C.log('subtitle page: showing %s' % os.path.basename(local))
+            _disc_offer(local)
         else:
             xbmcgui.Dialog().notification('Dex Hub', _t('ما قدرت أنزل هذي الترجمة', 'Could not download it'),
                                           xbmcgui.NOTIFICATION_WARNING, 2500, False)
@@ -1002,6 +1013,7 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
             except Exception as exc:
                 C.log('subtitle page: could not show %s: %s' % (local, exc), xbmc.LOGWARNING)
             C.log('subtitle page: showing %s from %s' % (os.path.basename(local), info.get('source')))
+            _disc_offer(local)
         if self.closed:
             return
         self.setProperty('side_hint', (_t('تعمل الآن: %s', 'Showing: %s') % (info['name'] or info['source']))
