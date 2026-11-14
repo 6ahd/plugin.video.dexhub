@@ -41,15 +41,17 @@ SITES = (
     ('knaben', 'Knaben', True, True),
     ('zilean', 'Zilean (DMM)', True, True),
 )
-URLS = {
-    'yts': 'https://yts.mx',
-    'eztv': 'https://eztvx.to',
-    'therarbg': 'https://therarbg.to',
-    'torrentgalaxy': 'https://torrentgalaxy.online',
-    'tpb': 'https://apibay.org',
-    'knaben': 'https://api.knaben.org',
-    'zilean': 'https://zileanfortheweebs.midnightignite.me',
+# every address a site answers on: the one that worked last is asked first
+MIRRORS = {
+    'yts': ('https://yts.mx', 'https://yts.lt', 'https://yts.am'),
+    'eztv': ('https://eztvx.to', 'https://eztv.re', 'https://eztv.wf'),
+    'therarbg': ('https://therarbg.to', 'https://therarbg.com'),
+    'torrentgalaxy': ('https://torrentgalaxy.online',),
+    'tpb': ('https://apibay.org',),
+    'knaben': ('https://api.knaben.org',),
+    'zilean': ('https://zileanfortheweebs.midnightignite.me', 'https://zilean.elfhosted.com'),
 }
+DOWN_FOR = 30 * 60          # a site no address of which answered is left out this long
 
 
 def _log(msg, level=xbmc.LOGINFO):
@@ -69,11 +71,53 @@ def _get(url, timeout=12):
     return net.get(url, headers={'User-Agent': UA}, timeout=timeout)
 
 
+def _health():
+    value = accounts.option('scraper_health')
+    return value if isinstance(value, dict) else {}
+
+
+def _note(site, **fields):
+    health = dict(_health())
+    row = dict(health.get(site) or {})
+    row.update(fields)
+    health[site] = row
+    accounts.set_option('scraper_health', health)
+
+
+def is_down(site):
+    return float((_health().get(site) or {}).get('down_until') or 0) > time.time()
+
+
+def _site_get(site, path, timeout=12):
+    """The site's answer from the first of its addresses that answers; the one that did is
+    remembered. When none does, the site is left out for DOWN_FOR and the error raised."""
+    known = (_health().get(site) or {}).get('mirror')
+    order = [m for m in MIRRORS[site] if m == known] + [m for m in MIRRORS[site] if m != known]
+    last = None
+    for base in order:
+        try:
+            answer = _get(base + path, timeout=timeout)
+        except net.HttpError as exc:
+            if exc.code == 404:
+                return {}                 # the site answered: nothing there
+            last = exc
+            continue
+        except Exception as exc:
+            last = exc
+            continue
+        if base != known or (_health().get(site) or {}).get('down_until'):
+            _note(site, mirror=base, down_until=0)
+        return answer
+    _note(site, down_until=time.time() + DOWN_FOR)
+    _log('%s: no address answered, left out for %d minutes (%s)' % (site, DOWN_FOR // 60, last), xbmc.LOGWARNING)
+    raise last or IOError('no address')
+
+
 # ================================================================ each site
 def yts(q):
     if q['episodic'] or not q['imdb']:
         return []
-    data = _get('%s/api/v2/list_movies.json?query_term=%s' % (URLS['yts'], q['imdb']))
+    data = _site_get('yts', '/api/v2/list_movies.json?query_term=%s' % q['imdb'])
     out = []
     for movie in ((data or {}).get('data') or {}).get('movies') or []:
         if str(movie.get('imdb_code') or '').lower() != q['imdb']:
@@ -90,7 +134,7 @@ def eztv(q):
         return []
     out = []
     for page in (1, 2, 3):
-        data = _get('%s/api/get-torrents?imdb_id=%s&limit=100&page=%d' % (URLS['eztv'], q['imdb'][2:], page))
+        data = _site_get('eztv', '/api/get-torrents?imdb_id=%s&limit=100&page=%d' % (q['imdb'][2:], page))
         rows = (data or {}).get('torrents') or []
         for t in rows:
             try:
@@ -109,7 +153,7 @@ def _trb(site, q):
         return []
     category = 'Movies' if not q['episodic'] else 'TV'
     path = '/get-posts/keywords:%s:order:-a:category:%s:format:json/' % (q['imdb'], category)
-    data = _get(URLS[site] + path)
+    data = _site_get(site, path)
     out = []
     for r in (data or {}).get('results') or []:
         imdb = str(r.get('i') or '')
@@ -131,7 +175,7 @@ def torrentgalaxy(q):
 def tpb(q):
     out = []
     for text in q['queries'][:2]:
-        rows = _get('%s/q.php?%s' % (URLS['tpb'], urllib.parse.urlencode({'q': text, 'cat': '200'})))
+        rows = _site_get('tpb', '/q.php?%s' % urllib.parse.urlencode({'q': text, 'cat': '200'}))
         for r in rows if isinstance(rows, list) else []:
             info_hash = str(r.get('info_hash') or '').lower()
             if info_hash and info_hash != '0' * 40:
@@ -146,7 +190,7 @@ def knaben(q):
     out = []
     cats = '3000000' if not q['episodic'] else '2000000'
     for text in q['queries'][:2]:
-        data = _get('%s/v2/search?%s' % (URLS['knaben'], urllib.parse.urlencode({'q': text, 's': '200', 'c': cats})))
+        data = _site_get('knaben', '/v2/search?%s' % urllib.parse.urlencode({'q': text, 's': '200', 'c': cats}))
         for r in (data or {}).get('hits') or []:
             out.append((r.get('title'), r.get('hash'), r.get('bytes'), r.get('seeders'), False))
     return out
@@ -160,7 +204,7 @@ def zilean(q):
         params['Year'] = q['year']
     if q['imdb']:
         params['ImdbId'] = q['imdb']
-    data = _get('%s/dmm/filtered?%s' % (URLS['zilean'], urllib.parse.urlencode(params)))
+    data = _site_get('zilean', '/dmm/filtered?%s' % urllib.parse.urlencode(params))
     out = []
     for r in data if isinstance(data, list) else []:
         out.append((r.get('raw_title') or r.get('rawTitle'), r.get('info_hash') or r.get('infoHash'),
@@ -196,7 +240,8 @@ def targets(meta, canonical_id, media_type, ids=None, season=None, episode=None)
         pass
     meta = meta or {}
     episodic = season not in (None, '', 0, '0') and episode not in (None, '', 0, '0')
-    sites = [s for s, _n, films, series in SITES if (series if episodic else films) and s not in disabled()]
+    sites = [s for s, _n, films, series in SITES
+             if (series if episodic else films) and s not in disabled() and not is_down(s)]
     if not sites:
         return []
     titles = [meta.get('name') or meta.get('title') or '']

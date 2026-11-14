@@ -1142,6 +1142,14 @@ if __name__ == '__main__':
                 return
             from resources.lib import kodi_backup as _kb
             _kb.install_missing()
+            # v5.10.570: the weekly look at the public torrent add-ons Dex Hub added
+            if monitor.waitForAbort(60):
+                return
+            try:
+                from resources.lib.debrid import autosources as _auto
+                _auto.refresh()
+            except Exception as _auto_exc:
+                xbmc.log('[DexHub] Debrid sources check: %s' % _auto_exc, xbmc.LOGWARNING)
         _thr.Thread(target=_restore_missing, name='DexHub-restore-addons', daemon=True).start()
     except Exception as exc:
         xbmc.log('[DexHub] restore add-ons not started: %s' % exc, xbmc.LOGWARNING)
