@@ -2333,8 +2333,9 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
 
     def _aura_tint(self, url):
         """v5.10.560: the Aura page's colour bloom: the backdrop's own colour (art_colour), read in
-        the background; Lucent's pale glow until then, and for a picture with no colour of its own."""
-        if not getattr(self, '_aura', False):
+        the background; Lucent's pale glow until then, and for a picture with no colour of its own.
+        v5.10.574: every theme but Classic has it (they all take Aura's colours)."""
+        if not (getattr(self, '_aura', False) or getattr(self, '_bloom', False)):
             return
         # on Home: the page's XML reads it there, so the filter panel open over the page (the active
         # window then) does not turn the glows white
@@ -2391,12 +2392,13 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         except Exception:
             en = False
         choices = OPTIONS['sources_row_style'][1]
-        names = {'full': (('Prism', 'Prism'), ('سطور الإضافة نفسها كاملة مثل Nuvio TV، مع شاراتك الخاصة',
-                                               "The add-on's own lines in full, like Nuvio TV, with your own badges")),
-                 'compact': (('مختصرة', 'Compact'), ('تعرض شاراتك الخاصة: حزمة الشارات اللي اخترتها',
-                                                      'Shows your own badges: the badge pack you picked')),
-                 'halo': (('Halo', 'Halo'), ('جاهز: تصميمه وشاراته الملونة، والبحث ونتايجه في صفحة وحدة',
-                                             'Ready-made: its own design and coloured badges, the search and results on one page')),
+        # v5.10.574: all but Classic in Aura's colours, each its own layout
+        names = {'full': (('Prism', 'Prism'), ('البيانات كاملة: سطور الإضافة نفسها مثل Nuvio TV، وإحصاء المصادر، وشاراتك الخاصة',
+                                               "Full details: the add-on's own lines like Nuvio TV, the sources' count, your own badges")),
+                 'compact': (('بوستر', 'Poster'), ('البوستر والقصة والتقييمات يسار، والمصادر مختصرة بشاراتك الخاصة',
+                                                    'The poster, plot and ratings on the left, short rows with your own badges')),
+                 'halo': (('Halo', 'Halo'), ('شاراته ملونة بالكلام، والمصدر المحدد يكبر سطر سطر ويبين سطور الإضافة',
+                                             'Coloured badges in words; the selected source grows a line at a time with the add-on\'s lines')),
                  'aura': (('Aura', 'Aura'), ('الخلفية واضحة والألواح زجاج: كل مصدر بالكلام مع شاراته الملونة، وتفاصيل الملف المحدد كمربعات',
                                              'Clear artwork under glass panels: each source in words with coloured badges, and the selected file\'s details as tiles')),
                  'classic': (('كلاسيكي', 'Classic'), ('التصميم السابق: البوستر يسار، وكل التقييمات فوق بكبسولات زجاج',
@@ -4393,8 +4395,11 @@ def open_sources_window(results, meta, play_mode=MODE_ASK, session_key='', retry
     # v5.10.479: Compact shows them under the picture; v5.10.481: Classic on top
     win._want_ratings = skin_xml in ('sources_results.xml', 'sources_classic.xml', 'sources_aura.xml')   # v5.10.560: Aura
     win._anime = _is_anime_title(meta)                # v5.10.447: TRaSH's anime scores
-    win._aura = skin_xml == 'sources_aura.xml'        # v5.10.560
-    if win._aura:
+    # v5.10.560: Aura; v5.10.574: every theme but Classic takes Aura's colours: the backdrop's
+    # colour bloom and the gold highlight
+    win._aura = skin_xml == 'sources_aura.xml'
+    win._bloom = skin_xml != 'sources_classic.xml'
+    if win._bloom:
         from .i18n import is_english
         # Aura's highlight (the 4K pill, the tab under the cursor, what is on in its filter) and the
         # text colour on it: gold, as its gradient badges (the user did not want white)

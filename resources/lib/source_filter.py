@@ -619,9 +619,10 @@ def run(rows, minutes, chosen, sort, sorts, keep, on_change=None, edge=False, an
     path = xbmcaddon.Addon('plugin.video.dexhub').getAddonInfo('path')
     _log('%d rows, running time %d min' % (len(rows), minutes))
     skin_file = 'dexhub_filter.xml'
-    try:        # v5.10.560: the Aura sources theme has the panel in its own quiet colours
+    try:        # v5.10.560: the Aura sources theme has the panel in its own quiet colours;
+        # v5.10.574: so has every theme but Classic (they all take Aura's colours)
         from .ui_preferences import value as _pref
-        if _pref('sources_row_style') == 'aura':
+        if _pref('sources_row_style') != 'classic':
             skin_file = 'dexhub_filter_aura.xml'
     except Exception:
         pass

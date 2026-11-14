@@ -528,9 +528,9 @@ def edit(key, txt):
         'pop': txt('قفزة', 'Pop'),
         'glow': txt('إضاءة فقط', 'Glow only'),
         'stage': txt('خلف الصفحة، ثم ملء الشاشة', 'Behind the page, then full screen'),
-        'full': txt('Prism · سطور الإضافة كاملة بشاراتك', "Prism · the add-on's own lines, your badges"),
-        'compact': txt('مختصرة · بشاراتك الخاصة', 'Compact · your own badges'),
-        'halo': txt('Halo · جاهز بشاراته', 'Halo · ready-made, its own badges'),
+        'full': txt('Prism · البيانات كاملة', 'Prism · full details'),
+        'compact': txt('بوستر · البوستر والقصة', 'Poster · the poster and plot'),
+        'halo': txt('Halo · شارات ملونة', 'Halo · coloured badges'),
         'classic': txt('كلاسيكي · كل التقييمات فوق', 'Classic · every rating on top'),
         'aura': txt('Aura · زجاج فوق الخلفية وتفاصيل الملف', 'Aura · glass over the artwork, file details'),
     }
