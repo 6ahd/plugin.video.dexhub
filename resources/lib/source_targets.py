@@ -300,6 +300,22 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
             combined_targets = list(_nas) + list(combined_targets)
     except Exception as _nas_exc:
         api.xbmc.log('[DexHub] NAS sources: %s' % _nas_exc, api.xbmc.LOGWARNING)
+    # v5.10.568: the viewer's own Debrid files and TorBox's own search (debrid_source)
+    try:
+        from .debrid_source import targets as _debrid_targets
+        _debrid = _debrid_targets(meta, canonical_id, media_type,
+                                  ids=api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id)),
+                                  season=season, episode=episode)
+        if _debrid:
+            combined_targets = list(_debrid) + list(combined_targets)
+        from .scraper_packs import targets as _pack_targets
+        _packs = _pack_targets(meta, canonical_id, media_type,
+                               ids=api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id)),
+                               season=season, episode=episode)
+        if _packs:
+            combined_targets = list(combined_targets) + list(_packs)
+    except Exception as _debrid_exc:
+        api.xbmc.log('[DexHub] Debrid sources: %s' % _debrid_exc, api.xbmc.LOGWARNING)
     # v5.10.557: EasyNews itself, when the viewer signed in (easynews_source)
     try:
         from .easynews_source import targets as _easynews_targets

@@ -188,6 +188,20 @@ def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta
     # v5.10.447: a Kodi add-on's row: that add-on resolves and plays it.
     # v5.10.448: one that can (POV) only resolves it, and Dex Hub plays the
     # link here like any other source (one waiting screen, one player)
+    # v5.10.568: a torrent (or TorBox Usenet) row played through the viewer's Debrid account
+    try:
+        from . import debrid_source as _debrid
+        if _debrid.is_row(ctx):
+            link = _debrid.resolve(ctx)
+            if link:
+                ctx['stream_url'] = link
+            else:
+                if not _next_source(ctx, stream_key, 'no link'):
+                    api.xbmcgui.Dialog().notification('Dex Hub', api.tr('المصدر مو جاهز في حسابك، جرّب غيره'),
+                                                      api.xbmcgui.NOTIFICATION_WARNING, 4000)
+                return
+    except Exception as _debrid_exc:
+        api.xbmc.log('[DexHub] Debrid playback: %s' % _debrid_exc, api.xbmc.LOGWARNING)
     # v5.10.558: a Usenet row: its NZB link becomes the film's address on this device
     try:
         from . import usenet_source as _usenet

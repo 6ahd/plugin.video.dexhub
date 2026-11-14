@@ -16995,6 +16995,9 @@ def _append_stream_entries_from_data(entries, data, provider, request_id, media_
             'request_headers': _stream_row_request_headers(row),
             'external_url': row.get('externalUrl') or '',
             'info_hash': (row.get('infoHash') or row.get('infohash') or ((row.get('behaviorHints') or {}) if isinstance(row.get('behaviorHints') or {}, dict) else {}).get('infoHash') or ''),
+            # v5.10.568: the torrent's file the add-on named (debrid_source picks it)
+            'file_idx': (row.get('fileIdx') if row.get('fileIdx') not in (None, '')
+                         else ((row.get('behaviorHints') or {}) if isinstance(row.get('behaviorHints') or {}, dict) else {}).get('fileIdx')),
         }
         # A Stremio episode request is made with the series identity, so keep
         # that identity explicit before any native source row replaces the

@@ -321,10 +321,26 @@ class Wizard(xbmcgui.WindowXMLDialog):
                     status = t('اضغط للربط', 'Press to link')
             cards.append({'key': key, 'label': tr(name), 'desc': tr(desc) if key != 'floppy' else t(desc, 'Progress from your own server'),
                           'icon': os.path.join(media, icon), 'status': status, 'on': on})
+        cards.append(self._debrid_card())
         if len(self.steps) > 1:
             # v5.10.452: the quick setup has no metadata step: a ready collection here
             cards.append(self._kaptain_card())
         return cards
+
+    def _debrid_card(self):
+        """v5.10.568: Dex Hub's own Debrid: a QR, the phone approves, torrents play."""
+        t = self.t
+        try:
+            from ..debrid import accounts
+            names = [accounts.NAMES.get(s, s) for s in accounts.linked()]
+        except Exception:
+            names = []
+        return {'key': 'debrid', 'label': 'Debrid',
+                'desc': t('Real-Debrid وAllDebrid وTorBox وPremiumize: التورنت يشتغل من حسابك',
+                          'Real-Debrid, AllDebrid, TorBox, Premiumize: torrents play from your account'),
+                'icon': _media('menu/link.png'),
+                'status': (t('مربوط ✓', 'Linked ✓') + '  ' + ', '.join(names)) if names else t('اضغط للربط', 'Press to link'),
+                'on': bool(names)}
 
     def _kaptain_card(self):
         t = self.t
@@ -462,6 +478,10 @@ class Wizard(xbmcgui.WindowXMLDialog):
     def _click_accounts(self, key):
         if key == 'kaptain':
             return self._click_metadata(key)
+        if key == 'debrid':
+            self.changed = True
+            self._run('debrid_setup', wait=True)
+            return
         if key == 'floppy':
             if xbmc.getCondVisibility('System.HasAddon(%s)' % FLOPPY):
                 xbmc.executebuiltin('Addon.OpenSettings(%s)' % FLOPPY)

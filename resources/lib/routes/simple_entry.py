@@ -802,6 +802,11 @@ def playback_quality():
          _txt('أضف مزود NNTP ومفهرس Newznab، والنسخ تطلع مع مصادر كل عمل وتشتغل من المزود مباشرة على هذا الجهاز.',
               'Add an NNTP provider and a Newznab indexer: releases show among every title\'s sources and play straight from the provider on this device.'),
          folder=False)
+    _add(_txt('Debrid (Real-Debrid، AllDebrid، TorBox، Premiumize)', 'Debrid (Real-Debrid, AllDebrid, TorBox, Premiumize)'),
+         'debrid_setup', 'root_sources.png',
+         _txt('اربط حسابك بالباركود من جوالك، وتورنتات Torrentio وComet وغيرها تشتغل من حسابك مباشرة.',
+              'Link your account with a QR from your phone: torrents from Torrentio, Comet and others play straight from it.'),
+         folder=False)
     _add(_txt('EasyNews', 'EasyNews'), 'easynews_setup',
          'root_sources.png',
          _txt('سجّل دخول حسابك في EasyNews، وملفاته تطلع مع مصادر كل عمل وتشتغل من اتصالك مباشرة.',
@@ -2207,6 +2212,11 @@ def dispatch():
         _close_native_settings_dialog()
         from resources.lib import nas_sources
         return nas_sources.setup()
+    if action == 'debrid_setup':
+        # v5.10.568: Dex Hub's own Debrid (debrid_source)
+        _close_native_settings_dialog()
+        from resources.lib import debrid_source
+        return debrid_source.setup()
     if action == 'easynews_setup':
         _close_native_settings_dialog()
         from resources.lib import easynews_source

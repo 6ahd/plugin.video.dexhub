@@ -1035,14 +1035,15 @@ const SVC_META={
  jellyfin:{sub:'مكتبة السيرفر',ph:'http://192.168.1.20:8096'},
  silo:{sub:'مكتبة السيرفر',ph:'silo.example.com'},
  iptv:{sub:'قنوات وVOD',ph:'http://server:8080'},
- nas:{sub:'أفلامك ومسلسلاتك في الشبكة',ph:'192.168.1.20'}
+ nas:{sub:'أفلامك ومسلسلاتك في الشبكة',ph:'192.168.1.20'},
+ debrid:{sub:'Real-Debrid وAllDebrid وTorBox وPremiumize',note:'يطلع باركود على التلفزيون، تمسحه وتوافق، والتورنت يشتغل من حسابك.'}
 };
-const ORDER=['nuvio','trakt','stremio','plex','emby','jellyfin','silo','iptv','nas'];
+const ORDER=['nuvio','trakt','stremio','plex','emby','jellyfin','silo','iptv','nas','debrid'];
 let chosen=new Set();
 function loadChosen(){try{const v=JSON.parse(localStorage.getItem('dexhub.phone.chosen')||'null');if(Array.isArray(v))return new Set(v)}catch(e){}return null}
 function saveChosen(){try{localStorage.setItem('dexhub.phone.chosen',JSON.stringify([...chosen]))}catch(e){}}
 const svc=id=>S.services[id]||{name:id,kind:'tv'};
-function ico(id){return ICON[id]?`<img src="${ICON[id]}" alt="">`:`<span class="ico">${id==='nas'?'NAS':'TV'}</span>`}
+function ico(id){return ICON[id]?`<img src="${ICON[id]}" alt="">`:`<span class="ico">${id==='nas'?'NAS':id==='debrid'?'DB':'TV'}</span>`}
 /* v5.10.251: the page is plain http on the home network, where phones give
    no clipboard API; copying through a selected text box works there, and
    only the code itself is copied (Safari copied the page's address) */
@@ -1120,7 +1121,7 @@ function cardBody(id){
   const s=svc(id),m=SVC_META[id]||{};
   if(s.linked){
     return (id==='stremio'?stremioSyncCard():'')+`<div class="done-line">${id==='iptv'?'اشتراكك مضاف، تقدر تضيف ثاني من التلفزيون':id==='nas'?'الـNAS مضاف، وملفاته تطلع مع المصادر':'مربوط ويشتغل على التلفزيون'}</div>`+
-      (id==='iptv'||id==='nas'?'':`<div class="row"><button class="btn g s" data-act="unlink" data-id="${id}" type="button">فك الربط</button></div>`);
+      (id==='iptv'||id==='nas'||id==='debrid'?'':`<div class="row"><button class="btn g s" data-act="unlink" data-id="${id}" type="button">فك الربط</button></div>`);
   }
   if(s.kind==='code'){
     const p=s.pairing;

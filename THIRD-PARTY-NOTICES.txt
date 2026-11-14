@@ -4,6 +4,10 @@ Third-party components bundled with Dex Hub
 These files are not covered by Dex Hub's licence (LICENSE.txt); each keeps
 the licence named here.
 
+resources/lib/scraper_packs.py (how a scraper pack is loaded)
+    Follows Lucent Video's coco.py by Wilfried van der Voort (djdirty60),
+    MIT licence (https://github.com/djdirty60/Lucent-video).
+
 resources/lib/qrcode/
     python-qrcode by Lincoln Loop. BSD licence, text in
     resources/lib/qrcode/LICENSE.

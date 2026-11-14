@@ -94,6 +94,7 @@ SERVICES = (
     ('silo', 'Silo', 'silo', 'silo_qr_login', 'silo_logout'),
     ('iptv', 'IPTV', 'tv', 'iptv_menu', ''),
     ('nas', 'NAS', 'server', 'nas_setup', ''),
+    ('debrid', 'Debrid', 'tv', 'debrid_setup', ''),
 )
 _BY_KEY = dict((row[0], row) for row in SERVICES)
 
@@ -181,6 +182,12 @@ def _ui_options():
 
 
 def _linked(key):
+    if key == 'debrid':
+        try:
+            from .debrid import accounts
+            return accounts.any_linked()
+        except Exception:
+            return False
     if key == 'nas':
         try:
             from . import nas_sources

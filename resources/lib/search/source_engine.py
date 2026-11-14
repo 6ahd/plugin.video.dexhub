@@ -54,6 +54,16 @@ def _fetch_uncached(target, media_type, api):
             from .. import usenet_source as _usenet
             payload = _usenet.payload(provider)
             return payload
+        if (provider or {}).get('id') == '__scraperpacks__':
+            # v5.10.568: CocoScrapers and its kin, played through the viewer's Debrid (scraper_packs)
+            from .. import scraper_packs as _packs
+            payload = _packs.payload(provider)
+            return payload
+        if (provider or {}).get('id') in ('__debridcloud__', '__torboxsearch__'):
+            # v5.10.568: the viewer's own Debrid files, and TorBox's own search (debrid_source)
+            from .. import debrid_source as _debrid
+            payload = _debrid.payload(provider)
+            return payload
         if (provider or {}).get('id') == '__easynews__':
             # v5.10.557: EasyNews itself, with the viewer's own sign-in (easynews_source)
             from .. import easynews_source as _easynews
@@ -212,6 +222,20 @@ def _partial_answer(payload):
 
 
 def fetch(target, media_type, api):
+    """v5.10.568: the answer, with its torrent rows marked for the viewer's Debrid
+    account (debrid_source.annotate: [RD+] ready, [RD] maybe, unready ones left
+    out). The results cache keeps the add-on's own answer, unmarked."""
+    payload = _fetch(target, media_type, api)
+    try:
+        from .. import debrid_source as _debrid
+        if _debrid.active():
+            payload = _debrid.annotate(payload, target[0], target[1])
+    except Exception as exc:
+        api.xbmc.log('[DexHub] Debrid marks: %s' % exc, api.xbmc.LOGWARNING)
+    return payload
+
+
+def _fetch(target, media_type, api):
     """Cancellation and a short per-title results cache around the real fetch.
 
     v5.10.84: once the user has picked a source the search is cancelled, and a
@@ -226,7 +250,7 @@ def fetch(target, media_type, api):
             return {'streams': [], '_source_status': 'cancelled'}
     except Exception:
         pass
-    if (provider or {}).get('id') in ('__party__', '__kodi__', '__nas__', '__iptv__'):
+    if (provider or {}).get('id') in ('__party__', '__kodi__', '__nas__', '__iptv__', '__debridcloud__'):
         # v5.10.373: a ticket of this moment, never from the results cache
         # (v5.10.447: nor a Kodi add-on's list: its saved copy is what plays)
         return _fetch_uncached(target, media_type, api)
