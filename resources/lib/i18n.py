@@ -880,6 +880,11 @@ STRINGS = {
     'تمت إضافة %d مصدر': 'Added %d add-ons',
     'تمت إضافة المصدر: %s': 'Added add-on: %s',
     'تم حذف المصدر': 'Add-on deleted',
+    'الذكاء الاصطناعي': 'AI',
+    'بحث بالوصف وقوائم ومقترحات بمفتاحك: Grok أو OpenAI أو Gemini وغيرها': 'Search by description, lists and picks with your key: Grok, OpenAI, Gemini and more',
+    'اقتراحات الذكاء الاصطناعي': 'AI picks',
+    'مقترح لك بالذكاء الاصطناعي • أفلام': 'Recommended for you by AI • Films',
+    'مقترح لك بالذكاء الاصطناعي • مسلسلات': 'Recommended for you by AI • Series',
     'تعطيل الإضافة': 'Turn the add-on off',
     'تفعيل الإضافة': 'Turn the add-on on',
     'تم تعطيل: %s': 'Turned off: %s',
@@ -3870,6 +3875,10 @@ STRINGS.update({
     'ترتيبها وإخفاؤها وشكلها، وأقسام الشريط': 'Their order, hiding and style, and the bar\'s sections',
     'الإضافات اللي يبحث فيها، والـNAS، وطريقة التشغيل': 'The add-ons searched, your NAS, and how playback starts',
     'الصوت والترجمة والتريلر': 'Audio, subtitles and trailers',
+    'الإعداد السريع والحسابات وDexCloud والمفاتيح': 'Quick setup, accounts, DexCloud and keys',
+    'الإضافات والديبريد وUsenet والـNAS وطريقة التشغيل': 'Add-ons, Debrid, Usenet, your NAS and how playback starts',
+    'الصوت والترجمة وأزرار المشغّل والحلقات والتريلر': "Audio, subtitles, the player's buttons, episodes and trailers",
+    'النسخ الاحتياطي والكاش والتشخيص وكودي والخروج': 'Backups, cache, diagnostics, Kodi and leaving',
     'أفلامك ومسلسلاتك في الـNAS تطلع مع المصادر': 'Films and series on your NAS show with the sources',
 })
 

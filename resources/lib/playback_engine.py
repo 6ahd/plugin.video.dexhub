@@ -371,6 +371,13 @@ def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta
         stream_url = disc_play.wrap(stream_url, ctx)
     except Exception as _disc_exc:
         api.xbmc.log('[DexHub] disc: %s' % _disc_exc, api.xbmc.LOGWARNING)
+    # v5.10.576: a Blu-ray image on CoreELEC/LibreELEC opens on its film when a subtitle file
+    # will be wanted (no subtitle in the viewer's language on the disc) or Kodi plays films only
+    try:
+        from . import disc_menu as _disc_menu
+        stream_url = _disc_menu.film_path(stream_url)
+    except Exception as _film_exc:
+        api.xbmc.log('[DexHub] disc film: %s' % _film_exc, api.xbmc.LOGWARNING)
     if stream_url != (ctx.get('stream_url') or ''):
         try:
             ctx = dict(ctx or {})
@@ -911,6 +918,29 @@ def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta
                     pass
         except Exception:
             pass
+
+    # v5.10.577: a Blu-ray opened on its main title (bluray://…/BDMV/PLAYLIST/n.mpls, the
+    # path debrid/bdinfo and the Usenet engine give when Kodi's Blu-ray playback is "Play
+    # main movie" or the menus are Java) starts one second in. Started at 0, Kodi picks
+    # the main title again by itself, and on CoreELEC 22 with Java installed that pick
+    # opened the disc in its menus (The Batman UHD over Usenet, 16 Nov 2026), where
+    # subtitle files never show; at an offset Kodi plays the playlist it is given.
+    try:
+        import re as _re
+        _plain = str(stream_url or '').split('|', 1)[0]
+        if _plain.lower().startswith('bluray://'):
+            try:
+                # Kodi answers '0.000000' for an item with no start offset
+                _offset = float(item.getProperty('StartOffset') or 0)
+            except ValueError:
+                _offset = 0.0
+            if _re.search(r'/BDMV/PLAYLIST/\d{5}\.mpls$', _plain, _re.I) and _offset <= 0.0:
+                item.setProperty('StartOffset', '1.000')
+                api.xbmc.log('[DexHub] disc main title: opened 1 s in, so Kodi keeps it', api.xbmc.LOGINFO)
+            else:
+                api.xbmc.log('[DexHub] disc: opened as given (%s)' % _plain.rsplit('/', 1)[-1], api.xbmc.LOGINFO)
+    except Exception as _mt_exc:
+        api.xbmc.log('[DexHub] disc main title: %r' % _mt_exc, api.xbmc.LOGWARNING)
 
     # Explicitly close any busy dialog Kodi opened on our behalf BEFORE we
     # start playback, so the user sees the player loading screen instead of

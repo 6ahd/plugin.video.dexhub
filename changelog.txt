@@ -1,3 +1,23 @@
+5.10.576
+الذكاء الاصطناعي بمفتاحك: مركز التحكم ← الرئيسية والصفوف ← «الذكاء الاصطناعي». تختار Grok أو OpenAI أو Gemini أو OpenRouter أو DeepSeek أو أي خدمة متوافقة مع OpenAI، وتحط مفتاحك (يتجرب قبل ما ينحفظ، ويبقى على الجهاز).
+البحث الذكي: لو كتبت وصف («فيلم سرقة ذكي فيه مفاجأة»، «مسلسل كوري رومانسي قصير») يطلع صف «اقتراحات الذكاء الاصطناعي» أول النتائج، مع النتائج العادية. تقدر تخليه لكل بحث أو تطفيه.
+قوائم بالذكاء الاصطناعي: تعديل الرئيسية ← إضافة صفوف ← «بالذكاء الاصطناعي»: اكتب وصف القائمة ويصير صف في الرئيسية، يتجدد كل يوم.
+مقترح لك: صفين (أفلام ومسلسلات) يختارها الذكاء الاصطناعي من آخر اللي شاهدته، تفعّلها من ترتيب صفوف الرئيسية. ترسل أسماء آخر اللي شاهدته لخدمة الذكاء الاصطناعي اللي اخترتها.
+AI with your own key: Control Centre › Home and rows › AI. Pick Grok, OpenAI, Gemini, OpenRouter, DeepSeek or any OpenAI-compatible service and add your key (it is tried before it is kept, and stays on the device).
+Smart search: a search that reads like a description ("a clever heist film with a twist", "a short Korean romance series") puts an "AI picks" row first, with the usual results. It can be on for every search, or off.
+AI lists: Edit Home › Add rows › With AI: describe the list and it becomes a Home row, refreshed daily.
+Recommended for you: two rows (films, series) the AI picks from what you watched lately, turned on in Arrange Home rows. They send the titles you watched lately to the AI service you chose.
+خيار جديد: قرص البلوراي اللي ما فيه ترجمة بلغتك (أغلب الأقراص بدون عربي) يفتح على الفيلم مباشرة مع ملف الترجمة، بدون ما يعاد تشغيله. والقرص اللي فيه لغتك يفتح بقائمته. يشمل TorBox وUsenet وملفات ISO على الـNAS في CoreELEC وLibreELEC. مطفي افتراضياً، وتشغّله من Debrid: «القرص بدون ترجمتك يفتح على الفيلم».
+وعلى «تشغيل الفيلم الرئيسي» القرص صار يفتح على الفيلم فعلاً (كودي في CoreELEC مع الجافا كان يفتحه بقائمته). وFloppy ما يسأل «تكمل من…؟» للي يشغّله Dex Hub. وفيلم Usenet ما ينقفل لو شغّلته بعد ما وقفت غيره بدقيقة.
+New option: a Blu-ray without a subtitle in your language (most discs have no Arabic) opens on the film with the subtitle file, with no second start; a disc that has your language opens in its menus. TorBox, Usenet, and NAS .iso files on CoreELEC and LibreELEC. Off by default; on in Debrid: "Disc without your subtitles opens on the film".
+With "Play main movie" a disc now really opens on the film (Kodi on CoreELEC with Java opened its menus). Floppy no longer asks "Continue from…?" for what Dex Hub plays. A Usenet film started a minute after stopping another is no longer closed as it opens.
+مركز التحكم (الوضع الأساسي): «البداية» فيها DexCloud ومفتاح الذكاء الاصطناعي ومفتاح TMDb، و«مصادر التشغيل» فيها الديبريد وEasyNews، و«التشغيل» فيها أزرار المشغّل والحلقات وتخطي المقدمة (ومشغّل Apple TV في نسخته)، و«النظام» فيه النسخ الاحتياطي.
+Control Centre (Basic): Start has DexCloud and the AI and TMDb keys; Playback sources has Debrid and EasyNews; Playback has the player's buttons and episodes and skip intro (and the Apple TV player in its build); System has backups.
+
+5.10.575
+صف من أي مسار في كودي: تعديل الرئيسية ← إضافة صفوف ← «من كودي». تختار مصادر الفيديو أو مكتبة الفيديو أو أفلام ومسلسلات المكتبة أو أضيف مؤخراً أو قوائم التشغيل، أو تكتب أي مسار (مثل sources://video/ أو smb://)، وبعدها تضيف المجلد نفسه أو كم مجلد منه (GitHub #29).
+A row from any Kodi path: Edit Home › Add rows › From Kodi. Pick video sources, the video library, the library's films or series, recently added, playlists, or type any path (like sources://video/ or smb://), then add that folder or several of its folders (GitHub #29).
+
 5.10.574
 ثيمات صفحة المصادر بألوان Aura، ما عدا الكلاسيكي: الخلفية واضحة مع لمعة من لون الفيلم، وألواح زجاج كحلية، والمصدر المحدد بحلقة ذهبية، والتبويب تحت المؤشر ذهبي، ولوحة الفلاتر الزجاجية نفسها. وكل ثيم صار له شكله: «بوستر» (كان «مختصرة»): البوستر والقصة والتقييمات يسار، والمصادر مختصرة بشاراتك. Aura: الخلفية واضحة وتفاصيل الملف. Halo: شاراته ملونة بالكلام، والمصدر المحدد يكبر سطر سطر بسطور الإضافة. Prism: البيانات كاملة، سطور الإضافة نفسها وإحصاء المصادر. وأسماء الثيمات ووصفها تحدّثت في الإعدادات وزر الترس.
 The sources themes in Aura's colours, all but Classic: the artwork clear with a bloom of the film's own colour, navy glass panels, a gold ring on the selected source, the tab under the cursor in gold, and the same glass filter panel. And each theme has its own layout: Poster (was Compact): the poster, plot and ratings on the left, short rows with your badges. Aura: the clear artwork and the file's details. Halo: coloured badges in words, the selected source growing a line at a time with the add-on's lines. Prism: full details, the add-on's own lines and the sources' count. The themes' names and descriptions are new in the settings and the gear.

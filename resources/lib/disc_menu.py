@@ -288,3 +288,56 @@ def replay(subtitle_path='', name=''):
     finally:
         if before is not None and before != MAIN_TITLE:
             _set_playback_setting(before)
+
+
+def film_path(url):
+    """v5.10.576: a Blu-ray image (a NAS or local .iso, or the udf:// address disc_play gives a
+    streamed one) on CoreELEC or LibreELEC, read through Kodi's own udf:// reader: its main
+    film's bluray://…/BDMV/PLAYLIST/n.mpls when Kodi would open it on the film anyway ("Play
+    main movie") or when the film has no subtitle in the viewer's language (debrid/bdinfo.path),
+    so it is opened on the film and a subtitle file shows; else the address unchanged (Kodi
+    opens the disc as its setting says, with its menus)."""
+    raw = str(url or '')
+    plain = raw.split('|', 1)[0]
+    low = plain.lower()
+    if low.startswith(('bluray://', 'http://', 'https://')):
+        return raw
+    try:
+        from .disc_play import on_coreelec
+        if not on_coreelec():
+            return raw
+    except Exception:
+        return raw
+    from urllib.parse import unquote
+    if low.startswith('udf://') and low.endswith('/bdmv/index.bdmv'):
+        image = unquote(plain[len('udf://'):-len('/BDMV/index.bdmv')])
+    elif low.endswith(('.iso', '.img')):
+        image = plain
+    else:
+        return raw
+    import xbmcvfs
+    from .debrid import bdinfo
+    from .debrid.discserver import kodi_encode
+    if bdinfo._kodi_setting() != bdinfo.MAIN_TITLE and not bdinfo.film_for_subtitles():
+        return raw                      # its menus as Kodi's setting says: nothing to read
+    root = 'udf://%s/' % kodi_encode(image)
+
+    def read(rel):
+        handle = xbmcvfs.File(root + rel)
+        try:
+            return bytes(handle.readBytes(1 << 20))
+        finally:
+            handle.close()
+
+    started = time.time()
+    try:
+        index = read('BDMV/index.bdmv')
+        _dirs, files = xbmcvfs.listdir(root + 'BDMV/PLAYLIST/')
+        target, how = bdinfo.path(kodi_encode(root), index, list(files), lambda name: read('BDMV/PLAYLIST/' + name))
+    except Exception as exc:
+        _log('image not read (%s): opened as it is' % exc)
+        return raw
+    _log('image read in %.1f s: %s' % (time.time() - started, how))
+    if target.endswith('/menu'):
+        return raw
+    return target

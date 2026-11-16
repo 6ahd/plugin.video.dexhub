@@ -5153,9 +5153,40 @@ def hub_search_collect(query, progress=None, should_stop=None, partial=None):
         _sh.add(query, media_type='all')
     except Exception:
         pass
+    # v5.10.576: a search that reads like a description also asks the
+    # viewer's AI (ai_search), alongside the usual sources; its picks come back
+    # flagged 'ai' and the search page shows them as a row of their own
+    ai = {'rows': None}
+    ai_thread = None
+    try:
+        from . import ai_search as _ai
+        if _ai.wants(query):
+            def _ask_ai():
+                try:
+                    ai['rows'] = _ai.search_entries(query)
+                except Exception as exc:
+                    xbmc.log('[DexHub] AI search failed: %s' % exc, xbmc.LOGWARNING)
+            ai_thread = threading.Thread(target=_ask_ai, name='DexHub-ai-search')
+            ai_thread.daemon = True
+            ai_thread.start()
+    except Exception:
+        ai_thread = None
+    started = time.monotonic()
     out = {'progress': progress, 'should_stop': should_stop, 'partial': partial}
     _hub_search_unified_render(query, store.enabled_providers(), include_tmdb=True, collect=out)
-    return list(out.get('rows') or []), out.get('status') or 'empty'
+    rows = list(out.get('rows') or [])
+    status = out.get('status') or 'empty'
+    if ai_thread is not None:
+        # the AI usually answers in a few seconds; it never holds the results past 25 s
+        while ai_thread.is_alive() and time.monotonic() - started < 25:
+            if should_stop and should_stop():
+                break
+            ai_thread.join(0.25)
+        if ai['rows']:
+            rows = list(ai['rows']) + rows
+            if status in ('empty', 'no_catalogs'):
+                status = 'ok'
+    return rows, status
 
 
 class _QuietSearchLoader(object):
@@ -22823,11 +22854,13 @@ def _list_plugin_directory_items(directory):
         except Exception as rich_exc:
             xbmc.log('[DexHub] rich plugin directory read failed for %s: %s; falling back' % (directory, rich_exc), xbmc.LOGDEBUG)
             items = _fetch(minimal_props)
+        # v5.10.575 (GitHub #29): a Kodi path's folder lists Kodi paths and files
+        own = _kodi_own_route(directory)
         for item in items:
             if not isinstance(item, dict):
                 continue
             file_url = str(item.get('file') or '').strip()
-            if not file_url.startswith('plugin://'):
+            if not file_url or (not own and not file_url.startswith('plugin://')):
                 continue
             filetype = str(item.get('filetype') or '').strip().lower()
             label = str(item.get('label') or item.get('title') or item.get('label2') or file_url).strip()
@@ -25607,12 +25640,23 @@ def youtube_row_browse(kind='', ident='', name='', title=''):
     end_dir(content='videos', cache=False)
 
 
+def _kodi_own_route(route_url):
+    """v5.10.575 (GitHub #29): a Kodi path, not an add-on's: video sources,
+    library nodes, favourites, playlists, network or local folders."""
+    low = str(route_url or '').lower()
+    return bool(low) and not low.startswith('plugin://') and (
+        '://' in low or low.startswith('/') or (len(low) > 2 and low[1] == ':'))
+
+
 def kodi_route_browse(route='', title='', background='', page='0'):
     route_url = str(route or '').strip()
-    if not route_url.startswith('plugin://'):
+    own = _kodi_own_route(route_url)
+    if not route_url.startswith('plugin://') and not own:
         error(tr('رابط plugin غير صالح'))
         return end_dir(content='files')
     rows = _list_plugin_directory_items(route_url)
+    if not rows and own:
+        return end_dir(content='files')
     if not rows:
         # Last-resort fallback: some plugins refuse JSON-RPC directory reads but
         # work with a native Container.Update. Use replace to avoid a deep back
@@ -25639,7 +25683,8 @@ def kodi_route_browse(route='', title='', background='', page='0'):
         cast = info.pop('cast', None) if isinstance(info.get('cast'), list) else None
         if row.get('is_folder'):
             path = build_url(action='kodi_route_browse', route=item_url, title=label, background=fanart or background, page='0')
-            ctx_menu = [(tr('فتح بالمسار الأصلي'), 'Container.Update(%s)' % _kodi_builtin_arg(item_url))]
+            ctx_menu = [(tr('فتح بالمسار الأصلي'), ('ActivateWindow(Videos,%s,return)' if _kodi_own_route(item_url)
+                                                   else 'Container.Update(%s)') % _kodi_builtin_arg(item_url))]
             add_item(label, path, is_folder=True, info=info, art=art, ids=ids, cast=cast, context_menu=ctx_menu)
         else:
             # Keep playable plugin items in Dex Hub's list. Kodi will hand them

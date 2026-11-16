@@ -110,15 +110,110 @@ def java_menus_play():
         return False
 
 
+# ISO 639-1 (Dex Hub's subtitle languages) to the 639-2 codes a disc writes (both forms)
+_THREE = {'ar': ('ara',), 'en': ('eng',), 'fr': ('fra', 'fre'), 'de': ('deu', 'ger'), 'es': ('spa',),
+          'it': ('ita',), 'tr': ('tur',), 'fa': ('fas', 'per'), 'ur': ('urd',), 'hi': ('hin',),
+          'ru': ('rus',), 'ja': ('jpn',), 'ko': ('kor',), 'zh': ('zho', 'chi'), 'pt': ('por',),
+          'nl': ('nld', 'dut'), 'sv': ('swe',), 'da': ('dan',), 'no': ('nor', 'nob', 'nno'),
+          'fi': ('fin',), 'pl': ('pol',), 'he': ('heb',), 'id': ('ind',), 'ms': ('msa', 'may'),
+          'el': ('ell', 'gre'), 'cs': ('ces', 'cze'), 'hu': ('hun',), 'ro': ('ron', 'rum'),
+          'th': ('tha',), 'vi': ('vie',), 'uk': ('ukr',), 'bg': ('bul',), 'hr': ('hrv',)}
+
+
+def subtitle_languages(mpls):
+    """The languages (639-2, lower case) of the subtitles a playlist's first play item offers
+    (its STN table: graphic and text subtitles), or None when the playlist cannot be read.
+
+    A play item, after its length: clip name (5), codec (4), flags (2, bit 4 of the second
+    is multi-angle), STC id (1), IN and OUT times (4 each), UO mask (8), random access (1),
+    still mode (1), still time (2); for multi-angle, the angle count and flags (1 each) and 10
+    bytes for every angle after the first. Then STN: length (2), reserved (2), the counts of
+    video, audio, subtitle, IG, secondary audio, secondary video and PiP subtitle streams
+    (1 each), reserved (5), then each stream as an entry (length, bytes) and its attributes
+    (length, bytes: coding type first; a subtitle's language follows it, after a character
+    set byte for a text subtitle; an audio's after a format byte)."""
+    try:
+        if not mpls or mpls[:4] != b'MPLS':
+            return None
+        start = struct.unpack_from('>I', mpls, 8)[0]
+        if not struct.unpack_from('>H', mpls, start + 6)[0]:
+            return None
+        at = start + 10 + 2                     # the first play item, after its length
+        stn = at + 32
+        if mpls[at + 10] & 0x10:                # multi-angle
+            angles = mpls[stn]
+            stn += 2 + 10 * max(0, angles - 1)
+        counts = list(mpls[stn + 4:stn + 11])
+        pos = stn + 16
+        langs = set()
+        for kind, count in enumerate(counts[:3]):          # video, audio, subtitles
+            for _ in range(count):
+                pos += 1 + mpls[pos]                         # the stream entry
+                size = mpls[pos]
+                attrs = mpls[pos + 1:pos + 1 + size]
+                pos += 1 + size
+                if kind == 2 and attrs:
+                    code = attrs[0]
+                    raw = attrs[2:5] if code == 0x92 else attrs[1:4]
+                    langs.add(raw.decode('ascii', 'replace').lower())
+        return langs
+    except Exception:
+        return None
+
+
+def _wanted_language():
+    """The viewer's first subtitle language (Dex Hub's subtitle settings), as 639-1."""
+    try:
+        from ..subtitle_broker import _preferred_languages
+        first = str((_preferred_languages() or ['ar'])[0] or 'ar')
+    except Exception:
+        first = 'ar'
+    return first.split('-')[0].lower()
+
+
+def film_for_subtitles():
+    """Dex Hub's option: a disc without the viewer's subtitle language opens on its film."""
+    try:
+        from . import accounts
+        return bool(accounts.option('disc_film_for_subtitles'))
+    except Exception:
+        return False
+
+
+def lacks_wanted_subtitle(mpls):
+    """True when the playlist has no subtitle in the viewer's first language (so a file
+    will be wanted, and a file never shows while the disc runs its menus)."""
+    langs = subtitle_languages(mpls)
+    if langs is None:
+        return False
+    wanted = _wanted_language()
+    return not (set(_THREE.get(wanted, (wanted,))) & langs)
+
+
 def path(encoded_root, index, names, fetch, workers=8):
     """bluray://<root>/menu for a disc whose menus Kodi can play, else
     bluray://<root>/BDMV/PLAYLIST/<longest>.mpls ('…/menu' when no playlist could be read:
-    Kodi then picks a title itself). encoded_root is the disc's folder as Kodi's URLEncode writes it."""
+    Kodi then picks a title itself). encoded_root is the disc's folder as Kodi's URLEncode writes it.
+
+    v5.10.576: a disc whose main film has no subtitle in the viewer's first language opens on
+    the film too (the option "Disc without your subtitles opens on the film", off by
+    default): in its menus a subtitle file never shows, and the disc puts its own subtitle back
+    when one is picked (CoreELEC box, 16 Nov 2026), so the film had to be played again."""
     main_only = _kodi_setting() == MAIN_TITLE
-    if not main_only and (java_menus_play() or not has_java(index)):
+    menus = not main_only and (java_menus_play() or not has_java(index))
+    if menus and not film_for_subtitles():
         return 'bluray://%s/menu' % encoded_root, 'menu'
     best = longest(names, fetch, workers)
     if not best:
         return 'bluray://%s/menu' % encoded_root, 'menu (no playlist read)'
+    if menus:
+        try:
+            lacking = lacks_wanted_subtitle(fetch(best))
+        except Exception:
+            lacking = False
+        if not lacking:
+            return 'bluray://%s/menu' % encoded_root, 'menu (its subtitles have %s)' % _wanted_language()
+        return 'bluray://%s/BDMV/PLAYLIST/%s' % (encoded_root, best), 'main title %s (no %s subtitle on the disc)' % (
+            best, _wanted_language())
     return 'bluray://%s/BDMV/PLAYLIST/%s' % (encoded_root, best), 'main title %s (%s)' % (
         best, "Kodi's setting" if main_only else 'Java menus')

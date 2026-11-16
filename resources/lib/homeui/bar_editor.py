@@ -1163,7 +1163,20 @@ class BarEditor(xbmcgui.WindowXMLDialog):
                ('nas', 'NAS ومجلدات الشبكة', 'NAS and network folders', 'أفلام ومسلسلات وجديد مجلداتك (SMB و NFS)',
                 'Films, series and the newest of your folders (SMB, NFS)', 'server.png'),
                ('addon', 'من إضافة', 'From an add-on', 'مجلد أو كم مجلد من أي إضافة فيديو', 'A folder or several from any video add-on',
-                'layer-group.png'))
+                'layer-group.png'),
+               ('kodi', 'من كودي', 'From Kodi', 'مصادر الفيديو والمكتبة وقوائم التشغيل، أو أي مسار',
+                'Video sources, the library, playlists, or any path', 'kodi.png'),
+               ('ai', 'بالذكاء الاصطناعي', 'With AI', 'اكتب وصف القائمة: «أفلام رعب يابانية قديمة»',
+                'Describe the list: "old Japanese horror films"', 'wand-magic-sparkles.png'))
+
+    # v5.10.575 (GitHub #29): Kodi's own places, browsed like an add-on's folders
+    KODI_ROOTS = (('sources://video/', 'مصادر الفيديو', 'Video sources'),
+                  ('library://video/', 'مكتبة الفيديو', 'Video library'),
+                  ('videodb://movies/titles/', 'أفلام المكتبة', 'Library films'),
+                  ('videodb://tvshows/titles/', 'مسلسلات المكتبة', 'Library series'),
+                  ('videodb://recentlyaddedmovies/', 'أفلام أضيفت مؤخراً', 'Recently added films'),
+                  ('videodb://recentlyaddedepisodes/', 'حلقات أضيفت مؤخراً', 'Recently added episodes'),
+                  ('special://videoplaylists/', 'قوائم التشغيل', 'Playlists'))
 
     def pick_sources(self):
         """v5.10.545: where new rows come from, as one list in the window (it was a
@@ -1177,7 +1190,7 @@ class BarEditor(xbmcgui.WindowXMLDialog):
 
     def open_source(self, key):
         {'dexhub': self.pick_dexhub, 'dexworld': self.pick_dexworld, 'youtube': self.pick_youtube,
-         'nas': self.pick_nas, 'addon': self.pick_addons}[key]()
+         'nas': self.pick_nas, 'addon': self.pick_addons, 'kodi': self.pick_kodi, 'ai': self.pick_ai}[key]()
         if self.mode == 'pick' and self.pick.get('source') != 'sources':
             self.pick['back'] = 'sources'
 
@@ -1268,6 +1281,56 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         self.pick_render(0)
         self.enter('pick', PICK)
 
+    def pick_ai(self):
+        """v5.10.576: a Home row from a description, by the viewer's AI (ai_search, action lib_ai_list)."""
+        from .. import ai_search
+        if not ai_search.config():
+            if not xbmcgui.Dialog().yesno(_t('بالذكاء الاصطناعي', 'With AI'), _t(
+                    'يحتاج مفتاح خدمة ذكاء اصطناعي (Grok أو OpenAI أو Gemini أو OpenRouter أو DeepSeek). تضيفه الحين؟',
+                    'This needs the key of an AI service (Grok, OpenAI, Gemini, OpenRouter or DeepSeek). Add it now?')):
+                return
+            if not ai_search.setup():
+                return
+        words = (xbmcgui.Dialog().input(_t('وش تبي القائمة؟', 'What should the list be?')) or '').strip()
+        if not words:
+            return
+        title = (xbmcgui.Dialog().input(_t('اسم الصف', 'Row name'), words[:40]) or '').strip()
+        if not title:
+            return
+        import hashlib
+        busy = xbmcgui.DialogProgressBG()
+        busy.create('Dex Hub', _t('الذكاء الاصطناعي يجهّز القائمة…', 'The AI is making the list…'))
+        try:
+            rows = ai_search.list_rows(words)
+        finally:
+            busy.close()
+        if not rows:
+            xbmcgui.Dialog().notification('Dex Hub', _t('ما طلعت أعمال لهذا الوصف', 'Nothing came for this description')
+                                          if rows is not None else _t('ما رد الذكاء الاصطناعي', 'The AI did not answer'),
+                                          xbmcgui.NOTIFICATION_WARNING, 3500)
+            return
+        key = 'ai:' + hashlib.sha1(words.casefold().encode('utf-8')).hexdigest()[:12]
+        self.add_rows([{'key': key, 'title': title, 'sub': 'AI', 'shape': 'poster', 'style': '',
+                        'params': {'action': 'lib_ai_list', 'q': words, 'title': title}}])
+
+    def pick_kodi(self):
+        self.pick = {'source': 'kodi'}
+        self.setProperty('bs.ptitle', _t('من كودي', 'From Kodi'))
+        self.setProperty('bs.psub', _t('اختر مكان، وبعدها مجلد أو كم مجلد، أو اكتب أي مسار',
+                                       'Pick a place, then a folder or several, or type any path'))
+        self.setProperty('bs.pempty', '')
+        self.pick_render(0)
+        self.enter('pick', PICK)
+
+    def kodi_open(self, path, name):
+        self.pick = {'source': 'folder', 'addon': 'Kodi', 'origin': 'kodi', 'paths': [], 'trail': []}
+        self.folder_open(path, name)
+
+    def kodi_type_path(self):
+        path = (xbmcgui.Dialog().input(_t('مسار كودي', 'Kodi path'), 'sources://video/') or '').strip()
+        if path:
+            self.kodi_open(path, path.rstrip('/').rsplit('/', 1)[-1] or path)
+
     def folder_open(self, path, name):
         p = self.pick
         p['paths'].append(path)
@@ -1279,7 +1342,7 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         p['paths'].pop()
         p['trail'].pop()
         if not p['paths']:
-            self.pick_addons()
+            (self.pick_kodi if p.get('origin') == 'kodi' else self.pick_addons)()
             return
         self.folder_read()
 
@@ -1311,6 +1374,9 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         elif src == 'addons':
             buttons = [_li(_t('إلغاء', 'Cancel'), key='cancel')]
             rows = [_li(a.get('name') or a['addonid'], a['addonid'], a.get('thumbnail') or '', folder='1') for a in p['addons']]
+        elif src == 'kodi':
+            buttons = [_li(_t('اكتب مسار', 'Type a path'), key='kodi_path'), _li(_t('إلغاء', 'Cancel'), key='cancel')]
+            rows = [_li(_t(ar, en), path, B.MENU_ICONS + 'kodi.png', folder='1') for path, ar, en in self.KODI_ROOTS]
         else:
             folders = p.get('folders') or []
             if p.get('many'):
@@ -1353,6 +1419,9 @@ class BarEditor(xbmcgui.WindowXMLDialog):
             b = self.item(PICK_BUTTONS, 0)
             if b is not None:
                 b.setLabel((_t('حفظ (%d)', 'Save (%d)') if src == 'dexhub' else _t('أضف المحدد (%d)', 'Add the ticked (%d)')) % len(p['checked']))
+        elif src == 'kodi' and 0 <= n < len(self.KODI_ROOTS):
+            path, ar, en = self.KODI_ROOTS[n]
+            self.kodi_open(path, _t(ar, en))
         elif src == 'addons' and 0 <= n < len(p['addons']):
             a = p['addons'][n]
             self.pick = {'source': 'folder', 'addon': a.get('name') or a['addonid'], 'paths': [], 'trail': []}
@@ -1370,6 +1439,8 @@ class BarEditor(xbmcgui.WindowXMLDialog):
             self.leave(ADDS)
         elif key == 'save':
             self.save_dexhub()
+        elif key == 'kodi_path':
+            self.kodi_type_path()
         elif key == 'many':
             p['many'] = True
             self.pick_render()

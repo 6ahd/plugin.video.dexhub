@@ -39,6 +39,8 @@ DEFAULT_OPTIONS = {
     'cache_and_play': False,
     # a whole Blu-ray disc (BDMV folders) opens in its own menus (discserver); off: its main film plays
     'disc_menus': True,
+    # v5.10.576: a whole disc with no subtitle in the viewer's language opens on its film, not its menus (off: in its menus)
+    'disc_film_for_subtitles': False,
 }
 
 # Replaced by tests: the folder that holds debrid.json.

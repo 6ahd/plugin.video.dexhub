@@ -230,6 +230,7 @@ def service_loop(monitor):
     for key in (WANT, PORT, TOKEN, SESSION, STATE):
         home.clearProperty(key)
     not_playing_since = 0.0
+    watched_session = ''
     while not monitor.abortRequested():
         try:
             if home.getProperty(WANT) and not engine.running():
@@ -257,6 +258,11 @@ def service_loop(monitor):
                 session = home.getProperty(SESSION)
                 if session:
                     engine.idle_since = time.time()
+                    if session != watched_session:
+                        # v5.10.576: a new session counts from its own start; the time the
+                        # previous film had stood still closed a disc opened 42 s after it
+                        # was stopped, a second after it opened (CoreELEC box, 16 Nov 2026)
+                        watched_session, not_playing_since = session, 0.0
                     if player.isPlaying():
                         not_playing_since = 0.0
                     else:

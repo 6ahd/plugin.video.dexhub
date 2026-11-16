@@ -337,6 +337,45 @@ def because(media):
     return _render(rows, 'tvshows' if media == 'series' else 'movies')
 
 
+def _ai_render(rows, media=''):
+    out = []
+    for item in rows or []:
+        out.append({'media_type': item.get('media_type') or 'movie', 'canonical_id': 'tmdb:%s' % item.get('tmdb_id'),
+                    'title': item.get('title') or '', 'poster': item.get('poster') or '',
+                    'background': item.get('backdrop') or '', 'plot': item.get('overview') or '',
+                    'rating': item.get('rating') or 0, 'year': int(item['year']) if str(item.get('year') or '').isdigit() else 0,
+                    'tmdb': item.get('tmdb_id')})
+    content = 'tvshows' if media == 'series' else 'movies' if media == 'movie' else 'videos'
+    return _render(out, content)
+
+
+def ai_list(description, fresh=''):
+    """v5.10.576: an AI list (a Home row made With AI): the titles the viewer's AI picks for a description."""
+    from .. import ai_search
+    if not ai_search.config():
+        return _note(_t('أضف مفتاح الذكاء الاصطناعي من مركز التحكم', 'Add an AI key in the Control Centre'))
+    rows = ai_search.list_rows(description, fresh=bool(fresh))
+    if rows is None:
+        return _note(_t('ما رد الذكاء الاصطناعي، جرّب بعد شوي', 'The AI did not answer, try again shortly'))
+    if not rows:
+        return _note(_t('ما لقى أعمال لهذا الوصف', 'Nothing found for this description'))
+    return _ai_render(rows)
+
+
+def ai_picks(media):
+    """v5.10.576: Recommended for you: the viewer's AI picks from what they watched lately."""
+    from .. import ai_search
+    media = 'series' if media == 'series' else 'movie' if media == 'movie' else 'all'
+    if not ai_search.config():
+        return _note(_t('أضف مفتاح الذكاء الاصطناعي من مركز التحكم', 'Add an AI key in the Control Centre'))
+    rows = ai_search.picks_rows(media)
+    if rows is None:
+        return _note(_t('ما رد الذكاء الاصطناعي، جرّب بعد شوي', 'The AI did not answer, try again shortly'))
+    if not rows:
+        return _note(_t('شاهد كم عمل لتطلع مقترحاتك هنا', 'Watch a few titles to get picks here'))
+    return _ai_render(rows, media)
+
+
 _DAYS_AR = ('الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد')
 _DAYS_EN = ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')
 
@@ -843,6 +882,10 @@ def dispatch(action, params):
         return calendar()
     if action == 'lib_because':
         return because(params.get('media', 'movie'))
+    if action == 'lib_ai_list':
+        return ai_list(params.get('q', ''), params.get('fresh', ''))
+    if action == 'lib_ai_picks':
+        return ai_picks(params.get('media', 'all'))
     if action == 'lib_rate_mode':
         return rate_mode()
     if action == 'lib_src':

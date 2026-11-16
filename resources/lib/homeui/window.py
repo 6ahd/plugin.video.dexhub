@@ -3797,6 +3797,19 @@ class BrowseWindow(_BaseWindow):
                 rows.append(R.Row(key, title, shape='poster', kind='catalog', priority=3,
                                   loader=self._progress_loader(key, media),
                                   meta={'params': dict(R.OWN_ROWS[key][0]), 'default_hidden': True}))
+        # v5.10.576: Recommended for you, by the viewer's AI, shown from Arrange Home rows
+        try:
+            from .. import ai_search as _ai
+            ai_on = bool(_ai.config())
+        except Exception:
+            ai_on = False
+        if ai_on:
+            for key, tab, title in (('ai_movies', 'movie', 'مقترح لك بالذكاء الاصطناعي • أفلام'),
+                                    ('ai_shows', 'series', 'مقترح لك بالذكاء الاصطناعي • مسلسلات')):
+                if media in ('all', tab):
+                    rows.append(R.Row(key, self.tr(title), shape='poster', kind='catalog', priority=3,
+                                      loader=self._progress_loader(key, media),
+                                      meta={'params': dict(R.OWN_ROWS[key][0]), 'default_hidden': True}))
         tabs, has_nuvio = [], False
         try:
             tabs, has_nuvio = R.nuvio_tabs(api, media)
@@ -4884,7 +4897,7 @@ class BrowseWindow(_BaseWindow):
         # v5.10.204: Continue Watching split into films and series, and the
         # recently watched films or series, as rows of their own
         route, only, shape = R.OWN_ROWS.get(action, ({'action': action}, '', 'landscape'))
-        playing = route.get('action') not in ('recently_watched', 'lib_because')
+        playing = route.get('action') not in ('recently_watched', 'lib_because', 'lib_ai_picks')
 
         def load(patience=0.0):
             # v5.10.117: one read serves the all, movies and series tabs
@@ -5049,7 +5062,7 @@ class BrowseWindow(_BaseWindow):
     # media servers together) and its results come back as rows: the user's
     # own libraries, movies, series, anime and people, the best match first.
     # The first row starts a new search or repeats a recent one.
-    SEARCH_ROWS = (('lib', 'من مكتباتك'), ('iptv', 'من اشتراك IPTV'), ('movie', 'أفلام'), ('series', 'مسلسلات'),
+    SEARCH_ROWS = (('ai', 'اقتراحات الذكاء الاصطناعي'), ('lib', 'من مكتباتك'), ('iptv', 'من اشتراك IPTV'), ('movie', 'أفلام'), ('series', 'مسلسلات'),
                    ('anime', 'أنمي'), ('person', 'أشخاص'), ('tv', 'قنوات'))
     SEARCH_ROW_LIMIT = 60
 
@@ -5227,7 +5240,9 @@ class BrowseWindow(_BaseWindow):
             tile = R.search_tile(entry)
             if tile is None:
                 continue
-            if entry.get('server'):
+            if entry.get('ai'):
+                key = 'ai'         # v5.10.576: the viewer's AI (ai_search)
+            elif entry.get('server'):
                 key = 'lib'
             elif entry.get('iptv'):
                 key = 'iptv'       # v5.10.239: from the DexWorld IPTV subscription
@@ -5266,6 +5281,12 @@ class BrowseWindow(_BaseWindow):
         if len(picks) >= 3:
             rows.insert(0, R.Row('search:top', self.tr('أفضل النتائج'), shape='wide', kind='search',
                                  tiles=picks[:8], subtitle=self.query_hint()))
+        # v5.10.576: a described search: the AI's picks lead, in the order it gave them
+        for index, row in enumerate(rows):
+            if row.key == 'search:ai':
+                row.tiles.sort(key=lambda t: -(t.get('_score') or 0.0))
+                rows.insert(0, rows.pop(index))
+                break
         return rows
 
     def query_hint(self):

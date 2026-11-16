@@ -54,6 +54,10 @@ def menu():
         disc_menus = accounts.option('disc_menus')
         labels.append(_t('أقراص البلوراي الكاملة بقائمتها (TorBox وUsenet): %s', 'Whole Blu-ray discs in their menus (TorBox, Usenet): %s') % (
             _t('شغّال', 'On') if disc_menus else _t('مطفي، الفيلم الرئيسي بس', 'Off, the main film only')))
+        # v5.10.576: a disc with no subtitle in the viewer's language opens on its film
+        film_subs = accounts.option('disc_film_for_subtitles')
+        labels.append(_t('القرص بدون ترجمتك يفتح على الفيلم: %s', 'Disc without your subtitles opens on the film: %s') % (
+            _t('شغّال', 'On') if film_subs else _t('مطفي', 'Off')))
         labels.append(_t('إضافة مصادر التورنت الشغالة (Torrentio وComet وMediaFusion وغيرها)',
                          'Add the torrent sources that work now (Torrentio, Comet, MediaFusion and more)'))
         labels.append(_t('مواقع التورنت المدمجة (YTS وEZTV وTheRARBG وغيرها)', 'Built-in torrent sites (YTS, EZTV, TheRARBG and more)'))
@@ -78,6 +82,8 @@ def menu():
         elif choice == len(rows) + 2:
             accounts.set_option('disc_menus', not disc_menus)
         elif choice == len(rows) + 3:
+            accounts.set_option('disc_film_for_subtitles', not film_subs)
+        elif choice == len(rows) + 4:
             from . import autosources
             progress = xbmcgui.DialogProgress()
             progress.create('Dex Hub', _t('نجرّب كل مصدر ببحث حقيقي…', 'Trying every source with a real search…'))

@@ -703,6 +703,9 @@ OWN_ROWS = {
     # v5.10.208: TMDb's picks for the last film or show watched (follow.py)
     'because_movies': ({'action': 'lib_because', 'media': 'movie'}, 'movie', 'poster'),
     'because_shows': ({'action': 'lib_because', 'media': 'series'}, 'series', 'poster'),
+    # v5.10.576: Recommended for you, by the viewer's AI (ai_search.picks_rows)
+    'ai_movies': ({'action': 'lib_ai_picks', 'media': 'movie'}, 'movie', 'poster'),
+    'ai_shows': ({'action': 'lib_ai_picks', 'media': 'series'}, 'series', 'poster'),
 }
 OWN_KEYS = frozenset(('continue', 'nextup')) | frozenset(OWN_ROWS)
 _PROGRESS_LOCK = threading.Lock()
