@@ -1,3 +1,9 @@
+5.10.577
+الصف اللي تضيفه (قائمة بالذكاء الاصطناعي، قائمة، مسار من كودي، «أضف للواجهة») صار ينحط فوق الصف اللي كنت واقف عليه، أو فوق تحت «متابعة المشاهدة» لو ما كنت على صف، بدل ما يروح آخر الصفحة. وتعديل الرئيسية يفتح على الصف اللي كنت عليه.
+الصفوف المخفية ما عادت تنحسب من حد الـ120 صف: الرئيسية اللي فيها صفوف مخفية كثيرة كانت ترفض أي صف جديد.
+A row you add (an AI list, a list, a Kodi path, Add to Home) now goes above the row you were on, or at the top under Continue Watching when you were on none, not at the end of the page. Edit Home opens on the row you were on.
+Hidden rows no longer count toward the 120-row limit: a Home with many hidden rows refused every new row.
+
 5.10.576
 الذكاء الاصطناعي بمفتاحك: مركز التحكم ← الرئيسية والصفوف ← «الذكاء الاصطناعي». تختار Grok أو OpenAI أو Gemini أو OpenRouter أو DeepSeek أو أي خدمة متوافقة مع OpenAI، وتحط مفتاحك (يتجرب قبل ما ينحفظ، ويبقى على الجهاز).
 البحث الذكي: لو كتبت وصف («فيلم سرقة ذكي فيه مفاجأة»، «مسلسل كوري رومانسي قصير») يطلع صف «اقتراحات الذكاء الاصطناعي» أول النتائج، مع النتائج العادية. تقدر تخليه لكل بحث أو تطفيه.

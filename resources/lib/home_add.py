@@ -24,8 +24,10 @@ def _to_page(specs, media):
     page = app.layout.page(media)
     custom = list(page.get('custom') or [])
     have = set(str((s.get('params') or {})) for s in custom)
-    order = list(page.get('order') or [])
-    added = 0
+    # v5.10.577: the page's order as it shows now when none is saved (an added row was left
+    # last), and the new rows at the top, under the progress rows (layout.insert_keys)
+    order = list(page.get('order') or []) or L.shown_keys(media)
+    added, keys = 0, []
     for spec in specs:
         if str(spec.get('params') or {}) in have:
             continue
@@ -33,12 +35,12 @@ def _to_page(specs, media):
                             'source_label': spec.get('sub') or '', 'subtitle': spec.get('sub') or '',
                             'params': dict(spec.get('params') or {}), 'shape': ''})
         custom.append(row)
-        # first on the page, where it is seen
-        order.insert(0, L.custom_key(row))
+        keys.append(L.custom_key(row))
         if spec.get('style'):
             app.layout.set_shape(L.custom_key(row), spec['style'])
         added += 1
-    app.layout.save_page(media, order=order if page.get('order') else None, custom=custom)
+    order = L.insert_keys(order, keys) if order else []
+    app.layout.save_page(media, order=order or None, custom=custom)
     from .homeui.bar_editor import _home_changed
     _home_changed()
     return added

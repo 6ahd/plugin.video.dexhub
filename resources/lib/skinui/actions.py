@@ -346,7 +346,20 @@ def layout_editor():
     the bar's sections and each one's rows, added from any source."""
     from ..homeui.bar_editor import open_editor
     tab = C.prop('dhs.tab') or 'all'
-    open_editor(select=tab)
+    # v5.10.577: the row the viewer was on (herofocus keeps it as tab:row id): the editor
+    # opens on it and new rows go above it
+    row_key = ''
+    try:
+        kept_tab, _sep, row_id = (C.prop('dhs.fr.row') or '').partition(':')
+        if kept_tab == tab and row_id:
+            from .board import find_spec
+            row_key = str((find_spec(tab, row_id) or {}).get('key') or '')
+    except Exception:
+        row_key = ''
+    try:
+        open_editor(select=tab, row_key=row_key)
+    finally:
+        C.set_prop('dhs.fr.row', '')
 
 
 def community():

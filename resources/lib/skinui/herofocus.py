@@ -105,6 +105,16 @@ class HeroFocus(threading.Thread):
                     container = layout.row_list(int(fr) if fr != '0' else 1)
                 except ValueError:
                     return None
+            if fr != '0':
+                # v5.10.577: the Home row the viewer is on, kept after they leave it (the
+                # top bar sets dhs.fr to 0): the pen opens the editor on it and new rows go
+                # above it. Read once per row, not every look.
+                seen = (C.prop('dhs.tab') or 'all', fr)
+                if getattr(self, '_row_seen', None) != seen or not C.prop('dhs.fr.row'):
+                    row = info('Container(%d).ListItem.Property(dhs.row)' % container)
+                    if row:
+                        self._row_seen = seen
+                        C.set_prop('dhs.fr.row', row)
             prefix, page = 'Container(%d).ListItem.' % container, False
         elif active == guistate.VIDEOS and info('Container.Property(dhs.grid)'):
             prefix, page = 'ListItem.', False

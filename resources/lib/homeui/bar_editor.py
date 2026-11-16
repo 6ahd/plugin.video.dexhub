@@ -68,6 +68,11 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         self._c = {}
         self.page = None            # the open page's rows as a section (see page_section)
         self.insert_key = None      # '+ Above': new rows go above this row (its key)
+        # v5.10.577: the Home row the viewer was on when they opened the editor (the list
+        # opens on it), and the section whose rows list they chose a row in: new rows go
+        # above that row, else first under the progress rows (layout.insert_keys)
+        self.anchor_key = kwargs.get('row_key') or ''
+        self.row_chosen = -1
         self._page_removed = set()  # the added rows the user removed (the others are always kept)
         self.pages_changed = set()
         self._pages = {}            # v5.10.545: each page's rows, kept while the editor is open
@@ -470,6 +475,12 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         them under it): a page of 120 rows was a wall to scroll through."""
         c = self.custom()
         rows = (c.get('rows') or []) if c else []
+        if self.anchor_key and not select:
+            # v5.10.577: opened from the Home on a row: the list starts on it
+            at = next((i for i, r in enumerate(rows) if r.get('key') == self.anchor_key), -1)
+            if at >= 0:
+                select, self.row_chosen = at, self.cur
+            self.anchor_key = ''
         shown = [i for i, r in enumerate(rows) if not r.get('hidden')]
         hidden = [i for i, r in enumerate(rows) if r.get('hidden')]
         self.view = list(shown)
@@ -647,6 +658,8 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         self.hint()
 
     def onFocus(self, cid):
+        if cid == CATALOGS:
+            self.row_chosen = self.cur
         if cid == ROW_ACTIONS:
             self.sort_label()
         self.hint()
@@ -1020,14 +1033,20 @@ class BarEditor(xbmcgui.WindowXMLDialog):
 
     def place_new(self, rows, fresh):
         """The new rows go above the row '+ Above' was pressed on, else first, where
-        they are seen (v5.10.504: at the end of a page of 100 rows nobody saw them)."""
-        at = 0
-        if self.insert_key is not None:
-            for i, r in enumerate(rows):
-                if r.get('key') == self.insert_key:
-                    at = i
-                    break
+        they are seen (v5.10.504: at the end of a page of 100 rows nobody saw them).
+        v5.10.577: else above the row chosen in this section's list (the Home row the
+        editor was opened on counts), and first means under the progress rows."""
+        from .layout import insert_keys, PROGRESS_KEYS
+        anchor = self.insert_key
+        if anchor is None and self.row_chosen == self.cur:
+            listed = (self.custom() or {}).get('rows') or []     # rix() counts in the section's own list
+            n = self.rix()
+            if 0 <= n < len(listed):
+                anchor = listed[n].get('key')
+        if anchor in PROGRESS_KEYS:
+            anchor = None
         self.insert_key = None
+        at = insert_keys([r.get('key') or '\1%d' % i for i, r in enumerate(rows)], ['\0new'], anchor or '').index('\0new')
         return rows[:at] + list(fresh) + rows[at:], at
 
     def pick_row(self, n):
@@ -1471,10 +1490,18 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         before = [json.dumps(r.get('params') or {}, sort_keys=True) for r in c['rows']]
         rows = [r for r, ident in zip(c['rows'], before) if ident not in idents or ident in keep]
         rows, at = self.place_new(rows, [dict(p['found'][i][0], style='') for i in sorted(p['checked']) if idents[i] not in before])
-        if len(rows) > self.limit():
+        # v5.10.577: the limit is on the shown rows; hidden ones are all kept
+        kept, shown = [], 0
+        for r in rows:
+            if not r.get('hidden'):
+                if shown >= self.limit():
+                    continue
+                shown += 1
+            kept.append(r)
+        if len(kept) < len(rows):
             xbmcgui.Dialog().notification('Dex Hub', _t('القسم وصل حده (%d صف)', 'The section is full (%d rows)') % self.limit(),
                                           xbmcgui.NOTIFICATION_INFO, 3500)
-        c['rows'] = rows[:self.limit()]
+        c['rows'] = kept
         rows = c['rows']
         self.save(rows=True)
         if c.get('_page'):
@@ -1495,7 +1522,8 @@ class BarEditor(xbmcgui.WindowXMLDialog):
             if spec.get('key') not in have:
                 have.add(spec.get('key'))
                 fresh.append(spec)
-        room = self.limit() - start
+        # v5.10.577: only the shown rows count (a Home with 219 hidden rows of 299 took no new one)
+        room = self.limit() - len([r for r in c['rows'] if not r.get('hidden')])
         c['rows'], start = self.place_new(c['rows'], fresh[:max(0, room)])
         left = len(specs) - len(fresh[:max(0, room)])
         if left:
@@ -1512,11 +1540,12 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         self.leave(CATALOGS if c['rows'] else ADDS)
 
 
-def open_editor(select=''):
-    """The Home's one editor; ``select`` opens it on a section (the pen: the tab on show)."""
+def open_editor(select='', row_key=''):
+    """The Home's one editor; ``select`` opens it on a section (the pen: the tab on show),
+    ``row_key`` on the row the viewer was on there (v5.10.577: new rows go above it)."""
     import xbmcaddon
     path = xbmcaddon.Addon('plugin.video.dexhub').getAddonInfo('path')
-    window = BarEditor('dexhub_bars.xml', path, 'Default', '1080i', addon_path=path, select=select)
+    window = BarEditor('dexhub_bars.xml', path, 'Default', '1080i', addon_path=path, select=select, row_key=row_key)
     try:
         window.doModal()
         window.flush_styles()

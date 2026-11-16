@@ -496,7 +496,12 @@ class LayoutWindow(xbmcgui.WindowXMLDialog):
         spec = L.new_custom(spec)
         page = self.app.layout.page(self.media)
         custom = page['custom'] + [spec]
-        at = min(max(self._last_pos, -1) + 1, len(self.entries))
+        # v5.10.577: above the row the viewer is on (it went under it); on a progress row or
+        # none, first under the progress rows (layout.insert_keys)
+        keys = [e.get('key') for e in self.entries]
+        here = keys[self._last_pos] if 0 <= self._last_pos < len(keys) else ''
+        anchor = here if here not in L.PROGRESS_KEYS else ''
+        at = L.insert_keys(keys, ['\0new'], anchor).index('\0new')
         self.entries.insert(at, {
             'key': L.custom_key(spec), 'label': spec.get('label') or '',
             'sub': spec.get('source_label') or '', 'icon': 'lay_added.png',

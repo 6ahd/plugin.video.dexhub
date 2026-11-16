@@ -4852,17 +4852,16 @@ class BrowseWindow(_BaseWindow):
                 self.notify(self.tr('هذا الصف موجود في الرئيسية'))
                 return False
         spec = new_custom(spec)
+        from .layout import insert_keys, shown_keys
         order = list(page['order'])
         root = self.app._root()
         if not order and root is not None and getattr(root, 'mode', '') == 'home' \
                 and getattr(root, 'media', '') == 'all':
             order = [row.key for row in list(root.rows)]
+        if not order:
+            order = shown_keys('all')        # v5.10.577: as the skin shows the Home now
         if order:
-            at = 0
-            for key in ('continue', 'nextup'):
-                if key in order:
-                    at = max(at, order.index(key) + 1)
-            order.insert(at, custom_key(spec))
+            order = insert_keys(order, [custom_key(spec)])
         ok = layout.save_page('all', order=order or None, custom=page['custom'] + [spec])
         self.notify(self.tr('أُضيف للصفحة الرئيسية') if ok else self.tr('تعذر الحفظ'))
         return ok

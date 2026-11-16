@@ -189,6 +189,39 @@ def _hidden(row, hidden):
     return bool(value)
 
 
+# v5.10.577: where a new row goes. Above the row the viewer was on when they added it; else
+# at the top, under the rows that carry on what was being watched. An added row was left at
+# the end of a page with no saved order (the Home keeps the rows it does not know last).
+PROGRESS_KEYS = ('continue', 'nextup', 'continue_movies', 'continue_shows')
+
+
+def shown_keys(media):
+    """The page's rows as the Dex Hub skin shows them now (its row specs), [] elsewhere."""
+    try:
+        from ..skinui import common as _C
+        tab = 'all' if media in ('all', '', None) else media
+        with open(_C.spec_file(tab), encoding='utf-8') as handle:
+            rows = json.load(handle).get('rows') or []
+        return [str(r.get('key')) for r in rows if isinstance(r, dict) and r.get('key')]
+    except Exception:
+        return []
+
+
+def insert_keys(order, keys, anchor=''):
+    """``order`` with ``keys`` placed above ``anchor`` (a row key in it), else first under the
+    progress rows."""
+    keys = [k for k in keys if k]
+    order = [k for k in order if k and k not in keys]
+    if anchor and anchor in order:
+        at = order.index(anchor)
+    else:
+        at = 0
+        for key in PROGRESS_KEYS:
+            if key in order:
+                at = max(at, order.index(key) + 1)
+    return order[:at] + keys + order[at:]
+
+
 def arrange(rows, page):
     """[(row, hidden)] for every row, in the saved order."""
     rows = list(rows or [])
