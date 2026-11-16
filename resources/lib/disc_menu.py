@@ -29,7 +29,7 @@ from urllib.parse import urlencode
 import xbmc
 import xbmcgui
 
-MAIN_TITLE = 2            # Kodi's BD_PLAYBACK_MAIN_TITLE (disc.playback)
+MAIN_TITLE = 2            # Kodi 21's BD_PLAYBACK_MAIN_TITLE; main_title() gives this Kodi's
 OFFERED = 'dexhub.disc_menu.offered'
 
 
@@ -78,6 +78,33 @@ def _playback_setting():
 
 def _set_playback_setting(value):
     _rpc('Settings.SetSettingValue', {'setting': 'disc.playback', 'value': int(value)})
+
+
+_MAIN = {}
+
+
+def main_title():
+    """v5.10.580: the value of Blu-ray playback's "Play main movie" on this Kodi. Kodi 22 put
+    "Automatic" first (0 automatic, 1 simple menu, 2 disc menu, 3 main movie; Kodi 21: 0 simple
+    menu, 1 disc menu, 2 main movie), so a Kodi 22 set to "Disc menu" (2) was read as "Play main
+    movie": Dex Hub opened every disc on its film (a LibreELEC box, 16 Nov 2026) and its replay
+    set the disc menu. Asked of Kodi's own options; else by its version."""
+    if 'v' not in _MAIN:
+        value = None
+        found = _rpc('Settings.GetSettings', {'level': 'expert', 'filter': {'section': 'player', 'category': 'discs'}}) or {}
+        for setting in found.get('settings') or []:
+            if isinstance(setting, dict) and setting.get('id') == 'disc.playback':
+                options = [o.get('value') for o in setting.get('options') or [] if isinstance(o, dict)]
+                if options:
+                    value = 3 if len(options) >= 4 else 2
+        if value is None:
+            try:
+                major = int((xbmc.getInfoLabel('System.BuildVersion') or '0').split('.')[0])
+            except ValueError:
+                major = 0
+            value = 3 if major >= 22 else 2
+        _MAIN['v'] = value
+    return _MAIN['v']
 
 
 _SUB_EXT = ('.srt', '.ass', '.ssa', '.sub', '.vtt', '.smi', '.idx', '.sup')
@@ -252,8 +279,9 @@ def replay(subtitle_path='', name=''):
     except Exception:
         position = 0.0
     before = _playback_setting()
-    if before is not None and before != MAIN_TITLE:
-        _set_playback_setting(MAIN_TITLE)       # for this start only, put back below
+    main = main_title()
+    if before is not None and before != main:
+        _set_playback_setting(main)             # for this start only, put back below
     snapshot = dict(ctx, source_switch_pending=True, source_switch_captured_at=int(time.time()))
     if position > 1.0:
         snapshot['resume_seconds'] = position
@@ -286,7 +314,7 @@ def replay(subtitle_path='', name=''):
                     except Exception:
                         pass
     finally:
-        if before is not None and before != MAIN_TITLE:
+        if before is not None and before != main:
             _set_playback_setting(before)
 
 
@@ -318,7 +346,7 @@ def film_path(url):
     import xbmcvfs
     from .debrid import bdinfo
     from .debrid.discserver import kodi_encode
-    if bdinfo._kodi_setting() != bdinfo.MAIN_TITLE and not bdinfo.film_for_subtitles():
+    if not bdinfo.main_only() and not bdinfo.film_for_subtitles():
         return raw                      # its menus as Kodi's setting says: nothing to read
     root = 'udf://%s/' % kodi_encode(image)
 

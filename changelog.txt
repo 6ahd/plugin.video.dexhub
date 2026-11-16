@@ -1,3 +1,7 @@
+5.10.580
+كودي 22: القرص على «عرض قائمة البلوراي» صار يفتح بقائمته مثل ما تبي. كودي 22 غيّر أرقام الإعداد (صار فيه «تلقائي» أول)، فكان Dex Hub يقرأ «قائمة البلوراي» على إنها «تشغيل الفيلم الرئيسي» ويفتح الفيلم. وإعادة تشغيل الفيلم مع الترجمة صارت تختار الفيلم الرئيسي صح.
+Kodi 22: a disc set to "Show Blu-ray menu" opens on its menu again. Kodi 22 renumbered the setting ("Automatic" first), so Dex Hub read "Show Blu-ray menu" as "Play main movie" and opened the film; playing the film again with a subtitle now picks the main movie correctly too.
+
 5.10.579
 Groq صار من خدمات الذكاء الاصطناعي: مركز التحكم ← الذكاء الاصطناعي ← Groq، وحط مفتاحك من console.groq.com/keys.
 Groq joins the AI services: Control Centre › AI › Groq, with your key from console.groq.com/keys.

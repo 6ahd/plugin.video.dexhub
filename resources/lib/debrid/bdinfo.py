@@ -90,7 +90,7 @@ def longest(names, fetch, workers=8):
     return best[0] if best[1] > 0 else ''
 
 
-MAIN_TITLE = 2               # Kodi's BD_PLAYBACK_MAIN_TITLE (disc.playback)
+MAIN_TITLE = 2               # Kodi 21's BD_PLAYBACK_MAIN_TITLE; Kodi 22's is 3 (disc_menu.main_title)
 
 
 def _kodi_setting():
@@ -99,6 +99,15 @@ def _kodi_setting():
         return _playback_setting()
     except Exception:
         return None
+
+
+def main_only():
+    """Kodi's Blu-ray playback is "Play main movie" (its value differs in Kodi 22)."""
+    try:
+        from ..disc_menu import main_title
+        return _kodi_setting() == main_title()
+    except Exception:
+        return False
 
 
 def java_menus_play():
@@ -199,8 +208,8 @@ def path(encoded_root, index, names, fetch, workers=8):
     the film too (the option "Disc without your subtitles opens on the film", off by
     default): in its menus a subtitle file never shows, and the disc puts its own subtitle back
     when one is picked (CoreELEC box, 16 Nov 2026), so the film had to be played again."""
-    main_only = _kodi_setting() == MAIN_TITLE
-    menus = not main_only and (java_menus_play() or not has_java(index))
+    film_only = main_only()
+    menus = not film_only and (java_menus_play() or not has_java(index))
     if menus and not film_for_subtitles():
         return 'bluray://%s/menu' % encoded_root, 'menu'
     best = longest(names, fetch, workers)
@@ -216,4 +225,4 @@ def path(encoded_root, index, names, fetch, workers=8):
         return 'bluray://%s/BDMV/PLAYLIST/%s' % (encoded_root, best), 'main title %s (no %s subtitle on the disc)' % (
             best, _wanted_language())
     return 'bluray://%s/BDMV/PLAYLIST/%s' % (encoded_root, best), 'main title %s (%s)' % (
-        best, "Kodi's setting" if main_only else 'Java menus')
+        best, "Kodi's setting" if film_only else 'Java menus')
