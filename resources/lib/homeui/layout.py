@@ -215,10 +215,15 @@ def insert_keys(order, keys, anchor=''):
     if anchor and anchor in order:
         at = order.index(anchor)
     else:
-        at = 0
-        for key in PROGRESS_KEYS:
-            if key in order:
-                at = max(at, order.index(key) + 1)
+        # after the progress rows that open the page (Continue Watching and its split rows),
+        # not after the last progress row anywhere: a Home with Next episode moved under
+        # Recently watched and Because you watched put a new list 14th, out of sight
+        at = next((i for i, k in enumerate(order) if k in PROGRESS_KEYS), -1)
+        if 0 <= at <= 2:
+            while at < len(order) and order[at] in PROGRESS_KEYS:
+                at += 1
+        else:
+            at = 0
     return order[:at] + keys + order[at:]
 
 
