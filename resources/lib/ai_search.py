@@ -32,6 +32,10 @@ import xbmcgui
 PROVIDERS = (
     ('grok', 'Grok (xAI)', 'https://api.x.ai/v1', 'console.x.ai',
      ('grok-4-1-fast-non-reasoning', 'grok-4-fast-non-reasoning', 'grok-4-1-fast', 'grok-4-fast', 'grok-3-mini')),
+    # v5.10.579: Groq (not xAI's Grok): fast open models behind an OpenAI-compatible API
+    ('groq', 'Groq', 'https://api.groq.com/openai/v1', 'console.groq.com/keys',
+     ('openai/gpt-oss-120b', 'llama-3.3-70b-versatile', 'meta-llama/llama-4-maverick-17b-128e-instruct',
+      'llama-3.1-8b-instant')),
     ('openai', 'OpenAI', 'https://api.openai.com/v1', 'platform.openai.com/api-keys',
      ('gpt-5-mini', 'gpt-4.1-mini', 'gpt-4o-mini')),
     ('gemini', 'Gemini', 'https://generativelanguage.googleapis.com/v1beta/openai', 'aistudio.google.com/apikey',

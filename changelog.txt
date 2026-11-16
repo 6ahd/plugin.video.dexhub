@@ -1,3 +1,7 @@
+5.10.579
+Groq صار من خدمات الذكاء الاصطناعي: مركز التحكم ← الذكاء الاصطناعي ← Groq، وحط مفتاحك من console.groq.com/keys.
+Groq joins the AI services: Control Centre › AI › Groq, with your key from console.groq.com/keys.
+
 5.10.578
 الصف الجديد صار ينحط بعد «متابعة المشاهدة» أول الصفحة مباشرة، حتى لو «الحلقة التالية» نازلة تحت. كان ينحط بعد «الحلقة التالية» وين ما كانت، فقائمة جديدة طلعت الصف 14 وما انشافت.
 A new row now goes right after Continue Watching at the top of the page, even when Next episode is further down. It went after Next episode wherever it was, so a new list landed 14th, out of sight.

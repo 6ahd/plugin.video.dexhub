@@ -881,7 +881,7 @@ STRINGS = {
     'تمت إضافة المصدر: %s': 'Added add-on: %s',
     'تم حذف المصدر': 'Add-on deleted',
     'الذكاء الاصطناعي': 'AI',
-    'بحث بالوصف وقوائم ومقترحات بمفتاحك: Grok أو OpenAI أو Gemini وغيرها': 'Search by description, lists and picks with your key: Grok, OpenAI, Gemini and more',
+    'بحث بالوصف وقوائم ومقترحات بمفتاحك: Grok أو Groq أو OpenAI أو Gemini وغيرها': 'Search by description, lists and picks with your key: Grok, Groq, OpenAI, Gemini and more',
     'اقتراحات الذكاء الاصطناعي': 'AI picks',
     'مقترح لك بالذكاء الاصطناعي • أفلام': 'Recommended for you by AI • Films',
     'مقترح لك بالذكاء الاصطناعي • مسلسلات': 'Recommended for you by AI • Series',

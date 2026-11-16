@@ -1305,8 +1305,8 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         from .. import ai_search
         if not ai_search.config():
             if not xbmcgui.Dialog().yesno(_t('بالذكاء الاصطناعي', 'With AI'), _t(
-                    'يحتاج مفتاح خدمة ذكاء اصطناعي (Grok أو OpenAI أو Gemini أو OpenRouter أو DeepSeek). تضيفه الحين؟',
-                    'This needs the key of an AI service (Grok, OpenAI, Gemini, OpenRouter or DeepSeek). Add it now?')):
+                    'يحتاج مفتاح خدمة ذكاء اصطناعي (Grok أو Groq أو OpenAI أو Gemini أو OpenRouter أو DeepSeek). تضيفه الحين؟',
+                    'This needs the key of an AI service (Grok, Groq, OpenAI, Gemini, OpenRouter or DeepSeek). Add it now?')):
                 return
             if not ai_search.setup():
                 return
