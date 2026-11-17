@@ -296,7 +296,9 @@ def _words(home):
     words = {'dhs.island.t.hint': _t('والتنبيهات، اضغط OK', 'and alerts, press OK'),
              'dhs.island.t.playing': _t('يعرض الحين', 'Now playing'),
              'dhs.island.t.party': _t('مشاهدة جماعية', 'Watch party'),
-             'dhs.island.t.intro': _t('تحديد المقدمة', 'Mark intro')}
+             'dhs.island.t.intro': _t('تحديد المقدمة', 'Mark intro'),
+             # v5.10.581: the player bar's Disc menu button (skin 3.28.229)
+             'dhs.island.t.discmenu': _t('قائمة القرص', 'Disc menu')}
     for prop, text in words.items():
         if home.getProperty(prop) != text:
             home.setProperty(prop, text)

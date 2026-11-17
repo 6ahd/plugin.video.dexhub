@@ -26,6 +26,7 @@ Tried with a 42 GB image from TorBox: 440 files named in 4 s, six reads.
 """
 import hashlib
 import html
+import io
 import json
 import os
 import threading
@@ -44,6 +45,285 @@ _server = None
 _links = {}
 _lock = threading.Lock()
 _discs = {'mtime': 0, 'data': {}}
+
+# v5.10.581: a disc image's small files (the menus' Java, sounds and pictures, the clip and
+# playlist files) are read once and kept: a disc menu asks for them one after another, and
+# each was a trip to the image's server (a 4K disc from Emby: its menu waited minutes). The
+# first time Kodi asks for a disc, its small files are read in the background, several at once.
+SMALL_FILE = 4 * 1024 * 1024
+SMALL_TOTAL = 160 * 1024 * 1024
+WARM_WORKERS = 6             # v5.10.581: six at once, on kept connections
+WARM_BUSY = 2                # ... and two once the server answers it is busy (an Emby server gave 500, 16 Nov 2026)
+RETRY_CODES = (429, 500, 502, 503, 504)
+_small = {}                  # (image link, file name) -> bytes
+_small_order = []
+_small_size = [0]
+_warmed = set()
+_inflight = {}               # (disc, file) -> Event while the warm-up reads it
+SPAN_MAX = 4 * 1024 * 1024  # one read of side-by-side small files
+SPAN_GAP = 128 * 1024       # bytes between two files still read across
+
+
+def _small_get(image, name):
+    with _lock:
+        return _small.get((image, name))
+
+
+def _small_put(image, name, data):
+    with _lock:
+        if (image, name) in _small or len(data) > SMALL_FILE:
+            return
+        _small[(image, name)] = data
+        _small_order.append((image, name))
+        _small_size[0] += len(data)
+        while _small_size[0] > SMALL_TOTAL and _small_order:
+            old = _small_order.pop(0)
+            _small_size[0] -= len(_small.pop(old, b''))
+
+
+def _ranged_retry(image, offset, length, seconds=60):
+    """One range of the image, asked again (up to three times, a little later each time) when
+    the server answers it is busy: an Emby server answered 500 while it served other ranges."""
+    import urllib.error
+    for wait in (0.0, 0.7, 2.0):
+        if wait:
+            time.sleep(wait)
+        try:
+            with _ranged(image, offset, length, seconds) as answer:
+                return answer.read()
+        except urllib.error.HTTPError as exc:
+            if exc.code not in RETRY_CODES or wait == 2.0:
+                raise
+
+
+STREAM_CHUNK = 4 * 1024 * 1024    # one read of the film from the link
+STREAM_FIRST = 512 * 1024         # the first read is small: Kodi gets its first bytes sooner
+STREAM_WORKERS = 4                # reads at once, ahead of Kodi (the Usenet engine's way)
+
+
+def _stream_range(image, offset, length, out):
+    """One range of the image written to `out`, read over STREAM_WORKERS connections at once
+    in STREAM_CHUNK pieces, in order: a link that gives each connection only so much is read
+    several times as fast (v5.10.581). A small range is read as one."""
+    if length <= STREAM_FIRST * 2:
+        return _stream_one(image, offset, length, out)
+    import concurrent.futures
+    pieces, at = [], 0
+    while at < length:
+        size = min(STREAM_FIRST if not pieces else STREAM_CHUNK, length - at)
+        pieces.append((offset + at, size))
+        at += size
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=STREAM_WORKERS, thread_name_prefix='DexHub-disc-read')
+    try:
+        waiting = {}
+        ahead = STREAM_WORKERS * 2
+        for index, (where, size) in enumerate(pieces[:ahead]):
+            waiting[index] = pool.submit(_ranged_retry, image, where, size, 60)
+        for index in range(len(pieces)):
+            data = waiting.pop(index).result()
+            if len(data) != pieces[index][1]:
+                raise IOError('the server gave %d of %d bytes' % (len(data), pieces[index][1]))
+            nxt = index + ahead
+            if nxt < len(pieces):
+                waiting[nxt] = pool.submit(_ranged_retry, image, pieces[nxt][0], pieces[nxt][1], 60)
+            out.write(data)                     # Kodi gone: BrokenPipe goes to the caller
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+
+
+def _stream_one(image, offset, length, out):
+    """One range of the image written to `out` as it comes. v5.10.581: a busy answer (500)
+    or a cut connection from the image's server is asked again from where it stopped, up to
+    four times: Kodi closed The Batman from Emby when one read of its stream answered 500."""
+    import http.client
+    import urllib.error
+
+    class _KodiGone(Exception):
+        pass
+
+    done, tries = 0, 0
+    while done < length:
+        try:
+            with _ranged(image, offset + done, length - done, 60) as answer:
+                while done < length:
+                    block = answer.read(min(256 * 1024, length - done))
+                    if not block:
+                        break
+                    try:
+                        out.write(block)
+                    except (BrokenPipeError, ConnectionResetError) as gone:
+                        raise _KodiGone(gone)
+                    done += len(block)
+            if done < length:
+                raise IOError('the server ended the range early')
+        except _KodiGone as gone:
+            raise gone.args[0]                 # Kodi moved on (a seek): the caller's
+        except (urllib.error.URLError, IOError, OSError, http.client.HTTPException) as exc:
+            code = getattr(exc, 'code', None)
+            if (code is not None and code not in RETRY_CODES) or tries >= 4:
+                raise
+            tries += 1
+            accounts.log('disc image read: %s, asked again (%d) at %d of %d' % (exc, tries, done, length))
+            time.sleep(0.5 * tries)
+
+
+def _image_bytes(image, entry):
+    """A whole (small) file of a disc image, read from its ranges."""
+    if entry.get('data') is not None:
+        return bytes.fromhex(entry['data'])
+    return b''.join(_ranged_retry(image, offset, length) for offset, length in entry.get('x') or [])
+
+
+def _ident(disc):
+    """What the kept files of a disc image go by: its size and its first file's place, not
+    its link, which an Emby server gives anew for each playback (the Disc menu button opens
+    the same disc again with a new link, 16 Nov 2026)."""
+    files = disc.get('files') or {}
+    first = files.get('BDMV/index.bdmv') or files.get('BDMV/INDEX.BDMV') or {}
+    return 'disc:%s:%s' % (disc.get('size') or 0, (first.get('x') or [[0]])[0][0] if first.get('x') else '')
+
+
+def _twin(files, name):
+    """v5.10.581: a BDMV/BACKUP file is a copy of the one beside it: that one's name when it is
+    there and the same size (Kodi reads every playlist's backup as a disc opens: 1917, hundreds
+    of them, each a read of the link), else ''."""
+    low = str(name or '').replace('\\', '/')
+    if not low.lower().startswith('bdmv/backup/'):
+        return ''
+    main = 'BDMV/' + low[len('BDMV/BACKUP/'):]
+    lower = {k.lower(): k for k in files}
+    found = lower.get(main.lower())
+    if found and int((files.get(found) or {}).get('size') or -1) == int((files.get(name) or {}).get('size') or -2):
+        return found
+    return ''
+
+
+def _small_file(image, name, entry, ident=''):
+    """The bytes of a small file, from the kept ones or read now (and kept)."""
+    data = _small_get(ident or image, name)
+    if data is None:
+        # being read by the warm-up in a stretch with its neighbours: wait for it, not read it twice
+        with _lock:
+            event = _inflight.get((ident, name)) if ident else None
+        if event is not None:
+            event.wait(30)
+            data = _small_get(ident or image, name)
+    if data is None:
+        data = _image_bytes(image, entry)
+        _small_put(ident or image, name, data)
+    return data
+
+
+def _warm(key, disc):
+    """Reads a disc image's small files in the background (once per disc and Kodi session):
+    the menu's files first (index, objects, Java, sounds), then the clip and playlist files."""
+    image = disc.get('image')
+    ident = _ident(disc)
+    with _lock:
+        if not image or ident in _warmed:
+            return
+        _warmed.add(ident)
+    files = disc.get('files') or {}
+
+    def rank(name):
+        low = name.lower()
+        order = ('bdmv/index.bdmv', 'bdmv/movieobject.bdmv', 'bdmv/jar/', 'bdmv/bdjo/', 'bdmv/auxdata/',
+                 'bdmv/meta/', 'bdmv/playlist/', 'bdmv/clipinf/', 'bdmv/backup/')
+        return next((i for i, p in enumerate(order) if low.startswith(p)), len(order))
+
+    # v5.10.581: the small files lie side by side in the image (the playlists, the clip files,
+    # the Java), so they are read as stretches of up to SPAN_MAX, each one read for many files:
+    # 1917 from a link that takes a second or more per read had ~400 files read one by one.
+    single, jobs = [], []
+    for n, e in files.items():
+        if int(e.get('size') or 0) > SMALL_FILE or n.lower().startswith('bdmv/stream/') or _twin(files, n) \
+                or e.get('data') is not None:
+            continue
+        extents = e.get('x') or []
+        if len(extents) == 1:
+            single.append((int(extents[0][0]), int(extents[0][1]), n))
+        elif extents:
+            jobs.append((rank(n), 0, [n], None))
+    single.sort()
+    span = []
+    for off, length, n in single:
+        if span and (off - (span[-1][0] + span[-1][1]) > SPAN_GAP or off + length - span[0][0] > SPAN_MAX):
+            jobs.append((min(rank(x[2]) for x in span), span[0][0], [x[2] for x in span], list(span)))
+            span = []
+        span.append((off, length, n))
+    if span:
+        jobs.append((min(rank(x[2]) for x in span), span[0][0], [x[2] for x in span], list(span)))
+    jobs.sort(key=lambda job: (job[0], job[1]))
+    queue = list(jobs)
+    with _lock:
+        for job in jobs:
+            for n in job[2]:
+                _inflight.setdefault((ident, n), threading.Event())
+    started, done = time.time(), [0, 0, 0]
+
+    busy, tries = [False], {}
+
+    def finish(names):
+        with _lock:
+            for n in names:
+                event = _inflight.pop((ident, n), None)
+                if event is not None:
+                    event.set()
+
+    def work(number):
+        import urllib.error
+        while True:
+            with _lock:
+                if not queue or _small_size[0] >= SMALL_TOTAL or (busy[0] and number >= WARM_BUSY):
+                    return
+                job = queue.pop(0)
+            _rank, _at, names, parts = job
+            try:
+                if parts is None:               # a file in pieces: read on its own
+                    data = _small_file(image, names[0], files[names[0]], ident)
+                    got = len(data)
+                else:
+                    first, last = parts[0][0], parts[-1][0] + parts[-1][1]
+                    blob = _ranged_retry(image, first, last - first)
+                    if len(blob) < last - first:
+                        raise IOError('the server gave %d of %d bytes' % (len(blob), last - first))
+                    got = 0
+                    for off, length, n in parts:
+                        _small_put(ident, n, blob[off - first:off - first + length])
+                        got += length
+                with _lock:
+                    done[0] += len(names)
+                    done[1] += got
+                    done[2] += 1
+                finish(names)
+            except urllib.error.HTTPError as exc:
+                if exc.code in RETRY_CODES and not busy[0]:
+                    busy[0] = True
+                    accounts.log('disc image: the server is busy (%s): %d reads at once from here' % (exc.code, WARM_BUSY))
+                key = names[0]
+                with _lock:
+                    tries[key] = tries.get(key, 0) + 1
+                    again = tries[key] < 3
+                    if again:
+                        queue.append(job)       # read again by one of the workers that stay
+                if not again:
+                    finish(names)
+            except Exception:
+                finish(names)
+
+    def run():
+        workers = [threading.Thread(target=work, args=(n,), name='DexHub-disc-warm', daemon=True) for n in range(WARM_WORKERS)]
+        for worker in workers:
+            worker.start()
+        for worker in workers:
+            worker.join(600)
+        with _lock:
+            left = [n for job in queue for n in job[2]]
+        finish(left)
+        accounts.log('disc image: %d small files (%.1f MB) kept in %.1f s (%d reads)'
+                     % (done[0], done[1] / 1048576.0, time.time() - started, done[2]))
+
+    threading.Thread(target=run, name='DexHub-disc-warm-run', daemon=True).start()
 
 
 def _file():
@@ -119,11 +399,120 @@ def _split_link(link):
     return url, headers
 
 
+# v5.10.581: what makes the Usenet engine quick, for a disc image behind a link too. Its
+# connections stay open and serve read after read, where urllib opened a new HTTPS connection
+# (and its TLS handshake) for each of the hundreds of small reads a disc menu makes; and it
+# fetches the film over several connections at once, ahead of Kodi (_stream_range).
+_POOL = {}                   # (scheme, host, port) -> [idle http.client connections]
+_POOL_LOCK = threading.Lock()
+_POOL_KEEP = 8               # idle connections kept for one server
+
+
+class _Answer(object):
+    """A ranged answer read from a kept connection, handed back when read to its end."""
+
+    def __init__(self, conn, response, where):
+        self._conn, self._response, self._where = conn, response, where
+        self.status = response.status
+        self.headers = response.headers
+
+    def read(self, amount=None):
+        return self._response.read() if amount is None else self._response.read(amount)
+
+    def close(self):
+        conn, self._conn = self._conn, None
+        if conn is None:
+            return
+        try:
+            done = self._response.isclosed() or self._response.length == 0
+        except Exception:
+            done = False
+        if done and not self._response.will_close:
+            with _POOL_LOCK:
+                idle = _POOL.setdefault(self._where, [])
+                if len(idle) < _POOL_KEEP:
+                    idle.append(conn)
+                    return
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        self.close()
+        return False
+
+
+def _connection(where, seconds, fresh=False):
+    import http.client
+    import ssl
+    scheme, host, port = where
+    if not fresh:
+        with _POOL_LOCK:
+            idle = _POOL.get(where) or []
+            if idle:
+                conn = idle.pop()
+                try:
+                    conn.sock.settimeout(seconds)
+                except Exception:
+                    pass
+                return conn, True
+    if scheme == 'https':
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE     # as urllib was used here: the link is the viewer's own
+        return http.client.HTTPSConnection(host, port, timeout=seconds, context=context), False
+    return http.client.HTTPConnection(host, port, timeout=seconds), False
+
+
 def _ranged(link, start, length, seconds=30):
-    import urllib.request
+    """bytes start..start+length-1 of the link: an answer with status, headers and read(),
+    used with `with`. An error status raises urllib.error.HTTPError, as urlopen did."""
+    import http.client
+    import urllib.error
     url, headers = _split_link(link)
     headers['Range'] = 'bytes=%d-%d' % (start, start + length - 1)
-    return urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=seconds)
+    for _hop in range(4):                       # redirects
+        parts = urllib.parse.urlsplit(url)
+        scheme = (parts.scheme or 'http').lower()
+        where = (scheme, parts.hostname or '', parts.port or (443 if scheme == 'https' else 80))
+        path = (parts.path or '/') + ('?' + parts.query if parts.query else '')
+        for attempt in range(2):
+            conn, reused = _connection(where, seconds, fresh=attempt > 0)
+            try:
+                conn.request('GET', path, headers=dict(headers, Host=parts.netloc))
+                response = conn.getresponse()
+                break
+            except (http.client.RemoteDisconnected, ConnectionResetError, BrokenPipeError,
+                    http.client.BadStatusLine) as exc:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+                if reused and attempt == 0:
+                    continue                    # a kept connection the server had closed
+                raise urllib.error.URLError(exc)
+            except Exception:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+                raise
+        if response.status in (301, 302, 303, 307, 308) and response.getheader('Location'):
+            target = urllib.parse.urljoin(url, response.getheader('Location'))
+            response.read()
+            _Answer(conn, response, where).close()
+            url = target
+            continue
+        if response.status >= 400:
+            body = response.read()
+            _Answer(conn, response, where).close()
+            raise urllib.error.HTTPError(url, response.status, response.reason, response.headers, io.BytesIO(body))
+        return _Answer(conn, response, where)
+    raise urllib.error.URLError('too many redirects')
 
 
 def image_size(link):
@@ -135,6 +524,41 @@ def image_size(link):
     except Exception as exc:
         accounts.log('disc image size: %s' % exc, True)
         return 0
+
+
+_PROXIED = {}                # key -> (link, time): addresses Kodi plays through this server
+_PROXY_KEEP = 6 * 3600
+
+
+def offer_link(link):
+    """v5.10.581: a local address (http://127.0.0.1:port/link/<key>/video.mp4) for `link`, which
+    this server reads for Kodi, ranges and all, or '' (the server is not running). Kodi then
+    looks up no name of its own: on an iPhone hotspot its lookups of imdb-video.media-imdb.com
+    failed five times in six while the device's own resolver answered at once (a Mac, 17 Nov
+    2026), and every failed trailer said "Playback failed"."""
+    number = port()
+    if not number or not str(link or '').lower().startswith(('http://', 'https://')):
+        return ''
+    key = hashlib.sha1(str(link).encode('utf-8')).hexdigest()[:16]
+    now = time.time()
+    with _lock:
+        _PROXIED[key] = (link, now)
+        for old in [k for k, v in _PROXIED.items() if now - v[1] > _PROXY_KEEP]:
+            _PROXIED.pop(old, None)
+    return 'http://%s:%d/link/%s/video.mp4' % (HOST, number, key)
+
+
+def link_answers(link, seconds=6):
+    """The first bytes of `link` came (a trailer is tried before Kodi is given it, so one that
+    does not answer never shows "Playback failed" nor touches the poster)."""
+    try:
+        with _ranged(link, 0, 65536, seconds) as answer:
+            if answer.status not in (200, 206):
+                return False
+            return len(answer.read(4096)) > 0
+    except Exception as exc:
+        accounts.log('a link did not answer (%s)' % str(exc)[:120])
+        return False
 
 
 def offer_image(link, size=0):
@@ -149,6 +573,7 @@ def offer_image(link, size=0):
     if size <= 0:
         return ''
     from . import udf
+    key = hashlib.sha1(('image:%s' % str(link).split('|', 1)[0]).encode('utf-8')).hexdigest()[:12]
 
     def read(offset, length):
         with _ranged(link, offset, length) as answer:
@@ -157,14 +582,21 @@ def offer_image(link, size=0):
             return answer.read()
 
     started = time.time()
-    try:
-        image = udf.Image(read, size).open()
-        tree = image.disc_files()
-    except Exception as exc:
-        accounts.log('disc image not read (%s): it plays as it is' % exc)
-        return ''
-    key = hashlib.sha1(('image:%s' % str(link).split('|', 1)[0]).encode('utf-8')).hexdigest()[:12]
-    _remember(key, {'image': link, 'size': size, 'files': tree})
+    image = udf.Image(read, size)
+    # v5.10.581: the same image opened again (the Disc menu button, a replay for a subtitle)
+    # keeps the file list read the first time: no reads of its file system
+    known = (_read().get(key) or {}) if isinstance(_read(), dict) else {}
+    if known.get('size') == size and known.get('files'):
+        tree = known['files']
+        _remember(key, dict(known, image=link))
+    else:
+        try:
+            image.open()
+            tree = image.disc_files()
+        except Exception as exc:
+            accounts.log('disc image not read (%s): it plays as it is' % exc)
+            return ''
+        _remember(key, {'image': link, 'size': size, 'files': tree})
     lower = {k.lower(): v for k, v in tree.items()}
 
     def small(rel):
@@ -287,8 +719,9 @@ def _handler():
             self.end_headers()
             return body
 
-        def _image_file(self, disc, entry, head):
-            """One file of a disc image: its bytes are ranges of the image's link."""
+        def _image_file(self, disc, entry, head, name=''):
+            """One file of a disc image: its bytes are ranges of the image's link (a small
+            file is read whole once and kept, v5.10.581)."""
             size = int(entry.get('size') or 0)
             first, last, partial = 0, size - 1, False
             wanted = str(self.headers.get('Range') or '')
@@ -320,17 +753,25 @@ def _handler():
             if entry.get('data') is not None:
                 self.wfile.write(bytes.fromhex(entry['data'])[first:last + 1])
                 return
+            if name and 0 < size <= SMALL_FILE:
+                files = disc.get('files') or {}
+                twin = _twin(files, name)
+                if twin:                        # a backup: the file beside it, read once for both
+                    name, entry = twin, files[twin]
+                try:
+                    self.wfile.write(_small_file(disc['image'], name, entry, _ident(disc))[first:last + 1])
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
+                except Exception as exc:
+                    accounts.log('disc image read: %s' % exc, True)
+                    self.close_connection = True
+                return
             at = 0
             try:
                 for offset, length in entry.get('x') or []:
                     lo, hi = max(first, at), min(last, at + length - 1)
                     if lo <= hi:
-                        with _ranged(disc['image'], offset + lo - at, hi - lo + 1, 60) as answer:
-                            while True:
-                                block = answer.read(256 * 1024)
-                                if not block:
-                                    break
-                                self.wfile.write(block)
+                        _stream_range(disc['image'], offset + lo - at, hi - lo + 1, self.wfile)
                     at += length
                     if at > last:
                         break
@@ -340,8 +781,56 @@ def _handler():
                 accounts.log('disc image read: %s' % exc, True)
                 self.close_connection = True
 
+        def _proxy(self, key, head):
+            """v5.10.581: a remembered link read for Kodi (offer_link), with its Range."""
+            import http.client
+            with _lock:
+                known = _PROXIED.get(key)
+            if not known:
+                self.wfile.write(self._send(404)) if not head else self._send(404)
+                return
+            url, headers = _split_link(known[0])
+            wanted = str(self.headers.get('Range') or '')
+            if wanted:
+                headers['Range'] = wanted
+            try:
+                for _hop in range(4):
+                    parts = urllib.parse.urlsplit(url)
+                    scheme = (parts.scheme or 'http').lower()
+                    where = (scheme, parts.hostname or '', parts.port or (443 if scheme == 'https' else 80))
+                    conn, _reused = _connection(where, 30, fresh=True)
+                    conn.request('HEAD' if head else 'GET', (parts.path or '/') + ('?' + parts.query if parts.query else ''),
+                                 headers=dict(headers, Host=parts.netloc))
+                    answer = conn.getresponse()
+                    if answer.status in (301, 302, 303, 307, 308) and answer.getheader('Location'):
+                        url = urllib.parse.urljoin(url, answer.getheader('Location'))
+                        answer.read(); conn.close()
+                        continue
+                    break
+                self.send_response(answer.status)
+                for name in ('Content-Type', 'Content-Length', 'Content-Range', 'Accept-Ranges', 'Last-Modified', 'ETag'):
+                    value = answer.getheader(name)
+                    if value:
+                        self.send_header(name, value)
+                self.end_headers()
+                if not head:
+                    while True:
+                        block = answer.read(256 * 1024)
+                        if not block:
+                            break
+                        self.wfile.write(block)
+                conn.close()
+            except (BrokenPipeError, ConnectionResetError):
+                pass                                    # Kodi moved on (a seek)
+            except Exception as exc:
+                accounts.log('link read: %s' % str(exc)[:120], True)
+                self.close_connection = True
+
         def _answer(self, head):
             parts = urllib.parse.unquote(urllib.parse.urlsplit(self.path).path).lstrip('/').split('/', 2)
+            if len(parts) >= 2 and parts[0] == 'link':
+                self._proxy(parts[1], head)
+                return
             if len(parts) < 2 or parts[0] != 'disc':
                 body = self._send(404)
             else:
@@ -353,7 +842,13 @@ def _handler():
                 if disc is None:
                     body = self._send(404)
                 elif name in files and disc.get('image'):
-                    self._image_file(disc, files[name], head)
+                    _warm(parts[1], disc)
+                    started = time.time()
+                    self._image_file(disc, files[name], head, name)
+                    took = time.time() - started
+                    # v5.10.581: a menu file that keeps Kodi waiting is named in the log
+                    if not head and took > 2.0 and '/stream/' not in name.lower():
+                        accounts.log('disc served %s (%s) in %.1f s' % (name, self.headers.get('Range') or 'whole', took))
                     return
                 elif name in files:
                     try:
@@ -387,7 +882,10 @@ def start():
     try:
         from http.server import ThreadingHTTPServer
         import xbmcgui
-        _server = ThreadingHTTPServer((HOST, 0), _handler())
+        class _Server(ThreadingHTTPServer):
+            def handle_error(self, request, client_address):
+                pass                    # Kodi dropping a connection is not an error here
+        _server = _Server((HOST, 0), _handler())
         _server.daemon_threads = True
         threading.Thread(target=_server.serve_forever, name='DexHub-disc-server', daemon=True).start()
         xbmcgui.Window(10000).setProperty(PORT_PROP, str(_server.server_address[1]))

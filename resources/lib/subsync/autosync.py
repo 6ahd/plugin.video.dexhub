@@ -113,6 +113,9 @@ _REASONS = {
     'no_usable_text_track': 'الترجمات المدمجة في الملف قليلة أو ما تصلح مرجعاً',
     'no_range': 'الخادم ما يسمح بقراءة جزء من الملف',
     'cues_too_large': 'فهرس الملف كبير جداً', 'element_too_large': 'فهرس الملف كبير جداً',
+    # v5.10.581: a disc is timed from a REMUX of it in the sources list
+    'disc_no_remux': 'القرص ما فيه فهرس توقيت، وما لقيت نسخة REMUX منه في المصادر نأخذ منها التوقيت',
+    'disc_remux_unread': 'ما قدرت أقرأ توقيت نسخة REMUX من القرص في المصادر',
 }
 
 
@@ -188,6 +191,10 @@ def _media_kind(url):
     low = (base or '').strip().lower()
     if not low:
         return ''
+    # v5.10.581: a Blu-ray disc is timed from a REMUX of it in the sources list (discref)
+    from . import discref
+    if discref.is_disc(base):
+        return 'disc'
     path = low.split('?', 1)[0]
     if path.endswith(('.m3u8', '.mpd', '.iso', '.strm')) or '/master.m3u8' in low:
         return ''
@@ -312,6 +319,8 @@ def _reference(media_url):
         if hit and now < hit[0]:
             return hit[1], True
     kind = _media_kind(media_url)
+    if kind == 'disc':
+        return _disc_reference(media_url), False
     base, headers = _split_kodi_media_url(media_url)
     budget = dexcues.Budget(dexcues.DEFAULTS)
     try:
@@ -340,6 +349,38 @@ def _reference(media_url):
         while len(_REF_CACHE) > 6:
             _REF_CACHE.pop(min(_REF_CACHE, key=lambda k: _REF_CACHE[k][0]))
     return out, False
+
+
+def _disc_reference(media_url):
+    """v5.10.581: a disc's timing reference: the index of a REMUX of the same disc in the
+    sources list, the first of up to four that reads (discref)."""
+    from . import discref
+    out = {'ok': False, 'reason': 'disc_no_remux', 'detail': '', 'stats': None}
+    for link, label in discref.candidates(media_url):
+        base, headers = _split_kodi_media_url(link)
+        budget = dexcues.Budget(dexcues.DEFAULTS)
+        try:
+            r = dexcues.load(dexcues.HttpSource(base, budget, _SESSION, headers=headers, verify=False))
+        except dexcues.CuesError as e:
+            _log('disc: %s not read (%s)' % (label, e.reason))
+            out = {'ok': False, 'reason': 'disc_remux_unread', 'detail': e.reason, 'stats': budget.stats()}
+            continue
+        t = dexcues.pick_reference(r.get('tracks') or []) if r.get('ok') else None
+        if not t:
+            _log('disc: %s has no timed subtitle track' % label)
+            out = {'ok': False, 'reason': 'disc_remux_unread', 'detail': 'no track', 'stats': r.get('stats')}
+            continue
+        _log('disc: timed from %s (%s, %d lines)' % (label, t['lang'] or '?', len(t['cues'])))
+        out = {'ok': True, 'starts': [c[0] for c in t['cues']], 'stats': r['stats'], 'via': 'remux',
+               'track': {'number': t['number'], 'lang': t['lang'] or '?', 'codec': t['codec'], 'cues': len(t['cues']),
+                         'estimated': t['estimated'], 'name': t['name'], 'kind': t.get('kind', 'text')}}
+        break
+    ttl = _REF_OK_TTL if out['ok'] else 120
+    with _REF_LOCK:
+        _REF_CACHE[media_url] = (time.time() + ttl, out)
+        while len(_REF_CACHE) > 6:
+            _REF_CACHE.pop(min(_REF_CACHE, key=lambda k: _REF_CACHE[k][0]))
+    return out
 
 
 _FPS_NAMES = ((25.0 / 23.976, '23.976 و25'), (25.0 / 24.0, '24 و25'), (24.0 / 23.976, '23.976 و24'))

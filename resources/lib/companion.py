@@ -808,6 +808,19 @@ def _local_percent(position_ms, duration_ms):
 _NAMED = set()
 
 
+def _resume_notice(seconds):
+    """v5.10.581: a short notice when Dex Hub carries a title on from where it was left
+    ("Continuing from 1:23:45"), as Lucent Library showed for its own resume."""
+    try:
+        total = int(max(0.0, float(seconds)))
+        hours, rest = divmod(total, 3600)
+        mins, secs = divmod(rest, 60)
+        stamp = '%d:%02d:%02d' % (hours, mins, secs) if hours else '%d:%02d' % (mins, secs)
+        xbmcgui.Dialog().notification('Dex Hub', tr('يكمل من %s') % stamp, xbmcgui.NOTIFICATION_INFO, 3000, False)
+    except Exception:
+        pass
+
+
 def _save_show_name(ctx, media_type, canonical_id, video_id):
     """v5.10.540: the series' name with the row, once a playback. A row without
     it had no card in My Library unless an account row stood beside it."""
@@ -1914,6 +1927,8 @@ class CompanionPlayer(xbmc.Player):
                 if current >= already_at:
                     success = True
                     _monitor('resume-already-applied', title=self.ctx.get('title') or '', target_seconds='%.1f' % seek_to, current_seconds='%.1f' % current)
+                    if not switching:
+                        _resume_notice(seek_to)
                     return
 
                 # One normal attempt plus one recovery attempt only.  Repeated
@@ -1945,6 +1960,8 @@ class CompanionPlayer(xbmc.Player):
                     if current >= already_at:
                         success = True
                         _monitor('resume-applied', title=self.ctx.get('title') or '', target_seconds='%.1f' % seek_to, current_seconds='%.1f' % current, attempt=attempt + 1)
+                        if not switching:
+                            _resume_notice(seek_to)
                         return
                 _monitor('resume-failed', level=xbmc.LOGWARNING, title=self.ctx.get('title') or '', target_seconds='%.1f' % seek_to, resume_percent='%.2f' % resume_pct)
             except Exception as exc:

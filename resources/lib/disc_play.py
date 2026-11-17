@@ -101,13 +101,19 @@ def wrap(url, ctx=None):
     final = _probe(link)
     if not final:
         return raw
+    # v5.10.581: CoreELEC and LibreELEC too. Kodi's udf:// reader walked the image's file
+    # system over the link again for every file: a 4K disc from Emby took 93 s to its menu and
+    # the Java menu then waited minutes on its small files (CoreELEC box, 16 Nov 2026). Dex Hub
+    # reads the file system once and serves the files by their ranges (small ones kept);
+    # udf:// stays the way when Dex Hub cannot read the image.
+    from .debrid import discserver
+    headers = raw.split('|', 1)[1] if '|' in raw else ''
+    served = discserver.offer_image(final + ('|' + headers if headers else ''))
+    if served:
+        _log('opening a Blu-ray image as a folder served by Dex Hub')
+        return served
     if not on_coreelec():
-        from .debrid import discserver
-        headers = raw.split('|', 1)[1] if '|' in raw else ''
-        served = discserver.offer_image(final + ('|' + headers if headers else ''))
-        if served:
-            _log('opening a Blu-ray image as a folder served by Dex Hub')
-        return served or raw
+        return raw
     link = final
     _log('opening a Blu-ray image through udf')
     return 'udf://%s/BDMV/index.bdmv' % quote(link, safe='')

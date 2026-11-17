@@ -554,8 +554,13 @@ class Spotlight(threading.Thread):
         self._prefetch_thread.start()
 
     def begin(self, target, settings):
-        if self._resolve_thread is not None and self._resolve_thread.is_alive():
-            return  # one network resolver at a time while browsing quickly
+        # v5.10.581: a lookup still running for the title the cursor left no longer holds this
+        # one back (its answer is dropped when it comes, by the token): back on 1917 from The
+        # Batman, the trailer waited 2.5 s for The Batman's. Three at most while browsing quickly.
+        running = [t for t in getattr(self, '_resolvers', []) if t.is_alive()]
+        self._resolvers = running
+        if any(getattr(t, 'dexhub_key', None) == target['key'] for t in running) or len(running) >= 3:
+            return
         C.log('trailer for "%s" (%s)' % (target['title'], target['imdb']), xbmc.LOGDEBUG)
         self.tried = target['key']
         from ..trailer_preferences import publish_status
@@ -587,12 +592,30 @@ class Spotlight(threading.Thread):
                 if director.is_current(token) and self.key == target['key'] and not self.halt.is_set():
                     publish_status('unavailable')
                 return
+            # v5.10.581: a trailer that does not answer is left out quietly (no "Playback failed",
+            # the poster stays), and one that does plays through Dex Hub's own server, so Kodi
+            # looks up no name of its own (on a hotspot its lookups failed while ours answered)
+            url = str(stream.get('url') or '')
+            if not test and not stream.get('live') and url.lower().startswith(('http://', 'https://')):
+                from ..debrid import discserver
+                if not discserver.link_answers(url):
+                    C.log('trailer for "%s" did not answer: left out quietly' % target['title'], xbmc.LOGINFO)
+                    if director.is_current(token) and self.key == target['key'] and not self.halt.is_set():
+                        publish_status('unavailable')
+                    return
+                if not director.is_current(token) or self.key != target['key'] or self.halt.is_set():
+                    return
+                local = discserver.offer_link(url)
+                if local:
+                    stream = dict(stream, url=local)
             self._playing_title = target['title']
             ok = director.play(self, token, stream, title=target['title'], muted=not settings['sound'], volume=settings['volume'])
             if not ok and director.is_current(token):
                 publish_status('unavailable')
             C.log('trailer for "%s" started: %s' % (target['title'], ok), xbmc.LOGDEBUG if ok else xbmc.LOGINFO)
         self._resolve_thread = threading.Thread(target=job, name='dexhub-skin-trailer', daemon=True)
+        self._resolve_thread.dexhub_key = target['key']
+        self._resolvers = running + [self._resolve_thread]
         self._resolve_thread.start()
 
     def _resolver_for(self, settings):

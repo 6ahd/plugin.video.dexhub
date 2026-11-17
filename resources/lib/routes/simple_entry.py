@@ -2246,6 +2246,11 @@ def dispatch():
         from resources.lib import disc_menu
         disc_menu.replay(str(params.get('path') or ''), str(params.get('name') or ''))
         return None
+    if action == 'disc_top_menu':
+        # v5.10.581: the player bar's Disc menu button (skin 3.28.229)
+        from resources.lib import disc_menu
+        disc_menu.top_menu()
+        return None
     if action == 'intro_mark':
         # v5.10.566: the player bar's Mark intro button
         from resources.lib import intro_marks

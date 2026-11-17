@@ -110,6 +110,17 @@ def main_title():
 _SUB_EXT = ('.srt', '.ass', '.ssa', '.sub', '.vtt', '.smi', '.idx', '.sup')
 _WATCHING = {'file': ''}
 _HOLD = 4                    # seconds a subtitle file stays switched on before it counts
+_QUIET = 20                  # v5.10.581: a switch this soon after Dex Hub added files is Kodi's
+
+
+def _added_by_dexhub():
+    """True while Dex Hub's subtitle files went into the player a moment ago: Kodi switches
+    a file on as it adds it, which is not the viewer's choice."""
+    try:
+        stamp = float(xbmcgui.Window(10000).getProperty('dexhub.subs.attached_at') or 0)
+    except (TypeError, ValueError):
+        stamp = 0.0
+    return stamp > 0 and time.time() - stamp < _QUIET
 
 
 def _newest_subtitle(since, stem=''):
@@ -209,7 +220,11 @@ def watch():
                         # Dex Hub's attacher selects a file for a moment and puts the disc's
                         # own subtitle back: only a choice that stays counts
                         held = (current, held[1] + 1) if held[0] == current else (current, 1)
-                        if held[1] >= _HOLD:
+                        if held[1] >= _HOLD and _added_by_dexhub():
+                            # Kodi put on a file Dex Hub just added: the menus stay
+                            _log('a subtitle file Dex Hub added was switched on by Kodi: the menus stay')
+                            shown, held = current, ('', 0)
+                        elif held[1] >= _HOLD:
                             path = _playing_subtitle(player) or _newest_subtitle(since - 5, current[:-len(' (External)')]) \
                                 or _newest_subtitle(since - 5)
                             _log('a subtitle file was switched on in the menus (%s)' % (path or 'no file found'))
@@ -278,6 +293,21 @@ def replay(subtitle_path='', name=''):
         position = float(player.getTime() or 0.0)
     except Exception:
         position = 0.0
+    # v5.10.581: in the disc's own menu (a short title: its loop, an intro) the clock is not the
+    # film's: the film starts at its beginning (The Batman's menu at 1:40 started the film at 1:40)
+    try:
+        total = float(player.getTotalTime() or 0.0)
+    except Exception:
+        total = 0.0
+    if 0.0 < total < 45 * 60:
+        # the place this playback was asked to start from (a source switch, Continue
+        # watching) is kept for a disc, which opens at its start: the film goes there
+        try:
+            pending = float(ctx.get('resume_seconds') or 0.0) if isinstance(ctx, dict) else 0.0
+        except (TypeError, ValueError):
+            pending = 0.0
+        position = pending if pending > 1.0 else 0.0
+        _log('the disc is in a %.0f s title (its menu): the film starts at %.0f s' % (total, position))
     before = _playback_setting()
     main = main_title()
     if before is not None and before != main:
@@ -315,6 +345,63 @@ def replay(subtitle_path='', name=''):
                         pass
     finally:
         if before is not None and before != main:
+            _set_playback_setting(before)
+
+
+def top_menu():
+    """v5.10.581: the player bar's Disc menu button: the disc again from its main menu.
+
+    Kodi's own ShowVideoMenu asks a Blu-ray for its pop-up menu first (DVDInputStreamBluray::
+    OnMenu), which a Java disc takes and shows nothing for in its main menu, and Kodi hands the
+    action to the player only once the bar has closed: pressed on The Batman (CoreELEC box,
+    16 Nov 2026), it did nothing. Opening the disc again on its menus always reaches the main
+    menu (its small files are kept, so a disc Dex Hub serves comes back quickly)."""
+    monitor = xbmc.Monitor()
+    xbmc.executebuiltin('Dialog.Close(videoosd,true)')
+    for _ in range(20):
+        if not xbmc.getCondVisibility('Window.IsVisible(videoosd)'):
+            break
+        if monitor.waitForAbort(0.1):
+            return
+    from .playback.session import load_session, save_session
+    ctx = load_session() or {}
+    stream_key = str(ctx.get('stream_key') or '') if isinstance(ctx, dict) else ''
+    try:
+        playing = xbmc.Player().getPlayingFile()
+    except Exception:
+        playing = ''
+    if not stream_key or not is_disc(playing):
+        # not a Dex Hub playback: Kodi's own disc menu command, now the bar is closed
+        _log('disc menu button: Kodi\'s menu command (not a Dex Hub playback)')
+        xbmc.executebuiltin('Action(ShowVideoMenu)')
+        return
+    xbmcgui.Dialog().notification(_t('قائمة القرص', 'Disc menu'),
+                                  _t('يرجع لقائمة القرص الرئيسية', 'Back to the disc\'s main menu'),
+                                  xbmcgui.NOTIFICATION_INFO, 3000)
+    before = _playback_setting()
+    menu = main_title() - 1                     # "Disc menu", just before "Play main movie"
+    if before is not None and before != menu:
+        _set_playback_setting(menu)             # for this start only, put back below
+    snapshot = dict(ctx, source_switch_pending=True, source_switch_captured_at=int(time.time()))
+    snapshot.pop('resume_seconds', None)
+    snapshot.pop('resume_percent', None)
+    save_session(snapshot)
+    xbmcgui.Window(10000).setProperty('dexhub.switch.inplace', str(int(time.time())))
+    _log('disc menu button: the disc again from its main menu')
+    xbmc.executebuiltin('RunPlugin(plugin://%s/?%s)' % (_addon_id(), urlencode({'action': 'play', 'stream_key': stream_key})))
+    started = time.monotonic()
+    try:
+        seen_stop = False
+        while time.monotonic() - started < 120 and not monitor.abortRequested():
+            if monitor.waitForAbort(0.5):
+                break
+            if not xbmc.getCondVisibility('Player.HasVideo'):
+                seen_stop = True
+            elif seen_stop and xbmc.getCondVisibility('VideoPlayer.HasMenu'):
+                _log('disc menu button: in the disc\'s menus again after %.0f s' % (time.monotonic() - started))
+                break
+    finally:
+        if before is not None and before != menu:
             _set_playback_setting(before)
 
 

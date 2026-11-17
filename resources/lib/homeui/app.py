@@ -838,7 +838,8 @@ def run(params):
     if action == 'home_live':
         from ..ui_preferences import iptv_available
         if not iptv_available():
-            xbmcgui.Dialog().notification('Dex Hub', 'IPTV / VOD: الأقسام متوقفة في الإعدادات', time=3000, sound=False)
+            from ..i18n import tr as _tr_vod
+            xbmcgui.Dialog().notification('Dex Hub', _tr_vod('IPTV / VOD: الأقسام متوقفة في الإعدادات'), time=3000, sound=False)
             return None
     if action == 'home_vod_play':
         from . import vod
@@ -848,7 +849,8 @@ def run(params):
             import re as _re
             reason = _re.sub(r'\w+://\S+', '<address>', str(exc))[:120]     # an address carries the account
             _log('VOD playback failed: %s %s' % (type(exc).__name__, reason), xbmc.LOGWARNING)
-            xbmcgui.Dialog().notification('Dex Hub', 'تعذر تشغيل VOD من المصدر', xbmcgui.NOTIFICATION_WARNING, 4000)
+            from ..i18n import tr as _tr_vod
+            xbmcgui.Dialog().notification('Dex Hub', _tr_vod('تعذر تشغيل VOD من المصدر'), xbmcgui.NOTIFICATION_WARNING, 4000)
             return None
     if action == 'home_vod_series':
         # v5.10.239: an IPTV series' season (Continue Watching's menu), over any page

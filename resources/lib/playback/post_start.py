@@ -594,6 +594,10 @@ def _attacher(player, job, stream_key):
                 # setSubtitles selects the file it adds: the best one last
                 prepared = sorted(prepared, key=lambda r: -r.get('_rank', 99))
             added = 0
+            # v5.10.581: Kodi switches on a file it adds; on a disc in its menus that looked
+            # like the viewer's choice and disc_menu.watch played the movie again without the
+            # menus (The Batman from Emby, CoreELEC box, 16 Nov 2026). Its time is kept here.
+            _mark_attach()
             for row in prepared:
                 if not alive():
                     break
@@ -636,11 +640,23 @@ def _attacher(player, job, stream_key):
                             return
                     if now and state and (now[1] != state[1] or now[2] != state[2]):
                         _restore_subtitle_state(state, valid=alive)
+            _mark_attach()
             counts['added'] += added
             xbmc.log('[DexHub] subtitles: %d more in the player list%s'
                      % (added, ' (switched to the better language)' if switch_on else ''), xbmc.LOGINFO)
 
     return attach, counts
+
+
+ATTACH_PROP = 'dexhub.subs.attached_at'
+
+
+def _mark_attach():
+    """When Dex Hub last added subtitle files to the player (disc_menu.watch reads it)."""
+    try:
+        xbmcgui.Window(10000).setProperty(ATTACH_PROP, '%.1f' % time.time())
+    except Exception:
+        pass
 
 
 def _discover_and_attach(player, job, stream_key, attach=None, counts=None):

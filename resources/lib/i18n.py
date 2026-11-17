@@ -2426,6 +2426,8 @@ STRINGS = {
     'أجهز الترجمة…': 'Preparing the subtitle…',
     'ما قدرت أزامن الحين': 'Could not sync now',
     'الملف مو MKV، غالباً MP4، فما فيه فهرس نأخذ منه التوقيت': 'The file is not MKV (likely MP4): it has no index to take the timing from',
+    'القرص ما فيه فهرس توقيت، وما لقيت نسخة REMUX منه في المصادر نأخذ منها التوقيت': 'A disc has no timing index, and no REMUX of it in the sources list to take the timing from',
+    'ما قدرت أقرأ توقيت نسخة REMUX من القرص في المصادر': 'Could not read the timing of a REMUX of this disc in the sources list',
     'فهرس الملف ناقص': "The file's index is incomplete",
     'الملف ما فيه ترجمة مدمجة نأخذ منها التوقيت': 'The file carries no subtitle to take the timing from',
     'الترجمات المدمجة في الملف ما تصلح مرجعاً': "The file's own subtitles cannot serve as a reference",
@@ -3488,6 +3490,7 @@ STRINGS.update({
 # v5.10.239: IPTV films and series in Continue Watching and the search
 STRINGS.update({
     'استكمال من %s': 'Resume from %s',
+    'يكمل من %s': 'Continuing from %s',
     'من البداية': 'From the start',
     'حلقات المسلسل': 'Series episodes',
     'من اشتراك IPTV': 'From your IPTV subscription',

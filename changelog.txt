@@ -1,3 +1,19 @@
+5.10.581
+أقراص البلوراي من الإنترنت (ISO من Emby وDexstreams وغيرها) صارت تفتح بقائمتها أسرع بكثير على CoreELEC وLibreELEC: Dex Hub يخدم القرص بنفسه، يقرأ فهرسه مرة وحدة ويحفظ ملفات القائمة، ويقرأ الفيلم بأكثر من اتصال، ويعيد المحاولة لو السيرفر مشغول (The Batman من Emby: من 93 ثانية إلى 27).
+القائمة ما عادت تقفل لحالها لما Dex Hub يضيف ترجمات بالخلفية.
+زر «قائمة القرص» في شريط المشغل يرجعك لقائمة القرص الرئيسية (مع سكين 3.28.229).
+مزامنة الترجمة صارت تشتغل على الأقراص: توقيتها من نسخة REMUX لنفس القرص في المصادر، والفيلم يبدأ من مكانه الصحيح.
+التريلر يبدأ على البطاقة اللي أنت عليها بدون ما ينتظر اللي قبله، والتريلر اللي ما يرد يتخطاه Dex Hub بهدوء (بدون «فشل التشغيل» والبوستر ما يتغير)، ويشتغل عن طريق Dex Hub.
+لما Dex Hub يكمل عمل من مكانه يقول «يكمل من …».
+رسائل كانت تطلع بالعربي في الواجهة الإنجليزية صارت مترجمة.
+Blu-ray discs over the internet (ISO from Emby, Dexstreams and others) open in their menus much sooner on CoreELEC and LibreELEC: Dex Hub serves the disc itself, reads its index once and keeps its menu files, reads the film over several connections and asks again when the server is busy (The Batman from Emby: 93 s to 27 s).
+The menu no longer closes by itself when Dex Hub adds subtitles in the background.
+The Disc menu button in the player bar takes you back to the disc's main menu (with skin 3.28.229).
+Subtitle sync works on discs: timed from a REMUX of the same disc in the sources, and the film starts at the right place.
+A trailer starts on the card you are on without waiting for the previous one, a trailer that does not answer is left out quietly (no "Playback failed", the poster stays), and trailers play through Dex Hub.
+When Dex Hub carries a title on from where you left it, it says "Continuing from …".
+Messages that showed in Arabic in the English interface are translated.
+
 5.10.580
 كودي 22: القرص على «عرض قائمة البلوراي» صار يفتح بقائمته مثل ما تبي. كودي 22 غيّر أرقام الإعداد (صار فيه «تلقائي» أول)، فكان Dex Hub يقرأ «قائمة البلوراي» على إنها «تشغيل الفيلم الرئيسي» ويفتح الفيلم. وإعادة تشغيل الفيلم مع الترجمة صارت تختار الفيلم الرئيسي صح.
 Kodi 22: a disc set to "Show Blu-ray menu" opens on its menu again. Kodi 22 renumbered the setting ("Automatic" first), so Dex Hub read "Show Blu-ray menu" as "Play main movie" and opened the film; playing the film again with a subtitle now picks the main movie correctly too.

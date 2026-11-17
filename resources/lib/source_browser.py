@@ -3967,21 +3967,21 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         from . import source_diagnostics as diagnostics
         states = diagnostics.snapshot()
         if not states:
-            xbmcgui.Dialog().notification('Dex Hub', 'لا توجد حالة مسجلة لهذا البحث')
+            xbmcgui.Dialog().notification('Dex Hub', tr('لا توجد حالة مسجلة لهذا البحث'))
             return
         labels = ['%s / %s / %.1fs' % (s['name'], diagnostics.LABELS.get(s['status'], s['status']),
                    s.get('elapsed', time.monotonic()-s['started'])) for s in states]
-        idx = xbmcgui.Dialog().select('حالة المصادر — اختر لإعادة المحاولة', labels)
+        idx = xbmcgui.Dialog().select(tr('حالة المصادر — اختر لإعادة المحاولة'), labels)
         if idx < 0:
             return
         if self.getProperty('loading_more') == 'true':
-            xbmcgui.Dialog().notification('Dex Hub', 'البحث مستمر؛ انتظر اكتماله قبل إعادة المحاولة')
+            xbmcgui.Dialog().notification('Dex Hub', tr('البحث مستمر؛ انتظر اكتماله قبل إعادة المحاولة'))
             return
         state = states[idx]
         # Retry only after the live scan is done: its snapshots must not
         # overwrite a manually refreshed source list.
         if not callable(self.retry_source):
-            xbmcgui.Dialog().notification('Dex Hub', 'إعادة المحاولة غير متاحة من هذا المدخل')
+            xbmcgui.Dialog().notification('Dex Hub', tr('إعادة المحاولة غير متاحة من هذا المدخل'))
             return
         fresh = self.retry_source(state, self.meta)
         if fresh:
