@@ -11,6 +11,7 @@ settings. The hub keeps it encrypted and never opens it.
 What never travels (each TV keeps its own):
   * the identity of the TV on servers (Plex client id, Emby, Jellyfin and
     Silo device ids): two TVs with one id knock each other off
+  * the Silo sign in (v5.10.451): each TV signs in with its own device code
   * Trakt and Nuvio sign ins: their refresh tokens are used once, two TVs
     with one token log each other out (Nuvio comes from the hub, Trakt is
     linked once on each TV)
@@ -47,7 +48,9 @@ import xbmcvfs
 
 PARTS = ('settings', 'sources', 'home', 'collections', 'library', 'progress', 'accounts')
 SKIP_FILES = ('trakt_token.json', 'nuvio_token.json', 'plex_client_id.txt')
-SKIP_SETTINGS = ('trakt_token_keep', 'nuvio_token_keep', 'plex_client_identifier')
+# v5.10.451: the Silo session too: one sign-in per device (Silo's maintainers
+# asked for it; two TVs renewing one refresh token knock each other out)
+SKIP_SETTINGS = ('trakt_token_keep', 'nuvio_token_keep', 'plex_client_identifier', 'silo_auth_json', 'silo_tg_hook')
 KODI_SETTINGS = ('locale.audiolanguage', 'locale.subtitlelanguage', 'subtitles.languages', 'subtitles.tv',
                  'subtitles.movie', 'subtitles.charset', 'subtitles.style', 'subtitles.color', 'subtitles.fontsize',
                  'subtitles.bgcolor', 'subtitles.bgopacity', 'subtitles.align', 'subtitles.overridestyles',

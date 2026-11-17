@@ -17,7 +17,7 @@ import xbmcgui
 ADDON_ID = 'plugin.video.dexhub'
 BASE = 'plugin://%s/' % ADDON_ID
 SKIN_ID = 'skin.dexhub'
-TABS = ('all', 'movie', 'series', 'library', 'servers')   # v5.10.153: the Library tab; v5.10.157: Servers
+TABS = ('all', 'movie', 'series', 'library', 'servers', 'c1', 'c2', 'c3')   # v5.10.153: the Library tab; v5.10.157: Servers (v5.10.472: Discover and Live TV are pages again, opened on press; v5.10.479: c1-c3 the sections of your own, bar_sections.py)
 ROWS = 20                   # row slots of the skin's Home
 HOME = 10000
 
@@ -30,7 +30,7 @@ TTL_TITLE = 6 * 3600.0
 
 # the layout of a cached row; a copy written by another version of the
 # add-on is still shown, and read again at once
-FORMAT = 7
+FORMAT = 16
 
 PROP_READY = 'dhs.ready'
 PROP_REPUBLISH = 'dhs.republish'    # set by the add-on when the rows changed
@@ -78,8 +78,21 @@ class Layout(object):
             self.tp = {'seasons': 8200, 'episodes': 8300, 'cast': 8400, 'related': 8500}
         self.hero_buttons = 4010 if major >= 3 else 0
 
-    def row_list(self, slot):
+    def row_list(self, slot, tab=None):
+        """The list of the Home's row slot. v5.10.517: with skin 3.28.210 the
+        first PINNED_ROWS rows of Home, Movies and TV Shows have lists of
+        their own (PINNED_LISTS), so a section keeps its rows loaded."""
+        if self.row_base == 5000 and slot <= PINNED_ROWS and prop('dhs.pinned') == '1':
+            base = PINNED_LISTS.get(tab or prop('dhs.tab') or 'all')
+            if base:
+                return base + slot
         return self.row_base + slot
+
+    def is_row_list(self, cid):
+        """cid is one of the Home rows' lists (any section's)."""
+        if self.row_base + 1 <= cid <= self.row_base + ROWS:
+            return True
+        return any(base + 1 <= cid <= base + PINNED_ROWS for base in PINNED_LISTS.values())
 
     def tab_window(self, tab):
         """(name for builtins and conditions, window id) of a tab's hub."""
@@ -102,6 +115,10 @@ class Layout(object):
                 return tab
         return None
 
+
+# v5.10.517 (skin 3.28.210): the pinned sections' own lists for rows 1..PINNED_ROWS
+PINNED_ROWS = 10
+PINNED_LISTS = {'all': 5200, 'movie': 5300, 'series': 5400}
 
 _LAYOUT = {}
 
@@ -311,10 +328,42 @@ def read_row(path, default=None):
                 with open(side, 'rb') as handle:
                     data = marshal.load(handle)
                 if isinstance(data, dict):
-                    return data
+                    return _one_card_per_work(data)
         except Exception:
             pass
-    return read_json(path, default)
+    return _one_card_per_work(read_json(path, default))
+
+
+def _one_card_per_work(data):
+    """v5.10.436: Continue Watching shows a title once. A server's own resume
+    (Silo, Plex…) and the local record of the same film can carry no shared
+    id, so the merge keeps both; once the TMDb pass has given them the same
+    poster they are one work (a show: its newest episode). Every reader of the row goes through here, so
+    the cards and their positions stay the same for all of them."""
+    try:
+        if not isinstance(data, dict) or not (data.get('kind') == 'continue'
+                                              or str(data.get('key') or '').startswith('continue')):
+            return data
+        items = data.get('items') or []
+        seen, kept = set(), []
+        for item in items:
+            info = item.get('info') or {} if isinstance(item, dict) else {}
+            art = item.get('art') or {} if isinstance(item, dict) else {}
+            poster = str(art.get('poster') or '')
+            kind = str(info.get('mediatype') or '')
+            # one card per show too: the newest episode (rows come newest first)
+            kind = 'show' if kind in ('episode', 'tvshow', 'season') else kind
+            key = (kind, poster.rsplit('/', 1)[-1]) if 'image.tmdb.org' in poster else None
+            if key and key in seen:
+                continue
+            if key:
+                seen.add(key)
+            kept.append(item)
+        if len(kept) != len(items):
+            data = dict(data, items=kept)
+    except Exception:
+        pass
+    return data
 
 
 def _write_side(side, data):
@@ -558,13 +607,19 @@ def show_info(li):
     if 0 <= now - last < 2.0:
         return False
     home.setProperty('dexhub.info.opening', '%.3f' % now)
+    try:
+        # v5.10.451: the last title's labels never show on this one's page
+        from .title import clear_page
+        clear_page(li.getProperty('dhs.id'))
+    except Exception:
+        pass
     _gui.Dialog().info(li)
     return True
 
 
 # v5.10.228: the TMDb pass also gives a show's seasons and status; a row
 # passed before that (no 'ev') is passed again once
-ENRICH_V = 4  # Auto now completes facts even when every artwork slot was filled.
+ENRICH_V = 6  # Auto now completes facts even when every artwork slot was filled.
 
 
 def is_enriched(data):
@@ -576,7 +631,10 @@ def is_enriched(data):
     stamp = prop(PROP_POSTER_GEN)
     if stamp and data.get('pg') != stamp:
         return False
-    return (bool(data.get('enriched')) and data.get('ev') == ENRICH_V
+    from ..ui_preferences import enabled
+    metadata_due = (enabled('metadata_refresh') and data.get('kind') != 'collection' and
+                    time.time() - float(data.get('metadata_at') or data.get('t') or 0) >= 1800)
+    return (not metadata_due and bool(data.get('enriched')) and data.get('ev') == ENRICH_V
             and not (data.get('auto_retry_at') and time.time() >= data['auto_retry_at']))
 
 

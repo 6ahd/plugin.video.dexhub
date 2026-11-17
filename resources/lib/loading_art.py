@@ -34,6 +34,9 @@ def _identity(path):
 
 def _playing_source(player):
     try:
+        # getPlayingFile() with nothing playing logs an EXCEPTION line in kodi.log
+        if not player.isPlaying():
+            return ''
         path = player.getPlayingFile()
         return _identity(path) if path else ''
     except Exception:

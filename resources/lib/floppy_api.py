@@ -39,63 +39,106 @@ def configured():
     return floppy_progress.configured()
 
 
-def _cache_path():
+def _cache_dir():
     import xbmcvfs
     return os.path.join(xbmcvfs.translatePath('special://profile/addon_data/plugin.video.dexhub/'),
+                        'floppy_cache')
+
+
+# v5.10.512: one small file a key. The one file (floppy_cache.json) had grown
+# to 14 MB (the whole library in its "all" entry) and was written again whole
+# for every answer cached: 0.2 s of Python on a Mac, seconds on a box, with
+# every other Dex Hub thread waiting.
+_MAX_FILES = 60
+_DISK = {}          # file name -> ((mtime, size), entry)
+
+
+def _name(key):
+    return urllib.parse.quote(key, safe='-_.') + '.json'
+
+
+def _old_file():
+    """The one-file cache of 5.10.511 and before, split once into files."""
+    import xbmcvfs
+    path = os.path.join(xbmcvfs.translatePath('special://profile/addon_data/plugin.video.dexhub/'),
                         'floppy_cache.json')
+    if not os.path.exists(path):
+        return
+    from .skinui import common as C
+    try:
+        with open(path, 'r', encoding='utf-8') as handle:
+            data = json.load(handle)
+        for key, entry in (data if isinstance(data, dict) else {}).items():
+            if isinstance(entry, dict):
+                C.write_json(os.path.join(_cache_dir(), _name(key)), entry)
+    except Exception:
+        pass
+    try:
+        os.remove(path)
+    except OSError:
+        pass
 
 
-_DISK = {'stamp': None, 'data': {}}
-
-
-def _disk():
-    """The file cache (a copy of its top level: callers add and drop keys).
-
-    v5.10.188: read again only when the file changed. Every Library publish
-    read and parsed the whole file two or three times (the lists, this
-    month's numbers), its entries hold whole lists of titles."""
-    path = _cache_path()
+def _disk_get(key):
+    """{'at', 'v'} kept for *key*, or None. Read again only when the file
+    changed (v5.10.188: the Library publish asks for the same entries
+    two or three times)."""
+    name = _name(key)
+    path = os.path.join(_cache_dir(), name)
     try:
         st = os.stat(path)
-        stamp = (st.st_mtime_ns, st.st_size)
     except OSError:
-        return {}
-    if stamp != _DISK['stamp']:
-        try:
-            with open(path, 'r', encoding='utf-8') as handle:
-                data = json.load(handle)
-        except Exception:
-            data = {}
-        _DISK['stamp'], _DISK['data'] = stamp, (data if isinstance(data, dict) else {})
-    return dict(_DISK['data'])
+        if not os.path.isdir(_cache_dir()):
+            os.makedirs(_cache_dir(), exist_ok=True)
+            _old_file()
+            return _disk_get(key) if os.path.exists(path) else None
+        return None
+    stamp = (st.st_mtime_ns, st.st_size)
+    hit = _DISK.get(name)
+    if hit and hit[0] == stamp:
+        return hit[1]
+    try:
+        with open(path, 'r', encoding='utf-8') as handle:
+            entry = json.load(handle)
+    except Exception:
+        return None
+    entry = entry if isinstance(entry, dict) else None
+    _DISK[name] = (stamp, entry)
+    return entry
 
 
 def _disk_put(key, value):
     from .skinui import common as C
-    path = _cache_path()
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with C.file_lock(path):
-        data = _disk()
-        data[key] = {'at': time.time(), 'v': value}
-        if len(data) > 60:
-            for old in sorted(data, key=lambda k: data[k].get('at', 0))[:-60]:
-                data.pop(old, None)
-        C.write_json(path, data)
+    folder = _cache_dir()
+    os.makedirs(folder, exist_ok=True)
+    C.write_json(os.path.join(folder, _name(key)), {'at': time.time(), 'v': value})
+    try:
+        names = [n for n in os.listdir(folder) if n.endswith('.json')]
+        if len(names) > _MAX_FILES:
+            names.sort(key=lambda n: os.path.getmtime(os.path.join(folder, n)))
+            for old in names[:-_MAX_FILES]:
+                os.remove(os.path.join(folder, old))
+    except OSError:
+        pass
 
 
 def forget(prefix=''):
-    """Invalidate this account's cache without overwriting a concurrent write."""
-    from .skinui import common as C
+    """Invalidate this account's cache (its files, then memory)."""
     prefix = _scoped(prefix)
     for key in [k for k in _MEM if k.startswith(prefix)]:
         _MEM.pop(key, None)
-    path = _cache_path()
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with C.file_lock(path):
-        data = _disk()
-        kept = {k: v for k, v in data.items() if not k.startswith(prefix)}
-        if kept != data:
-            C.write_json(path, kept)
+    folder = _cache_dir()
+    try:
+        names = os.listdir(folder)
+    except OSError:
+        return
+    for name in names:
+        if name.endswith('.json') and urllib.parse.unquote(name[:-5]).startswith(prefix):
+            try:
+                os.remove(os.path.join(folder, name))
+            except OSError:
+                pass
+            _DISK.pop(name, None)
 
 
 def request(method, path, body=None, params=None, timeout=TIMEOUT):
@@ -149,7 +192,7 @@ def is_fresh(key, ttl):
     hit = _MEM.get(key)
     if hit and time.time() - hit[0] < ttl:
         return True
-    disk = _disk().get(key) or {}
+    disk = _disk_get(key) or {}
     return bool(disk and time.time() - float(disk.get('at') or 0) < ttl)
 
 
@@ -161,7 +204,7 @@ def cached_get(key, path, params=None, ttl=600.0, stale_ok=True, cache_only=Fals
     hit = _MEM.get(key)
     if hit and now - hit[0] < ttl:
         return hit[1]
-    disk = _disk().get(key)
+    disk = _disk_get(key)
     if disk and now - float(disk.get('at') or 0) < ttl:
         _MEM[key] = (float(disk['at']), disk.get('v'))
         return disk.get('v')

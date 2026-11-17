@@ -28,6 +28,33 @@ from . import common as C
 from . import rows as RW
 from ..homeui import rows as R
 
+# v5.10.451: the page's live labels a new title must not show from the last
+# one: cleared as another title's page opens (common.show_info), so the page
+# shows its own facts or nothing until its labels come (publish)
+LIVE_KEYS = ('dhs.tp.play', 'dhs.tp.status', 'dhs.tp.fav', 'dhs.tp.track', 'dhs.tp.plot', 'dhs.tp.meta',
+             'dhs.tp.seasons', 'dhs.tp.tvstatus', 'dhs.tp.tvstatus_bg', 'dhs.tp.rating', 'dhs.tp.clearlogo',
+             'dhs.tp.fanart', 'dhs.tp.poster', 'dhs.tp.studio_logo', 'dhs.tp.studio_chip', 'dhs.tp.director',
+             'dhs.tp.released', 'dhs.tp.studio', 'dhs.tp.starring', 'dhs.tp.season', 'dhs.tp.season_idx',
+             'dhs.tp.ep_idx', 'dhs.tp.pstep', 'dhs.tp.art.fanart', 'dhs.tp.art.clearlogo', 'dhs.tp.pg',
+             'dhs.tp.pg1', 'dhs.tp.pg2', 'dhs.tp.pg3', 'dhs.tp.pg4', 'dhs.tp.pg5')
+
+
+def clear_page(title_id):
+    """Another title's page opens: the last one's labels go at once."""
+    home = C.home()
+    if not title_id or home.getProperty('dhs.tp.id') == title_id:
+        return
+    home.clearProperty('dhs.tp.id')
+    for key in LIVE_KEYS:
+        home.clearProperty(key)
+    try:
+        from ..homeui import ratings as RB
+        for key in RB.props({}, prefix='dhs.tp.ratings.', limit=len(RB.ORDER)):
+            home.clearProperty(key)
+    except Exception:
+        pass
+
+
 SERIES_TYPES = ('series', 'episode', 'tv', 'show', 'anime', 'tvshow')
 _MEM = {}
 
@@ -57,7 +84,9 @@ def _fresh(data):
     # read again after THIN_TTL, not kept for hours
     if enabled() or source_appearance():
         thin = thin or not complete(data.get('hero') or {})
-    return time.time() - float(data.get('t') or 0) < (THIN_TTL if thin else C.TTL_TITLE)
+    series = str((data.get('hero') or {}).get('media_type') or '').lower() in ('series','tv','tvshow','episode','anime')
+    ttl = THIN_TTL if thin else (1800 if series else C.TTL_TITLE)
+    return time.time() - float(data.get('t') or 0) < ttl
 
 
 def _remember(key, data):
@@ -72,6 +101,16 @@ def _int(value, default=0):
         return int(float(value))
     except Exception:
         return default
+
+
+TOP_EPISODE = 9.2      # TMDb's scale (Nuvio's 9.7 is IMDb's; Ozymandias: 10 there, 9.4 here)
+
+
+def _top_rated(rating):
+    try:
+        return float(rating) >= TOP_EPISODE
+    except (TypeError, ValueError):
+        return False
 
 
 TMDB_SEASON_POSTER = 'https://image.tmdb.org/t/p/w342'
@@ -112,6 +151,7 @@ class HeadlessTitle(object):
         self.source_provider_id = q.get('src') or ''
         # v5.10.194: a server show's route (its episodes play from the server)
         self.server = dict(parse_qsl(q['srv'])) if q.get('srv') else None
+        self.q = dict(q)
         canonical = q.get('id') or q.get('imdb') or ''
         if not canonical and q.get('tmdb'):
             canonical = 'tmdb:%s' % q['tmdb']
@@ -217,7 +257,8 @@ class HeadlessTitle(object):
     # ------------------------------------------------------------ loading
     def _key(self):
         from .. import meta_source
-        return 'staged-v3|%s|%s|%s|%s|%s|%s' % (
+        # v5.10.448: v4 for the director, release date and studio (details card)
+        return 'staged-v4|%s|%s|%s|%s|%s|%s' % (
             self.media_type, self.canonical, self.source_provider_id, self._tmdb_lang(),
             meta_source.get_meta_source_for(self.source_provider_id),
             meta_source.ADDON.getSetting('metadata_generation') or '')
@@ -265,6 +306,8 @@ class HeadlessTitle(object):
         step('tmdb', self._load_tmdb)
         step('tmdb apply', self._apply_tmdb)
         step('extras', self._extras_from_tmdb)
+        if self.q.get('ip'):
+            step('iptv', self._iptv_fill)
         if self.series:
             # Publish the season index without waiting for metadata providers.
             self._seed_seasons()
@@ -280,6 +323,34 @@ class HeadlessTitle(object):
             self.tmdb_id or 'none', len(self.cast), len(self.related), len(self.seasons),
             ', read again in %d min' % (THIN_TTL // 60) if data.get('thin') else ''))
         return self
+
+    def _iptv_fill(self):
+        """v5.10.560: an IPTV title (q 'ip'): TMDb first, then what its
+        provider says (title_seed.iptv); no backdrop: its poster fills the
+        page (the page colour follows it); a series TMDb has no seasons for
+        takes its provider's seasons and episodes."""
+        from .title_seed import iptv
+        seed = iptv(self.title_id)
+        for key in ('title', 'plot', 'year', 'poster', 'fanart', 'rating', 'genres'):
+            if seed.get(key) and not self.hero.get(key):
+                self.hero[key] = seed[key]
+        if not self.hero.get('plot') or not self.hero.get('genres'):
+            # the provider's own page of the title (get_vod_info / get_series_info)
+            from ..homeui import vod
+            more = vod.provider_info(seed.get('route') or '', self.q.get('vs') or '')
+            for key in ('plot', 'genres', 'year', 'rating', 'poster', 'fanart', 'director'):
+                if more.get(key) and not self.hero.get(key):
+                    self.hero[key] = more[key]
+        if not (self.hero.get('fanart') or self.hero.get('landscape')) and self.hero.get('poster'):
+            self.hero['fanart'] = self.hero['poster']
+        if self.series and self.q.get('vs') and not (self.tmdb or {}).get('seasons'):
+            from ..homeui import vod
+            from ..homeui.details import season_label
+            numbers, episodes = vod.series_rows(self.q['vs'], self.hero.get('title') or '')
+            if numbers:
+                self.episodes = dict(episodes)
+                self.seasons = [(n, season_label(self.tr, n, '', self.hero.get('title'))) for n in numbers]
+                self._episodes_ready = True
 
     def _snapshot(self):
         return {
@@ -425,8 +496,34 @@ class HeadlessTitle(object):
         self._play_target = target
         return play_label, status, target
 
+    def _logo_fallback(self):
+        """v5.10.552: a page opened from a server card (Silo, Plex) kept the
+        server's art, which has no logo, so the name showed as plain text
+        while the Home showed the work's logo. TMDb's logo (in the language
+        the Home uses) fills it: from the cache, else asked once."""
+        if self.hero.get('clearlogo') or self.hero.get('_logo_tried'):
+            return
+        self.hero['_logo_tried'] = True
+        tmdb_id = str(self.tmdb_id or self.hero.get('tmdb_id') or '')
+        imdb_id = str(self._imdb() or '')
+        if not (tmdb_id or imdb_id):
+            return
+        try:
+            from .. import tmdb_direct as T
+            media = 'series' if self.series else 'movie'
+            art = T.art_cached_only(tmdb_id, imdb_id, media) or T.art_for(tmdb_id, imdb_id, media) or {}
+        except Exception as exc:
+            xbmc.log('[DexHub] title page logo: %s' % exc, xbmc.LOGDEBUG)
+            return
+        logo = str(art.get('clearlogo') or '').strip()
+        if logo.lower().endswith('.svg'):
+            logo = logo[:-4] + '.png'
+        if logo:
+            self.hero['clearlogo'] = logo
+
     def publish(self):
         """The page's live labels (see the module's doc)."""
+        self._logo_fallback()
         label, status, target = self.play_choice()
         try:
             from .. import tracking
@@ -445,7 +542,14 @@ class HeadlessTitle(object):
                  'dhs.tp.fanart': self.hero.get('fanart') or self.hero.get('landscape') or '',
                  'dhs.tp.poster': self.hero.get('poster') or '',
                  'dhs.tp.studio_logo': self.hero.get('studio_logo') or '',
-                 'dhs.tp.studio_chip': '1' if self.hero.get('studio_logo_chip') else ''}
+                 'dhs.tp.studio_chip': '1' if self.hero.get('studio_logo_chip') else '',
+                 # v5.10.448: the cinematic layout's details card
+                 'dhs.tp.director': self.hero.get('director') or '',
+                 'dhs.tp.released': self.hero.get('released') or '',
+                 'dhs.tp.studio': self.hero.get('studio') or '',
+                 'dhs.tp.starring': ', '.join(c.get('name') for c in (self.cast or [])[:2] if c.get('name')),
+                 # v5.10.560: an IPTV title's page: poster layout with tabs (the skin)
+                 'dhs.tp.iptv': '1' if self.q.get('ip') else ''}
         numbers = [n for n, _label in self.seasons]
         season_idx, ep_idx, season = 0, 0, ''
         if numbers:
@@ -480,8 +584,27 @@ class HeadlessTitle(object):
             C.set_prop('dhs.tp.id', '')
         for key, value in props.items():
             C.set_prop(key, value)
+        # v5.10.448: the page's own query, for page_guard to open it again
+        C.set_prop('dhs.tp.q', urlencode([(k, v) for k, v in sorted(self.q.items()) if k != 'pid']))
         # the id last: the page takes the labels together, once they are all this title's
         C.set_prop('dhs.tp.id', self.title_id)
+        self._warm_on_open()
+
+    def _warm_on_open(self):
+        """v5.10.448: the sources search as the page opens ("Available on").
+        The Play button's onfocus starts it too, but Kodi runs no onfocus for
+        the control a page opens on, and the page's own onload comes before
+        its properties. Once per title, with the skin's dexhub.warm.page."""
+        home = C.home()
+        if not self.canonical or home.getProperty('dexhub.warm.page') == self.title_id:
+            return
+        # the classic page has no sources line any more: only the cinematic
+        # card shows what the search found (Play still warms it on focus)
+        if xbmc.getInfoLabel('Skin.String(dh.titlelayout)') != 'cinematic':
+            return
+        home.setProperty('dexhub.warm.page', self.title_id)
+        q = [(k, v) for k, v in sorted(self.q.items()) if k != 'pid'] + [('pid', self.title_id)]
+        xbmc.executebuiltin('RunPlugin(%s?%s)' % (C.BASE, urlencode([('action', 'skin_warm_sources')] + q)))
 
     def _imdb(self):
         for value in (self.hero.get('show_imdb_id'), self.hero.get('imdb_id'), self.canonical):
@@ -601,7 +724,19 @@ class HeadlessTitle(object):
         backdrop = (hero.get('landscape') or hero.get('fanart') or page.get('landscape')
                     or page.get('fanart') or '')
         items = []
+        # v5.10.560: an IPTV series' page plays the provider's episodes
+        iptv = {}
+        if self.q.get('vs'):
+            from ..homeui import vod
+            iptv = vod.episode_routes(self.q['vs'], number, hero.get('title') or '', self.tmdb_id)
+        nas = self.q.get('nas') == '1'
         for row in rows:
+            if iptv:
+                row = dict(row, path=iptv.get(_int(row.get('episode'))) or row.get('path') or '')
+            elif nas:
+                # v5.10.561: the NAS section's series: an episode plays its NAS file
+                from .actions import _nas_route
+                row = dict(row, path=_nas_route(self, number, row.get('episode'), row.get('video_id') or ''))
             progress = self.progress.get((number, _int(row.get('episode'))))
             started = bool(progress and (self._watched(progress) or self._percent(progress) > 0))
             label = ET.list_label(self.tr, _int(row.get('episode')), row.get('title'), started=started)
@@ -664,7 +799,10 @@ class HeadlessTitle(object):
                 'watched': watched,
                 'props': {'sub': '  •  '.join(sub), 'watched': '1' if watched else '',
                           'season': str(number), 'episode': str(row.get('episode')),
-                          'dhs.click': 'run' if target else '', 'dhs.target': target},
+                          'dhs.click': 'run' if target else '', 'dhs.target': target,
+                          # v5.10.448: an episode rated 9.2 or more (TMDb) stands out (Nuvio)
+                          'dhs.top': '1' if _top_rated(row.get('rating')) else '',
+                          'dhs.rating': ('%.1f' % float(row['rating'])) if _top_rated(row.get('rating')) else ''},
                 'menu': menu,
             })
         return items

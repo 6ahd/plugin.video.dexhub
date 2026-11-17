@@ -70,6 +70,34 @@ def run():
             shutdown_loaded_pools()
         except Exception:
             pass
+        _log_threads_left()
+
+
+def _log_threads_left():
+    """v5.10.435: name every thread still running when the call is over, and
+    the line it waits on. Kodi waits for each of them before the call ends,
+    and one that never ends froze Kodi on quit (\"script didn't stop in 5
+    seconds\" after a cancelled source search); this tells which one."""
+    try:
+        import sys
+        import threading
+        import xbmc
+        frames = sys._current_frames()
+        left = []
+        for thread in threading.enumerate():
+            if thread is threading.main_thread() or thread is threading.current_thread():
+                continue
+            frame = frames.get(thread.ident)
+            where = ''
+            while frame is not None and frame.f_back is not None and 'threading.py' in frame.f_code.co_filename:
+                frame = frame.f_back
+            if frame is not None:
+                where = '%s:%d %s' % (frame.f_code.co_filename.rsplit('/', 1)[-1], frame.f_lineno, frame.f_code.co_name)
+            left.append('%s @ %s' % (thread.name, where or '?'))
+        if left:
+            xbmc.log('[DexHub] threads still running at the end of the call: %s' % ' | '.join(left[:12]), xbmc.LOGINFO)
+    except Exception:
+        pass
 
 
 def _unquote(text):
@@ -102,6 +130,35 @@ def _query(text):
 
 def _run_inner():
     import sys
+    _menu_params = _query(sys.argv[2].lstrip('?')) if len(sys.argv) > 2 else {}
+    _menu_action = _menu_params.get('action', '')
+    if _menu_action.startswith('control_section_'):
+        from .menu_taxonomy import META
+        section=_menu_action[len('control_section_'):]
+        if section in META:
+            from .skinui.actions import menu
+            return menu({'key':'section_'+section},-1)
+    if _menu_action.startswith('preferences_'):
+        from .menu_taxonomy import META
+        from .simple_settings_menu import run
+        if _menu_action[len('preferences_'):] in META:
+            return run(_menu_action[len('preferences_'):])
+    if _menu_action == 'simple_settings':
+        from .simple_settings_menu import run
+        return run(_menu_params.get('category', ''))
+    if _menu_action in ('temporary_skin_exit', 'open_kodi_addons', 'open_kodi_settings'):
+        from . import temporary_skin
+        return {'temporary_skin_exit': temporary_skin.leave, 'open_kodi_addons': temporary_skin.open_kodi_addons, 'open_kodi_settings': temporary_skin.open_kodi_settings}[_menu_action]()
+    if _menu_action in ('', 'home'):
+        from .folder_view import initialize_defaults as _folder_defaults
+        _folder_defaults()
+        from .temporary_skin import enter
+        if enter(int(sys.argv[1]) if len(sys.argv) > 1 else -1, _menu_params):
+            return None
+    # Open the skin's appearance section before loading catalog routes.
+    if len(sys.argv) > 2 and _query(sys.argv[2].lstrip('?')).get('action') == 'appearance_options':
+        from .appearance_options import open_settings
+        return open_settings()
     # v5.10.109: skin.dexhub's own routes. skin_row (a row of the skin's Home)
     # is answered from its cache before anything else is imported.
     if len(sys.argv) > 2 and 'action=skin_' in sys.argv[2]:
@@ -145,6 +202,22 @@ def _run_inner():
         # v5.10.229: set Dex Hub up from a phone (QR on the TV, page on the phone)
         from .phone_setup import run as _phone
         return _phone(section=_home_params.get('section', ''))
+    if _home_params.get('action') == 'dexworld_rows':
+        # v5.10.521: DexWorld's rows on Home, Movies, TV Shows, or none (home_seed.choose)
+        from .home_seed import choose as _dexworld_rows
+        return _dexworld_rows()
+    if _home_params.get('action') == 'bar_order':
+        # v5.10.556: the bar's icons in your own order (side menu and top bar)
+        from .bar_order import run as _bar_order
+        return _bar_order()
+    if _home_params.get('action') == 'bar_sections':
+        # v5.10.479: which sections the Home bar shows, and your own
+        from .bar_sections import open_page as _bar_page
+        return _bar_page()
+    if _home_params.get('action') == 'alerts_settings':
+        # v5.10.474: the alert switches (the panel's Alert settings button)
+        from .island import inbox as _inbox
+        return _inbox(settings=True)
     if _home_params.get('action') == 'island_inbox':
         # v5.10.218: the bell on skin.dexhub's Home
         from .island import inbox as _inbox
@@ -152,7 +225,8 @@ def _run_inner():
     if _home_params.get('action') in ('home_ui', 'home_folder', 'home_grid', 'home_layout', 'home_setup',
                                        'home_live', 'home_screensaver', 'home_servers', 'home_search',
                                        'home_details', 'home_vod_play', 'home_library', 'home_community',
-                                       'home_menu', 'home_follow', 'home_vod_series'):
+                                       'home_menu', 'home_follow', 'home_calendar', 'home_sport', 'home_discover', 'home_vod_series', 'home_my',
+                                       'home_dexworld', 'home_youtube'):
         from .homeui.app import run as _home_run
         return _home_run(_home_params)
     # v5.10.101: Kodi's subtitle dialog (Dex Hub is a subtitle service too).

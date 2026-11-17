@@ -54,6 +54,11 @@ def load(route, app, loader):
     for name in ('skip', 'offset', 'after'):
         if name in route:
             effective[name] = route[name]
+    # v5.10.560: a saved filter rebuilt the request without what names its
+    # source and kind: an IPTV films page said "VOD type not supported"
+    for name in ('live_src', 'vod_type', 'type', 'catalog', 'category', 'all', 'ci', 'vod_series', 'season'):
+        if name in route and name not in effective:
+            effective[name] = route[name]
     tiles, more = loader(effective)
     rules = GF.local_rules(facets, current)
     tiles = [t for t in tiles if GF.passes(t, rules)]

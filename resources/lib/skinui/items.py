@@ -53,6 +53,14 @@ def listitem(item, tab='', row=''):
                 if found:
                     art[key] = found
     if art:
+        try:
+            # v5.10.448: TMDb sizes bounded here too (the rows of the Home and
+            # of a folder page did not pass through ui_core): a card's backdrop
+            # at w780, not the original asked for the page's own background
+            from ..image_policy import bound_art
+            art = bound_art(art)
+        except Exception:
+            pass
         li.setArt(art)
     info = item.get('info') or {}
     if not info and art and not str(item.get('path') or '').startswith('favourites://'):
@@ -235,6 +243,64 @@ def title_target(q):
     if not query:
         return ''
     return C.url('skin_open' if title_here() else 'home_details', **query)
+
+
+def title_over_window(window, q, appear=8.0, settle=2.0):
+    """v5.10.519: the skin's title page over one of Dex Hub's pages (a
+    collection, Discover, DexWorld), which stays open under it as Arctic
+    Fuse 3's do: Back from the title is the page again, on the same title.
+    The page closed first before, so Back went to the Home; and a title
+    opened while the page was still closing left Kodi ignoring every key.
+
+    A thread of the page closes it once a video from the title page goes
+    full screen (the page would stay over the player); it ends when the
+    page is on top again for ``settle`` seconds. False: the title page is
+    not the skin's here (the caller opens Dex Hub's own)."""
+    import threading
+    import time
+    import xbmc
+    import xbmcgui
+    if not title_here():
+        return False
+    target = title_target(q)
+    if not target:
+        return False
+    own = xbmcgui.getCurrentWindowDialogId()     # the page (clicked: on top); a dialog has no getId
+    xbmc.executebuiltin('RunPlugin("%s")' % target)
+
+    def watch():
+        monitor = xbmc.Monitor()
+        shown, since, end = False, 0.0, time.time() + appear
+        while not monitor.waitForAbort(0.25):
+            if getattr(window, '_closing', False):
+                return
+            if xbmc.getCondVisibility('Window.IsActive(fullscreenvideo)'):
+                # v5.10.563: only a page that is a dialog sits over the
+                # player. A full window (the IPTV and NAS pages: Browse, Grid)
+                # is already under it in Kodi's history, and closing it is
+                # Kodi's "previous window": the player was left, the film
+                # played on behind the page
+                if isinstance(window, xbmcgui.WindowXMLDialog):
+                    window.close_window()
+                return
+            if xbmcgui.getCurrentWindowDialogId() != own:
+                shown, since = True, 0.0     # the title page, its sources list, a menu
+                continue
+            if not shown:
+                if time.time() > end:
+                    return                   # the title page never came
+                continue
+            since = since or time.time()
+            if time.time() - since >= settle:
+                return
+
+    thread = threading.Thread(target=watch, name='DexHub-title-over')
+    thread.daemon = True
+    threads = getattr(window, '_threads', None)
+    if isinstance(threads, list):
+        threads.append(thread)
+    thread.start()
+    return True
 
 
 def kodi_click(item, widget=False):

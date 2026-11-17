@@ -1,4 +1,5 @@
 """Explicit single-provider retry, never triggered by focus or selection."""
+from .i18n import tr
 import threading
 import xbmcgui
 
@@ -16,7 +17,7 @@ def fetch(state, meta, api):
             finished.set()
     threading.Thread(target=worker, name='DexHubSingleRetry', daemon=True).start()
     dialog = xbmcgui.DialogProgress()
-    dialog.create('إعادة محاولة المصدر', state['name'])
+    dialog.create(tr('إعادة محاولة المصدر'), state['name'])
     try:
         while not finished.wait(0.1):
             if dialog.iscanceled():
@@ -27,7 +28,7 @@ def fetch(state, meta, api):
         dialog.close()
     data = result.get('data')
     if not isinstance(data, dict) or not data.get('streams'):
-        xbmcgui.Dialog().notification('Dex Hub', 'لم تصل نتائج جديدة؛ النتائج السابقة محفوظة')
+        xbmcgui.Dialog().notification('Dex Hub', tr('لم تصل نتائج جديدة؛ النتائج السابقة محفوظة'))
         return []
     rows = []
     canonical = meta.get('canonical_id') or request

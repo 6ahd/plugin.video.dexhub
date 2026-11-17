@@ -105,7 +105,7 @@ def helper_command(params):
 def run(params):
     from .homeui.options import choose
     helper = helper_command(params)
-    installed = bool(xbmc.getCondVisibility('System.HasAddon(plugin.video.themoviedb.helper)'))
+    installed = bool(xbmc.getCondVisibility('System.AddonIsEnabled(plugin.video.themoviedb.helper)'))
     options = [(tr('مصادر Dex Hub'), tr('اختيار المصدر لهذا العمل'))]
     if helper:
         options.append((tr('إضافة أخرى عبر TMDb Helper'), tr('اختيار الإضافة والمشغّل') if installed else tr('يلزم تثبيت TMDb Helper')))

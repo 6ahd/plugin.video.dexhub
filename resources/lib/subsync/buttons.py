@@ -38,6 +38,14 @@ def run(action):
     command = _COMMANDS.get(str(action or ''))
     if not command:
         return False
+    # v5.10.486: on a Silo source the server syncs to the audio and translates, as in its apps
+    if command == 'best':
+        try:
+            from .. import silo_subsync
+            if silo_subsync.handle_button():
+                return True
+        except Exception as exc:
+            xbmc.log('[DexHub] silo subtitles: %s' % exc, xbmc.LOGWARNING)
     if command in ('best', 'pick') and dexsubtitles_script():
         xbmc.log('[DexHub] subtitle buttons: %s handed to DexSubtitles' % command, xbmc.LOGINFO)
         xbmc.executebuiltin('RunScript(%s,%s)' % (OTHER, command))

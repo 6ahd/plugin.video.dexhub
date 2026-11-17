@@ -200,6 +200,12 @@ def watch(monitor):
                     except Exception:
                         data = {}
                     intro_job = None
+                    # v5.10.566: the intro marked by hand (Mark intro) where TheIntroDB has none
+                    try:
+                        from . import intro_marks
+                        data = intro_marks.merge(data, playing, duration)
+                    except Exception:
+                        pass
                     home.setProperty('dhs.skip.report', json.dumps(intro_diagnostics))
                 segment = active_segment(data, position, duration) if mode != 'off' else None
                 # The button belongs to the detected media interval, not an

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """The player's options in skin.dexhub (v5.10.117, skin.dexhub 3.4.0).
 
-skin.dexhub draws Arctic Fuse 3's player (the user's copy, with ABUKARIM's
+skin.dexhub draws Arctic Fuse 3's player (the user's copy, with its
 CoreELEC tools). Its options stay skin settings there (skin port: live
 settings), and this dialog changes them: the info line (codec logos, two
 rows, the audio format), the seek bar's time, what pausing does, how long

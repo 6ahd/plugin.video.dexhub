@@ -131,6 +131,10 @@ _SHARED_LOCK = _threading.Lock()
 _SHARED_TTL = 60.0
 _GENERATION = [0]
 _OWN_ID = ['']
+# v5.10.447: Kodi 22 gives a script started by its path (the companion
+# service's restart, service_lease.ensure_started) no add-on, and an
+# Addon() without an id then raises "No valid addon id could be obtained"
+_FALLBACK_ID = 'plugin.video.dexhub'
 
 
 def _real_for(addon_id):
@@ -139,7 +143,7 @@ def _real_for(addon_id):
         entry = _SHARED.get(addon_id)
         if entry and entry[1] == _GENERATION[0] and now - entry[2] < _SHARED_TTL:
             return entry[0]
-    real = _REAL_ADDON(addon_id) if addon_id else _REAL_ADDON()
+    real = _REAL_ADDON(addon_id or _FALLBACK_ID)
     with _SHARED_LOCK:
         _SHARED[addon_id] = (real, _GENERATION[0], now)
     return real
@@ -161,7 +165,7 @@ class SharedAddon(object):
         return _real_for(self._id)
 
     def _writer(self):
-        return _REAL_ADDON(self._id) if self._id else _REAL_ADDON()
+        return _REAL_ADDON(self._id or _FALLBACK_ID)
 
     def _write(self, method, sid, value):
         result = getattr(self._writer(), method)(sid, value)
@@ -207,7 +211,7 @@ def install_shared(ttl=60.0):
     try:
         _OWN_ID[0] = _REAL_ADDON().getAddonInfo('id')
     except Exception:
-        _OWN_ID[0] = ''
+        _OWN_ID[0] = _FALLBACK_ID
     xbmcaddon.Addon = SharedAddon
     xbmcaddon._dexhub_shared = True
     return True

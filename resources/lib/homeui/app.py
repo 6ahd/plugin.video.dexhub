@@ -262,6 +262,9 @@ class App(object):
         # the live channel (with its own address) the user watches from the
         # Live TV page, for the now-playing card
         self.live_watching = None
+        # v5.10.458: that channel's panel in the player (live_osd.py)
+        from .live_osd import LiveOSD
+        self.live_osd = LiveOSD(self)
         from .trailers import TrailerResolver
         from .media_cache import MediaCache, LogoCheck
         from .director import TrailerDirector
@@ -450,7 +453,9 @@ class App(object):
                     from ..i18n import reset_language_cache
                     reset_language_cache()
                     for page in list(self._windows):
-                        page.reload_preferences()
+                        # v5.10.537: the newer pages have none, and one stopped the rest
+                        if hasattr(page, 'reload_preferences'):
+                            page.reload_preferences()
                 except Exception:
                     self.log('settings refresh failed:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
             try:
@@ -557,6 +562,10 @@ class App(object):
                 pass
 
     def shutdown(self):
+        try:
+            self.live_osd.clear()
+        except Exception:
+            pass
         root_id = str(getattr(self._root(), '_window_id', '') or '')
         self._windows = []
         self._publish_windows()
@@ -602,14 +611,15 @@ class App(object):
         window = BrowseWindow(ui_size.xml('dexhub_browse.xml'), self.addon_path, 'Default', '1080i',
                               app=self, mode='folder', folder_ref={
                                   'set_id': set_id, 'group_id': group_id,
-                                  'folder_id': folder_id, 'media_filter': media_filter},
-                              title=title)
+                                  'folder_id': folder_id, 'media_filter': media_filter}, title=title)
         self._show(window)
 
     def open_grid(self, params, title='', shape='poster', page_tile=None):
         from .window import GridWindow
         if shape in ('wide', 'wide_ranked', 'feature', 'landscape_info'):
             shape = 'landscape'     # the grid has no big banner cards
+        elif shape == 'circle':
+            shape = 'square'
         elif shape in ('ranked', 'tall', 'tall_ranked', 'collage', 'mosaic', 'stack',
                        'poster_large', 'collection_spotlight', 'collection_compact', 'collection_ranking'):
             shape = 'poster'
@@ -653,6 +663,21 @@ class App(object):
         from .follow import open_follow
         open_follow(self, media=media)
 
+    def open_calendar(self):
+        """The calendar (v5.10.453): Week, List and Month (calendar_page.py)."""
+        from .calendar_page import open_calendar
+        open_calendar(self)
+
+    def open_discover(self):
+        """Discover (v5.10.454): a page per shape (discover_page.py)."""
+        from .discover_page import open_discover
+        open_discover(self)
+
+    def open_sport(self):
+        """Sport on Live TV (v5.10.453): games, tables, channels (sport_page.py)."""
+        from .sport_page import open_sport
+        open_sport(self)
+
     def open_details(self, tile):
         """The title page (v5.10.103): a movie or series inside the Home UI."""
         from .details import DetailsWindow
@@ -676,9 +701,11 @@ class App(object):
             except Exception:
                 pass
         self.push(window)
+        _note_id(window)
         try:
             window.doModal()
         finally:
+            _closed(window)
             try:
                 window.on_close()
             except Exception:
@@ -776,21 +803,54 @@ def _skin_native():
 _SKIN_PAGES = {'home_servers': 'servers', 'home_live': 'live', 'home_search': 'search', 'home_library': 'library'}
 
 
+_BAR_BUTTONS = {'discover': (9017, 9027, 9127), 'live': (9014, 9024, 9124), 'library': (9015, 9025, 9125)}
+
+
+def _cursor_stays(buttons, wait=0.4):
+    """True when the Home's bar still has the cursor on one of ``buttons`` after ``wait`` seconds."""
+    if not buttons:
+        return True
+    xbmc.sleep(int(wait * 1000))
+    try:
+        return any(xbmc.getCondVisibility('Control.HasFocus(%d)' % cid) for cid in buttons)
+    except Exception:
+        return False
+
+
 def run(params):
     params = dict(params or {})
     action = params.get('action') or 'home_ui'
+    hold = {'home_discover': 'discover', 'home_live': 'live', 'home_my': 'library'}.get(action)
+    if hold and params.get('auto'):
+        # v5.10.471: started as the bar's cursor reached the tab; opened only
+        # when it stays there a moment (passing over the tab opens nothing)
+        started = time.time()
+        if not _cursor_stays(_BAR_BUTTONS.get(hold, ())):
+            return None
+        _log('%s opens from the bar (%.0f ms to check)' % (hold, (time.time() - started) * 1000))
+    if hold:
+        # v5.10.469: the bar opens these pages when its cursor rests on them;
+        # back on the bar the page stays shut until another button is chosen
+        try:
+            xbmcgui.Window(HOME_WINDOW).setProperty('dhs.hold', hold)
+        except Exception:
+            pass
     if action == 'home_live':
         from ..ui_preferences import iptv_available
         if not iptv_available():
-            xbmcgui.Dialog().notification('Dex Hub', 'IPTV / VOD: الأقسام متوقفة في الإعدادات', time=3000, sound=False)
+            from ..i18n import tr as _tr_vod
+            xbmcgui.Dialog().notification('Dex Hub', _tr_vod('IPTV / VOD: الأقسام متوقفة في الإعدادات'), time=3000, sound=False)
             return None
     if action == 'home_vod_play':
         from . import vod
         try:
             return vod.play(params)
-        except Exception:
-            _log('VOD playback failed', xbmc.LOGWARNING)
-            xbmcgui.Dialog().notification('Dex Hub', 'تعذر تشغيل VOD من المصدر', xbmcgui.NOTIFICATION_WARNING, 4000)
+        except Exception as exc:
+            import re as _re
+            reason = _re.sub(r'\w+://\S+', '<address>', str(exc))[:120]     # an address carries the account
+            _log('VOD playback failed: %s %s' % (type(exc).__name__, reason), xbmc.LOGWARNING)
+            from ..i18n import tr as _tr_vod
+            xbmcgui.Dialog().notification('Dex Hub', _tr_vod('تعذر تشغيل VOD من المصدر'), xbmcgui.NOTIFICATION_WARNING, 4000)
             return None
     if action == 'home_vod_series':
         # v5.10.239: an IPTV series' season (Continue Watching's menu), over any page
@@ -799,6 +859,25 @@ def run(params):
     if action == 'home_follow':
         # v5.10.207: My watching, on its own over any Home
         return _run_page('follow', params)
+    if action == 'home_calendar':
+        # v5.10.453: the calendar, on its own over any Home
+        return _run_page('calendar', params)
+    if action == 'home_sport':
+        return _run_page('sport', params)
+    if action == 'home_discover':
+        return _run_page('discover', params)
+    if action == 'home_youtube':
+        # v5.10.497: YouTube, the series first (youtube_page.py)
+        return _run_page('youtube', params)
+    if action == 'home_dexworld':
+        # v5.10.496: the sections of blocks.dexworld.cc (dexworld_page.py)
+        return _run_page('dexworld', params)
+    if action == 'home_my':
+        # v5.10.468: the Library and the Calendar on one page (my_page.py)
+        return _run_page('my', params)
+    if action == 'home_collection':
+        # v5.10.459: a collection as one page of sections (collection_page.py)
+        return _run_page('collection', params)
     if action == 'home_details':
         # v5.10.114: a title's page on its own, over any skin's Home (a Dex
         # Hub title clicked in Arctic Fuse 3's widgets, the player's Info)
@@ -933,6 +1012,67 @@ def run(params):
     return None
 
 
+def _note_id(window):
+    """The page's window id, read as it opens (a WindowXMLDialog has no
+    getId in Kodi 22): the top dialog when its onInit runs."""
+    init = getattr(window, 'onInit', None)
+    if init is None:
+        return
+
+    def noted():
+        if not getattr(window, '_dh_window_id', 0):
+            window._dh_window_id = xbmcgui.getCurrentWindowDialogId()
+        return init()
+    window.onInit = noted
+
+
+def _closed(window, most=1.5):
+    """v5.10.519: doModal returns while Kodi still fades the page out; the
+    page's window was then let go mid-fade and Kodi kept a dialog "closing"
+    for ever, ignoring every key ("topmost modal dialog closing animation
+    is running"): after Back on a collection, or a title opened from it.
+    Waits until the window is really gone (at most ``most`` seconds)."""
+    import time
+    wid = getattr(window, '_dh_window_id', 0)
+    if not wid:
+        return
+    end = time.time() + most
+    while xbmc.getCondVisibility('Window.IsVisible(%d)' % wid) and time.time() < end:
+        xbmc.sleep(20)
+    if xbmc.getCondVisibility('Window.IsVisible(%d)' % wid):
+        # v5.10.523: its fade never ended (seen after Back on a collection
+        # whose sections were still arriving): closed without it, or Kodi
+        # ignored every key from then on
+        _log('page %d still closing after %.1f s: closed at once' % (wid, most), xbmc.LOGWARNING)
+        xbmc.executebuiltin('Dialog.Close(%d,true)' % wid, True)
+
+
+def page_pause(window, seconds):
+    """v5.10.522: a page thread's wait that ends as the page closes (True
+    then). One long wait outlived the page: a thread still asleep when the
+    call ended crashed Kodi 22 as Python cleaned up (5.10.520's 20 s focus
+    wait, 5 Nov 09:50)."""
+    import time
+    end = time.time() + seconds
+    monitor = xbmc.Monitor()
+    while time.time() < end:
+        if getattr(window, '_closing', False) or monitor.waitForAbort(0.25):
+            return True
+    return False
+
+
+def join_briefly(threads, total=3.0):
+    """v5.10.519: a closing page's threads, waited for ``total`` seconds in
+    all (each got 9 s: Back from a page waited for reads still on their
+    way). Their waits end with the page (page_pause); v5.10.522: 3 s, not
+    0.5, so a read in flight ends before the call does (a thread alive at
+    the call's end can crash Kodi 22)."""
+    import time
+    end = time.time() + total
+    for thread in threads:
+        thread.join(max(0.0, end - time.time()))
+
+
 def _details_tile(params):
     """The tile of a title page opened by a query (skin.dexhub's dhs.q:
     m, id, imdb, tmdb, title, year, src)."""
@@ -944,6 +1084,9 @@ def _details_tile(params):
     route = [('action', 'item_open'), ('media_type', params.get('m') or media), ('canonical_id', canonical),
              ('title', params.get('title') or ''), ('tmdb_id', params.get('tmdb') or ''),
              ('imdb_id', params.get('imdb') or ''), ('source_provider_id', params.get('src') or '')]
+    if params.get('srv'):
+        from urllib.parse import parse_qsl
+        route=list(parse_qsl(params['srv']))
     return {'kind': 'work', 'media_type': media, 'title': params.get('title') or '',
             'year': params.get('year') or '', 'imdb_id': params.get('imdb') or '',
             'tmdb_id': params.get('tmdb') or '', 'folder': media == 'series',
@@ -965,11 +1108,37 @@ def _run_page(page, params):
         elif page == 'servers':
             app.open_servers()
         elif page == 'live':
+            if params.get('src'):
+                # v5.10.466: a channel on the Home's Live TV tab: its source and
+                # category open, and the channel starts (guide._show_channels)
+                from . import live_sources as LS
+                LS.remember_tab(app.profile, 'live', params['src'])
+                if params.get('cat'):
+                    LS.remember_tab(app.profile, 'live_cat:%s' % params['src'], params['cat'])
+                app.live_want = params.get('ch') or ''
             app.open_live()
         elif page == 'details':
             app.open_details(_details_tile(params))
         elif page == 'follow':
             app.open_follow(params.get('media') or '')
+        elif page == 'calendar':
+            app.open_calendar()
+        elif page == 'sport':
+            app.open_sport()
+        elif page == 'my':
+            from .my_page import open_my
+            open_my(app)
+        elif page == 'discover':
+            app.open_discover()
+        elif page == 'youtube':
+            from .youtube_page import open_youtube
+            open_youtube(app)
+        elif page == 'dexworld':
+            from .dexworld_page import open_dexworld
+            open_dexworld(app)
+        elif page == 'collection':
+            from .collection_page import open_collection
+            open_collection(app, params)
         elif page == 'vod':
             grid = dict((k, v) for k, v in params.items() if k != 'action')
             grid['action'] = 'home_vod_list'

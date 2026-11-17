@@ -29,6 +29,7 @@ Home properties: dhs.panel.n.<tab> (the counts on the tabs),
 dhs.panel.kick.<tab> (the line over the title).
 """
 import datetime
+import json
 import threading
 import time
 from urllib.parse import urlencode
@@ -268,8 +269,32 @@ def _air_word(ep):
     return ''
 
 
+def _from_calendar():
+    """The calendar page's rows (every episode, with its time), the same list in both places."""
+    from .. import calendar_feed as F
+    data = F.refresh()
+    today = datetime.date.today()
+    lo, hi = today.isoformat(), (today + datetime.timedelta(days=_LATER)).isoformat()
+    rows = []
+    for ev in (data or {}).get('events') or []:
+        if lo <= (ev.get('day') or '') <= hi:
+            rows.append({'kind': ev['kind'], 'tmdb': ev.get('tmdb') or '', 'imdb': ev.get('imdb') or '',
+                         'title': ev.get('title') or '', 'day': ev['day'], 'season': ev.get('season') or 0,
+                         'episode': ev.get('episode') or 0, 'ep_title': ev.get('sub') if ev['kind'] == 'ep' else '',
+                         'network': ev.get('network') or '', 'badge': ev.get('badge') or '',
+                         'airtime': ev.get('time') or '', 'poster': ev.get('poster') or '', 'fanart': ev.get('fanart') or ''})
+    return rows[:80] if data and data.get('t') else None
+
+
 def _schedule():
     from .. import reminders as RM
+    try:
+        rows = _from_calendar()
+    except Exception as exc:
+        C.log('panel schedule from the calendar: %s' % exc, xbmc.LOGWARNING)
+        rows = None
+    if rows is not None:
+        return {'rows': rows, 'count': len(rows), 'eps': sum(1 for r in rows if r['kind'] == 'ep')}
     today = datetime.date.today()
     shows, names, movies = RM.titles()
     shows = shows[:60]
@@ -374,9 +399,20 @@ def _alerts():
         rows.extend(silo_notifications.notices())
     except Exception as exc:
         C.log('panel: Silo inbox unavailable: %s' % type(exc).__name__, xbmc.LOGWARNING)
+    # v5.10.533: the bell counted the games, but this list did not hold them,
+    # so there was nothing here to read and clear
+    try:
+        from .. import island
+        rows.extend(r for r in island.notices() if r.get('kind') == 'sport')
+    except Exception as exc:
+        C.log('panel: games unavailable: %s' % type(exc).__name__, xbmc.LOGWARNING)
+    # v5.10.474: the kinds the user switched off (alerts_prefs)
+    from .. import alerts_prefs
+    rows = [r for r in rows if alerts_prefs.notice_on(r.get('kind') if r.get('kind') in ('silo', 'sport') else 'newep')]
     count = len(rows)
     # v5.10.371: the watch party first (the island opens this tab), not counted
-    rows.insert(0, _party_row())
+    if alerts_prefs.on('party'):
+        rows.insert(0, _party_row())
     return {'rows': rows, 'count': count}
 
 
@@ -551,8 +587,9 @@ def _kicker(tab, got):
 
 
 def _publish(tab, got):
-    C.set_prop('dhs.panel.label.manage', _t('المصادر والمراقبة', 'Sources & monitoring'))
+    C.set_prop('dhs.panel.label.manage', _t('إعدادات التنبيهات', 'Alert settings'))     # v5.10.474
     C.set_prop('dhs.panel.label.read', _t('تعليم الكل كمقروء', 'Mark all read'))
+    C.set_prop('dhs.panel.label.calendar', _t('افتح التقويم', 'Open calendar'))
     C.set_prop('dhs.panel.label.monitored', _t('المراقَبة', 'Monitoring'))
     C.set_prop('dhs.panel.empty.monitored', _t('أضف مصدراً من زر الإدارة ثم حدّثه', 'Add a source using Manage, then refresh it'))
     C.set_prop('dhs.panel.label.friends', _t('الأصحاب', 'Friends'))
@@ -655,26 +692,86 @@ def _day_words(day_iso):
     return line, column.upper() if english else column, str(day.day), when
 
 
-def _schedule_items(got):
+def _sport_items():
+    """A followed team's games at the head of Schedule: live, coming, results (sport_feed's island)."""
+    from .. import sport_feed as S
+    try:
+        rows = json.loads(C.home().getProperty(S.ISLAND_PROP) or '[]')
+    except (ValueError, TypeError):
+        return []
     items = []
     last = ''
+    for row in rows:
+        state = row.get('state')
+        day = datetime.date.fromtimestamp(int(row.get('start') or 0))
+        _line, weekday, number, _when = _day_words(day.isoformat())
+        clock = time.strftime('%H:%M', time.localtime(int(row.get('start') or 0)))
+        if state == 'in':
+            section, status = _t('مباشر الحين', 'LIVE NOW'), row.get('clock') or ''
+        elif state == 'post':
+            section, status = (_t('نتائج فرقك', 'YOUR RESULTS') if row.get('mine') else _t('النتائج', 'RESULTS')), _t('انتهت', 'Full time')
+        else:
+            section, status = (_t('مبارياتك الجاية', 'YOUR NEXT GAMES') if row.get('mine') else _t('مباريات اليوم', "TODAY'S GAMES")), clock
+        props = {'kind': 'work', 'wday': weekday, 'mday': number, 'when': 'today' if state == 'in' else 'week',
+                 'game': '1', 'homelogo': row.get('homelogo') or '', 'awaylogo': row.get('awaylogo') or '',
+                 'badge': _t('مباشر', 'LIVE') if state == 'in' else '',
+                 'dhs.target': 'plugin://plugin.video.dexhub/?action=home_sport'}
+        if section != last:
+            props['kick'] = section
+            if last:
+                props['sep'] = '1'
+            last = section
+        items.append({'label': S.score_line(row), 'label2': '  ·  '.join(x for x in (S.league_name(row.get('league')), status) if x),
+                      'path': '', 'folder': False, 'art': {'thumb': row.get('homelogo') or '', 'poster': row.get('homelogo') or ''},
+                      'props': props})
+    return items
+
+
+def _section_of(day_iso):
+    """The heading a day stands under: today, tomorrow, the days of this week by name, then later."""
+    from .. import calendar_feed as F
+    day = datetime.date.fromisoformat(day_iso)
+    delta = (day - datetime.date.today()).days
+    if delta <= _WEEK:
+        return F.day_title(day)
+    return _t('لاحقاً', 'LATER')
+
+
+def _schedule_items(got):
+    from .. import alerts_prefs
+    items = _sport_items() if alerts_prefs.on('sport') else []     # v5.10.474: football switched off
+    last = ''
+    first = not items
     for ev in got.get('rows') or []:
         dayline, weekday, number, when = _day_words(ev.get('day') or '')
         props = {'kind': 'work', 'wday': weekday, 'mday': number, 'when': when,
                  'badge': ev.get('badge') or ''}
-        section = 'later' if when == 'later' else 'week'
+        if when == 'today':
+            # the heading says today; the column keeps the day's name
+            from .. import calendar_feed as F
+            props['wday'] = F.day_short(datetime.date.today())
+        try:
+            section = _section_of(ev.get('day') or '')
+        except ValueError:
+            section = ''
         if section != last:
-            props['kick'] = _t('هذا الأسبوع', 'THIS WEEK') if section == 'week' else _t('لاحقاً', 'LATER')
-            if last:
+            props['kick'] = section
+            if not first:
                 props['sep'] = '1'
+            first = False
             last = section
+        clock = ev.get('airtime') or ''
         if ev['kind'] == 'ep':
             code = _t('م%d ح%d', 'S%d E%d') % (ev['season'], ev['episode'])
-            line = '  ·  '.join(x for x in (dayline, code, ev.get('airtime') or '', ev.get('network') or '') if x)
+            if when == 'later':
+                line = '  ·  '.join(x for x in (dayline, code, clock, ev.get('network') or '') if x)
+            else:
+                line = '  ·  '.join(x for x in (clock, code, ev.get('network') or '') if x)
             props['epname'] = ev.get('ep_title') or ''
             media = 'series'
         else:
-            line = '  ·  '.join(x for x in (dayline, _t('فيلم', 'Movie')) if x)
+            line = '  ·  '.join(x for x in (dayline if when == 'later' else '', ev.get('badge') or _t('فيلم', 'Movie')) if x)
+            props['badge'] = ''
             media = 'movie'
         canonical = ev.get('imdb') or ('tmdb:%s' % ev['tmdb'] if ev.get('tmdb') else '')
         props['dhs.target'] = _open_url({'m': media, 'title': ev.get('title') or '', 'id': canonical,
@@ -711,6 +808,8 @@ def _alert_items(got):
                  'wday': '' if monitoring else _t('اليوم', 'TODAY'), 'mday': '' if monitoring else str(datetime.date.today().day)}
         if ev.get('kind') == 'silo':
             props['badge'] = ev.get('kicker') or 'Silo'
+        if ev.get('kind') == 'sport':
+            props['badge'] = ev.get('kicker') or ''
         if index == 0:
             props['kick'] = _t('OK لإدارة المراقبة', 'OK TO MANAGE') if monitoring else _t('متوفر الآن', 'READY TO WATCH')
             if ev.get('kind') == 'silo':
@@ -810,6 +909,14 @@ def refresh(params, handle):
 
 def open_alert(params, handle=None):
     key = str(params.get('key') or '')
+    if key.startswith('sport|'):
+        from .. import island
+        island.mark_read([key])
+        refresh_alerts()
+        target = str(params.get('target') or '')
+        if target.startswith(C.BASE + '?') or target.startswith(C.BASE + '/?'):
+            xbmc.executebuiltin('RunPlugin(%s)' % target)
+        return
     if key.startswith('silo|'):
         from .. import silo_notifications
         # Resolve the current owner's event again, rather than trusting a
@@ -844,6 +951,8 @@ def read_all(params=None, handle=None):
     from .. import silo_notifications
     events = _alerts()['rows']
     silo_notifications.mark_read([r for r in events if r.get('kind') == 'silo'], all_visible=True)
-    W.mark_read([r['key'] for r in events if r.get('key') and r.get('kind') != 'silo'])
+    W.mark_read([r['key'] for r in events if r.get('key') and r.get('kind') not in ('silo', 'sport')])
     W.sync_alerts()
+    from .. import island
+    island.mark_read([r['key'] for r in events if r.get('kind') == 'sport'])
     refresh_alerts()

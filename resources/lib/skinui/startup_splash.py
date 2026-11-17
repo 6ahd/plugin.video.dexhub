@@ -102,9 +102,12 @@ def watch(monitor):
             waiting = []
             if _cond('Control.IsVisible(%d)' % SPOT) and not _loaded(SPOT, empty_since, now):
                 waiting.append(SPOT)
+            # v5.10.517: skin 3.28.210 gives Home, Movies and TV Shows lists of their own
+            first = {'all': 5201, 'movie': 5301, 'series': 5401}.get(tab, FIRST_ROW) \
+                if home.getProperty('dhs.pinned') == '1' else FIRST_ROW
             for n in range(ROWS):
-                if home.getProperty('dhs.%s.%d.path' % (tab, n + 1)) and not _loaded(FIRST_ROW + n, empty_since, now):
-                    waiting.append(FIRST_ROW + n)
+                if home.getProperty('dhs.%s.%d.path' % (tab, n + 1)) and not _loaded(first + n, empty_since, now):
+                    waiting.append(first + n)
             if waiting:
                 settled_at = None
                 continue

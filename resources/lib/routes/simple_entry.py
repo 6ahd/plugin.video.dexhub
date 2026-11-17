@@ -347,6 +347,8 @@ def home(classic=False):
     _add(_txt('مكتبتي', 'My Library'), 'home_library', 'cat_watchlist.png',
          _txt('متابعة المشاهدة والمفضلة والقوائم حسب المصدر', 'Continue watching, favorites and lists by source'),
          folder=False, tile='landscape')
+    _add(_txt('الزجاج والتحديد', 'Glass & focus'), 'appearance_options', 'settings.png',
+         _txt('تشغيل الزجاج ولون التحديد وحركته', 'Glass mode, focus colour and motion'), folder=False)
     rows = [
         ('Continue Watching', 'continue', 'root_continue.png', 'square'),
         ('Next Up', 'nextup', 'up-next.png', 'square'),
@@ -606,7 +608,8 @@ def home_options_dialog():
         ('homeui_hide_plot', 'false', 'إخفاء الحبكة في الواجهة الرئيسية', 'Hide the plot on the Home', None),
         ('homeui_show_row_source', 'true', 'إظهار مصدر الصف', 'Show row source', None),     # v5.10.286
         ('homeui_nav_names', 'false', 'أسماء الأقسام في الشريط العلوي', 'Tab names in the top bar', None),
-        ('homeui_focus_motion', 'zoom', 'حركة التحديد', 'Focus motion', ('zoom', 'lift', 'pop', 'glow')),
+        ('homeui_focus_motion', 'tvos', 'حركة التحديد', 'Focus motion', ('tvos', 'zoom', 'lift', 'pop', 'glow')),
+        ('homeui_calm_motion', 'false', 'حركة أقل', 'Reduce motion', None),    # v5.10.451
         ('homeui_live_preview', 'true', 'معاينة القنوات', 'Channel previews', None),
         ('homeui_light_mode', 'true', 'الوضع الخفيف', 'Light mode', None),
         ('homeui_show_continue', 'true', 'صف متابعة المشاهدة', 'Continue Watching row', None),
@@ -786,8 +789,28 @@ def playback_quality():
          folder=False)
     _add(_txt('إضافات البحث عن المصادر', 'Add-ons searched for sources'), 'source_addons',
          'root_sources.png',
-         _txt('اختر الإضافات اللي يسألها البحث، مثل AIOStreams وحدها.',
-              'Choose the add-ons the search asks, such as AIOStreams alone.'),
+         _txt('اختر الإضافات اللي يسألها البحث: AIOStreams وغيرها، وإضافات كودي مثل Fen Light و Umbrella و Red Light و POV.',
+              'Choose the add-ons the search asks: AIOStreams and others, and Kodi add-ons such as Fen Light, Umbrella, Red Light and POV.'),
+         folder=False)
+    _add(_txt('الـNAS ومجلدات الشبكة', 'NAS and network folders'), 'nas_setup',
+         'root_sources.png',
+         _txt('أفلامك ومسلسلاتك في الـNAS (SMB أو NFS) تطلع مع المصادر وتشتغل مباشرة.',
+              'Films and series on your NAS (SMB or NFS) show up as sources and play directly.'),
+         folder=False)
+    _add(_txt('Usenet (مزودك ومفهرساتك)', 'Usenet (your provider and indexers)'), 'usenet_setup',
+         'root_sources.png',
+         _txt('أضف مزود NNTP ومفهرس Newznab، والنسخ تطلع مع مصادر كل عمل وتشتغل من المزود مباشرة على هذا الجهاز.',
+              'Add an NNTP provider and a Newznab indexer: releases show among every title\'s sources and play straight from the provider on this device.'),
+         folder=False)
+    _add(_txt('Debrid (Real-Debrid، AllDebrid، TorBox، Premiumize)', 'Debrid (Real-Debrid, AllDebrid, TorBox, Premiumize)'),
+         'debrid_setup', 'root_sources.png',
+         _txt('اربط حسابك بالباركود من جوالك، وتورنتات Torrentio وComet وغيرها تشتغل من حسابك مباشرة.',
+              'Link your account with a QR from your phone: torrents from Torrentio, Comet and others play straight from it.'),
+         folder=False)
+    _add(_txt('EasyNews', 'EasyNews'), 'easynews_setup',
+         'root_sources.png',
+         _txt('سجّل دخول حسابك في EasyNews، وملفاته تطلع مع مصادر كل عمل وتشتغل من اتصالك مباشرة.',
+              'Sign in to your EasyNews account: its files show among every title\'s sources and play over your own connection.'),
          folder=False)
     _add(_txt('الجودة والفلاتر', 'Quality & Filters'), 'setup_quality',
          'cat_4k.png', folder=False)
@@ -929,7 +952,14 @@ def addons_row():
         li.setProperty('dh.kind', 'stremio')
         _video_tag(li)
         provider_id = row.get('id')
+        enabled = store.is_enabled(row)
+        if not enabled:
+            li.setLabel('[COLOR FF8A8F98]%s[/COLOR]' % name)
+            li.setLabel2(_txt('معطّلة', 'Off'))
+            li.setProperty('dh.disabled', 'true')
         li.addContextMenuItems([
+            (_txt('تعطيل الإضافة', 'Turn the add-on off') if enabled else _txt('تفعيل الإضافة', 'Turn the add-on on'),
+             'RunPlugin(%s)' % _url(action='provider_toggle_enabled', provider_id=provider_id)),
             (_txt('تحديث المصدر', 'Refresh the source'), 'RunPlugin(%s)' % _url(action='refresh_provider', provider_id=provider_id)),
             (_txt('إزالة المصدر', 'Remove the source'), 'RunPlugin(%s)' % _url(action='remove_provider', provider_id=provider_id))])
         items.append((_url(action='provider_menu', provider_id=provider_id), li, True))
@@ -1404,7 +1434,7 @@ def watching_dialog():
                     _refresh_continue()
             else:
                 xbmc.executebuiltin('Addon.OpenSettings(%s)' % floppy_progress.SERVICE_ID
-                                    if xbmc.getCondVisibility('System.HasAddon(%s)' % floppy_progress.SERVICE_ID)
+                                    if xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % floppy_progress.SERVICE_ID)
                                     else 'InstallAddon(%s)' % floppy_progress.SERVICE_ID)
                 return True
         elif choice == 3:
@@ -1525,6 +1555,7 @@ def _refresh_continue():
 
 
 def appearance():
+    _add(_txt('الزجاج والتحديد', 'Glass & focus'), 'appearance_options', 'settings.png', folder=False)
     if xbmc.getSkinDir() == 'skin.dexhub':
         # v5.10.364: the layouts and the tabs' place are skin.dexhub's; the
         # add-on's own Home under another skin has one design
@@ -1581,47 +1612,6 @@ def maintenance():
     _add(_txt('التشخيص', 'Diagnostics'), 'setup_diagnostics', 'settings.png', folder=False)
     _add(_txt('نسخ احتياطي / استعادة', 'Backup / Restore'), 'config_backup_menu', 'settings.png')
     return _end('files', cache=False)
-
-
-def quick_setup():
-    try:
-        if xbmc.getCondVisibility('Window.IsVisible(addonsettings)'):
-            xbmc.executebuiltin('Dialog.Close(addonsettings)')
-            xbmc.sleep(180)
-    except Exception:
-        pass
-    if not xbmcgui.Dialog().yesno(
-        'Dex Hub',
-        _txt('تطبيق الإعداد البسيط والسريع؟\n\nلن تتغير حساباتك أو الكوليكشن أو إعدادات البادجز.',
-             'Apply the simple and fast profile?\n\nAccounts, Collections and badge choices will not be changed.'),
-    ):
-        return True
-    values = {
-        'lightweight_mode': 'true',
-        'search_style': '1',
-        'quality_profile': 'Balanced (recommended)',
-        'playback_open_mode': 'Choose from sources',
-        'source_resolution_mode': 'DexHub picker',
-        'show_playback_waiter': 'false',
-        'pre_cache_next_episode': 'false',
-        'streams_full_parallel_scan': 'false',
-        'streams_quick_to_results': 'true',
-        'kodi22_minimal_item': 'false',
-        'deep_meta_enrich': 'false',
-        'fanarttv_enrich': 'true',
-        'verbose_logging': 'false',
-        'cloud_sync_continuous': 'false',
-        'large_section_limit': '24',
-        'default_meta_source': 'Auto (smart)',
-        'subtitle_timeout': '15',
-    }
-    for key, value in values.items():
-        try:
-            _ADDON.setSetting(key, value)
-        except Exception:
-            pass
-    _notify(_txt('تم تطبيق الإعداد السريع ✓', 'Fast profile applied ✓'))
-    return True
 
 
 def source_behavior_dialog():
@@ -1750,7 +1740,7 @@ def episode_controls_dialog():
     while True:
         try:
             tidb_installed = bool(
-                xbmc.getCondVisibility('System.HasAddon(plugin.video.tidb)') and
+                xbmc.getCondVisibility('System.AddonIsEnabled(plugin.video.tidb)') and
                 xbmcaddon.Addon('plugin.video.tidb').getAddonInfo('id'))
         except Exception:
             tidb_installed = False
@@ -1916,13 +1906,14 @@ def subtitles_dialog():
         except Exception:
             timeout = 15
         langs = (_ADDON.getSetting('preferred_subtitle_langs') or 'ar,en').strip()
+        from resources.lib import lang_picker
         rows = [
             '%s:  [B]%s[/B]' % (
                 _txt('الوضع', 'Mode'),
                 mode_labels[mode_values.index(mode)]
                 if mode in mode_values else mode_labels[0]),
-            _txt('اللغات المفضلة: [B]%s[/B]' % (langs or 'ar,en'),
-                 'Preferred languages: [B]%s[/B]' % (langs or 'ar,en')),
+            '%s:  [B]%s[/B]' % (_txt('اللغات المفضلة', 'Preferred languages'),
+                                lang_picker.names([c for c in (langs or 'ar,en').split(',') if c][:3], _txt)),
             _txt('مدة البحث: [B]%d ثانية[/B]' % timeout,
                  'Search time: [B]%d seconds[/B]' % timeout),
             '%s:  [B]%s[/B]' % (
@@ -1934,6 +1925,7 @@ def subtitles_dialog():
                 _txt('مفعّل', 'On') if _enabled('never_auto_ai_subtitles', 'true')
                 else _txt('متوقف', 'Off')),
         ]
+        rows.append(_txt('الصوت والترجمة المدمجة — اللغة والإجبارية وSDH', 'Audio & embedded subtitles — language, forced and SDH'))
         choice = _select_dialog(_txt('الترجمة', 'Subtitles'), rows)
         if choice < 0:
             return True
@@ -1948,7 +1940,7 @@ def subtitles_dialog():
                 _txt('العربية ثم الإنجليزية', 'Arabic, then English'),
                 _txt('العربية فقط', 'Arabic only'),
                 _txt('الإنجليزية ثم العربية', 'English, then Arabic'),
-                _txt('مخصص…', 'Custom…'),
+                _txt('اختر من القائمة…', 'Pick from the list…'),
             )
             pre = presets.index(langs) if langs in presets else 3
             picked = _select_dialog(
@@ -1956,17 +1948,12 @@ def subtitles_dialog():
             if 0 <= picked < len(presets):
                 _ADDON.setSetting('preferred_subtitle_langs', presets[picked])
             elif picked == 3:
-                keyboard = xbmc.Keyboard(
-                    langs or 'ar,en',
-                    _txt('رموز اللغات مفصولة بفاصلة',
-                         'Comma-separated language codes'))
-                keyboard.doModal()
-                if keyboard.isConfirmed():
-                    value = ','.join(
-                        part.strip().lower() for part in
-                        (keyboard.getText() or '').split(',') if part.strip())
-                    if value:
-                        _ADDON.setSetting('preferred_subtitle_langs', value)
+                # v5.10.427: each language picked by name (Nuvio's way), not typed
+                old = [c for c in langs.split(',') if c]
+                codes = lang_picker.edit_order(_txt, _txt('اللغات المفضلة', 'Preferred languages'), old[:3])
+                if codes:
+                    _ADDON.setSetting('preferred_subtitle_langs',
+                                      ','.join(codes + [c for c in old[3:] if c not in codes]))
         elif choice == 2:
             values = (10, 15, 20)
             labels = tuple(_txt('%d ثوانٍ' % value, '%d seconds' % value)
@@ -1979,6 +1966,9 @@ def subtitles_dialog():
             _toggle_setting('enable_stremio_subtitle_broker', 'true')
         elif choice == 4:
             _toggle_setting('never_auto_ai_subtitles', 'true')
+        elif choice == 5:
+            from resources.lib import track_settings
+            track_settings.edit(_ADDON, _txt)
         _invalidate_settings()
 
 
@@ -2144,7 +2134,7 @@ def diagnostics_dialog():
         return str(value).strip().lower() in ('1', 'true', 'yes', 'on')
 
     try:
-        tidb = bool(xbmc.getCondVisibility('System.HasAddon(plugin.video.tidb)'))
+        tidb = bool(xbmc.getCondVisibility('System.AddonIsEnabled(plugin.video.tidb)'))
     except Exception:
         tidb = False
     lines = [
@@ -2218,6 +2208,23 @@ def dispatch():
         return playback_choices.edit_mode(_ADDON, _txt)
     if action in ('simple_source_behavior', 'setup_playback'):
         return source_behavior_dialog()
+    if action == 'nas_setup':
+        _close_native_settings_dialog()
+        from resources.lib import nas_sources
+        return nas_sources.setup()
+    if action == 'debrid_setup':
+        # v5.10.568: Dex Hub's own Debrid (debrid_source)
+        _close_native_settings_dialog()
+        from resources.lib import debrid_source
+        return debrid_source.setup()
+    if action == 'easynews_setup':
+        _close_native_settings_dialog()
+        from resources.lib import easynews_source
+        return easynews_source.setup()
+    if action == 'usenet_setup':
+        _close_native_settings_dialog()
+        from resources.lib import usenet_source
+        return usenet_source.setup()
     if action == 'source_addons':
         _close_native_settings_dialog()
         from resources.lib import source_addons
@@ -2229,6 +2236,26 @@ def dispatch():
         return tmdbh_install_action()
     if action == 'simple_watching':
         return watching_dialog()
+    if action == 'disc_subtitle_offer':
+        # v5.10.567: DexSubtitles put a subtitle file on a disc in its menus
+        from resources.lib import disc_menu
+        disc_menu.offer(str(params.get('path') or ''), str(params.get('name') or ''))
+        return None
+    if action == 'disc_subtitle':
+        # v5.10.567: a subtitle file on a disc in its menus: play the main movie again
+        from resources.lib import disc_menu
+        disc_menu.replay(str(params.get('path') or ''), str(params.get('name') or ''))
+        return None
+    if action == 'disc_top_menu':
+        # v5.10.581: the player bar's Disc menu button (skin 3.28.229)
+        from resources.lib import disc_menu
+        disc_menu.top_menu()
+        return None
+    if action == 'intro_mark':
+        # v5.10.566: the player bar's Mark intro button
+        from resources.lib import intro_marks
+        intro_marks.mark()
+        return None
     if action in ('hub_extra', 'party', 'party_join', 'party_leave', 'party_player', 'party_invite'):
         # v5.10.366: DexCloud
         _close_native_settings_dialog()
@@ -2249,7 +2276,18 @@ def dispatch():
     if action in ('backup_new', 'backup_restore'):
         _close_native_settings_dialog()
         from resources.lib import backup
-        (backup.backup_dialog if action == 'backup_new' else backup.restore_dialog)()
+        if action == 'backup_new':
+            backup.backup_dialog()
+        else:
+            # v5.10.569: a Kodi ZIP or a Dex Hub JSON, whichever is picked
+            from resources.lib import kodi_backup
+            kodi_backup.restore()
+        return None
+    if action in ('kodi_backup_full', 'kodi_backup_settings'):
+        # v5.10.569: the whole of Kodi, or Kodi's settings with every add-on's
+        _close_native_settings_dialog()
+        from resources.lib import kodi_backup
+        kodi_backup.create('full' if action == 'kodi_backup_full' else 'settings')
         return None
     if action == 'simple_trakt':
         return trakt_dialog()
@@ -2368,10 +2406,24 @@ def dispatch():
         return open_page_from_native_settings(str(params.get('target') or ''))
     if action == 'setup_performance':
         return maintenance()
-    if action == 'simple_quick_setup':
-        return quick_setup()
+    if action in ('quick_setup', 'simple_quick_setup'):
+        # v5.10.452: the quick setup's steps (the old one-press profile is its
+        # Your device step now)
+        _close_native_settings_dialog()
+        from resources.lib.homeui import wizard
+        wizard.open_wizard()
+        return True
     if action == 'setup_quality':
         return quality_dialog()
+    if action == 'av_settings':
+        from resources.lib import av_settings
+        return av_settings.show(_ADDON, _txt)
+    if action == 'interface_fonts':
+        from resources.lib import interface_fonts
+        return interface_fonts.choose(_ADDON, _txt)
+    if action == 'track_preferences':
+        from resources.lib import track_settings
+        return track_settings.edit(_ADDON, _txt)
     if action == 'setup_subtitles':
         return subtitles_dialog()
     if action == 'simple_tmdb_api_key':

@@ -6,6 +6,7 @@ Light on purpose (no router): at Kodi's start the Home shows the rows saved
 last time from here at once, while the service works them out again.
 """
 import os
+import time
 
 from . import common as C
 
@@ -19,7 +20,23 @@ def find_spec(tab, row_id):
     for spec in load_specs(tab):
         if spec.get('id') == row_id:
             return spec
-    return None
+    from .catalog_follow import spec
+    return spec(tab, row_id)
+
+def session():
+    """v5.10.516: the rows' session, last in every row path (s=). Kodi for
+    Apple TV keeps a row's listing by its path (22.16), so a path must never
+    come back with other content: the versions (v=) live in Home properties,
+    which a skin reload clears, and the same row ids serve every profile.
+    A new session after either makes every path new."""
+    from .. import profile_scope as _scope
+    import hashlib
+    scope = hashlib.sha1(str(_scope.key()).encode('utf-8')).hexdigest()[:6]
+    current = C.prop('dhs.rows.session')
+    if not current.endswith('-' + scope):
+        current = '%x-%s' % (int(time.time() * 1000), scope)
+        C.set_prop('dhs.rows.session', current)
+    return current
 
 
 def row_path(tab, row_id, version=0, slot=0):
@@ -27,8 +44,8 @@ def row_path(tab, row_id, version=0, slot=0):
     finds its Home properties at once instead of reading the slots above
     it one by one (each read waits for Kodi's frame to end)."""
     if slot:
-        return C.url('skin_row', m=tab, id=row_id, n=str(slot), v=str(version or 0))
-    return C.url('skin_row', m=tab, id=row_id, v=str(version or 0))
+        return C.url('skin_row', m=tab, id=row_id, n=str(slot), v=str(version or 0), s=session())
+    return C.url('skin_row', m=tab, id=row_id, v=str(version or 0), s=session())
 
 
 def slot_of(tab, row_id, hint=''):
@@ -126,7 +143,7 @@ def update_spot(tab, specs=None):
             C.log('spotlight of %s: the chosen row %s has no titles with a backdrop yet' % (tab, wanted))
     if source is None:
         for spec in specs:
-            if spec.get('own') or spec.get('progress') or (spec.get('kind') or 'catalog') != 'catalog':
+            if spec.get('_follow_parent') or spec.get('own') or spec.get('progress') or (spec.get('kind') or 'catalog') != 'catalog':
                 continue
             data = C.read_row(C.row_file(tab, spec['id'])) or {}     # v5.10.188: its quick copy
             items = hero_order([item for item in data.get('items') or [] if _spot_worthy(item)], spec['id'])[:limit]
@@ -274,6 +291,9 @@ def tidy_titles(specs):
 
 
 def _publish_tab(tab, specs):
+    from .catalog_follow import compose
+    from . import home_layouts
+    specs = compose(tab, specs)
     shown = 0
     source_on = show_source()       # v5.10.286
     names = tidy_titles(specs) if clean_look() else {}
@@ -319,7 +339,7 @@ def _publish_tab(tab, specs):
             shape = 'feature'
         if shown > 10:
             shape = _FAR.get(shape, shape)
-        C.set_prop(prefix + 'shape', shape)
+        C.set_prop(prefix + 'shape', home_layouts.shown(shown, shape))    # v5.10.532
         C.set_prop(prefix + 'key', key)
         C.set_prop(prefix + 'path', row_path(tab, spec['id'], _version(tab, spec['id']), slot=shown))
         shapes.append(shape or 'poster')
@@ -335,6 +355,11 @@ def _publish_tab(tab, specs):
     # its dhs.<tab>.<n>.shape when the hub opens; Kodi rebuilds the hub the
     # next time it opens when one changed)
     C.set_prop('dhs.%s.shapes' % tab, '|'.join(shapes))
+    # v5.10.447: the Home rows take only the card styles they use (skin.dexhub 3.28.167)
+    try:
+        home_layouts.sync()
+    except Exception as exc:
+        C.log('home rows: %s' % exc)
     try:
         update_spot(tab, shown_specs)
     except Exception as exc:
@@ -381,7 +406,8 @@ def mark_pending(tab, row_id, pending, slot=None):
 
 def published(tab):
     """[(slot, spec)] of the rows on the tab now."""
-    specs = dict((s['id'], s) for s in load_specs(tab))
+    from .catalog_follow import virtuals
+    specs = dict((s['id'], s) for s in load_specs(tab) + virtuals(tab))
     out = []
     for n in range(1, C.ROWS + 1):
         row_id = C.prop('dhs.%s.%d.id' % (tab, n))
@@ -392,18 +418,43 @@ def published(tab):
     return out
 
 
+def _let_rows_in(tab, limit=8.0):
+    """v5.10.535: the other tabs wait while the start screen is up. Their
+    property writes took Kodi's GUI lock from the rows on screen (3.8 s of
+    them on the AM8). A tab opened meanwhile lets them through at once."""
+    import xbmc
+    from .startup_splash import PROP
+    monitor = xbmc.Monitor()
+    end = time.monotonic() + limit
+    while time.monotonic() < end and C.prop(PROP) and C.prop('dhs.tab') == tab:
+        if monitor.waitForAbort(0.1):
+            return
+
+
 def publish_saved(tabs=C.TABS):
     """The rows saved by the last publish, put on the Home at once (a few
-    milliseconds); False when there is nothing saved yet."""
+    milliseconds); False when there is nothing saved yet.
+
+    v5.10.529: the tab on screen goes first and the Home is ready right after
+    it. Every property waits for Kodi's GUI lock: on a CoreELEC box as Kodi
+    starts, all 79 rows of all the tabs took 8.8 s with the Home empty."""
     from . import strings
+    began = time.monotonic()
     strings.publish()
-    total, found = 0, False
-    for tab in tabs:
+    labels = time.monotonic()
+    visible = C.prop('dhs.tab')
+    ordered = sorted(tabs, key=lambda tab: tab != visible)
+    total, found, first = 0, False, 0.0
+    for tab in ordered:
         specs = load_specs(tab)
         if specs:
-            found = True
             total += _publish_tab(tab, specs)
+            if not found:
+                found = True
+                C.set_prop(C.PROP_READY, '1')
+                first = time.monotonic()
+                _let_rows_in(visible)
     if found:
-        C.set_prop(C.PROP_READY, '1')
-        C.log('rows shown from the last session: %d' % total)
+        C.log('rows shown from the last session: %d (labels %d ms, first tab %d ms, every tab %d ms)' % (
+            total, (labels - began) * 1000, (first - labels) * 1000, (time.monotonic() - labels) * 1000))
     return found

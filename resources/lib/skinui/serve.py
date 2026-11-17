@@ -23,13 +23,52 @@ def _handle():
 
 
 _WIDGET_ACTIONS = ('skin_row', 'skin_search')
+WARM_REQUEST = 'dhs.warm.request'
+
+
+def _to_service(prop, params):
+    """Hand a call to the service when it runs (its heartbeat, dhs.worker,
+    is at most 15 s old); False: do it here."""
+    import json
+    try:
+        if time.time() - float(C.prop('dhs.worker') or 0) > 15:
+            return False
+        from .. import profile_scope
+        C.set_prop(prop, json.dumps({'params': dict(params), 'scope': profile_scope.key(), 't': time.time()}))
+        return True
+    except Exception:
+        return False
 
 
 def run(params):
     action = params.get('action') or ''
+    if action in ('skin_af3_catalog', 'skin_af3_import'):
+        handle = _handle()
+        if handle >= 0:
+            from .items import directory
+            directory(handle, [], content='videos')
+        return None
+    if action == 'skin_cover_pick':
+        # v5.10.426: a cover from Collections+ for a folder or catalog card
+        from ..cover_picker import pick
+        return pick(params)
+    if action == 'skin_folder_view':
+        from ..folder_view import native_options
+        return native_options(params, _handle())
     if action == 'skin_fold':
-        from .folderpage import request_open
-        return request_open(params, _handle())
+        # v5.10.459: skin.dexhub opens a collection as one page of sections,
+        # like Discover (homeui/collection_page.py); the classic page stays
+        # for the setting collection_look=classic and for other skins
+        from ..settings_cache import cached_addon
+        if xbmc.getSkinDir() == 'skin.dexhub' and (cached_addon().getSetting('collection_look') or 'sections') != 'classic':
+            from ..homeui.app import run as home_run
+            return home_run(dict(params, action='home_collection'))
+        from ..folder_view import rows_enabled
+        if rows_enabled() or C.served() == 'dexhub':
+            from .folderpage import request_open
+            return request_open(params, _handle())
+        from ..catalog_navigation import open_selector
+        return open_selector(params, _handle())
     if action == 'skin_empty':
         from .items import directory
         handle = _handle()
@@ -66,6 +105,11 @@ def run(params):
         if action.startswith('skin_osd_'):
             # the player's panels (Arctic Fuse 3's OSD in skin.dexhub 3.1, v5.10.114)
             return osd(action, params, _handle())
+        if action == 'skin_warm_sources' and _to_service(WARM_REQUEST, params):
+            # v5.10.448: the search runs in the service, which lives on: a
+            # plugin call's interpreter torn down after a search's threads
+            # crashed Kodi 22 (Python 3.14) now and then
+            return None
         # v5.10.132: grids and title lists come from the service, which has
         # the router loaded already (listing.py); worked out here otherwise
         from . import listing
@@ -186,12 +230,25 @@ def osd(action, params, handle):
         # v5.10.297: the Sources panel's sort row
         from . import osd_sources
         return osd_sources.cycle_sort(params)
+    if action == 'skin_osd_sources_filter':
+        # v5.10.448: the Sources panel's filter row (the sources page's filters)
+        from . import osd_sources
+        return osd_sources.cycle_filter(params)
     if action == 'skin_osd_stream':
         return O.set_stream(params)
     if action == 'skin_osd_subtitles':
         # v5.10.315: subtitle (or audio) settings and look, one page
         from . import subwindow
         return subwindow.open_window(params)
+    if action == 'skin_osd_playerinfo':
+        # what is playing, in three tabs (5.10.539: one page, inside the add-on);
+        # TinyPPI instead when the person chose it and it is installed
+        from .. import ui_preferences
+        if ui_preferences.value('player_ppi_page') == 'tiny' and xbmc.getCondVisibility('System.AddonIsEnabled(script.tinyppi)'):
+            xbmc.executebuiltin('RunScript(script.tinyppi)')
+            return None
+        from . import playerinfo
+        return playerinfo.open_window(params)
     if action in ('skin_osd_substyle_set', 'skin_osd_substyle_preset'):
         from . import substyle
         return (substyle.step if action == 'skin_osd_substyle_set' else substyle.preset)(params)
@@ -272,6 +329,10 @@ def row(params):
             if row_id != board.SPOT:
                 board.mark_pending(tab, row_id, data is None and bool(C.prop('dhs.pending.%s.%s' % (tab, row_id))),
                                    slot=slot)
+        if tab == 'fold':
+            # v5.10.448: the collection page numbers its titles (its Top 10 tabs)
+            for n, item in enumerate(items, 1):
+                item.setdefault('props', {})['dhs.n'] = str(n)
         from . import items as I
         # Arctic Fuse 3 clicks its widgets' items itself (items.kodi_click)
         I.directory(handle, items, tab=tab, content=_content(data), row='%s:%s' % (tab, row_id),

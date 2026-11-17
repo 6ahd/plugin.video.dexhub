@@ -289,7 +289,7 @@ def source_settings(addon):
         'quality_profile':       profile_key,
         'codec_exclusions':      codec_exclusions,
         'dr_exclusions':         dr_exclusions,
-        'order_mode':            'addon' if profile_key == 'nuvio' else 'ranked',
+        'order_mode':            'addon',
     }
 
 
@@ -415,6 +415,9 @@ def _source_priority_bonus(entry, priority_order):
 
 
 def stream_sort_key(entry, settings, preferred_source=None):
+    """v5.10.447: within one resolution the TRaSH Guides score decides
+    (trash_guides: release group tier, audio, HDR, streaming service,
+    unwanted formats), then access, debrid, the remembered source and size."""
     badge_text = entry_text_blob(entry)
     # Resolution remains the first quality decision. Within one resolution,
     # prefer the actually useful playback traits before raw file size: HDR10+
@@ -423,16 +426,11 @@ def stream_sort_key(entry, settings, preferred_source=None):
     # because its filename advertises more gigabytes.
     q_rank = quality_rank(entry) or quality_rank(entry.get('quality'))
     size_rank = size_to_bytes(entry.get('size_label'))
-    hdr_bonus = 0
-    if settings.get('prefer_hdr', True):
-        if 'HDR10+' in badge_text:
-            hdr_bonus = 5
-        elif any(x in badge_text for x in ('DOLBY VISION', 'DOVI', ' DV ')):
-            hdr_bonus = 4
-        elif 'HDR10' in badge_text:
-            hdr_bonus = 3
-        elif any(x in badge_text for x in (' HDR ', ' HLG ')):
-            hdr_bonus = 2
+    try:
+        from .trash_guides import entry_score
+        trash = entry_score(entry)
+    except Exception:
+        trash = 0
     access_bonus = 0
     access_blob = ' %s ' % badge_text
     if any(token in access_blob for token in (
@@ -444,17 +442,6 @@ def stream_sort_key(entry, settings, preferred_source=None):
         access_bonus = 2
     elif any(token in access_blob for token in (' WEB AUTO ', ' HLS ')):
         access_bonus = 0
-    release_bonus = 0
-    for token, score in ((' REMUX ', 4), (' BLURAY ', 3),
-                         (' WEB-DL ', 2), (' WEBDL ', 2),
-                         (' WEBRIP ', 1), (' HDTV ', 1)):
-        if token in access_blob:
-            release_bonus = max(release_bonus, score)
-    audio_bonus = 0
-    if settings.get('prefer_atmos', True):
-        for token, score in (('ATMOS', 6), ('TRUEHD', 5), ('DTS-X', 4), ('DTS-HD', 3), ('DD+', 2), ('7.1', 2), ('5.1', 1)):
-            if token in badge_text:
-                audio_bonus = max(audio_bonus, score)
     debrid_bonus = 1 if (settings.get('prefer_debrid', True) and is_debrid_entry(entry)) else 0
     remembered_bonus = 1 if entry_matches_last_source(entry, preferred_source) else 0
     # v3.9.33: user-defined source priority. When set, listed providers
@@ -466,12 +453,13 @@ def stream_sort_key(entry, settings, preferred_source=None):
     return (
         priority_bonus,
         q_rank,
-        hdr_bonus,
+        trash,
         access_bonus,
-        release_bonus,
+        # v5.10.568: within the same quality, ready (cached) first, then maybe, then not ready
+        {True: 2, None: 1, False: 0}.get(entry.get('cached') if entry.get('cached') in (True, False) else None, 1),
         debrid_bonus,
         remembered_bonus,
-        audio_bonus,
+        0,      # was the audio preference: in TRaSH's score too
         size_rank,
         str(entry.get('addon') or ''),
         str(entry.get('name') or ''),
@@ -488,7 +476,7 @@ def finalize_stream_entries(entries, settings, preferred_source=None, resort=Tru
     original = list(entries or [])
     filtered = filter_stream_entries(original, settings)
     ordered_source = filtered if filtered else original
-    if resort:
+    if resort and settings.get('order_mode', 'addon') != 'addon':
         keyed = [(stream_sort_key(e, settings, preferred_source=preferred_source), e)
                  for e in ordered_source]
         for key, entry in keyed:
@@ -502,13 +490,13 @@ def finalize_stream_entries(entries, settings, preferred_source=None, resort=Tru
             if not entry.get('_dh_rank'):
                 entry['_dh_rank'] = list(stream_sort_key(
                     entry, settings, preferred_source=preferred_source)[:9])
-    if settings.get('order_mode') == 'addon':
+    if settings.get('order_mode', 'addon') == 'addon':
         ordered = addon_order(ordered, settings)
     return renumber_stream_entries(ordered)
 
 
 def addon_order(entries, settings):
-    """v5.10.292 (Like Nuvio): the sources as the add-ons gave them. The
+    """Default: sources exactly as their add-ons gave them. The
     add-ons in the Sources order (the list Nuvio syncs), each add-on's rows in
     the order it returned them (AIOStreams sorted by its own rules). A row
     with no add-on position (a media server) keeps its ranked place among
@@ -528,7 +516,7 @@ def addon_order(entries, settings):
     return [entry for _idx, entry in sorted(enumerate(rows), key=key)]
 
 
-RANK_FACTORS = ('provider', 'resolution', 'hdr', 'access', 'release',
+RANK_FACTORS = ('provider', 'resolution', 'trash', 'access', 'release',
                 'debrid', 'remembered', 'audio', 'size')
 
 

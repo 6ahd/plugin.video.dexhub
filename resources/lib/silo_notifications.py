@@ -223,7 +223,7 @@ def _segment(value):
 
 def _caption(kind):
     from .i18n import is_english
-    labels = {'episode.available': ('Silo · حلقة جديدة متوفرة', 'Silo · New episode available'),
+    labels = {'episode.available': ('Silo · حلقة جديدة', 'Silo · New episode'),     # v5.10.473: short enough for the bell
               'request.fulfilled': ('Silo · أصبح العمل متوفرًا', 'Silo · Title now available'),
               'request.approved': ('Silo · تمت الموافقة على الطلب', 'Silo · Request approved'),
               'request.declined': ('Silo · رُفض الطلب', 'Silo · Request declined')}
@@ -240,18 +240,24 @@ def settings():
                   ('notify_favorites', _t('المفضلة', 'Favorites')),
                   ('notify_continue_watching', _t('متابعة المشاهدة', 'Continue watching')),
                   ('notify_next_up', _t('الحلقة التالية', 'Next up'))]
+        from . import silo_telegram
         while True:
             prefs = client.api('notifications/preferences')
+            # v5.10.451: first, Silo's alerts on Telegram (a Silo webhook to DexCloud)
+            telegram = ('✓ ' if silo_telegram.is_on() else '○ ') + _t('توصلني على تيليجرام أيضًا', 'Also on my Telegram')
             pick = xbmcgui.Dialog().select(_t('تنبيهات Silo لهذا البروفايل', 'Silo notifications for this profile'),
-                                           [('✓ ' if prefs.get(k) else '○ ') + label for k, label in fields])
+                                           [telegram] + [('✓ ' if prefs.get(k) else '○ ') + label for k, label in fields])
             if pick < 0:
                 return
-            field = fields[pick][0]
+            if pick == 0:
+                silo_telegram.toggle()
+                continue
+            field = fields[pick - 1][0]
             client.api('notifications/preferences', method='PUT', data={field: not bool(prefs.get(field))})
             key = owner(client.auth)
             _update(key, lambda state: state.update(refresh_after=0))
     except Exception as exc:
-        xbmcgui.Dialog().notification('Silo', str(exc), xbmcgui.NOTIFICATION_ERROR)
+        xbmcgui.Dialog().notification('Silo', _i18n_tr(str(exc)), xbmcgui.NOTIFICATION_ERROR)
 
 
 def run(monitor):
@@ -274,3 +280,19 @@ def run(monitor):
             delay = min(600, 30 * 2 ** min(failures - 1, 4))
         if monitor.waitForAbort(delay):
             return
+
+
+def _i18n_tr(text):
+    try:
+        from .i18n import tr
+        return tr(text)
+    except Exception:
+        return text
+
+
+def _i18n_en():
+    try:
+        from .i18n import is_english
+        return bool(is_english())
+    except Exception:
+        return False

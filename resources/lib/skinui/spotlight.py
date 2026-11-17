@@ -172,8 +172,11 @@ class Spotlight(threading.Thread):
         if (self._settings is None or now - self._settings_at > _SETTINGS_EVERY
                 or profile != getattr(self, '_settings_profile', None)):
             try:
-                import xbmcaddon
-                addon = xbmcaddon.Addon(C.ADDON_ID)
+                # v5.10.448: the add-on's shared settings cache, not a new
+                # Addon each time (crash report 30 Oct 05:39: this thread read a
+                # setting while Kodi was still loading them, at start)
+                from ..settings_cache import cached_addon
+                addon = cached_addon()
 
                 def flag(key, default):
                     value = (addon.getSetting(key) or '').strip().lower()
@@ -206,6 +209,11 @@ class Spotlight(threading.Thread):
     # -------------------------------------------------------------- loop
     def run(self):
         from ..trailer_preferences import publish_presentation, publish_status
+        # v5.10.448: a few seconds after the service starts, not with the
+        # dozen threads that read their settings at that moment (the trailer
+        # waits 3 s on a title anyway)
+        if self.monitor.waitForAbort(5.0) or self.halt.is_set():
+            return
         publish_presentation()
         while not self.halt.is_set() and not self.monitor.abortRequested():
             try:
@@ -422,8 +430,7 @@ class Spotlight(threading.Thread):
         elif container == layout.spotlight:
             if not _has_items(container):
                 return None
-        elif not (layout.row_list(1) <= container <= layout.row_list(C.ROWS)
-                  and _focused(container)):
+        elif not (layout.is_row_list(container) and _focused(container)):
             # v5.10.187: Kodi's busy spinner opens with a trailer and takes
             # the focus before the cached dialog id knows it: a box stopped
             # three trailers 0.2 s after they began (two blinks, then it played)
@@ -445,6 +452,8 @@ class Spotlight(threading.Thread):
             return self.last
         self._target_cache = None
         video = info(prefix + 'Property(dhs.hero_video)')
+        if info(prefix + 'Property(kind)') == 'folder':
+            self._note_fold(info(prefix + 'Property(dhs.fold)'), info(prefix + 'Label'))
         if info(prefix + 'Property(kind)') == 'folder' and video:
             if not C.prop('dhs.opt.kenburns'):
                 return None
@@ -462,13 +471,62 @@ class Spotlight(threading.Thread):
         self._target_cache = ((container, title_id), self.last, time.monotonic())
         return self.last
 
-    PREFETCH_DWELL = 1.2
+    FOLD_DWELL = 0.7
+
+    def _note_fold(self, fold, title):
+        """v5.10.476: a collection card the cursor rests on FOLD_DWELL seconds
+        has its catalogs read ahead in the service (worker.take_fold), so its
+        page opens full the first time (each catalog took 1 to 8 s from Trakt
+        when the page opened). Once per card a session; read rows are kept."""
+        if not fold:
+            return
+        now = time.monotonic()
+        if fold != getattr(self, '_fold_key', None):
+            self._fold_key, self._fold_since = fold, now
+            return
+        warmed = getattr(self, '_folds_warmed', None)
+        if warmed is None:
+            warmed = self._folds_warmed = set()
+        if fold in warmed or now - self._fold_since < self.FOLD_DWELL:
+            return
+        warmed.add(fold)
+        try:
+            import json
+            from .. import profile_scope
+            C.set_prop('dhs.fold.warm', json.dumps({'u': fold, 'scope': profile_scope.key(), 't': time.time()}))
+            C.log('collection read ahead: "%s" (the cursor rests on its card)' % (title or ''))
+        except Exception as exc:
+            C.log('collection read ahead failed: %s' % exc, xbmc.LOGDEBUG)
+
+    PREFETCH_DWELL = 0.6         # v5.10.448: half the wait (1.2 s): a quick OK found it unread
+    WARM_DWELL = 2.5
+
+    def _warm_ahead(self, target, now, since):
+        """v5.10.448: a card the cursor rests on WARM_DWELL seconds gets its
+        sources searched (skin_warm_sources, in this service's own thread,
+        worker.take_warm), so Play opens a full list; Nuvio Arc's "search
+        sources before Play". Once per card; warm_sources keeps its own four
+        minutes per title and the sources_warm setting."""
+        q = target.get('q') or ''
+        if not q or getattr(self, '_warmed', None) == target['key'] or now - since < self.WARM_DWELL:
+            return
+        self._warmed = target['key']
+        try:
+            import json
+            from urllib.parse import parse_qsl
+            from .. import profile_scope
+            C.set_prop('dhs.warm.request', json.dumps({'params': dict(parse_qsl(q)), 'scope': profile_scope.key(),
+                                                       't': time.time()}))
+            C.log('sources searched ahead for "%s" (the cursor rests on its card)' % (target.get('title') or ''))
+        except Exception as exc:
+            C.log('search ahead failed: %s' % exc, xbmc.LOGDEBUG)
 
     def _prefetch_title(self, target, now, since):
         """v5.10.185: the title page of the card the cursor rests on is read
         ahead (its seasons, cast, related titles and TMDb text), one title at
         a time, so OK opens a complete page at once (it read TMDb on open:
         0.7 s on a Mac, several seconds on a box)."""
+        self._warm_ahead(target, now, since)
         q = target.get('q') or ''
         if not q or self._prefetched == target['key'] or now - since < self.PREFETCH_DWELL:
             return
@@ -496,8 +554,13 @@ class Spotlight(threading.Thread):
         self._prefetch_thread.start()
 
     def begin(self, target, settings):
-        if self._resolve_thread is not None and self._resolve_thread.is_alive():
-            return  # one network resolver at a time while browsing quickly
+        # v5.10.581: a lookup still running for the title the cursor left no longer holds this
+        # one back (its answer is dropped when it comes, by the token): back on 1917 from The
+        # Batman, the trailer waited 2.5 s for The Batman's. Three at most while browsing quickly.
+        running = [t for t in getattr(self, '_resolvers', []) if t.is_alive()]
+        self._resolvers = running
+        if any(getattr(t, 'dexhub_key', None) == target['key'] for t in running) or len(running) >= 3:
+            return
         C.log('trailer for "%s" (%s)' % (target['title'], target['imdb']), xbmc.LOGDEBUG)
         self.tried = target['key']
         from ..trailer_preferences import publish_status
@@ -529,12 +592,30 @@ class Spotlight(threading.Thread):
                 if director.is_current(token) and self.key == target['key'] and not self.halt.is_set():
                     publish_status('unavailable')
                 return
+            # v5.10.581: a trailer that does not answer is left out quietly (no "Playback failed",
+            # the poster stays), and one that does plays through Dex Hub's own server, so Kodi
+            # looks up no name of its own (on a hotspot its lookups failed while ours answered)
+            url = str(stream.get('url') or '')
+            if not test and not stream.get('live') and url.lower().startswith(('http://', 'https://')):
+                from ..debrid import discserver
+                if not discserver.link_answers(url):
+                    C.log('trailer for "%s" did not answer: left out quietly' % target['title'], xbmc.LOGINFO)
+                    if director.is_current(token) and self.key == target['key'] and not self.halt.is_set():
+                        publish_status('unavailable')
+                    return
+                if not director.is_current(token) or self.key != target['key'] or self.halt.is_set():
+                    return
+                local = discserver.offer_link(url)
+                if local:
+                    stream = dict(stream, url=local)
             self._playing_title = target['title']
             ok = director.play(self, token, stream, title=target['title'], muted=not settings['sound'], volume=settings['volume'])
             if not ok and director.is_current(token):
                 publish_status('unavailable')
             C.log('trailer for "%s" started: %s' % (target['title'], ok), xbmc.LOGDEBUG if ok else xbmc.LOGINFO)
         self._resolve_thread = threading.Thread(target=job, name='dexhub-skin-trailer', daemon=True)
+        self._resolve_thread.dexhub_key = target['key']
+        self._resolvers = running + [self._resolve_thread]
         self._resolve_thread.start()
 
     def _resolver_for(self, settings):
@@ -741,6 +822,8 @@ class AF3Spotlight(Spotlight):
         info = xbmc.getInfoLabel
         prefix = 'Container(%d).ListItem.' % container
         video = info(prefix + 'Property(dhs.hero_video)')
+        if info(prefix + 'Property(kind)') == 'folder':
+            self._note_fold(info(prefix + 'Property(dhs.fold)'), info(prefix + 'Label'))
         if info(prefix + 'Property(kind)') == 'folder' and video:
             if not C.prop('dhs.opt.kenburns'):
                 return None

@@ -281,15 +281,22 @@ class GuideWindow(_BaseWindow):
         before = getattr(self, 'c_accent', None), getattr(self, 'c_on', None), getattr(self, 'c_card', None)
         self.c_accent = get('accent', 'FF9B6BFF')
         self.c_on = get('on_accent', 'FFFFFFFF')
-        self.c_card = get('surface_card', 'FF161B30')
+        # v5.10.460: the programmes sit on Discover's navy as glass cards,
+        # whatever the theme's own card colour
+        self.c_card = 'FF151C28'
         self.c_text = get('text', 'FFF3F5FF')
         self.c_muted = get('muted', 'FF9AA3C4')
         # the programme on now stands out a little from the ones to come
         # (v5.10.193: lit by the accent), the ones gone by sit back
         accent = tuple(int(self.c_accent[i:i + 2], 16) for i in (2, 4, 6))
-        self.c_airing = _mix(_mix(self.c_card, (255, 255, 255), 0.05), accent, 0.12)
+        self.c_airing = _mix(_mix(self.c_card, (255, 255, 255), 0.05), accent, 0.26)
         self.c_past = _alpha(self.c_card, 0x8C)
         self.c_on_soft = _alpha(self.c_on, 0xCC)
+        # v5.10.457: the cursor's programme is lit white with dark text (as
+        # Apple TV and Lucent light the focus), not filled with the accent
+        self.c_lit = 'F2FFFFFF'
+        self.c_on_lit = 'FF0B0D12'
+        self.c_on_lit_soft = 'B30B0D12'
         return before != (self.c_accent, self.c_on, self.c_card)
 
     def _restyle(self):
@@ -492,6 +499,14 @@ class GuideWindow(_BaseWindow):
         items, keys = [], []
         active = (self.cat or {}).get('key') if select is None else select.get('key')
         pos = 0
+        if self.cats and not self.vod:
+            # v5.10.457: Sport heads the categories; it opens the Sport page
+            label, icons = emoji_labels.presentation('\u26bd ' + self.tr('رياضة · مباريات اليوم'), self.tr('رياضة'))
+            li = xbmcgui.ListItem(label=label)
+            for slot, icon in enumerate(icons, 1):
+                li.setProperty('emoji%d' % slot, icon)
+            items.append(li)
+            keys.append('sport')
         for index, cat in enumerate(self.cats):
             # Sanitize at the presentation boundary too: cached provider
             # labels must not hide text or replace the skin's contrast.
@@ -501,7 +516,7 @@ class GuideWindow(_BaseWindow):
                 li.setProperty('emoji%d' % slot, icon)
             if cat['key'] == active:
                 li.setProperty('active', '1')
-                pos = index
+                pos = len(items)
             items.append(li)
             keys.append(cat['key'])
         self._cat_keys = keys
@@ -554,6 +569,9 @@ class GuideWindow(_BaseWindow):
         key = self._selected_key(GL.CATS)
         if key.startswith('add:'):
             self.live_action(key[4:])
+            return
+        if key == 'sport':
+            self.app.open_sport()
             return
         cat = self._cat(key)
         if cat is None:
@@ -684,6 +702,8 @@ class GuideWindow(_BaseWindow):
             if 'series' in support:
                 add('vod:series', self.tr('المسلسلات'), self.app.media_path('nav_series.png'),
                     active=self.vod == 'series')
+        # v5.10.457: Sport (games, tables and their channels) from Live TV itself
+        add('sport', self.tr('رياضة'), self.app.media_path('nav_sport.png'))
         add('add', self.tr('أضف مصدر قنوات'), self.app.media_path('lay_add.png'))
         with self._lock:
             try:
@@ -711,6 +731,8 @@ class GuideWindow(_BaseWindow):
             self._ask_search()
         elif key == 'add':
             self.live_setup_menu()
+        elif key == 'sport':
+            self.app.open_sport()
         elif key.startswith('src:'):
             source = [s for s in self.sources if s['key'] == key[4:]]
             if not source:
@@ -1027,8 +1049,28 @@ class GuideWindow(_BaseWindow):
             self._want_guides()
             if self.focus_id() == GL.GRID:
                 self._channel_changed()
+            self._start_wanted()
         elif self.focus_id() == GL.GRID:
             self.focus(GL.CATS)
+
+    def _start_wanted(self):
+        """v5.10.466: the channel chosen on the Home's Live TV tab starts once its category shows."""
+        wanted = getattr(self.app, 'live_want', '')
+        if not wanted:
+            return
+        self.app.live_want = ''
+        index = next((i for i, t in enumerate(self.channels) if t.get('path') == wanted), -1)
+        if index < 0:
+            return
+        with self._draw:
+            self.ci = index
+            if self._scroll_to(index):
+                self._layout()
+            self.prog = self._pick(self._tile(), self.anchor)
+            self._set_cursor()
+        self.focus(GL.GRID)
+        self._want_guides()
+        self.watch_channel(self.channels[index])
 
     def _tile(self, index=None):
         index = self.ci if index is None else index
@@ -1113,7 +1155,8 @@ class GuideWindow(_BaseWindow):
         logo = self._logo(tile)
         self._image(rid + GL.R_LOGO, logo)
         self._label(rid + GL.R_NAME, '' if logo else (tile.get('title') or ''))
-        self._label(rid + GL.R_NUMBER, tile.get('number') or '')
+        # v5.10.461: a channel with no number of its own shows its place in the group
+        self._label(rid + GL.R_NUMBER, str(tile.get('number') or index + 1))
         self._vis(rid + GL.R_MARK, False)
         t0, t1 = self.t0, self.t0 + self.WINDOW
         now = time.time()
@@ -1129,7 +1172,9 @@ class GuideWindow(_BaseWindow):
         drawn = []
         if not blocks:
             state = self._state(tile)
-            text = {'none': self.tr('لا يوجد دليل برامج'), 'wait': self.tr('جاري تحميل الدليل…')}.get(state) or ''
+            # v5.10.457: a channel with no guide shows its name alone, centred,
+            # instead of "No programme guide" on every row
+            text = {'wait': self.tr('جاري تحميل الدليل…')}.get(state) or ''
             empty = {'title': tile.get('title') or '', 'start': t0, 'end': t1, '_empty': True, 'plot': ''}
             drawn.append((empty, empty['title'], text))
             self._draw_block(GL.block_id(slot, 0), empty, empty['title'], text, airing=False)
@@ -1192,27 +1237,27 @@ class GuideWindow(_BaseWindow):
         self._pos(bid, x, 0)
         self._width(bid + GL.B_BG, width)
         past = not lit and not airing and not prog.get('_empty') and prog['end'] <= time.time()
-        self._diffuse(bid + GL.B_BG, self.c_accent if lit else (self.c_airing if airing else
-                                                                (self.c_past if past else self.c_card)))
+        self._diffuse(bid + GL.B_BG, self.c_lit if lit else (self.c_airing if airing else
+                                                             (self.c_past if past else self.c_card)))
         inner = max(1, width - 2 * pad)
-        on = self.c_on
+        on = self.c_on_lit
         self._width(bid + GL.B_TITLE, inner)
         self._width(bid + GL.B_SMALL, inner)
-        self._pos(bid + GL.B_TITLE, pad, self._title_y)
+        self._pos(bid + GL.B_TITLE, pad, self._title_y if small else max(0, (self.L.TILE_H - 36) // 2))
         self._pos(bid + GL.B_SMALL, pad, self._small_y)
         if lit and title:
             title = '[COLOR %s]%s[/COLOR]' % (on, title)
         elif past and title:
             title = '[COLOR %s]%s[/COLOR]' % (self.c_muted, title)
         self._label(bid + GL.B_TITLE, title)
-        self._label(bid + GL.B_SMALL, ('[COLOR %s]%s[/COLOR]' % (self.c_on_soft, small)) if (lit and small) else small)
+        self._label(bid + GL.B_SMALL, ('[COLOR %s]%s[/COLOR]' % (self.c_on_lit_soft, small)) if (lit and small) else small)
         self._vis(bid + GL.B_TITLE, width >= 44)
         self._vis(bid + GL.B_SMALL, width >= 120)
         if airing and not prog.get('_empty') and width > 40:
             done = (time.time() - prog['start']) / float(max(1, prog['end'] - prog['start']))
             self._width(bid + GL.B_BAR, max(2, (width - 24) * max(0.0, min(1.0, done))))
             self._pos(bid + GL.B_BAR, 12, self._bar_y)
-            self._diffuse(bid + GL.B_BAR, self.c_on if lit else self.c_accent)
+            self._diffuse(bid + GL.B_BAR, self.c_on_lit if lit else self.c_accent)
             self._vis(bid + GL.B_BAR, True)
         else:
             self._vis(bid + GL.B_BAR, False)

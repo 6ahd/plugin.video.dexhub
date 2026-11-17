@@ -35,14 +35,15 @@ CHIPS, KINDS = 100, 110
 UP, WATCH, SOON, MORE = 201, 301, 401, 501
 SECTIONS = (UP, WATCH, SOON, MORE)
 # the sections' heights in dexhub_follow.xml (gen_follow_xml.py), where they start, the gap
-HEIGHTS = {UP: 402, WATCH: 462, SOON: 371, MORE: 462}
-TOP, GAP = 272, 22
+HEIGHTS = {UP: 404, WATCH: 446, SOON: 404, MORE: 446}   # v5.10.469: tools/s469/make_follow.py
+TOP, GAP = 300, 22
 A_UP, A_DOWN, A_PGUP, A_PGDN = 3, 4, 5, 6
 A_CONTEXT, A_MENU = 117, 163
 A_BACK = {9, 10, 92, 216, 247, 257, 275, 61448, 61467}
 SERIES = ('series', 'show', 'tv', 'tvshow', 'anime', 'episode', 'season')
 SERVICES = (('trakt', 'Trakt'), ('simkl', 'Simkl'), ('nuvio', 'Nuvio'), ('mdblist', 'MDBList'),
-            ('floppy', 'Floppy'), ('stremio', 'Stremio'))
+            ('floppy', 'Floppy'), ('stremio', 'Stremio'), ('plex', 'Plex'), ('emby', 'Emby'),
+            ('jellyfin', 'Jellyfin'), ('silo', 'Silo'))
 SRC_PROP = 'dexhub.follow.src'
 KIND_PROP = 'dexhub.follow.media'
 
@@ -111,6 +112,22 @@ def _code(season, episode):
 
 
 # ---------------------------------------------------------------- the data
+def _show_name(tile, params):
+    """The series' name from its ids (TMDb once), saved with the row."""
+    try:
+        from .. import continue_names
+        name = continue_names.name_for({'canonical_id': params.get('canonical_id') or '',
+                                        'tmdb_id': tile.get('tmdb_id') or '', 'imdb_id': tile.get('imdb_id') or '',
+                                        'show_tmdb_id': tile.get('show_tmdb_id') or ''}, is_episode=True)
+        if name and params.get('canonical_id'):
+            from .. import playback_store
+            playback_store.set_names([('series', params['canonical_id'], params.get('video_id') or params['canonical_id'],
+                                       '', name)])
+        return name or ''
+    except Exception:
+        return ''
+
+
 def up_next(app):
     """Continue Watching and Next Up as one list, one card per title."""
     from . import rows as R
@@ -149,13 +166,33 @@ def up_next(app):
                     if value and providers.get(('show', value)):
                         name = providers[('show', value)]
                         break
+                if not name:
+                    # v5.10.540: a local row has no show name without an account
+                    # row beside it: the card was left out although Resume worked
+                    name = _show_name(tile, params)
             if name.lower().startswith('tt') or _CODE_RE.match(name):
                 continue
+            # v5.10.534: a Plex, Emby or Silo card carries only a key to its saved
+            # row: no ids and no service, so it opened nothing and fell under no chip
+            native = {}
+            if params.get('action') == 'native_resume' and params.get('key'):
+                try:
+                    native = api.cache_store.get('native_resume', params['key']) or {}
+                except Exception:
+                    native = {}
             key = (tile.get('tmdb_id') or tile.get('imdb_id') or name).lower()
-            if not name or key in seen:
+            # v5.10.469: one card per show, whatever the language of its name
+            # or the episode (the show's own ids)
+            show_keys = set(str(v).lower() for v in (params.get('canonical_id') if episode else '', tile.get('show_tmdb_id'),
+                                                    tile.get('show_imdb_id')) if v)
+            art = R.card_landscape(tile) if episode else ''
+            if art:
+                show_keys.add(art)      # the same show under two names has the same picture
+            if not name or key in seen or (show_keys & seen):
                 continue
             seen.add(key)
-            provider = params.get('provider_name') or tile.get('provider') or ''
+            seen.update(show_keys)
+            provider = params.get('provider_name') or tile.get('provider') or native.get('provider_name') or ''
             if not _service(provider):
                 for value in (params.get('canonical_id'), tile.get('imdb_id'), tile.get('tmdb_id')):
                     value = str(value or '').split(':')[0].lower()
@@ -163,6 +200,8 @@ def up_next(app):
                         provider = providers[value]
                         break
             src = _service(provider)
+            place = provider.split('•')[-1].strip() if '•' in provider else dict(SERVICES).get(src, '') or provider
+            src = src or provider.lower()
             line = []
             code = _code(tile.get('season'), tile.get('episode')) if episode else ''
             if code:
@@ -173,13 +212,18 @@ def up_next(app):
                 line.append(_t('الحلقة القادمة', 'Next episode'))
             elif not episode and tile.get('year'):
                 line.append(tile['year'])
-            badge = dict(SERVICES).get(src, '') or (_t('الحلقة القادمة', 'Up next') if nextup else '')
+            badge = place or (_t('الحلقة القادمة', 'Up next') if nextup else '')
+            tmdb, imdb = tile.get('tmdb_id'), tile.get('imdb_id')
+            if not episode:
+                tmdb, imdb = tmdb or native.get('tmdb_id'), imdb or native.get('imdb_id')
             out.append({
                 'title': name, 'line': '  ·  '.join(line), 'thumb': R.card_landscape(tile),
                 'poster': tile.get('poster') or '', 'logo': tile.get('clearlogo') or '',
                 'media': 'series' if episode else 'movie', 'srcs': {src} if src else set(),
                 'badge': badge, 'prog': tile.get('progress') or 0, 'left': _left(tile),
-                'open': _query('series' if episode else 'movie', name, tile.get('tmdb_id'), tile.get('imdb_id')),
+                'open': _query('series' if episode else 'movie', name, tmdb, imdb),
+                'find': (native.get('imdb_id'), native.get('tvdb_id')) if episode else None,
+                'place': dict(SERVICES).get(src, '') or place,
                 'play': tile.get('path') or '', 'folder': bool(tile.get('folder')),
                 'menu': [tuple(m) for m in (tile.get('menu') or []) if len(m) == 2],
                 'order': len(out),
@@ -412,11 +456,19 @@ def stats():
     from .. import floppy_api
     if floppy_api.configured():
         month = floppy_api.month_stats(cache_only=True)
-        if month:
+        if month and float(month.get('hours') or 0):
             hours = float(month.get('hours') or 0)
             return [(_t('%d س', '%dh') % int(round(hours)), _t('مشاهدة هالشهر', 'watched this month')),
                     (str(month.get('movies') or 0), _t('فيلم', 'movies')),
                     (str(month.get('episodes') or 0), _t('حلقة', 'episodes'))]
+    try:
+        # v5.10.469: the last 30 days of Trakt's history (the My page's copy)
+        from ..routes.library import _trakt_numbers
+        numbers = _trakt_numbers()
+        if numbers:
+            return numbers
+    except Exception:
+        pass
     from .. import playback_store
     since = time.time() - 30 * 86400
     seconds, movies, episodes = 0.0, 0, 0
@@ -451,6 +503,34 @@ def linked():
     return out
 
 
+def title_query(entry):
+    """What opens a card's title. A server's episode knows the episode's ids
+    only: the show's are asked for here, when it is opened (saved a week)."""
+    query = entry.get('open') or {}
+    if query or not entry.get('find'):
+        return query
+    from .. import tmdb_direct as T
+    imdb, tvdb = entry['find']
+    show = T.show_tmdb_for_episode_imdb(imdb) if imdb else ''
+    if not show and tvdb:
+        show = T.episode_for_external(tvdb).get('show_tmdb_id') or ''
+    entry['open'] = _query('series', entry.get('title'), show) if show else {}
+    return entry['open']
+
+
+def play_entry(window, entry):
+    """OK on an Up next card, here and on the My page: the window goes, it plays."""
+    from . import rows as R
+    path = entry.get('play') or ''
+    if not path:
+        return
+    window.close_window()
+    if R.is_dexhub_path(path) and (entry.get('folder') and R.params_of(path).get('action') not in R.PLAYER_ACTIONS):
+        xbmc.executebuiltin('ActivateWindow(Videos,"%s",return)' % path)
+    else:
+        xbmc.executebuiltin('%s("%s")' % ('RunPlugin' if R.is_dexhub_path(path) else 'PlayMedia', path))
+
+
 # ---------------------------------------------------------------- the window
 class FollowWindow(xbmcgui.WindowXMLDialog):
     def __init__(self, *args, **kwargs):
@@ -475,6 +555,7 @@ class FollowWindow(xbmcgui.WindowXMLDialog):
         self._pool = ThreadPoolExecutor(max_workers=4)
         self._because_gen = 0
         self._moved = False         # the user moved: the focus stays where they put it
+        self.tone = None
 
     # ---------------------------------------------------------- lifecycle
     def onInit(self):
@@ -489,8 +570,6 @@ class FollowWindow(xbmcgui.WindowXMLDialog):
         self._place(None)
         self.setProperty('fw.crumb', 'Dex Hub  ›  ' + _t('المكتبة', 'Library'))
         self.setProperty('fw.title', _t('متابعتي', 'My watching'))
-        self.setProperty('fw.hint', _t('موافق: تشغيل أو فتح العمل   •   القائمة: خيارات العمل   •   رجوع: إغلاق',
-                                       'OK plays or opens   •   Menu: title options   •   Back: close'))
         self.setProperty('fw.%d.title' % UP, _t('تابع من حيث وقفت', 'Pick up where you left off'))
         self.setProperty('fw.%d.title' % WATCH, _t('قائمة المشاهدة', 'Watchlist'))
         self.setProperty('fw.%d.title' % SOON, _t('القادم', 'Coming up'))
@@ -540,6 +619,11 @@ class FollowWindow(xbmcgui.WindowXMLDialog):
         self._closing = True
         try:
             self._pool.shutdown(wait=False)
+        except Exception:
+            pass
+        try:
+            if self.tone is not None:
+                self.tone.stop()
         except Exception:
             pass
 
@@ -752,6 +836,7 @@ class FollowWindow(xbmcgui.WindowXMLDialog):
                 li.setProperty('hot', '1')
             if entry.get('prog'):
                 li.setProperty('prog', str(int(entry['prog'])))
+                li.setProperty('progstep', str(max(1, min(20, int(round(float(entry['prog']) / 5.0))))))
             if entry.get('left'):
                 li.setProperty('left', entry['left'])
             entry['_li'] = li
@@ -851,6 +936,24 @@ class FollowWindow(xbmcgui.WindowXMLDialog):
         else:
             self.open_title(entry)
 
+    def onFocus(self, cid):
+        self._describe()
+
+    def _describe(self):
+        """v5.10.469: the focused card's picture behind the page, its colour round it."""
+        cid = self.getFocusId()
+        entry = self._entry(cid) if cid in SECTIONS else None
+        if entry is None:
+            return
+        self.setProperty('fw.fanart', entry.get('thumb') or entry.get('poster') or '')
+        try:
+            if self.tone is None:
+                from ..art_tone import Tone
+                self.tone = Tone(self)
+            self.tone.follow(entry.get('poster') or entry.get('thumb') or '')
+        except Exception:
+            pass
+
     def onAction(self, action):
         aid = action.getId()
         if aid in A_BACK:
@@ -858,6 +961,7 @@ class FollowWindow(xbmcgui.WindowXMLDialog):
             return
         if aid in (1, 2, 3, 4, 5, 6, 7, 100, 107):
             self._moved = True
+            self._describe()
         if aid in (A_UP, A_DOWN, A_PGUP, A_PGDN):
             self._move(-1 if aid in (A_UP, A_PGUP) else 1)
             return
@@ -940,18 +1044,10 @@ class FollowWindow(xbmcgui.WindowXMLDialog):
         self._start('up', lambda: up_next(self.app))
 
     def play(self, entry):
-        from . import rows as R
-        path = entry.get('play') or ''
-        if not path:
-            return
-        self.close_window()
-        if R.is_dexhub_path(path) and (entry.get('folder') and R.params_of(path).get('action') not in R.PLAYER_ACTIONS):
-            xbmc.executebuiltin('ActivateWindow(Videos,"%s",return)' % path)
-        else:
-            xbmc.executebuiltin('%s("%s")' % ('RunPlugin' if R.is_dexhub_path(path) else 'PlayMedia', path))
+        play_entry(self, entry)
 
     def open_title(self, entry):
-        query = entry.get('open') or {}
+        query = title_query(entry)
         if not query:
             xbmcgui.Dialog().notification('Dex Hub', _t('ما قدرنا نحدد العمل', 'Could not tell which title this is'),
                                           time=2000, sound=False)
@@ -1009,7 +1105,7 @@ def open_follow(app, media=''):
         query, media = window.next_title, window.media
         del window
         if not query:
-            return
+            return True         # v5.10.537: Back: a page under this one comes back
         _log('title page %s %s' % (query.get('m'), query.get('tmdb') or query.get('imdb')))
         try:
             app.open_details(_details_tile(query))

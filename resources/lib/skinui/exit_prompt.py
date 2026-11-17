@@ -12,6 +12,10 @@ _ASKING = 'dhs.exit.asking'
 
 
 def ask():
+    from ..temporary_skin import active, leave
+    if active():
+        leave()
+        return None
     home = xbmcgui.Window(10000)
     if home.getProperty(_ASKING):
         return None

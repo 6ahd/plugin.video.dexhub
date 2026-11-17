@@ -23,6 +23,8 @@ Routes (all under /<token>/):
   POST api/sync        {service: stremio, op: configure|run|status, direction}
   POST api/logout      {service}
   POST api/home        {page, op, ...}         rows, styles, collections (every page)
+  POST api/quick       {key, value}            v5.10.452: a quick setup answer
+                       (quick_setup.py); state() carries the questions as 'quick'
   POST api/pref        {key, value}            v5.10.286: a Home/display preference
                        (ui_preferences.OPTIONS key, through set_value) or a
                        control centre entry (homeui.control PICKS/TOGGLES,
@@ -91,6 +93,8 @@ SERVICES = (
     ('jellyfin', 'Jellyfin', 'server', 'jellyfin_login', 'jellyfin_logout'),
     ('silo', 'Silo', 'silo', 'silo_qr_login', 'silo_logout'),
     ('iptv', 'IPTV', 'tv', 'iptv_menu', ''),
+    ('nas', 'NAS', 'server', 'nas_setup', ''),
+    ('debrid', 'Debrid', 'tv', 'debrid_setup', ''),
 )
 _BY_KEY = dict((row[0], row) for row in SERVICES)
 
@@ -178,6 +182,18 @@ def _ui_options():
 
 
 def _linked(key):
+    if key == 'debrid':
+        try:
+            from .debrid import accounts
+            return accounts.any_linked()
+        except Exception:
+            return False
+    if key == 'nas':
+        try:
+            from . import nas_sources
+            return nas_sources.is_set_up()
+        except Exception:
+            return False
     if key == 'iptv':
         try:
             from .skinui import rows as SR
@@ -437,11 +453,18 @@ def _home(page=None):
     groups = []
     if page in _EDITABLE:
         try:
+            from .cover_overrides import folder_key
             for g in community.groups():
                 if g.get('loose'):
                     continue
-                groups.append({'id': g['id'], 'name': g['name'],
-                               'folders': [{'id': f['id'], 'name': f['name']} for f in g.get('folders') or []]})
+                # v5.10.426: each folder's cover (a chosen one when there is)
+                # and its cover key, for DexCloud's Dex Community browser
+                groups.append({'id': g['id'], 'name': g['name'], 'imported': bool(g.get('set_name')),
+                               'folders': [{'id': f['id'], 'name': f['name'], 'cover': f.get('cover') or '',
+                                            'shape': f.get('shape') or '', 'logo': f.get('logo') or '',
+                                            'catalogs': len(f.get('catalogs') or []),
+                                            'key': folder_key(g.get('set_id'), g.get('entry_id'), f['id'])}
+                                           for f in g.get('folders') or []]})
         except Exception:
             _log('community groups: %s' % traceback.format_exc(), xbmc.LOGWARNING)
     return {'page': page, 'pages': _pages(), 'rows': out, 'groups': groups,
@@ -472,8 +495,12 @@ def _catalogs(app, page):
                     continue
                 ref = _catalog_ref({'provider_id': provider.get('id'), 'media_type': cat.get('type'),
                                     'catalog_id': cat.get('id')})
+                # v5.10.426: the add-on's manifest id and the catalog's own id
+                # (the account page makes collections of chosen catalogs)
                 out.append({'ref': ref, 'source': name, 'type': str(cat.get('type') or ''),
-                            'name': LP.clean_label(cat.get('name') or cat.get('id')), 'added': ref in added})
+                            'name': LP.clean_label(cat.get('name') or cat.get('id')), 'added': ref in added,
+                            'addon_id': str((provider.get('manifest') or {}).get('id') or ''),
+                            'catalog_id': str(cat.get('id') or '')})
     except Exception:
         _log('catalog choices: %s' % traceback.format_exc(), xbmc.LOGWARNING)
     return out
@@ -596,6 +623,12 @@ class Session(object):
             # v5.10.286: the same reading the TV uses (aliases, defaults)
             if key in data['prefs']:
                 data[key] = data['prefs'][key]
+        try:
+            from . import quick_setup
+            data['quick'] = quick_setup.state()      # v5.10.452: the quick setup card
+        except Exception:
+            _log('quick setup: %s' % traceback.format_exc(), xbmc.LOGWARNING)
+            data['quick'] = []
         try:
             data['home'] = _home('all')
         except Exception:
@@ -730,6 +763,14 @@ class Session(object):
             return {'ok': True, 'key': key, 'value': control.phone_values().get(key)}
         raise ValueError('unknown setting')
 
+    def quick(self, body):
+        """v5.10.452: an answer of the quick setup card (quick_setup.py, the
+        same writes as the TV's quick setup)."""
+        from . import quick_setup
+        key = str(body.get('key') or '')
+        quick_setup.apply(key, body.get('value'))
+        return {'ok': True, 'key': key, 'value': quick_setup.current(key), 'quick': quick_setup.state()}
+
     def _badge_choice(self, value):
         """v5.10.410: a style (Framed, Minimal, Compact, None) or one of the
         ready packs; a pack is read once, on the TV, as from its own list."""
@@ -813,6 +854,12 @@ class Session(object):
             return self._silo_profiles(pending)
         elif service == 'iptv':
             self._iptv(server, user, password)
+        elif service == 'nas':
+            # v5.10.543: a NAS or one of its folders; its files are read on the TV
+            from . import nas_sources
+            ok, why = nas_sources.add_from_phone(server, user, password)
+            if not ok:
+                raise ValueError('The TV could not open that address' if why == 'unreachable' else 'Type the NAS address')
         else:
             raise ValueError('unknown service')
         _log('%s linked from the phone' % service)
@@ -1252,6 +1299,38 @@ class Session(object):
         return {'ok': True, 'name': row.get('name') or '', 'entries': len(row.get('entries') or []),
                 'updated': updated, 'home': _home('all')}
 
+    def covers(self, body):
+        """v5.10.426: the account page's cover studio. op 'list': what can
+        take a cover (collections, their folders and catalogs) with the
+        pictures they show; op 'set': covers chosen (``items``) and cleared
+        (``clear``). The Home and the folder pages show them at once."""
+        from . import cover_overrides as co
+        op = str(body.get('op') or 'list')
+        if op == 'set':
+            items = body.get('items') if isinstance(body.get('items'), list) else []
+            clear = body.get('clear') if isinstance(body.get('clear'), list) else []
+            count = co.apply_changes(items[:500], clear[:500])
+            if count:
+                try:
+                    from .homeui import community
+                    community.reset()
+                except Exception:
+                    pass
+                _republish('collections')
+                try:
+                    from . import cloud_look
+                    cloud_look.mark()
+                except Exception:
+                    pass
+                _log('covers from the account page: %d changed' % count)
+            out = {'ok': True, 'changed': count, 'sets': co.targets()}
+        else:
+            out = {'ok': True, 'sets': co.targets()}
+        if body.get('home'):
+            # the Dex Community browser asks for its groups again with the covers
+            out['home'] = _home(str(body.get('home')) if str(body.get('home')) in dict(PAGES) else 'all')
+        return out
+
     # -------------------------------------------------------------- the Home
     def home(self, body):
         from .skinui import rows as SR
@@ -1495,7 +1574,8 @@ class _Handler(BaseHTTPRequestHandler):
         handlers = {'api/profile': 'profile', 'api/set': 'set', 'api/addon': 'addon', 'api/login': 'login', 'api/code': 'code',
                     'api/tv': 'tv', 'api/logout': 'logout', 'api/home': 'home', 'api/done': 'finish',
                     'api/silo': 'silo', 'api/transfer': 'transfer', 'api/files': 'files',
-                    'api/pref': 'pref', 'api/sync':'sync', 'api/collection': 'collection', 'api/cloud': 'cloud'}  # v5.10.286
+                    'api/pref': 'pref', 'api/sync':'sync', 'api/collection': 'collection', 'api/cloud': 'cloud',
+                    'api/covers': 'covers', 'api/quick': 'quick'}  # v5.10.286; covers v5.10.426; quick v5.10.452
         name = handlers.get(route)
         if not name:
             return self._send(404, {'ok': False})

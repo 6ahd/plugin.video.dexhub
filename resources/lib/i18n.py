@@ -77,6 +77,8 @@ STRINGS = {
     'اختيار الإضافة والمشغّل': 'Choose an add-on and player',
     'يلزم تثبيت TMDb Helper': 'TMDb Helper must be installed',
     'خيارات الصف…': 'Row options…',
+    'صفوف DexWorld': 'DexWorld rows',
+    'شبكات ومنصات واستوديوهات في الرئيسية والأفلام والمسلسلات، أو بدون': 'Networks, streamers and studios on Home, Movies and TV Shows, or none',
 
     # v5.10.311: subtitle filter and source warm-up
     'إظهار لغاتي فقط': 'Show my languages only',
@@ -857,7 +859,7 @@ STRINGS = {
     'وضع التشغيل': 'Playback mode',
     'الحلقة التالية': 'Next episode',
     'تشغيل الحلقة التالية تلقائيًا': 'Auto-play next episode',
-    'جار البحث عن المصادر...': 'Searching for add-ons...',
+    'جار البحث عن المصادر...': 'Searching for sources...',
     'جار جلب نتائج إضافية...': 'Fetching more results...',
     'لا توجد مصادر متاحة': 'No add-ons available',
     'لا توجد مصادر': 'No add-ons',
@@ -878,6 +880,18 @@ STRINGS = {
     'تمت إضافة %d مصدر': 'Added %d add-ons',
     'تمت إضافة المصدر: %s': 'Added add-on: %s',
     'تم حذف المصدر': 'Add-on deleted',
+    'الذكاء الاصطناعي': 'AI',
+    'بحث بالوصف وقوائم ومقترحات بمفتاحك: Grok أو Groq أو OpenAI أو Gemini وغيرها': 'Search by description, lists and picks with your key: Grok, Groq, OpenAI, Gemini and more',
+    'اقتراحات الذكاء الاصطناعي': 'AI picks',
+    'مقترح لك بالذكاء الاصطناعي • أفلام': 'Recommended for you by AI • Films',
+    'مقترح لك بالذكاء الاصطناعي • مسلسلات': 'Recommended for you by AI • Series',
+    'تعطيل الإضافة': 'Turn the add-on off',
+    'تفعيل الإضافة': 'Turn the add-on on',
+    'تم تعطيل: %s': 'Turned off: %s',
+    'تم تفعيل: %s': 'Turned on: %s',
+    'معطّلة': 'Off',
+    'الإضافة معطّلة: ما تجيب كتالوجات ولا مصادر. فعّلها من قائمتها.': 'This add-on is off: no catalogs or sources. Turn it on from its menu.',
+    'الإضافة معطّلة: ما تجيب كتالوجات ولا مصادر.': 'This add-on is off: no catalogs or sources.',
     'تم تحديث الصورة': 'Artwork updated',
     'تم تحديث الاسم': 'Name updated',
     'تم تحديث وضع الفتح': 'Open mode updated',
@@ -913,6 +927,22 @@ STRINGS = {
     'لم يُعثر على ترجمات لهذا المحتوى.': 'No subtitles found for this title.',
     'لا يوجد تشغيل نشط. شغّل الفيديو أولاً.': 'No active playback. Start the video first.',
     'تعذّر تحميل ملف الترجمة.': 'Could not download the subtitle file.',
+    # v5.10.557
+    'ما اشتغل، رجّعنا لك المصادر واللي فشل معلَّم': 'Nothing played: the sources are back, the failed ones marked',
+    'الرابط ما اشتغل': 'The link did not play',
+    'ما اشتغل': 'Did not play',
+    # v5.10.558
+    'Usenet: مزودك ومفهرساتك': 'Usenet: your provider and indexers',
+    'مزود NNTP ومفهرسات Newznab، والتشغيل من المزود مباشرة': 'An NNTP provider and Newznab indexers, played straight from the provider',
+    'سجّل دخول حسابك وملفاته تطلع مع المصادر': 'Sign in and its files show among the sources',
+    'Debrid: Real-Debrid وAllDebrid وTorBox وPremiumize': 'Debrid: Real-Debrid, AllDebrid, TorBox and Premiumize',
+    'اربط حسابك بالباركود والتورنت يشتغل منه مباشرة': 'Link your account with a QR; torrents play straight from it',
+    'المصدر مو جاهز في حسابك، جرّب غيره': 'This source is not ready in your account; try another',
+    'نسخة كاملة لكودي': 'Full Kodi backup',
+    'كل شي: الإضافات والإعدادات والمكتبة. جهاز جديد يصير نفس القديم': 'Everything: add-ons, settings, the library. A new device becomes the old one',
+    'نسخة إعدادات كودي كلها': "All of Kodi's settings",
+    'إعدادات كودي وكل الإضافات وبياناتها، بدون الإضافات نفسها': "Kodi's settings and every add-on's settings and data, without the add-ons",
+    'الفلتر المثبّت ما طابق أي مصدر هنا، عرضنا الكل': 'The kept filter matched no source here: all are shown',
     'فشل تطبيق الترجمة: %s': 'Failed to apply subtitle: %s',
     '🔍 بحث عن ترجمة (أثناء التشغيل)': '🔍 Search subtitle (during playback)',
     'ترجمة — %s': 'Subtitle — %s',
@@ -1067,6 +1097,14 @@ STRINGS = {
     'بدون ترجمة': 'No subtitles',
     'لا توجد ترجمات متاحة لهذا المصدر': 'No subtitles available for this add-on',
     'لا يوجد رابط تشغيل': 'No playback URL',
+    'الأفلام اللي شفتها': 'Watched films',
+    'عادية أو باهتة أو مخفية في صفوف الرئيسية؛ متابعة المشاهدة والمكتبة والبحث ما تتأثر': 'As they are, dimmed or hidden in the Home rows; Continue Watching, the library and search stay as they are',
+    'عادية': 'As they are',
+    'باهتة': 'Dimmed',
+    'مخفية': 'Hidden',
+    'ما اشتغل ولا مصدر من المصادر اللي جربناها': 'None of the sources tried would play',
+    'الرابط ما اشتغل، وما فيه مصدر ثاني بالقائمة': 'The link did not play, and the list has no other source',
+    'الرابط ما اشتغل، نجرب المصدر اللي بعده (%d/%d)': 'The link did not play: trying the next source (%d/%d)',
     'لم يتم العثور على ترجمة مطابقة لهذا المصدر': 'No matching subtitle was found for this add-on',
     'الموسم': 'Season',
     'استكمال مباشر': 'Resume directly',
@@ -1714,6 +1752,7 @@ STRINGS = {
     'عرض النتائج تلقائياً خلال %d ثانية': 'Showing results automatically in %d seconds',
     'متابعة البحث': 'Keep searching',
     'نتيجة صالحة بعد حذف المكرر': 'valid result after deduplication',
+    'نتيجة حتى الآن': 'results so far',
     'تم الوصول إلى نتائج كافية': 'Enough results found',
     'سيستمر البحث حتى اكتمال المصادر أو انتهاء المهلة': 'Search will continue until add-ons finish or the time limit is reached',
     'اضغط رجوع لإلغاء البحث': 'Press Back to cancel the search',
@@ -1880,11 +1919,14 @@ STRINGS = {
     'الجودة • HDR': 'Quality • HDR',
     'الجودة • Dolby Vision': 'Quality • Dolby Vision',
     'الجودة • REMUX': 'Quality • REMUX',
+    'الجودة • قرص كامل ISO': 'Quality • Full disc ISO',
+    'الـNAS ومجلدات الشبكة': 'NAS and network folders',
     'الترتيب \u2022 المقترح': 'Sort \u2022 Recommended',
     'الترتيب \u2022 الحجم': 'Sort \u2022 Size',
     'الترتيب \u2022 الجودة': 'Sort \u2022 Quality',
     'الترتيب \u2022 المصدر': 'Sort \u2022 Source',
     'الترتيب \u2022 الاسم': 'Sort \u2022 Name',
+    'الترتيب \u2022 الإضافة': 'Sort \u2022 Add-on',
     'النوع • %s': 'Type • %s',
     'المزود • %s': 'Provider • %s',
     'المفهرس • %s': 'Indexer • %s',
@@ -2214,6 +2256,17 @@ STRINGS = {
     'مفتاح اشتراكك محفوظ في إضافة Dex IPTV. تستخدمه هنا؟': 'Your subscription key is saved in the Dex IPTV add-on. Use it here?',
     'مفتاح اشتراك DexWorld (API Key)': 'DexWorld subscription key (API Key)',
     'تعذر ربط الاشتراك': 'The subscription could not be linked',
+    'لأكثر من عنوان افصل بينها بمسافة': 'for more than one address, put a space between them',
+    'رابط ثاني لنفس القائمة': 'Another address of the same playlist',
+    'رابط ثاني لنفس القائمة؟': 'Add another address of the same playlist?',
+    'عنوان سيرفر ثاني لنفس الحساب، مثل http://example.com:8080': 'Another server address of the same account, like http://example.com:8080',
+    'تضيف عنوان سيرفر ثاني لنفس الحساب؟': 'Add another server address of the same account?',
+    'أضف عنوان': 'Add an address',
+    'عناوين السيرفر': 'Server addresses',
+    'الحالي': 'in use',
+    'إذا تعذر الحالي تُجرّب البقية بالترتيب': 'When the one in use fails, the others are tried in order',
+    'اجعله الحالي': 'Use this one',
+    'المفتاح حساس لحالة الأحرف (الكبيرة والصغيرة)': 'The key is case-sensitive (capital and small letters)',
     'رُبط اشتراك DexWorld': 'DexWorld subscription linked',
     'رابط manifest.json لإضافة Stremio فيها قنوات': 'manifest.json address of a Stremio add-on with channels',
     'تعذر إضافة الإضافة': 'The add-on could not be added',
@@ -2373,6 +2426,8 @@ STRINGS = {
     'أجهز الترجمة…': 'Preparing the subtitle…',
     'ما قدرت أزامن الحين': 'Could not sync now',
     'الملف مو MKV، غالباً MP4، فما فيه فهرس نأخذ منه التوقيت': 'The file is not MKV (likely MP4): it has no index to take the timing from',
+    'القرص ما فيه فهرس توقيت، وما لقيت نسخة REMUX منه في المصادر نأخذ منها التوقيت': 'A disc has no timing index, and no REMUX of it in the sources list to take the timing from',
+    'ما قدرت أقرأ توقيت نسخة REMUX من القرص في المصادر': 'Could not read the timing of a REMUX of this disc in the sources list',
     'فهرس الملف ناقص': "The file's index is incomplete",
     'الملف ما فيه ترجمة مدمجة نأخذ منها التوقيت': 'The file carries no subtitle to take the timing from',
     'الترجمات المدمجة في الملف ما تصلح مرجعاً': "The file's own subtitles cannot serve as a reference",
@@ -3299,6 +3354,31 @@ STRINGS.update({
     'قوي': 'Strong',
     'مفتاحك ✓': 'Your key ✓',
     'المفتاح المشترك': 'The shared key',
+    'مفتاح MDBList': 'MDBList key',
+    'التقييمات كاملة: IMDb وRotten Tomatoes وMetacritic وTrakt وLetterboxd': 'Every rating: IMDb, Rotten Tomatoes, Metacritic, Trakt and Letterboxd',
+    'من TMDb Helper': 'From TMDb Helper',
+    'غير مضاف': 'Not added',
+    'زر الإضافات في الشريط': 'Add-ons button on the bar',
+    'كلاسيكي مع البوستر': 'Classic with the poster',
+    'البوستر على اليسار والمعلومات بجانبه': 'The poster on the left, the details beside it',
+    'كلاسيكي بدون بوستر': 'Classic without the poster',
+    'المعلومات تبدأ من يسار الصفحة': 'The details start at the left of the page',
+    'صورة العمل تملأ الصفحة، بدون بوستر': "The title's picture fills the page, no poster",
+    'الأقسام كلها في صفحة وحدة': 'All sections on one page',
+    'الممثلون والمراجعات والمشابه تحت بعض، تنزل لها': 'Cast, reviews and more like this, one under another',
+    'الأقسام تبويبات': 'Sections as tabs',
+    'قسم واحد يظهر تحت الأزرار، وكل قسم يتحمّل لما تفتحه': 'One section shows under the buttons; each loads when you open it',
+    'كلاسيكي بالبوستر أو بدونه أو سينمائي، والأقسام صفحة وحدة أو تبويبات': 'Classic with or without the poster, or cinematic; sections on one page or as tabs',
+    'أقسام الصفحة': 'Page sections',
+    'ترتيب أيقونات الشريط': 'Bar icon order',
+    'فوق وتحت في القائمة الجانبية، ونفس الترتيب في الشريط العلوي': 'Up and down in the side menu, and the same order in the top bar',
+    'يفتح إضافات كودي بضغطة؛ يظهر لما يكون قسم الإضافات مخفي من الشريط، عشان ما يتكرر': "Opens Kodi's add-ons in one press; shows when the Add-ons section is hidden from the bar, so there is only one",
+    'زر الرجوع للسكين الثاني في الشريط': 'Other skin button on the bar',
+    'بجانب زر الطاقة، يرجعك لسكينك الثاني بضغطة': 'Beside the power button, back to your other skin in one press',
+    'الطقس في لوحة التنبيهات': 'Weather in the alerts panel',
+    'يظهر لما تفتح الجرس، إذا فيه إضافة طقس مفعّلة في إعدادات كودي': "Shows when you open the bell, if a weather add-on is set in Kodi's settings",
+    'حرارة المعالج والرام': 'CPU temperature and RAM',
+    'تظهر في لوحة التنبيهات لما تفتح الجرس': 'Shown in the alerts panel when you open the bell',
     'مثل مصدر الميتاداتا': 'Same as metadata',
     'مثل Nuvio (بيانات المصدر)': "Like Nuvio (the source's data)",
     'لا يوجد حساب مربوط': 'No account linked',
@@ -3312,9 +3392,51 @@ STRINGS.update({
     'توصيات لك': 'Recommended for you',
 })
 
+STRINGS.update({'أقسام الشريط': 'Bar sections', 'إخفاء أي قسم، أو قسم جديد باسمك وكتالوجاتك': 'Hide any section, or add one of your own with your catalogs', 'الثيم وشكل الرئيسية وأقسام الشريط وصفحة العمل والحجم': 'Theme, Home layout, bar sections, title page and size', 'صفوف قصيرة بتحديد أبيض، بشاراتك، والتقييمات تحت الصورة': 'Short rows with a white focus, your badges, and the ratings under the picture', 'مختصرة · بشاراتك والتقييمات تحت الصورة': 'Compact · your badges and the ratings under the picture', 'Apple TV · تكبير ورفع وظل': 'Apple TV · zoom, lift and shadow'})  # v5.10.480: bar sections, Compact ratings
+STRINGS.update({'للأنمي بس': 'anime only', 'يحتاج مفتاح MDBList': 'needs an MDBList key'})
+STRINGS.update({'كلاسيكي · كل التقييمات فوق': 'Classic · every rating on top', 'التصميم السابق: البوستر يسار، الشعار وكل التقييمات فوق بكبسولات زجاج، ومجموعات المصادر': 'The earlier page: the poster on the left, the logo and every rating on top as glass chips, the source groups', 'Prism أو مختصرة أو Halo أو الكلاسيكي': 'Prism, Compact, Halo or Classic'})
+STRINGS.update({'دوائر الشعارات': 'Logo circles', 'للمنصات والشبكات والممثلين، الشعار أو الصورة في دائرة': 'For services, networks and cast: the logo or the picture in a circle'})  # v5.10.481: the circle style
 _TR_MEMO = {}
 _TR_MEMO_LIMIT = 4096
 
+
+
+# Folder display choices added in skin.12.
+STRINGS.update({'العرض داخل الفولدرات': 'View inside folders',
+                   'صفوف بوسترات الكتالوجات': 'Catalog poster rows',
+                   'بطاقات الكتالوجات': 'Catalog cards', 'تبويبات الكتالوجات وصف واحد': 'Catalog tabs over one row', 'تبويبات (الكل، Top 10…) وصف واحد مثل المنصات، أو صفوف بوسترات': 'Tabs (All, Top 10…) over one row like the services, or poster rows',
+                   'صفوف بوسترات الكتالوجات أو بطاقات الكتالوجات': 'Catalog poster rows or catalog cards'})
+
+# v5.10.451: the control centre's Basic and All options
+STRINGS.update({'أساسي': 'Basic', 'كل الخيارات': 'All options',
+                'الإعدادات الأساسية فقط': 'Basic settings only',
+                'أهم الخيارات في كل قسم': 'The main options of every section',
+                '%d خيار متقدم في هذا القسم': '%d more options in this section'})
+
+# v5.10.451: the pictures of the choices (control centre)
+STRINGS.update({'البوستر جنب المعلومات، والمواسم والحلقات تحتها': 'The poster beside the details, seasons and episodes under them',
+                'الخلفية بملء الصفحة، أزرار زجاج، والمعلومات يسار': 'The backdrop over the page, glass buttons, the details on the left',
+                'تبويبات الكتالوجات، وعناوين التبويب في صف واحد تحتها': 'Catalogue tabs, the tab\'s titles in one row under them',
+                'كل كتالوج صف بوسترات': 'Every catalogue a row of posters',
+                'سطور الإضافة كاملة، والسطر المحدد يكبر، بشاراتك': "The add-on's lines in full, the focused row grows, your badges",
+                'صفوف قصيرة بتحديد أبيض، بشاراتك': 'Short rows with a white focus, your badges',
+                'شارات ملونة جاهزة وإطار متدرج': 'Ready coloured badges and a gradient ring'})
+
+STRINGS.update({'مقدار الصوت': 'Volume', 'صامت': 'Muted'})
+
+# v5.10.451: Silo alerts on Telegram
+STRINGS.update({'توصلني على تيليجرام أيضًا': 'Also on my Telegram', 'تنبيهات Silo على تيليجرام': 'Silo alerts on Telegram'})
+
+# v5.10.452: the quick setup and Basic's four sections (control centre)
+STRINGS.update({'الإعداد السريع': 'Quick setup',
+                'أربع خطوات: الحسابات والتشغيل والشكل وجهازك':
+                    'Four steps: accounts, playback, look and your device',
+                'البداية': 'Start', 'الإعداد السريع والحسابات': 'Quick setup and accounts',
+                'الشكل': 'Look', 'الثيم وشكل الرئيسية وصفحة العمل والحجم': 'The theme, the Home, the title page and the size',
+                'التشغيل': 'Playback', 'طريقة التشغيل والصوت والترجمة والتريلر': 'How titles play, audio and subtitles, trailers',
+                'الكاش والتشخيص وكودي والخروج': 'Cache, diagnostics, Kodi and leaving',
+                'كل الإعدادات': 'All settings', '%d خيار في كل الأقسام': '%d options in every section',
+                'الإعدادات الأساسية': 'Basic settings', 'أهم الخيارات في أربعة أقسام': 'The main options in four sections'})
 
 def tr(text):
     if text is None:
@@ -3368,6 +3490,7 @@ STRINGS.update({
 # v5.10.239: IPTV films and series in Continue Watching and the search
 STRINGS.update({
     'استكمال من %s': 'Resume from %s',
+    'يكمل من %s': 'Continuing from %s',
     'من البداية': 'From the start',
     'حلقات المسلسل': 'Series episodes',
     'من اشتراك IPTV': 'From your IPTV subscription',
@@ -3457,6 +3580,9 @@ STRINGS.update({
     'الشريط العلوي أو القائمة الجانبية تختفي لما تنزل للصفوف وترجع لما تطلع أو تروح يسار': 'The top bar or the side menu hides when you go down the rows and comes back when you go up or left',
     'فتح الأقسام بالتمرير': 'Open sections on focus',
     'الرجوع من القائمة يسأل عن الخروج': 'Back on the menu asks to exit Kodi',
+    'الرجوع للسكين السابق في قائمة الطاقة': 'Back to the previous skin in the power menu',
+    'زر في قائمة الإيقاف يرجعك لسكينك السابق بضغطة': 'A power menu item that takes you back to your previous skin',
+    'الرجوع إلى %s': 'Back to %s',
     'ملء الشاشة بعد': 'Full screen after',
     'أصوات التنقل': 'Navigation sounds',
     'تقييم': 'Rate', 'المراجعات': 'Reviews', 'تقييمك': 'Your rating',
@@ -3597,6 +3723,13 @@ STRINGS.update({
     'الظل اللي فوق وتحت الشريط': 'The shade above and below the bar',
     'مثل Nuvio TV': 'Like Nuvio TV',
     'مثل Nuvio TV أو صفوف مختصرة': 'Like Nuvio TV or compact rows',
+    'مثل Nuvio TV أو صفوف مختصرة أو Halo': 'Like Nuvio TV, compact rows or Halo',
+    'ثيم البحث والمصادر': 'Search and sources theme',
+    'زر PPI في المشغل': 'PPI button in the player',
+    'يفتح صفحة Dex Hub أو TinyPPI': 'Opens the Dex Hub page or TinyPPI',
+    'صفحة Dex Hub': 'Dex Hub page',
+    'TinyPPI لازم تكون مثبتة، وإذا مو مثبتة تفتح صفحة Dex Hub': 'TinyPPI must be installed; without it the Dex Hub page opens',
+    'Halo · زجاج وعدّاد الجودة': 'Halo · glass and quality counts',
 })
 
 # v5.10.304: a Nuvio sign in waits for its profile before the sync
@@ -3620,3 +3753,153 @@ STRINGS.update({
 
 # Player presentation controls added in 5.10.380–393.
 STRINGS.update({'خلفية وشعار أثناء التحميل': 'Artwork while loading', 'انتقال ناعم للفيديو عند توفر أول إطار؛ يحتاج سكين Dex Hub المحدث': 'Fade into video when the first frame is ready; requires the updated Dex Hub skin', 'شعار العمل · الحجم والمكان': 'Clear logo · size and position', 'شعار الاستديو · الحجم والمكان': 'Studio logo · size and position', 'الوصف · الخط والعرض والتمرير': 'Plot · text size, width and scrolling', 'شارات الجودة · الحجم والمكان والوضوح': 'Quality badges · size, position and appearance', 'بيانات العمل والتقييمات': 'Metadata and ratings', 'إظهار الشعار وحجمه ومكانه': 'Logo visibility, size and position', 'إظهار الشعار وحجمه وزاوية عرضه': 'Studio logo visibility, size and corner', 'حجم الخط وعرض الوصف والتمرير': 'Plot text size, width and scrolling', 'الحجم والمكان والشفافية والوضوح': 'Size, position, opacity and appearance', 'بدء التشغيل': 'Playback start', 'شعار الاستديو': 'Studio logo', 'الوصف · Plot': 'Plot', 'البيانات والتقييمات': 'Metadata and ratings', 'رموز المشغّل': 'Player badges', 'أسفل اليسار': 'Bottom left', 'أسفل اليمين': 'Bottom right', 'أعلى اليسار': 'Top left', 'أعلى اليمين': 'Top right', 'أصلي': 'Original', 'تحت البيانات': 'Under details', 'صغير': 'Small', 'عريض': 'Wide', 'فوق البيانات': 'Above details', 'فوق شريط التقدم': 'Above seek bar', 'متوسط': 'Medium', 'مختصر': 'Compact', 'واضح': 'Solid'})
+
+STRINGS.update({'الزجاج والتحديد': 'Glass & focus', 'تشغيل الزجاج ولون التحديد وحركته': 'Glass mode, focus colour and motion', 'كل إعدادات الإضافة': 'All add-on settings', 'كل الخيارات مرتبة حسب القسم داخل الإضافة': 'All options grouped inside the add-on', 'سكين Dex Hub مؤقت': 'Temporary Dex Hub skin', 'يتغير عند فتح الإضافة ويرجع لسكينك عند الخروج': 'Use Dex Hub on launch and restore your skin on exit', 'الخروج من Dex Hub والرجوع لسكيني': 'Leave Dex Hub and restore my skin', 'استعادة السكين الأصلي': 'Restore the original skin', 'إعدادات الإضافة': 'Add-on settings', 'كل الخيارات في المنيو نفسه': 'All options in this menu', 'خيارات هذا القسم': 'Options for this section', 'العام واللغة والثيم': 'General, language and theme', 'التخطي والتحميل': 'Skip and loading', 'الأدوات والإعداد': 'Tools and setup', 'IPTV والسيرفرات': 'IPTV and servers', 'المكتبة والمفضلة': 'Library and favourites', 'ثبّت سكين Dex Hub أولًا لتفعيل السكين المؤقت.': 'Install the Dex Hub skin first to use temporary skin mode.'})
+
+STRINGS.update({'كل خيارات المشغّل': 'All player settings', 'الخيارات التفصيلية لهذا القسم': 'Detailed options for this section', 'المشغّل': 'Player', 'التشغيل وأزرار المشغّل وشكله والحلقة التالية': 'Playback, player controls, appearance and next episode', 'كل خيارات التريلر': 'All trailers settings', 'التريلر': 'Trailers', 'التشغيل التلقائي والصوت والجودة وملء الشاشة': 'Automatic trailers, sound, quality and fullscreen', 'كل خيارات الثيم والمظهر': 'All theme & appearance settings', 'الثيم والمظهر': 'Theme & appearance', 'الثيم والألوان والزجاج والتحديد': 'Theme, colours, glass and focus', 'كل خيارات الرئيسية والصفوف': 'All home & rows settings', 'الرئيسية والصفوف': 'Home & rows', 'التخطيط والتنقّل والبطاقات والبانر': 'Layout, navigation, cards and featured banner', 'كل خيارات الميتاداتا والصور': 'All metadata & artwork settings', 'الميتاداتا والصور': 'Metadata & artwork', 'المصادر واللغة والبوسترات والشعارات والتقييمات': 'Sources, language, posters, logos and ratings', 'كل خيارات مصادر التشغيل': 'All stream sources settings', 'مصادر التشغيل': 'Stream sources', 'إضافات البحث والفلترة وترتيب روابط التشغيل': 'Source add-ons, filters and stream ordering', 'كل خيارات الترجمة': 'All subtitles settings', 'الترجمة': 'Subtitles', 'البحث واللغة والتصفية والمزامنة': 'Search, language, filters and synchronization', 'كل خيارات الحسابات والمزامنة': 'All accounts & sync settings', 'الحسابات والمزامنة': 'Accounts & sync', 'الربط وإدارة الحسابات والمزامنة والمشاهدة الجماعية': 'Connect accounts, sync and watch parties', 'كل خيارات المكتبة والمتابعة': 'All library & progress settings', 'المكتبة والمتابعة': 'Library & progress', 'المفضلة والقوائم وسجل المشاهدة والحلقات': 'Favourites, lists, watch history and episodes', 'كل خيارات IPTV والسيرفرات': 'All iptv & servers settings', 'IPTV والسيرفرات': 'IPTV & servers', 'القنوات وVOD ودليل البرامج ومكتبات السيرفرات': 'Live TV, VOD, programme guide and server libraries', 'كل خيارات السكين واللغة': 'All skin & language settings', 'السكين واللغة': 'Skin & language', 'السكين المؤقت والتبديل واللغة والحجم والأصوات': 'Temporary skin, switching, language, size and sounds', 'كل خيارات الصيانة والنسخ الاحتياطي': 'All maintenance & backup settings', 'الصيانة والنسخ الاحتياطي': 'Maintenance & backup', 'الأداء والكاش والتشخيص والنسخ والاستعادة': 'Performance, cache, diagnostics, backup and restore', 'كل خيارات كودي والخروج': 'All kodi & exit settings', 'كودي والخروج': 'Kodi & exit', 'إضافات كودي وإعداداته والخروج وإعادة التشغيل': 'Kodi add-ons, settings, exit and restart', 'خلفية كاملة': 'Full background', 'خلفية كاملة أو سينمائية أو هادئة أو داكنة': 'Full background, cinematic, soft or dark', 'إضافات كودي': 'Kodi add-ons', 'فتح قسم الإضافات من كودي': 'Open the Kodi add-on browser', 'شعار العمل · Clear logo': 'Clear logo', 'شارات الجودة · Badges': 'Quality badges'})
+
+STRINGS.update({'التصنيف الرقابي عند بداية التشغيل': 'Content rating at playback start', 'تفعيل بطاقة التصنيف ووقت ظهورها ومكانها ومدتها': 'Enable the rating card, choose when it appears, its position and duration'})
+
+STRINGS.update({'أشكال الثيمات والألوان': 'Theme styles & colours', 'معاينة الثيمات واختيار الألوان': 'Preview themes and choose colours', 'أشكال الصفوف والكتالوجات': 'Row & catalog styles', 'شكل كل صف وترتيبه وحجمه': 'Choose each row’s style, order and size', 'إدارة الكتالوجات والمجموعات': 'Catalogs & collections', 'اختيار الكتالوجات وترتيب المجموعات': 'Choose catalogs and arrange collections'})
+
+STRINGS.update({'الصفوف التابعة عند الوقوف': 'Dependent rows on focus', 'كوليكشنات AF3': 'AF3 collections', 'تحديث الميتاداتا تلقائيًا': 'Refresh metadata automatically', 'نقل كوليكشنات AF3 مجددًا': 'Import AF3 collections again', 'فتح كتالوج العنصر في صف تحته بمجرد التحديد': 'Open the selected item as a catalog row below it', 'إظهار قوائم الأفلام والمسلسلات المستوردة من AF3': 'Show movie and series collections imported from AF3', 'قراءة أحدث إعدادات AF3 الموجودة على جهازك': 'Read the latest AF3 settings on this device', 'استكمال البيانات وتحديث التقييم وحالة المسلسل دوريًا': 'Complete metadata and periodically refresh ratings and show status', 'جارٍ تحميل الكتالوج…': 'Loading catalog…'})
+
+STRINGS.update({'الترتيب • المصدر': 'Sort • Source order'})
+
+STRINGS.update({'توصيات الأعمال في صف تابع': 'Dependent rows for title recommendations', 'فتح الكوليكشن المحدد في صف تحته؛ التحكم متاح لكل صف': 'Open the focused collection below its row; configurable per row', 'للأفلام والمسلسلات؛ معطّل افتراضيًا ويمكن تفعيله لكل صف': 'For movies and TV shows; off by default, configurable per row', 'الكوليكشنات تحت هذا الصف: مفعّل': 'Collections below this row: On', 'الكوليكشنات تحت هذا الصف: معطّل': 'Collections below this row: Off', 'توصيات الأعمال تحت هذا الصف: مفعّل': 'Title recommendations below this row: On', 'توصيات الأعمال تحت هذا الصف: معطّل': 'Title recommendations below this row: Off', 'استعادة إعداد الصف التابع الافتراضي': 'Restore default dependent-row settings', 'تحديث إعدادات الصف التابع': 'Dependent-row settings'})
+
+STRINGS.update({'الصف التابع…': 'Dependent row…'})
+
+STRINGS.update({'الصوت والترجمة': 'Audio & subtitles', 'لغة الصوت الأساسية والبديلة والترجمة الإجبارية وSDH': 'Primary and secondary audio languages, forced subtitles and SDH'})
+
+STRINGS.update({'الصوت والفيديو': 'Audio & video', 'مسارات الصوت والصورة والترجمة وتفضيلات التشغيل': 'Audio/video/subtitle tracks and playback preferences', 'طريقة فتح الكوليكشن': 'Open collections as', 'كتالوجات بصفوف بوسترات أو فولدرات؛ الافتراضي كتالوجات': 'Catalog poster rows or folder cards; catalogs by default', 'خط الواجهة وحجمه': 'Interface font & size', 'خطوط الميديا وحجم النص والخط العريض': 'Media folder fonts, text size and bold weight'})
+
+STRINGS.update({'اختر كتالوجًا': 'Choose a catalog'})
+
+STRINGS.update({'الخط غير متاح؛ اختر خطًا آخر': 'Font unavailable; choose another font'})
+STRINGS.update({'إضافات': 'add-ons'})  # v5.10.439: the Halo search card
+STRINGS.update({'سينما أو سبوتلايت أو قائمتك أو أخبار السينما، مع معاينة': 'Cinema, Spotlight, Your List or Film news, with a preview'})  # v5.10.439
+STRINGS.update({'من إعدادات كودي، أو خط من ملفاتك': "From Kodi's settings, or a font from your files"})  # v5.10.440
+STRINGS.update({'مختصرة · بشاراتك الخاصة': 'Compact · your own badges', 'Halo · جاهز بشاراته': 'Halo · ready-made, its own badges',
+                'مختصرة تعرض شاراتك الخاصة، أو Halo الجاهز': 'Compact shows your own badges, or the ready-made Halo'})  # v5.10.441
+STRINGS.update({'Prism · سطور الإضافة كاملة بشاراتك': "Prism · the add-on's own lines, your badges", 'Prism أو مختصرة بشاراتك، أو Halo الجاهز': 'Prism or Compact with your badges, or the ready-made Halo'})  # v5.10.442
+STRINGS.update({'لا توجد نتائج بهذا الفلتر': 'No results with this filter'})  # v5.10.442
+STRINGS.update({'إضافة كودي': 'Kodi add-on', 'ما تقدر تعطي نتائجها': 'cannot share its results',
+                'ما قدرت أربط هذي الإضافة: نسختها تغيّرت عن اللي يعرفها Dex Hub.':
+                    'Dex Hub could not link this add-on: its version differs from the one Dex Hub knows.',
+                'الإضافات اللي يسألها البحث، ومنها Fen Light وUmbrella': 'The add-ons the search asks, Fen Light and Umbrella too'})  # v5.10.447
+STRINGS.update({'الترتيب • TRaSH': 'Sort • TRaSH', 'أعلى درجة في TRaSH Guides': 'Highest TRaSH Guides score'})  # v5.10.447
+STRINGS.update({'◀  الفلاتر': '◀  Filters'})  # v5.10.447
+STRINGS.update({'الترتيب • TRaSH · WEB أول': 'Sort • TRaSH · WEB first'})  # v5.10.447
+STRINGS.update({'%d عنوان': '%d titles'})  # v5.10.448
+STRINGS.update({'بطاقات': 'Cards', 'بانر': 'Banner', 'أرقام': 'Numbers', 'كوليكشن': 'Collection', 'مقترح': 'Suggested'})  # v5.10.448
+STRINGS.update({'لون خلفية الصفحات': 'Page background colour', 'كحلي أو أسود أو لون ثيمك أو بنفسجي أو أخضر أو غيرها، لصفحة الكوليكشن وصفحة العمل': 'Navy, black, your theme, plum, green and more, for the collection and title pages'})  # v5.10.448
+STRINGS.update({'شكل صفحة العمل': 'Title page layout', 'كلاسيكي، أو سينمائي: الخلفية بملء الصفحة وأزرار ومواسم زجاجية': 'Classic, or cinematic: the backdrop over the page, glass buttons and seasons', 'متاح على': 'Available on', 'التفاصيل': 'Details', 'الإخراج': 'Director', 'الإصدار': 'Released', 'الاستديو': 'Studio', 'بطولة': 'Starring', 'روابط': 'links'})  # v5.10.448
+
+# v5.10.448: page colour follows the title
+STRINGS.update({'يتبع لون العمل': 'Follows the title', 'يتبع لون العمل، أو كحلي أو أسود أو لون ثيمك أو غيرها، لصفحة الكوليكشن وصفحة العمل': "The title's own colour, or navy, black, your theme or others, for the collection and title pages"})
+
+
+# v5.10.544: labels and messages the English page still showed in Arabic
+STRINGS.update({
+    'رياضة': 'Sport',
+    'رياضة · مباريات اليوم': 'Sport · Today\'s games',
+    'حتى %s': 'Until %s',
+    'إعدادات سحب ورفع Stremio': 'Stremio pull and push settings',
+    'ثبّت إضافة YouTube الرسمية أولاً': 'Install the official YouTube add-on first',
+    'أسبوع وقائمة وشهر لكل اللي تتابعه': 'Week, list and month for everything you follow',
+    'إدارة كوليكشنات Silo': 'Manage Silo collections',
+    'تنبيهات Silo والجزيرة': 'Silo and Al Jazeera alerts',
+    'قوائم وكوليكشنات Silo': 'Silo lists and collections',
+    'كوليكشناتي': 'My collections',
+    'الكوليكشنات الشخصية بترتيب Silo.': 'Your own collections, in Silo\'s order.',
+    'سحب ورفع': 'Pull and push',
+    'سحب فقط': 'Pull only',
+    'رفع فقط': 'Push only',
+    'المزامنة التلقائية': 'Automatic sync',
+    'مفعّلة': 'On',
+    'مطفأة': 'Off',
+    'الاتجاه': 'Direction',
+    'المشاهدة والتقدم': 'Watched and progress',
+    'اتجاه مزامنة Stremio': 'Stremio sync direction',
+    'غلاف المجلد…': 'Folder cover…',
+    'غلاف الكتالوج…': 'Catalog cover…',
+    'صحّحت توقيت الترجمة على %d أجزاء (لها نسخة فيها فواصل مختلفة)':
+        'Fixed the subtitle timing in %d parts (its release has different breaks)',
+    # Silo errors shown to the person
+    'صفحة Silo غير صالحة': 'Silo sent a page that is not valid',
+    'مؤشر صفحات Silo غير صالح': 'Silo\'s page marker is not valid',
+    'تغير ترتيب صفحات Silo؛ أعد فتح القائمة': 'Silo\'s page order changed; open the list again',
+    'قائمة Silo أكبر من حد التصفح الآمن': 'This Silo list is larger than the safe browsing limit',
+    'رد هوية Silo غير صالح؛ تحقق من عنوان السيرفر': 'Silo\'s identity answer is not valid; check the server address',
+    'قائمة Silo غير مكتملة؛ أعد تحميلها': 'The Silo list came incomplete; load it again',
+    'رد Silo غير صالح': 'Silo\'s answer is not valid',
+    'هوية جلسة Silo مفقودة؛ أعد تشغيل المصدر': 'The Silo session id is missing; play the source again',
+    'رد تحديث جلسة Silo غير صالح': 'Silo\'s session refresh answer is not valid',
+    'رد إنهاء جلسة Silo لا يطابق الطلب': 'Silo\'s session end answer does not match the request',
+    'توقيت خطة Silo غير صالح': 'The Silo play plan\'s timing is not valid',
+    'هوية خطة Silo لا تطابق الجلسة': 'The Silo play plan does not match the session',
+    'هوية جلسة Silo غير صالحة': 'The Silo session id is not valid',
+    'خطة Silo تحتاج تجديد ترويسات أثناء البث؛ هذه الآلية غير متاحة في مشغّل Kodi':
+        'This Silo plan renews headers during playback, which Kodi\'s player cannot do',
+    'نافذة تقديم Silo غير صالحة': 'Silo\'s serving window is not valid',
+    'ترويسة خطة Silo غير صالحة': 'A Silo play plan header is not valid',
+    'تغير سيرفر Silo؛ أعد فتح المصدر': 'The Silo server changed; open the source again',
+    'تغير حساب Silo؛ تجاهل تحديث الجلسة السابقة': 'The Silo account changed; the old session refresh was ignored',
+    'نسخة Silo المحددة لم تعد متاحة؛ اختر المصدر من جديد': 'That Silo copy is gone; choose the source again',
+    'تشغيل Silo غير متاح لهذا البروفايل أو لم يكتمل إعداد السيرفر':
+        'Silo playback is not available for this profile, or the server setup is not finished',
+    'سيرفر Silo يحتاج تحديث عقد جلسات التشغيل': 'The Silo server needs an update for playback sessions',
+    'لم يسمح Silo بخطة تشغيل: %s': 'Silo did not allow a play plan: %s',
+    'لم يسمح Silo بخطة تشغيل:': 'Silo did not allow a play plan:',
+    'Silo مشغول؛ حاول بعد %d ثانية': 'Silo is busy; try again in %d seconds',
+    'Silo مشغول؛ حاول بعد': 'Silo is busy; try again in',
+    'تغير بروفايل Silo؛ أعد فتح الصفحة': 'The Silo profile changed; open the page again',
+    'اربط بروفايل Silo أولًا': 'Link a Silo profile first',
+    'تغير بروفايل Silo؛ أعد فتح القائمة': 'The Silo profile changed; open the list again',
+    'اسم الكوليكشن مطلوب': 'The collection needs a name',
+    'السيرفر لا يوفر حماية تعديل الكوليكشن؛ حدّث Silo': 'The server cannot protect collection edits; update Silo',
+    'رد الكوليكشن لا يطابق الطلب': 'The collection answer does not match the request',
+    'تغيرت هوية الكوليكشن': 'The collection\'s id changed',
+})
+
+# v5.10.545: the settings page's hints (Left/Right change a value in place)
+STRINGS.update({
+    'OK للفتح  •  رجوع للأقسام': 'OK opens  •  Back: sections',
+    'يمين ويسار للتغيير  •  OK لكل الخيارات': 'Left/Right change it  •  OK: every choice',
+    'الإعدادات الأساسية': 'Basic settings',
+    'كل الإعدادات': 'All settings',
+})
+
+# v5.10.545: the Basic sections added in 5.10.543 (they showed in Arabic in the English UI)
+STRINGS.update({
+    'مصادر التشغيل': 'Sources',
+    'الصفوف والكتالوجات': 'Rows and catalogs',
+    'ترتيبها وإخفاؤها وشكلها، وأقسام الشريط': 'Their order, hiding and style, and the bar\'s sections',
+    'الإضافات اللي يبحث فيها، والـNAS، وطريقة التشغيل': 'The add-ons searched, your NAS, and how playback starts',
+    'الصوت والترجمة والتريلر': 'Audio, subtitles and trailers',
+    'الإعداد السريع والحسابات وDexCloud والمفاتيح': 'Quick setup, accounts, DexCloud and keys',
+    'الإضافات والديبريد وUsenet والـNAS وطريقة التشغيل': 'Add-ons, Debrid, Usenet, your NAS and how playback starts',
+    'الصوت والترجمة وأزرار المشغّل والحلقات والتريلر': "Audio, subtitles, the player's buttons, episodes and trailers",
+    'النسخ الاحتياطي والكاش والتشخيص وكودي والخروج': 'Backups, cache, diagnostics, Kodi and leaving',
+    'أفلامك ومسلسلاتك في الـNAS تطلع مع المصادر': 'Films and series on your NAS show with the sources',
+})
+
+STRINGS.update({'الشكل العام': 'Look', 'نظيف · شاشة كاملة': 'Clean · full screen',
+                'Dex Hub، أو نظيف: القائمة الجانبية تنطوي في زر صغير، والخلفية بملء الشاشة، وصفحة العمل على نفس الخلفية':
+                    'Dex Hub, or Clean: the side menu folds into one small pill, the backdrop fills the screen, and the title page sits on the same picture',
+                'شكل Dex Hub المعتاد بأقسامه وتخطيطاته': 'The usual Dex Hub look with its sections and layouts',
+                'قائمة جانبية تنطوي، خلفية بملء الشاشة، والأسماء تحت البطاقات': 'A side menu that folds away, a full-screen backdrop, names under the cards'})  # v5.10.552
+
+STRINGS.update({'بوسترات بشعار العمل': 'Posters with the logo',
+                'البوستر أغمق شوي وشعار العمل واضح عليه من تحت، مثل Apple TV': 'The poster a little darker with the work\'s logo clear at the bottom, as on Apple TV',
+                'اللغة': 'Language', 'مشاهد مخيفة': 'Intense'})  # v5.10.552
+
+# v5.10.556: the title page's tabs option
+STRINGS.update({'صفحة العمل بتبويبات': 'Title page with tabs',
+                'قسم واحد يظهر تحت الأزرار (الحلقات، الممثلون، أعمال مشابهة…) وكل قسم يتحمّل لما تفتحه':
+                'One section shows under the buttons (episodes, cast, related…) and each loads when you open it'})
+
+# v5.10.556: the title page's look menu
+for _ar, _en in (('تخطيط الصفحة', 'Page layout'), ('مفعّل', 'On'), ('مطفأ', 'Off'), ('سينمائي', 'Cinematic'), ('كلاسيكي', 'Classic')):
+    STRINGS.setdefault(_ar, _en)

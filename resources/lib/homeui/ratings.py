@@ -21,6 +21,26 @@ LIMIT = 6
 NAMES = {'imdb': 'IMDb', 'tmdb': 'TMDb', 'rt_crit': 'Rotten Tomatoes', 'rt_aud': 'Popcornmeter',
          'metacritic': 'Metacritic', 'trakt': 'Trakt', 'letterboxd': 'Letterboxd', 'mdblist': 'MDBList',
          'mal': 'MyAnimeList'}
+# v5.10.562: the Aura sources page's ratings row (740 px, 10 px apart): each
+# chip's width there (tools/make_halo_picker.py draws the same numbers). A chip
+# that would not fit whole is left out, not cut in half at the panel's edge.
+ROW_CHIPS = {'imdb': 136, 'tmdb': 124, 'rt_crit': 146, 'rt_aud': 146, 'metacritic': 114,
+             'trakt': 146, 'letterboxd': 132, 'mdblist': 114, 'mal': 136}
+ROW_ROOM, ROW_GAP = 740, 10
+
+
+def row_fit(values, prefix='dexhub.rating.'):
+    """The ratings (of those with a value, in ORDER) whose chips fit the row whole."""
+    fit, used = [], 0
+    for key in ORDER:
+        if not values.get(prefix + key):
+            continue
+        need = ROW_CHIPS[key] + (ROW_GAP if fit else 0)
+        if used + need > ROW_ROOM:
+            break
+        fit.append(key)
+        used += need
+    return fit
 
 
 def chosen(saved=None):
@@ -36,12 +56,34 @@ def chosen(saved=None):
     return keys or list(ORDER)
 
 
+# v5.10.481: where each rating comes from. Without a key Dex Hub reaches IMDb,
+# TMDb, Trakt and MyAnimeList; the rest come from MDBList (its API key, Dex
+# Hub's or TMDb Helper's), Rotten Tomatoes and Metacritic also from OMDb (TMDb
+# Helper's key). The picker says so, or every source looks promised.
+NEEDS_MDBLIST = ('rt_crit', 'rt_aud', 'metacritic', 'letterboxd', 'mdblist')
+OMDB_TOO = ('rt_crit', 'metacritic')
+
+
+def _needs(key, tr):
+    if key == 'mal':
+        return '  ·  ' + tr('للأنمي بس')
+    if key not in NEEDS_MDBLIST:
+        return ''
+    try:
+        from .. import mdblist
+        if mdblist.ratings_key() or (key in OMDB_TOO and _helper_key('omdb_apikey')):
+            return ''
+    except Exception:
+        return ''
+    return '  ·  ' + tr('يحتاج مفتاح MDBList')
+
+
 def pick(tr=None):
     """The picker (the Control Centre): any of the nine, at least one."""
     import xbmcgui
     tr = tr or (lambda text: text)
     current = chosen()
-    picked = xbmcgui.Dialog().multiselect(tr('التقييمات الظاهرة'), [NAMES[k] for k in ORDER],
+    picked = xbmcgui.Dialog().multiselect(tr('التقييمات الظاهرة'), [NAMES[k] + _needs(k, tr) for k in ORDER],
                                           preselect=[i for i, k in enumerate(ORDER) if k in current])
     if picked is None:
         return False
@@ -58,8 +100,10 @@ FRESH = 60
 MC_COLORS = ((61, 'FF66CC33'), (40, 'FFFFCC33'), (0, 'FFFF3B30'))
 
 
-def collect(tmdb_id='', imdb_id='', media_type='movie', network=False):
-    """{key: value} for the title, in ORDER, from the sources above."""
+def collect(tmdb_id='', imdb_id='', media_type='movie', network=False, full=False):
+    """{key: value} for the title, in ORDER, from the sources above.
+    ``full`` (v5.10.481, the sources page): MDBList is asked even when three
+    ratings are known already, for Rotten Tomatoes, Metacritic and the rest."""
     from ..ui_preferences import enabled
     if not enabled('metadata_badges'):
         return {}
@@ -77,7 +121,7 @@ def collect(tmdb_id='', imdb_id='', media_type='movie', network=False):
     try:
         from .. import mdblist
         extra = mdblist.cached_ratings(imdb_id=imdb_id, media_type=media_type, tmdb_id=tmdb_id) or {}
-        if not extra and network and len(found) < 3 and mdblist.ratings_key():
+        if not extra and network and (len(found) < 3 or full) and mdblist.ratings_key():
             extra = mdblist.fetch_ratings(imdb_id=imdb_id, media_type=media_type,
                                           tmdb_id=tmdb_id, timeout=6) or {}
         for key, value in extra.items():
@@ -85,7 +129,7 @@ def collect(tmdb_id='', imdb_id='', media_type='movie', network=False):
                 found[key] = value
     except Exception:
         pass
-    if network and len([k for k in ORDER if found.get(k)]) < 4:
+    if network and (len([k for k in ORDER if found.get(k)]) < 4 or not found.get('trakt')):
         try:
             for key, value in free_ratings(tmdb_id=tmdb_id, imdb_id=imdb_id, media_type=media_type,
                                            have=found).items():
@@ -159,6 +203,52 @@ def _json(url, timeout=4):
         return _j.loads(response.read(512 * 1024).decode('utf-8', 'replace'))
 
 
+def _trakt_rating(imdb_id, series):
+    """v5.10.448: Trakt's own score, with Dex Hub's app id (no account)."""
+    import json as _j
+    import urllib.request
+    from .. import trakt
+    req = urllib.request.Request('https://api.trakt.tv/%s/%s/ratings' % ('shows' if series else 'movies', imdb_id),
+                                 headers={'User-Agent': 'DexHub (Kodi)', 'Content-Type': 'application/json',
+                                          'trakt-api-version': '2', 'trakt-api-key': trakt.client_id()})
+    with urllib.request.urlopen(req, timeout=4) as response:
+        data = _j.loads(response.read(64 * 1024).decode('utf-8', 'replace'))
+    score, votes = float(data.get('rating') or 0), int(data.get('votes') or 0)
+    return '%.1f' % score if score > 0 and votes >= 10 else ''
+
+
+_JIKAN = {'down': 0.0}
+
+
+def _mal_rating(details, series):
+    """v5.10.448: MyAnimeList's score for Japanese animation, from Jikan (MAL's
+    free API), the same title and year (a year apart at most)."""
+    import urllib.parse
+    genres = [g.get('id') for g in details.get('genres') or []]
+    japanese = details.get('original_language') == 'ja' or 'JP' in (details.get('origin_country') or [])
+    if 16 not in genres or not japanese:
+        return ''
+    name = details.get('original_name') or details.get('original_title') or details.get('name') or details.get('title') or ''
+    year = str(details.get('first_air_date') or details.get('release_date') or '')[:4]
+    if not name or not year.isdigit():
+        return ''
+    import time
+    if time.time() - _JIKAN['down'] < 600:
+        return ''                         # it did not answer lately: not asked for 10 minutes
+    try:
+        data = _json('https://api.jikan.moe/v4/anime?' + urllib.parse.urlencode(
+            {'q': name, 'limit': 8, 'type': 'tv' if series else 'movie'}), timeout=5) or {}
+    except Exception:
+        _JIKAN['down'] = time.time()
+        return ''
+    for row in data.get('data') or []:
+        aired = ((row.get('aired') or {}).get('prop') or {}).get('from') or {}
+        first = row.get('year') or aired.get('year')
+        if first and abs(int(first) - int(year)) <= 1 and row.get('score'):
+            return '%.1f' % float(row['score'])
+    return ''
+
+
 def _helper_key(name):
     try:
         import xbmcaddon
@@ -181,14 +271,29 @@ def free_ratings(tmdb_id='', imdb_id='', media_type='movie', have=None):
             imdb_id = tmdb_direct.imdb_id_for(tmdb_id, 'tv' if series else 'movie', timeout=4) or ''
         except Exception:
             imdb_id = ''
-    if not have.get('tmdb') and tmdb_id:
+    details = {}
+    if (not have.get('tmdb') or not have.get('mal')) and tmdb_id:
         try:
             from .. import tmdb_direct
-            data = tmdb_direct._request('/%s/%s' % ('tv' if series else 'movie', tmdb_id), timeout=4,
-                                        max_attempts=1) or {}
-            score = float(data.get('vote_average') or 0)
-            if score > 0 and int(data.get('vote_count') or 0) >= 5:
+            details = tmdb_direct._request('/%s/%s' % ('tv' if series else 'movie', tmdb_id), timeout=4,
+                                           max_attempts=1) or {}
+            score = float(details.get('vote_average') or 0)
+            if not have.get('tmdb') and score > 0 and int(details.get('vote_count') or 0) >= 5:
                 out['tmdb'] = '%.1f' % score
+        except Exception:
+            details = {}
+    if not have.get('trakt') and str(imdb_id).startswith('tt'):
+        try:
+            value = _trakt_rating(imdb_id, series)
+            if value:
+                out['trakt'] = value
+        except Exception:
+            pass
+    if not have.get('mal') and details:
+        try:
+            value = _mal_rating(details, series)
+            if value:
+                out['mal'] = value
         except Exception:
             pass
     if not have.get('imdb') and str(imdb_id).startswith('tt'):

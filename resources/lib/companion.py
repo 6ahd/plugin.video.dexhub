@@ -805,6 +805,40 @@ def _local_percent(position_ms, duration_ms):
     return 0.0
 
 
+_NAMED = set()
+
+
+def _resume_notice(seconds):
+    """v5.10.581: a short notice when Dex Hub carries a title on from where it was left
+    ("Continuing from 1:23:45"), as Lucent Library showed for its own resume."""
+    try:
+        total = int(max(0.0, float(seconds)))
+        hours, rest = divmod(total, 3600)
+        mins, secs = divmod(rest, 60)
+        stamp = '%d:%02d:%02d' % (hours, mins, secs) if hours else '%d:%02d' % (mins, secs)
+        xbmcgui.Dialog().notification('Dex Hub', tr('يكمل من %s') % stamp, xbmcgui.NOTIFICATION_INFO, 3000, False)
+    except Exception:
+        pass
+
+
+def _save_show_name(ctx, media_type, canonical_id, video_id):
+    """v5.10.540: the series' name with the row, once a playback. A row without
+    it had no card in My Library unless an account row stood beside it."""
+    key = (media_type, canonical_id, video_id)
+    if key in _NAMED:
+        return
+    try:
+        from . import continue_names, nowplaying
+        name = nowplaying._show(ctx) or xbmcgui.Window(10000).getProperty(nowplaying.TITLE)
+        if not name or name == ctx.get('title'):
+            name = continue_names.name_for(ctx, is_episode=True, network=False)
+        if name:
+            playback_store.set_names([(media_type, canonical_id, video_id, '', name)])
+            _NAMED.add(key)
+    except Exception:
+        pass
+
+
 def _save_local_progress(ctx, position_ms=0, duration_ms=0, finished=False):
     if not isinstance(ctx, dict) or not ctx:
         return
@@ -878,6 +912,8 @@ def _save_local_progress(ctx, position_ms=0, duration_ms=0, finished=False):
     except Exception as exc:
         xbmc.log('[DexHub] local progress save failed: %s' % exc, xbmc.LOGWARNING)
     else:
+        if is_episode:
+            _save_show_name(ctx, media_type, canonical_id, video_id)
         _invalidate_nextup_cache()
         # Wake up the home / CW UI so the row reflects this save without
         # the user having to navigate away and back. Skipped when we're
@@ -1052,6 +1088,13 @@ def _is_internal_navigation_path(path):
 
 class CompanionPlayer(xbmc.Player):
     def onAVStarted(self):
+        try:
+            # v5.10.572: a subtitle put on a disc in its menus from anywhere (Kodi's
+            # subtitle dialog, any subtitle add-on) gets the main-movie offer too
+            from . import disc_menu
+            disc_menu.watch()
+        except Exception:
+            pass
         if not self._foreign_active:
             try:
                 from . import nowplaying   # 5.10.302: the Home keeps the playing title's logo
@@ -1404,10 +1447,13 @@ class CompanionPlayer(xbmc.Player):
                 return str(left or '') == str(right or '')
 
         def _dialog_active():
-            # getCurrentWindowDialogId is available on Kodi 19+ and catches
-            # subtitle-service pickers even when their skin XML name differs.
+            # v5.10.572: a modal dialog only (a subtitle picker is one). A dialog that
+            # stays open through playback without being modal (dialog 12002 on
+            # Kodi 22 with the Dex Hub skin) kept the subtitle from ever coming back
+            # (a disc played again as its main movie, 14 Nov 2026).
             try:
-                return int(xbmcgui.getCurrentWindowDialogId() or 0) > 0
+                if xbmc.getCondVisibility('System.HasModalDialog'):
+                    return True
             except Exception:
                 pass
             for cond in ('Window.IsActive(subtitlesearch)',
@@ -1718,9 +1764,33 @@ class CompanionPlayer(xbmc.Player):
         self._start_progress_heartbeat()
 
     def _schedule_fallback(self, reason='', delay_ms=3200):
-        """Automatic source fallback is intentionally disabled in v5.3."""
-        self._fallback_pending = False
-        return False
+        """v5.10.448: a link that never played gives way to the next source of
+        its list (auto_next), once Kodi has had delay_ms to recover. v5.3 had
+        it off: the old chain also followed a stop by the user; this runs
+        only on Kodi's error with no progress at all (under 3 s)."""
+        if self._fallback_pending or self._progress_seen_ms >= 3000:
+            return False
+        from . import auto_next
+        if not auto_next.enabled():
+            return False
+        ctx = dict(self.ctx or {}) or dict(load_session() or {})
+        if not ctx.get('stream_key'):
+            return False
+        self._fallback_pending = True
+
+        def fire():
+            try:
+                if not xbmc.Player().isPlaying():           # it did not recover
+                    auto_next.try_next(ctx, reason)
+            except Exception as exc:
+                xbmc.log('[DexHub] auto next source failed: %s' % exc, xbmc.LOGWARNING)
+            finally:
+                self._fallback_pending = False
+
+        timer = threading.Timer(max(0.5, delay_ms / 1000.0), fire)
+        timer.daemon = True
+        timer.start()
+        return True
 
     def _report(self, method_name, position_ms=None):
         if not self.reporter:
@@ -1826,6 +1896,12 @@ class CompanionPlayer(xbmc.Player):
 
                 if generation != self._resume_generation or not self._player_looks_active(require_real_media=True):
                     return
+                if xbmc.getCondVisibility('VideoPlayer.HasMenu'):
+                    # v5.10.567: a disc in its menus plays what the disc chooses;
+                    # a seek there lands in its intro or menu loop, not the film
+                    success = True
+                    _monitor('resume-skipped-disc-menu', title=self.ctx.get('title') or '', target_seconds='%.1f' % target)
+                    return
                 total = stable_total
                 seek_to = target
                 # Only derive from percent when there is no usable absolute
@@ -1851,6 +1927,8 @@ class CompanionPlayer(xbmc.Player):
                 if current >= already_at:
                     success = True
                     _monitor('resume-already-applied', title=self.ctx.get('title') or '', target_seconds='%.1f' % seek_to, current_seconds='%.1f' % current)
+                    if not switching:
+                        _resume_notice(seek_to)
                     return
 
                 # One normal attempt plus one recovery attempt only.  Repeated
@@ -1882,6 +1960,8 @@ class CompanionPlayer(xbmc.Player):
                     if current >= already_at:
                         success = True
                         _monitor('resume-applied', title=self.ctx.get('title') or '', target_seconds='%.1f' % seek_to, current_seconds='%.1f' % current, attempt=attempt + 1)
+                        if not switching:
+                            _resume_notice(seek_to)
                         return
                 _monitor('resume-failed', level=xbmc.LOGWARNING, title=self.ctx.get('title') or '', target_seconds='%.1f' % seek_to, resume_percent='%.2f' % resume_pct)
             except Exception as exc:
@@ -2031,11 +2111,13 @@ class CompanionPlayer(xbmc.Player):
                 pass
             return
         if not job:
-            return
+            job = {'uid': uid, 'ctx': dict(self.ctx), 'tracks': True}
 
         def _runner():
             try:
-                post_start.run_job(job, monitor=_monitor)
+                post_start.run_job(job, monitor=_monitor,
+                    valid=lambda: not self._foreign_active and
+                    str(self._active_playback_uid or '') == uid)
             except Exception as exc:
                 _monitor('play-post-start-error', level=xbmc.LOGWARNING,
                          error=exc, title=self.ctx.get('title') or '')
@@ -2224,11 +2306,10 @@ class CompanionPlayer(xbmc.Player):
         _clear_tmdbh_handoff_flag()
         self._had_error = True
         _monitor('playback-error', level=xbmc.LOGWARNING, title=self.ctx.get('title') or '', canonical_id=self.ctx.get('canonical_id') or '', provider=self.ctx.get('provider_name') or self.ctx.get('provider_id') or '')
-        if self._fallback_chain:
-            xbmc.log('[DexHub] onPlayBackError — scheduling fallback grace', xbmc.LOGWARNING)
-            self._schedule_fallback('playback-error', delay_ms=3200)
+        if self._schedule_fallback('playback-error', delay_ms=3200):
+            xbmc.log('[DexHub] onPlayBackError — the next source in 3 s unless it recovers', xbmc.LOGWARNING)
         else:
-            xbmc.log('[DexHub] onPlayBackError — no fallback configured', xbmc.LOGWARNING)
+            xbmc.log('[DexHub] onPlayBackError — no automatic next source', xbmc.LOGWARNING)
 
 
     def onPlayBackStopped(self):
@@ -2322,10 +2403,11 @@ class CompanionPlayer(xbmc.Player):
             and elapsed < 60.0
             and self._progress_seen_ms < 30000
         )
-        if probably_failed and self._fallback_chain:
-            _monitor('stopped-probably-failed', level=xbmc.LOGWARNING, title=self.ctx.get('title') or '', elapsed='%.2f' % elapsed, position_ms=pos, duration_ms=dur, progress_seen_ms=self._progress_seen_ms, had_error=self._had_error, fallback_count=len(self._fallback_chain or []))
-            self._schedule_fallback('stopped-early', delay_ms=3200)
-            # Don't clear session yet — the fallback or recovered playback will reload it.
+        # v5.10.448: the error's next source (onPlayBackError) is on its way,
+        # or starts now for an error seen only here
+        if probably_failed and (self._fallback_pending or self._schedule_fallback('stopped-early', delay_ms=1500)):
+            _monitor('stopped-probably-failed', level=xbmc.LOGWARNING, title=self.ctx.get('title') or '', elapsed='%.2f' % elapsed, position_ms=pos, duration_ms=dur, progress_seen_ms=self._progress_seen_ms, had_error=self._had_error)
+            # Don't clear session yet — the next source or recovered playback will reload it.
             return
         try:
             # v5.10.185: a title stopped can be played again at once (the

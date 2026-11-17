@@ -313,6 +313,7 @@ class LayoutWindow(xbmcgui.WindowXMLDialog):
                         ('rename', self.tr('إعادة تسمية الكوليكشن'))]
         options += [('move', self.tr('تحريك الصف')),
                     ('style', self.tr('شكل الصف')),
+                    ('follow', self.tr('الصف التابع…')),
                     ('toggle', self.tr('إظهار الصف') if entry['hidden'] else self.tr('إخفاء الصف')),
                     ('top', self.tr('إلى أعلى الصفحة')),
                     ('bottom', self.tr('إلى أسفل الصفحة'))]
@@ -344,6 +345,10 @@ class LayoutWindow(xbmcgui.WindowXMLDialog):
             self._rename(index)
         elif key == 'style':
             self._style(index)
+        elif key == 'follow':
+            from .. import row_follow
+            if row_follow.edit(self.media, entry['key'], entry.get('label') or '', self.tr):
+                self.changed.add(self.media)
         elif key == 'combine':
             self._combine(index)
 
@@ -430,10 +435,12 @@ class LayoutWindow(xbmcgui.WindowXMLDialog):
 
     def _style(self, index):
         entry = self.entries[index]
-        from .layout import pick_style, style_choices_for
+        from .layout import pick_style, style_choices_for, suggested_styles
         current = self.app.layout.shape(entry['key'])
         only = style_choices_for(shelf=bool(entry.get('shelf')), progress=bool(entry.get('progress')))
-        key = pick_style(self.tr, self.app.media_path, current, entry['label'], only=only)
+        key = pick_style(self.tr, self.app.media_path, current, entry['label'], only=only,
+                         suggested=suggested_styles(entry['label'], collection=entry.get('kind') == 'collection',
+                                                    progress=bool(entry.get('progress'))))
         if key is None or key == current:
             return
         self.app.layout.set_shape(entry['key'], key)
@@ -489,7 +496,12 @@ class LayoutWindow(xbmcgui.WindowXMLDialog):
         spec = L.new_custom(spec)
         page = self.app.layout.page(self.media)
         custom = page['custom'] + [spec]
-        at = min(max(self._last_pos, -1) + 1, len(self.entries))
+        # v5.10.577: above the row the viewer is on (it went under it); on a progress row or
+        # none, first under the progress rows (layout.insert_keys)
+        keys = [e.get('key') for e in self.entries]
+        here = keys[self._last_pos] if 0 <= self._last_pos < len(keys) else ''
+        anchor = here if here not in L.PROGRESS_KEYS else ''
+        at = L.insert_keys(keys, ['\0new'], anchor).index('\0new')
         self.entries.insert(at, {
             'key': L.custom_key(spec), 'label': spec.get('label') or '',
             'sub': spec.get('source_label') or '', 'icon': 'lay_added.png',

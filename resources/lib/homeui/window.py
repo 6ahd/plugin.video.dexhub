@@ -60,7 +60,8 @@ LOGO_SHAPES = ('wide', 'wide_ranked', 'tall', 'tall_ranked', 'feature')
 SHAPE_OFFSET = {'poster': 0, 'landscape': 1, 'square': 2, 'wide': 3, 'ranked': 0, 'tall': 4,
                 'tall_ranked': 4, 'collage': 5, 'wide_ranked': 3, 'mosaic': 5, 'stack': 5, 'shelf': 5,
                 'poster_large': 0, 'feature': 3, 'landscape_info': 1,
-                'collection_spotlight': 5, 'collection_compact': 5, 'collection_ranking': 5}
+                'collection_spotlight': 5, 'collection_compact': 5, 'collection_ranking': 5,
+                'circle': 2}     # the add-on's own Home draws circles as squares
 RANKED_SHAPES = ('ranked', 'tall_ranked', 'wide_ranked')     # the place beside each card
 COLLAGE_SHAPES = ('collage', 'mosaic', 'stack', 'collection_spotlight', 'collection_compact', 'collection_ranking')
 ROW_A_BASE, ROW_B_BASE, GRID_BASE = 5000, 5100, 6000
@@ -279,7 +280,7 @@ class _BaseWindow(xbmcgui.WindowXML):
         self.prop('dh.gif.enabled', '1' if self.s.flag('homeui_focus_gif', True) else '')
         self.prop('dh.plot.scroll', '1' if self.s.flag('homeui_plot_scroll', True) else '')
         self.prop('dh.plot.off', '1' if self.s.flag('homeui_hide_plot', False) else '')
-        self.prop('dh.motion', (self.s.text('homeui_focus_motion', 'zoom') or 'zoom').strip().lower())
+        self.prop('dh.motion', (self.s.text('homeui_focus_motion', 'tvos') or 'tvos').strip().lower())
         # v5.10.172: the cards' titles under the picture (setting Card titles)
         # (Below: '1'; None: 'none', no title on or under the picture, the
         # hero above names the focused title with its logo)
@@ -507,7 +508,7 @@ class _BaseWindow(xbmcgui.WindowXML):
             'dh.badge': badge,
             'dh.progress': str(progress) if progress else '',
             'dh.remaining': remaining,
-            'dh.provider': tile.get('provider') or '',
+            'dh.provider': tile.get('direct_from') or '',
         })
         return out
 
@@ -740,7 +741,7 @@ class _BaseWindow(xbmcgui.WindowXML):
         self.prop('dh.plot.scroll', '1' if self.s.flag('homeui_plot_scroll', True) else '')
         self.prop('dh.plot.off', '1' if self.s.flag('homeui_hide_plot', False) else '')
         self._refresh_row_sources()     # v5.10.286
-        self.prop('dh.motion', (self.s.text('homeui_focus_motion', 'zoom') or 'zoom').strip().lower())
+        self.prop('dh.motion', (self.s.text('homeui_focus_motion', 'tvos') or 'tvos').strip().lower())
         self.prop('dh.kenburns', '1' if self.s.flag('homeui_kenburns', True) else '')
         self.kenburns = self.s.flag('homeui_kenburns', True)
         self.trailers_on = self.s.flag('homeui_trailers', True)
@@ -958,6 +959,12 @@ class _BaseWindow(xbmcgui.WindowXML):
                 self.app.log('tmdb text/logo failed:\n%s' % traceback.format_exc())
         if media == 'series' and not tile.get('seasons_count'):
             self._show_status(tile)
+        # v5.10.448: a backdrop that is only the poster again (a listing
+        # without one fills it so) is no backdrop: the pass looks for one
+        if tile.get('fanart') and tile.get('fanart') == tile.get('poster'):
+            tile['fanart'] = ''
+            if tile.get('landscape') == tile.get('poster'):
+                tile['landscape'] = ''
         if tile.get('fanart') and tile.get('clearlogo') and tile.get('imdb_id') and tile.get('poster'):
             return
         params = R.params_of(tile.get('path'))
@@ -1557,6 +1564,13 @@ class _BaseWindow(xbmcgui.WindowXML):
         if self._closing:
             return
         active = self.is_active()
+        # v5.10.458: the live channel's panel in the player, the page covered or not
+        live_osd = getattr(self.app, 'live_osd', None)
+        if live_osd is not None:
+            try:
+                live_osd.tick(self)
+            except Exception:
+                pass
         director = self.app.director
         foreign = director.foreign_playback() and self._video_playing()
         if active and not getattr(self, '_was_active', False) and foreign:
@@ -1980,7 +1994,7 @@ class _BaseWindow(xbmcgui.WindowXML):
         if not force and self.title_page() != 'tmdbhelper':
             return ''
         try:
-            if not xbmc.getCondVisibility('System.HasAddon(%s)' % TMDBH_ID):
+            if not xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % TMDBH_ID):
                 return ''
         except Exception:
             return ''
@@ -1995,6 +2009,106 @@ class _BaseWindow(xbmcgui.WindowXML):
             return ''
         return 'plugin://%s/?%s' % (TMDBH_ID, urlencode(params))
 
+    def _nas_title_page(self, tile, path):
+        """v5.10.561: a title of the NAS section opens the skin's title page,
+        whose Play plays the NAS file directly (skinui/actions._nas_route)."""
+        if not R.is_dexhub_path(path):
+            return False
+        params = R.params_of(path)
+        if not params.get('dh_nas'):
+            return False
+        try:
+            from ..skinui import common as SC
+            from ..skinui.items import title_over_window
+            media = 'series' if str(params.get('media_type') or tile.get('media_type') or '') in ('series', 'anime', 'tv') \
+                or params.get('action') == 'series_meta' else 'movie'
+            canonical = params.get('canonical_id') or tile.get('imdb_id') or (
+                'tmdb:%s' % tile['tmdb_id'] if tile.get('tmdb_id') else '')
+            if not canonical:
+                return False
+            q = {'m': media, 'id': canonical, 'i': SC.short_id('%s|%s' % (media, canonical)),
+                 'title': params.get('title') or tile.get('title') or '', 'nas': '1'}
+            for key, value in (('tmdb', params.get('tmdb_id') or tile.get('tmdb_id')),
+                               ('imdb', params.get('imdb_id') or tile.get('imdb_id')),
+                               ('year', str(tile.get('year') or '')[:4])):
+                if value:
+                    q[key] = value
+            self.stop_trailer(wait=False)
+            return bool(title_over_window(self, q))
+        except Exception:
+            return False
+
+    def _vod_title_page(self, tile, path):
+        """v5.10.560: an IPTV film or series opens its title page, as the
+        skin's rows do (the skin's page, skin.dexhub). TMDb first (the
+        provider's id, else a search by the cleaned name and year), the
+        provider's poster, plot and year where TMDb has nothing; the page's
+        Play (a film) and episodes (a series) play the provider's own files.
+        True when the page opened."""
+        if not R.is_dexhub_path(path):
+            return False
+        params = R.params_of(path)
+        film = (params.get('action') == 'home_vod_play' and params.get('vod_type') == 'movie'
+                and not params.get('episode'))
+        # a series (its seasons list): its page's episodes play the provider's files
+        show = (params.get('action') == 'home_vod_list' and params.get('vod_type') == 'series'
+                and params.get('vod_series') and not params.get('season') and params.get('live_src'))
+        if not (film or show):
+            return False
+        tmdb = str(params.get('tmdb_id') or tile.get('tmdb_id') or '').strip()
+        imdb = str(params.get('imdb_id') or tile.get('imdb_id') or '').strip()
+        tmdb = tmdb if tmdb.isdigit() and tmdb != '0' else ''
+        imdb = imdb if re.fullmatch(r'tt\d+', imdb) else ''
+        try:
+            from ..skinui import common as SC
+            from ..skinui.items import title_over_window
+            from ..skinui.title_seed import save_iptv
+            from .vod import clean_title
+            src = params.get('live_src') or ''
+            item_id = params.get('vod_series') if show else params.get('id')
+            canonical = imdb or ('tmdb:%s' % tmdb if tmdb else 'iptv:%s:%s' % (src, item_id or ''))
+            media = 'movie' if film else 'series'
+            name, named_year = clean_title(params.get('title') or tile.get('title') or '')
+            q = {'m': media, 'id': canonical, 'i': SC.short_id('%s|%s' % (media, canonical)),
+                 'title': name, 'ip': '1'}
+            year = str(tile.get('year') or '')[:4]
+            if year.isdigit():
+                q['year'] = year
+            elif named_year:
+                q['year'] = named_year
+            if film:
+                q['vplay'] = path
+            else:
+                q['vs'] = '%s|%s' % (src, params['vod_series'])
+            if tmdb:
+                q['tmdb'] = tmdb
+            if imdb:
+                q['imdb'] = imdb
+            # what the provider says of it, for whatever TMDb has not (title_seed)
+            save_iptv(q['i'], {'title': name, 'year': q.get('year') or '',
+                               'poster': params.get('poster') or tile.get('poster') or '',
+                               'fanart': params.get('fanart') or tile.get('fanart') or '',
+                               'plot': tile.get('plot') or '', 'rating': tile.get('rating') or 0,
+                               'genres': list(tile.get('genres') or [])[:3],
+                               'route': path if film else ''})
+            # Sources on the page: the provider's file is one of them (iptv_vod_source)
+            try:
+                from .. import iptv_vod_source, profile_scope
+                from . import live_sources as LS, live_stremio as ST
+                if src.startswith('xt:'):
+                    where = (LS.get_saved(profile_scope.ScopedPath('homeui'), src.split(':', 1)[1]) or {}).get('name') or ''
+                else:
+                    where = (ST.provider_for(src) or {}).get('name') or ''
+                iptv_vod_source.bind({'canonical': canonical, 'tmdb': tmdb, 'imdb': imdb, 'src': src,
+                                      'title': name, 'raw': params.get('title') or '', 'provider': where,
+                                      'vplay': path if film else '', 'vs': q.get('vs') or ''})
+            except Exception:
+                pass
+            self.stop_trailer(wait=False)
+            return bool(title_over_window(self, q))
+        except Exception:
+            return False
+
     def open_path(self, tile, helper=True):
         """Open a captured Dex Hub item the way its native listing would.
 
@@ -2005,6 +2119,15 @@ class _BaseWindow(xbmcgui.WindowXML):
             self.watch_channel(tile)
             return
         path = tile.get('path') or ''
+        if helper and self.title_page() == 'dexhub' and self._vod_title_page(tile, path):
+            return
+        if helper and self.title_page() == 'dexhub' and self._nas_title_page(tile, path):
+            return
+        from ..catalog_navigation import folder_ref
+        ref = folder_ref(R.params_of(path)) if R.is_dexhub_path(path) else None
+        if ref is not None:
+            self.app.open_folder(title=tile.get('title') or tile.get('label') or '', **ref)
+            return
         if R.is_dexhub_path(path) and R.params_of(path).get('action') in ('home_vod_list', 'home_vod_series'):
             # (home_vod_series: an IPTV series from the search or Continue Watching, v5.10.239)
             grid = dict(R.params_of(path), action='home_vod_list')
@@ -2093,6 +2216,16 @@ class _BaseWindow(xbmcgui.WindowXML):
         self.app.open_grid(params, title=title, shape=shape, page_tile={'hero': hero})
 
     def show_info(self, tile):
+        # v5.10.560: Info on a movie or show opens its Dex Hub page; the
+        # skin's info dialog is only for what that page cannot show
+        try:
+            from . import details
+            if tile and self.title_page() == 'dexhub' and details.supported(tile):
+                self.stop_trailer(wait=False)
+                self.app.open_details(tile)
+                return
+        except Exception:
+            pass
         li = (tile or {}).get('_src_li')
         if li is None:
             return
@@ -2585,6 +2718,7 @@ class _BaseWindow(xbmcgui.WindowXML):
         options = [('open', self.tr('عرض القنوات'))]
         if kind in ('m3u', 'xtream'):
             options += [('refresh', self.tr('تحديث الآن')), ('rename', self.tr('تغيير الاسم')),
+                        ('servers', self.tr('عناوين السيرفر')),      # v5.10.563
                         ('remove', self.tr('حذف من البث المباشر'))]
         elif key == 'dw':
             options += [('unlink', self.tr('فصل الاشتراك'))]
@@ -2612,6 +2746,10 @@ class _BaseWindow(xbmcgui.WindowXML):
             try:
                 self._modal(work)
             finally:
+                self.live_refresh()
+        elif action == 'servers':
+            from . import live_iptv
+            if self._modal(lambda: live_iptv.manage_addresses(self.app, dict(source.get('conf') or {}))):
                 self.live_refresh()
         elif action == 'rename':
             conf = dict(source.get('conf') or {})
@@ -2752,6 +2890,9 @@ class _BaseWindow(xbmcgui.WindowXML):
             props['collage_button'] = tile.get('collage_button') or ''
             props['cstyle'] = tile.get('cstyle') or 'collage'
             props.update(tile.get('collection_preview') or {})
+        if tile.get('catalog_node') and not tile.get('catalog_banner'):
+            props['dhs.catalog'] = '1'
+            props['dhs.catalog_icon'] = tile.get('catalog_icon') or ''
         for key, value in props.items():
             if value:
                 li.setProperty(key, value)
@@ -2949,6 +3090,7 @@ class BrowseWindow(_BaseWindow):
         self._live_section = kwargs.get('live_section') or 'channels'
         self.vod_only = bool(kwargs.get('live_section'))
         self._fresh_rows = False
+        self._build_scope = threading.local()
 
     # ---------------------------------------------------------- lifecycle
     def onInit(self):
@@ -3151,6 +3293,9 @@ class BrowseWindow(_BaseWindow):
         key = NAV_BUTTON_KEYS.get(control_id) or self._selected_key(control_id)
         if not key:
             return
+        if key == 'addons':
+            self._launch('RunPlugin(plugin://plugin.video.dexhub/?action=open_kodi_addons)')
+            return
         if self.mode in ('library', 'servers', 'addons'):
             # a tab of another page: back to the Home, which opens it (v5.10.167)
             if key == self.mode:
@@ -3310,8 +3455,10 @@ class BrowseWindow(_BaseWindow):
             self._launch('RunPlugin(plugin://plugin.video.dexhub/?action=skin_pick)')
         elif key == 'settings':
             self._launch('ActivateWindow(Videos,plugin://plugin.video.dexhub/?action=setup_center,return)')
+        elif key == 'leave_dexhub':
+            self._launch('RunPlugin(plugin://plugin.video.dexhub/?action=temporary_skin_exit)')
         elif key == 'kodi':
-            self._launch('ActivateWindow(Settings)')
+            self._launch('RunPlugin(plugin://plugin.video.dexhub/?action=open_kodi_settings)')
         elif key == 'power':
             self._launch('ActivateWindow(ShutdownMenu)')
         elif key == 'android':
@@ -3340,14 +3487,17 @@ class BrowseWindow(_BaseWindow):
         if self.mode == 'servers':
             row = self._row_a()
             if row is not None and self.zone == 'rows':
-                out = [(self.tr('شكل الصف'), '__row_shape__')]
+                out = [(self.tr('شكل الصف'), '__row_shape__'), (self.tr('الصف التابع…'), '__row_follow__')]
                 if (row.meta or {}).get('params'):
                     out.append((self.tr('أضف هذا الصف للرئيسية'), '__row_add_home__'))
                 return out
             return []
         if self.zone != 'rows' or self._row_a() is None or self.mode == 'live':
             return []
-        shape = [(self.tr('شكل الصف'), '__row_shape__')]
+        shape = [(self.tr('شكل الصف'), '__row_shape__'),
+                 (self.tr('الصف التابع…'), '__row_follow__')]
+        if self.mode == 'folder' and self.folder_ref.get('folder_id'):
+            shape.insert(0, (self.tr('العرض داخل الفولدرات'), '__folder_view__'))
         if self.mode != 'home':
             return shape
         return shape + [(self.tr('إخفاء هذا الصف'), '__row_hide__'),
@@ -3355,7 +3505,11 @@ class BrowseWindow(_BaseWindow):
 
     def row_command(self, command):
         row = self._row_a()
-        if command == '__row_hide__' and row is not None:
+        if command == '__folder_view__':
+            from ..folder_view import choose
+            if choose():
+                self._switch_media(self.media)
+        elif command == '__row_hide__' and row is not None:
             self.app.layout.hide(self.media, row.key, True)
             try:
                 xbmcgui.Dialog().notification(
@@ -3366,6 +3520,11 @@ class BrowseWindow(_BaseWindow):
             self._reload_layout()
         elif command == '__row_layout__':
             self.open_layout(select_key=row.key if row is not None else '')
+        elif command == '__row_follow__' and row is not None:
+            from .. import row_follow
+            if row_follow.edit(self.media, row.key, row.title, self.tr):
+                from .catalog_follow import update
+                update(self, self._selected_tile() or {})
         elif command == '__row_shape__' and row is not None:
             self._pick_row_shape(row)
         elif command in ('__row_search_forget__', '__row_search_clear__'):
@@ -3375,11 +3534,13 @@ class BrowseWindow(_BaseWindow):
 
     def _pick_row_shape(self, row):
         """Choose how one row draws its cards (v5.10.173); kept for that row everywhere."""
-        from .layout import pick_style, style_choices_for, is_progress_row
+        from .layout import pick_style, style_choices_for, is_progress_row, suggested_styles
         current = self.app.layout.shape(row.key)
         shelf = bool(row.meta.get('shelf'))
         key = pick_style(self.tr, self.app.media_path, current, row.title,
-                         only=style_choices_for(shelf=shelf, progress=is_progress_row(row)))
+                         only=style_choices_for(shelf=shelf, progress=is_progress_row(row)),
+                         suggested=suggested_styles(row.title, collection=getattr(row, 'kind', '') == 'collection',
+                                                    progress=is_progress_row(row)))
         if key is None or key == current:
             return
         self.app.layout.set_shape(row.key, key)
@@ -3492,6 +3653,7 @@ class BrowseWindow(_BaseWindow):
     def _switch_media(self, media):
         self.stop_trailer(wait=False)
         with self._lock:
+            self._build_gen += 1
             self.media = media
             self._mark_nav()
             self._built = False
@@ -3519,7 +3681,26 @@ class BrowseWindow(_BaseWindow):
         lane.submit(lambda: self._build_rows_job(gen, media), priority=0,
                     key=('build', self.key, gen))
 
+    def _build_is_current(self):
+        generation = getattr(getattr(self, '_build_scope', None), 'generation', None)
+        return generation is None or generation == self._build_gen
+
     def _build_rows_job(self, gen=0, media=None):
+        if gen != self._build_gen or (media is not None and media != self.media):
+            return
+        if not hasattr(self, '_build_scope'):
+            self._build_scope = threading.local()
+        previous = getattr(self._build_scope, 'generation', None)
+        self._build_scope.generation = gen
+        try:
+            self._build_rows_generation(gen, media)
+        finally:
+            if previous is None:
+                del self._build_scope.generation
+            else:
+                self._build_scope.generation = previous
+
+    def _build_rows_generation(self, gen=0, media=None):
         started = _now()
         self._build_reason = ''
         try:
@@ -3561,7 +3742,7 @@ class BrowseWindow(_BaseWindow):
         self.app.log('%s rows ready: %d in %.0f ms' % (
             'search' if self.search is not None else self.mode, len(rows), (_now() - started) * 1000))
         self._install_rows(rows, initial=False)
-        if self.search is not None:
+        if self.search is not None and self._build_is_current():
             self._search_shown(rows)
 
     def _home_rows(self):
@@ -3575,7 +3756,9 @@ class BrowseWindow(_BaseWindow):
 
         The Home layout editor lists these; nothing here loads a row.
         """
-        return self._candidate_rows(media) + self._custom_rows(media)
+        rows = self._candidate_rows(media)
+        progress = [r for r in rows if r.key in ('continue', 'nextup')]
+        return progress + [r for r in rows if r not in progress] + self._custom_rows(media)
 
     def _candidate_rows(self, media):
         api = self.app.api()
@@ -3614,6 +3797,19 @@ class BrowseWindow(_BaseWindow):
                 rows.append(R.Row(key, title, shape='poster', kind='catalog', priority=3,
                                   loader=self._progress_loader(key, media),
                                   meta={'params': dict(R.OWN_ROWS[key][0]), 'default_hidden': True}))
+        # v5.10.576: Recommended for you, by the viewer's AI, shown from Arrange Home rows
+        try:
+            from .. import ai_search as _ai
+            ai_on = bool(_ai.config())
+        except Exception:
+            ai_on = False
+        if ai_on:
+            for key, tab, title in (('ai_movies', 'movie', 'مقترح لك بالذكاء الاصطناعي • أفلام'),
+                                    ('ai_shows', 'series', 'مقترح لك بالذكاء الاصطناعي • مسلسلات')):
+                if media in ('all', tab):
+                    rows.append(R.Row(key, self.tr(title), shape='poster', kind='catalog', priority=3,
+                                      loader=self._progress_loader(key, media),
+                                      meta={'params': dict(R.OWN_ROWS[key][0]), 'default_hidden': True}))
         tabs, has_nuvio = [], False
         try:
             tabs, has_nuvio = R.nuvio_tabs(api, media)
@@ -3635,6 +3831,15 @@ class BrowseWindow(_BaseWindow):
                             kind = self.tr(kind)
                         tab['label'] = '%s  ·  %s' % (label, kind)
                     tabs.append(tab)
+        # v5.10.566 (GitHub #28): an add-on switched off in its menu shows no rows
+        try:
+            from .. import store as _st
+            off = set(str(p.get('id')) for p in _st.list_providers() or [] if not _st.is_enabled(p))
+        except Exception:
+            off = set()
+        if off:
+            tabs = [t for t in tabs if not (t.get('path') and
+                                             str(R.params_of(t['path']).get('provider_id') or '') in off)]
         wrap = getattr(api, '_wrap_tokenized_url', None)
         media_filter = media if media in ('movie', 'series') else ''
         # v5.10.236: Group recommendation rows: an add-on's "Because you
@@ -3685,6 +3890,22 @@ class BrowseWindow(_BaseWindow):
                 self.app.layout.hide_new(media, [r.key for r in rows if r.key.startswith('cat:')])
             except Exception:
                 pass
+        if has_nuvio:
+            # v5.10.448: Dex Hub's own collection rows join a Home that follows
+            # Nuvio's, after its first rows (Arrange Home rows moves or hides them)
+            ours = []
+            for set_id, entry in R.dex_collection_entries():
+                if any(r.key == 'col:%s' % entry.get('id') for r in rows):
+                    continue
+                tiles = R.folder_tiles(entry, set_id, wrap=wrap, gif_enabled=self.gif_on,
+                                       media_filter=media_filter)
+                if tiles:
+                    ours.append(R.Row('col:%s' % entry.get('id'), entry.get('name') or '',
+                                      shape=R.dominant_shape(tiles, 'landscape'),
+                                      kind='collection', tiles=tiles, meta={'set_id': set_id}))
+            catalogs = [i for i, r in enumerate(rows) if r.key.startswith(('cat:', 'col:'))]
+            at = catalogs[3] if len(catalogs) > 3 else len(rows)
+            rows[at:at] = ours
         if not has_nuvio and media == 'all':
             for set_id, entry in R.fallback_collection_entries():
                 tiles = R.folder_tiles(entry, set_id, wrap=wrap, gif_enabled=self.gif_on,
@@ -3741,6 +3962,14 @@ class BrowseWindow(_BaseWindow):
                                   loader=self._catalog_loader(params), meta=meta))
                 continue
             params = dict(spec.get('params') or {})
+            if params.get('action') == 'dexworld_row':
+                # v5.10.505: a DexWorld collection is a collection row (its lists as
+                # covers, the collection styles), not a catalog of no titles
+                from .. import dexworld as DW
+                tiles = DW.kit_tiles(params.get('id') or '')
+                if tiles:
+                    rows.append(R.Row(key, label, shape='landscape', kind='collection', tiles=tiles, meta=meta))
+                    continue
             if not params.get('action'):
                 meta['missing'] = True
             from . import servers as S
@@ -3776,6 +4005,8 @@ class BrowseWindow(_BaseWindow):
         signature = [(t['key'], t['label'], t.get('hint') or '', t.get('icon') or '',
                       t.get('count') or '', t.get('tone') or '') for t in tabs]
         with self._lock:
+            if not self._build_is_current():
+                return
             self._tabs = list(tabs)
             # a tab chosen while this build ran stays chosen (that build is
             # thrown away, and the next one shows it)
@@ -3821,6 +4052,11 @@ class BrowseWindow(_BaseWindow):
         """Show another server or live source; the rows follow."""
         if not key:
             return
+        if self.mode == 'live' and key == 'sport':
+            self.stop_trailer(wait=False)
+            self.app.open_sport()
+            self._mark_tabs()
+            return
         if key == self._tab:
             if rows_after:
                 self.go('rows')
@@ -3846,14 +4082,17 @@ class BrowseWindow(_BaseWindow):
         self._start_build()
 
     def _show_tab_hero(self, tab):
-        brand = {
-            'kind': 'brand', 'title': tab.get('label') or '',
-            'plot': tab.get('plot') or '',
-            'fanart': os.path.join(self.app.addon_path, 'resources', 'media', 'fanart.jpg'),
-        }
-        self._brand_tile = brand
-        self.show_hero(brand)
-        self.prop('dh.subtitle', tab.get('hint') or '')
+        with self._lock:
+            if not self._build_is_current():
+                return
+            brand = {
+                'kind': 'brand', 'title': tab.get('label') or '',
+                'plot': tab.get('plot') or '',
+                'fanart': os.path.join(self.app.addon_path, 'resources', 'media', 'fanart.jpg'),
+            }
+            self._brand_tile = brand
+            self.show_hero(brand)
+            self.prop('dh.subtitle', tab.get('hint') or '')
 
     def catalog_menu(self):
         row = self._row_a()
@@ -3874,6 +4113,8 @@ class BrowseWindow(_BaseWindow):
         from .options import choose
         labels, commands = [], []
         if self.mode == 'live':
+            labels.append(self.tr('رياضة'))
+            commands.append('sport')
             labels += [self.tr('المجموعات والقنوات'), self.tr('تحديث المصدر'), self.tr('إدارة المصادر')]
             commands += ['groups', 'refresh_live', 'setup_live']
             for media, label in (('channels', 'القنوات'), ('movie', 'أفلام VOD'), ('series', 'مسلسلات VOD')):
@@ -3881,8 +4122,8 @@ class BrowseWindow(_BaseWindow):
                     labels.append(self.tr(label))
                     commands.append('section:' + media)
         elif self.mode == 'library':
-            labels += [self.tr('انتقل إلى'), self.tr('الحسابات والمصادر')]
-            commands += ['groups', 'accounts']
+            labels += [self.tr('التقويم'), self.tr('انتقل إلى'), self.tr('الحسابات والمصادر')]
+            commands += ['calendar', 'groups', 'accounts']
         elif self.mode == 'servers':
             labels += [self.tr('المكتبات والصفوف'), self.tr('تحديث السيرفر'), self.tr('الحسابات والمصادر')]
             commands += ['groups', 'refresh_server', 'accounts']
@@ -3892,7 +4133,13 @@ class BrowseWindow(_BaseWindow):
         if picked < 0 or picked >= len(commands):
             return
         command = commands[picked]
-        if command.startswith('section:'):
+        if command == 'sport':
+            self.stop_trailer(wait=False)
+            self.app.open_sport()
+        elif command == 'calendar':
+            self.stop_trailer(wait=False)
+            self.app.open_calendar()
+        elif command.startswith('section:'):
             self.select_live_section(command.split(':', 1)[1])
         elif command == 'groups':
             available = [(i, row) for i, row in enumerate(self.rows) if row.state not in ('empty', 'error')]
@@ -4022,8 +4269,11 @@ class BrowseWindow(_BaseWindow):
             tiles.append({'kind': 'addon', 'source_id': row.get('id') or '', 'content': 'stremio',
                           'title': name, 'label': name, 'shape': 'square', 'under': '1',
                           'poster': icon, 'landscape': icon, 'icon': icon, 'fanart': art.get('fanart') or '',
-                          'plot': manifest.get('description') or '', 'version': manifest.get('version') or '',
-                          'author': 'Stremio', 'initials': R.initials(name)})
+                          'plot': (self.tr('الإضافة معطّلة: ما تجيب كتالوجات ولا مصادر. فعّلها من قائمتها.') + '\n'
+                                   if row.get('enabled') is False else '') + (manifest.get('description') or ''),
+                          'version': manifest.get('version') or '',
+                          'author': self.tr('معطّلة') if row.get('enabled') is False else 'Stremio',
+                          'initials': R.initials(name)})
         plus = self.app.media_path('addons_plus.png')
         if not os.path.exists(plus):
             plus = os.path.join(self.app.addon_path, 'resources', 'media', 'addons_plus.png')
@@ -4231,7 +4481,10 @@ class BrowseWindow(_BaseWindow):
         self._live_sources = sources
         tabs = [{'key': s['key'], 'label': s['label'], 'hint': s.get('hint') or '',
                  'icon': s.get('icon') or '', 'plot': s.get('description') or ''} for s in sources]
-        selected = self._pick_tab('live', tabs, avoid='setup')
+        # v5.10.453: Sport opens its own page from the tab bar, over this one
+        if any(s['kind'] not in ('setup', 'pvr') for s in sources):
+            tabs.insert(len(tabs) - 1, {'key': 'sport', 'label': self.tr('رياضة'), 'hint': '', 'icon': '', 'plot': ''})
+        selected = self._pick_tab('live', [t for t in tabs if t['key'] != 'sport'], avoid='setup')
         self._show_tabs(tabs, selected)
         source = [s for s in sources if s['key'] == selected][0]
         from . import vod
@@ -4599,17 +4852,16 @@ class BrowseWindow(_BaseWindow):
                 self.notify(self.tr('هذا الصف موجود في الرئيسية'))
                 return False
         spec = new_custom(spec)
+        from .layout import insert_keys, shown_keys
         order = list(page['order'])
         root = self.app._root()
         if not order and root is not None and getattr(root, 'mode', '') == 'home' \
                 and getattr(root, 'media', '') == 'all':
             order = [row.key for row in list(root.rows)]
+        if not order:
+            order = shown_keys('all')        # v5.10.577: as the skin shows the Home now
         if order:
-            at = 0
-            for key in ('continue', 'nextup'):
-                if key in order:
-                    at = max(at, order.index(key) + 1)
-            order.insert(at, custom_key(spec))
+            order = insert_keys(order, [custom_key(spec)])
         ok = layout.save_page('all', order=order or None, custom=page['custom'] + [spec])
         self.notify(self.tr('أُضيف للصفحة الرئيسية') if ok else self.tr('تعذر الحفظ'))
         return ok
@@ -4644,7 +4896,7 @@ class BrowseWindow(_BaseWindow):
         # v5.10.204: Continue Watching split into films and series, and the
         # recently watched films or series, as rows of their own
         route, only, shape = R.OWN_ROWS.get(action, ({'action': action}, '', 'landscape'))
-        playing = route.get('action') not in ('recently_watched', 'lib_because')
+        playing = route.get('action') not in ('recently_watched', 'lib_because', 'lib_ai_picks')
 
         def load(patience=0.0):
             # v5.10.117: one read serves the all, movies and series tabs
@@ -4733,6 +4985,9 @@ class BrowseWindow(_BaseWindow):
         """The first rows of a collection folder, read while the cursor rests on
         its card (v5.10.106, after Nuvio Hub): opening it then takes them
         from memory. Nothing is read while a video plays or the cursor moved on."""
+        from ..ui_preferences import enabled
+        if not enabled('homeui_follow_rows'):
+            return
         ref = (tile or {}).get('folder_ref') or {}
         if not ref.get('folder_id') or self._real_playing:
             return
@@ -4772,6 +5027,8 @@ class BrowseWindow(_BaseWindow):
     def _folder_rows(self):
         api = self.app.api()
         ref = self.folder_ref
+        from ..folder_view import rows_enabled
+        self._folder_view_mode = rows_enabled()
         folder, specs = self._folder_sources(ref)
         if not folder:
             return []
@@ -4786,6 +5043,12 @@ class BrowseWindow(_BaseWindow):
         if page.get('hero_video'):
             # the folder's banner video plays while its rows load
             self.schedule_trailer(page, delay=0.6)
+        from ..folder_view import rows_enabled
+        if not rows_enabled():
+            from ..catalog_navigation import folder_tiles
+            cards = folder_tiles(ref, api)
+            return [R.Row('folder:catalogs', self.page_title, shape='landscape', kind='nav',
+                          tiles=cards, subtitle=self.tr('اختر كتالوجًا'))]
         rows = []
         for key, title, subtitle, params in specs:
             rows.append(R.Row(key, title, shape='poster', kind='catalog', subtitle=subtitle,
@@ -4798,7 +5061,7 @@ class BrowseWindow(_BaseWindow):
     # media servers together) and its results come back as rows: the user's
     # own libraries, movies, series, anime and people, the best match first.
     # The first row starts a new search or repeats a recent one.
-    SEARCH_ROWS = (('lib', 'من مكتباتك'), ('iptv', 'من اشتراك IPTV'), ('movie', 'أفلام'), ('series', 'مسلسلات'),
+    SEARCH_ROWS = (('ai', 'اقتراحات الذكاء الاصطناعي'), ('lib', 'من مكتباتك'), ('iptv', 'من اشتراك IPTV'), ('movie', 'أفلام'), ('series', 'مسلسلات'),
                    ('anime', 'أنمي'), ('person', 'أشخاص'), ('tv', 'قنوات'))
     SEARCH_ROW_LIMIT = 60
 
@@ -4976,7 +5239,9 @@ class BrowseWindow(_BaseWindow):
             tile = R.search_tile(entry)
             if tile is None:
                 continue
-            if entry.get('server'):
+            if entry.get('ai'):
+                key = 'ai'         # v5.10.576: the viewer's AI (ai_search)
+            elif entry.get('server'):
                 key = 'lib'
             elif entry.get('iptv'):
                 key = 'iptv'       # v5.10.239: from the DexWorld IPTV subscription
@@ -5015,6 +5280,12 @@ class BrowseWindow(_BaseWindow):
         if len(picks) >= 3:
             rows.insert(0, R.Row('search:top', self.tr('أفضل النتائج'), shape='wide', kind='search',
                                  tiles=picks[:8], subtitle=self.query_hint()))
+        # v5.10.576: a described search: the AI's picks lead, in the order it gave them
+        for index, row in enumerate(rows):
+            if row.key == 'search:ai':
+                row.tiles.sort(key=lambda t: -(t.get('_score') or 0.0))
+                rows.insert(0, rows.pop(index))
+                break
         return rows
 
     def query_hint(self):
@@ -5067,7 +5338,8 @@ class BrowseWindow(_BaseWindow):
             return []
         if time.time() - float(data.get('t') or 0) > 7 * 86400:
             return []
-        return [snap for snap in (data.get('rows') or []) if isinstance(snap, dict)]
+        from .layout import retired_af3
+        return [snap for snap in (data.get('rows') or []) if isinstance(snap, dict) and not retired_af3(snap)]
 
     def _load_cache(self):
         if self.mode != 'home':
@@ -5138,7 +5410,7 @@ class BrowseWindow(_BaseWindow):
     def _install_rows(self, rows, initial=False):
         first_install = False
         with self._lock:
-            if self._closing:
+            if self._closing or not self._build_is_current():
                 return
             focus_before = self.focus_id()
             prev_key = self.rows[self.ri].key if 0 <= self.ri < len(self.rows) else None
@@ -5763,6 +6035,9 @@ class BrowseWindow(_BaseWindow):
         self.show_hero(tile)
         self.ensure_focus_art(tile)
         self.enrich(tile, priority=2, focus=True)
+        from .catalog_follow import update as follow_catalog
+        self.app.scheduler.call_later(self.key + ':follow', 0.4, lambda: follow_catalog(self, self._current_tile())
+                                      if not self._closing and not self._covered and self._current_tile() else None)
         self.channel_epg_soon(tile)
         self.schedule_trailer(tile)
         if tile.get('kind') == 'folder' and tile.get('folder_ref'):
@@ -5979,11 +6254,29 @@ class BrowseWindow(_BaseWindow):
 
     def on_uncover(self):
         super(BrowseWindow, self).on_uncover()
+        if self.mode == 'folder':
+            from ..folder_view import rows_enabled
+            if getattr(self, '_folder_view_mode', rows_enabled()) != rows_enabled():
+                self._switch_media(self.media)
         if (self.mode == 'home' and self._built
                 and self.app.layout.stamp() != getattr(self, '_layout_stamp', None)):
             # a row was added to the Home from another page (the Servers page)
             self._reload_layout()
         self.on_playback_returned()
+
+    def _preview_addons_tab(self, key):
+        if key == 'addons' and self.mode in ('home', 'library', 'servers') and self.search is None:
+            self._addons_return = (self.mode, self.media)
+            self.mode = 'addons'
+            self._show_tabs([], '')
+        elif key != 'addons' and getattr(self, '_addons_return', None):
+            self.mode, self.media = self._addons_return
+            self._addons_return = None
+        else:
+            return
+        self._hero_tile = None
+        self.prop('dh.mode', self.mode)
+        self._switch_media(self.media)
 
     # ----------------------------------------------------------- events
     def onFocus(self, control_id):
@@ -5994,6 +6287,7 @@ class BrowseWindow(_BaseWindow):
             zone = 'rows'
         elif control_id in NAV_BUTTON_KEYS:
             zone = 'nav'
+            self._preview_addons_tab(NAV_BUTTON_KEYS[control_id])
         else:
             zone = {NAV: 'nav', NAV_ICONS: 'nav', PROFILE: 'nav', HERO_BTNS: 'hero',
                     NP: 'np', TABS: 'tabs', 93: 'tools', 94: 'tools',
@@ -6169,6 +6463,9 @@ class BrowseWindow(_BaseWindow):
                 seed = None if row.meta.get('stale') else {'tiles': row.tiles, 'more': row.more}
                 self.app.open_grid(row.meta.get('params') or {}, title=row.title, shape=row.shape,
                                    page_tile=seed)
+            return
+        if kind == 'folder' and tile.get('catalog_node'):
+            self.open_path(tile)
             return
         if kind == 'folder':
             ref = tile.get('folder_ref') or {}
@@ -7281,6 +7578,9 @@ class GridWindow(_BaseWindow):
             return
         tile = self._selected()
         if tile is None:
+            return
+        if tile.get('kind') == 'folder' and tile.get('catalog_node'):
+            self.open_path(tile)
             return
         if tile.get('kind') == 'folder':
             ref = tile.get('folder_ref') or {}

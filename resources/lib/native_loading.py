@@ -192,7 +192,7 @@ class SourcesLoadingDialog(object):
         self._poll_cancel()
         self._render()
 
-    def add_results(self, n=0, provider_name='', unique_total=None):
+    def add_results(self, n=0, provider_name='', unique_total=None, rows=None):
         if provider_name:
             self._current_provider = str(provider_name)
         try:

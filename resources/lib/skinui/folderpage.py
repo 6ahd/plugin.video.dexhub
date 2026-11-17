@@ -78,11 +78,34 @@ def open_page(params, handle):
     request_token = params.get('_open_token') or ''
     app = rows.app()
     home = rows.HeadlessHome(app, 'all')
-    try:
-        folder, sources = W.BrowseWindow.__dict__['_folder_sources'](home, ref)
-    except Exception as exc:
-        C.log('collection folder failed: %s' % exc, xbmc.LOGWARNING)
-        folder, sources = None, []
+    wall = []
+    if params.get('dw'):
+        # v5.10.507: a list of a DexWorld collection: it first, the collection's
+        # other lists after it, its titles' posters behind the page
+        from .. import dexworld as DW
+        ref = {'set_id': 'dexworld', 'group_id': params['dw'], 'folder_id': params.get('dwm') or '', 'media_filter': ''}
+        try:
+            sources, members = DW.fold_sources(params['dw'], params.get('dwm') or '')
+        except Exception as exc:
+            C.log('DexWorld collection failed: %s' % exc, xbmc.LOGWARNING)
+            sources, members = [], []
+        first = members[0] if members else {}
+        folder = {'name': params.get('t') or first.get('title') or '', 'background': '', 'poster': ''}
+        wall = DW._posters(first) if first else []
+        if not wall and first:
+            try:
+                DW.row_page(first['id'], 1)
+                wall = DW._posters(first)
+            except Exception:
+                wall = []
+    else:
+        try:
+            folder, sources = W.BrowseWindow.__dict__['_folder_sources'](home, ref)
+        except Exception as exc:
+            C.log('collection folder failed: %s' % exc, xbmc.LOGWARNING)
+            folder, sources = None, []
+    for n in range(8):
+        C.set_prop('dhs.fold.p%d' % (n + 1), wall[n % len(wall)] if wall else '')
     if request_token:
         from .. import profile_scope
         if not _request_current(request_token) or not profile_scope.is_current():
@@ -104,7 +127,8 @@ def open_page(params, handle):
         background = wrap(str(folder.get('background') or folder.get('poster') or ''))
     specs = _specs(ref, sources)
     C.write_json(C.spec_file(TAB), {'t': C.now(), 'rows': specs, 'ref': ref, 'title': title})
-    C.set_prop('dhs.fold.title', title)
+    C.set_prop('dhs.fold.title', (folder or {}).get('name') or title)
+    C.set_prop('dhs.fold.view_label', 'Catalogs / folders' if _english() else 'كتالوجات / فولدرات')
     C.set_prop('dhs.fold.bg', background)
     # v5.10.360: a collection whose card is its logo (its own clear logo, or a
     # cover shown without its name) has that logo in place of the name
@@ -112,7 +136,8 @@ def open_page(params, handle):
     if folder:
         logo = str(folder.get('clearlogo') or '') or (str(folder.get('poster') or '') if folder.get('hide_title') else '')
     C.set_prop('dhs.fold.logo', wrap(logo) if logo else '')
-    shown = _publish(specs, ref, title, app.tr)
+    from ..folder_view import apply_current
+    shown = apply_current()
     C.log('folder "%s": %d row(s) in %.0f ms' % (title, shown, (time.monotonic() - started) * 1000))
     # the page starts at its first row (dhs.fold.new: not when it shows again)
     C.set_prop('dhs.fold.new', '1')
@@ -123,7 +148,8 @@ def open_page(params, handle):
         _focus_first_row(window, request_token=request_token)
         return None
     xbmc.executebuiltin('ActivateWindow(%d)' % window)
-    threads = _prefetch(specs[:min(PREFETCH, SKIN_ROWS - 1)])
+    from ..folder_view import rows_enabled
+    threads = _prefetch(specs[:min(PREFETCH, SKIN_ROWS - 1)]) if rows_enabled() else []
     _focus_first_row(window)
     started = time.monotonic()
     for thread in threads:
@@ -163,13 +189,19 @@ def _focus_first_row(window=WINDOW, timeout=10.0, request_token=''):
     monitor = xbmc.Monitor()
     started = time.monotonic()
     cond = xbmc.getCondVisibility
-    first = FIRST_ROW
+    from ..folder_view import rows_enabled
+    first = FIRST_ROW if rows_enabled() else 7100
     while time.monotonic() - started < timeout and not monitor.abortRequested():
         if request_token and not _request_current(request_token):
             return
         if cond('Window.IsActive(%d)' % window):
             if cond('Integer.IsGreater(Container(%d).NumItems,0)' % first):
-                if cond('Control.HasFocus(%d)' % FOCUS_HOLDER):
+                if first == TABS:
+                    # v5.10.448: a new collection starts on its first tab (Kodi
+                    # keeps the list's place from the last collection)
+                    if cond('Control.HasFocus(%d)' % FOCUS_HOLDER) or cond('Control.HasFocus(%d)' % TABS):
+                        xbmc.executebuiltin('SetFocus(%d,0,absolute)' % TABS)
+                elif cond('Control.HasFocus(%d)' % FOCUS_HOLDER):
                     xbmc.executebuiltin('SetFocus(%d)' % first)
                 return
         elif time.monotonic() - started > 3.0:
@@ -200,6 +232,62 @@ def _prefetch(specs):
     return threads
 
 
+TABS = 7100              # v5.10.448: the folder view's catalog tabs
+TITLE_LISTS = (7110, 7111)   # its titles: posters, ranked
+REST = 0.4               # the cursor rests this long on a tab before its titles are asked for
+_PICK = {'seen': '', 'since': 0.0}
+
+
+def publish_pick(data, index=0):
+    """The folder view's titles: the catalog `index` (of the page's specs) in
+    the page's first row slot (dhs.fold.1.*), read, refreshed and given its
+    TMDb pass like any row; then its neighbours are read ahead."""
+    from . import board
+    specs = list(data.get('rows') or [])
+    if not specs:
+        return False
+    index = max(0, min(int(index or 0), len(specs) - 1))
+    C.set_prop('dhs.fold.pick', str(index))
+    board._publish_tab(TAB, [specs[index]])
+    near = [specs[n] for n in (index + 1, index - 1, index + 2) if 0 <= n < len(specs)]
+    todo = [spec for spec in near if not C.read_row(C.row_file(TAB, spec['id']))]
+    if todo:
+        _prefetch(todo[:2])
+    return True
+
+
+def _follow_tabs():
+    """The tab the cursor rests on gives the titles under it (the service's
+    loop, every quarter second): at once when the cursor left the tabs,
+    after REST seconds while it moves along them."""
+    if C.prop('dhs.fold.view') != 'catalogs' or not xbmc.getCondVisibility('Window.IsActive(%d)' % WINDOW):
+        _PICK['seen'] = ''
+        return
+    wanted = xbmc.getInfoLabel('Container(%d).ListItem.Property(dhs.spec)' % TABS)
+    if not wanted or wanted == C.prop('dhs.fold.pick'):
+        _PICK['seen'] = ''
+        return
+    now = time.monotonic()
+    if wanted != _PICK['seen']:
+        _PICK.update(seen=wanted, since=now)
+    if xbmc.getCondVisibility('Control.HasFocus(%d)' % TABS) and now - _PICK['since'] < REST:
+        return
+    _PICK['seen'] = ''
+    data = C.read_json(C.spec_file(TAB), {}) or {}
+    try:
+        publish_pick(data, int(wanted))
+    except Exception as exc:
+        C.log('folder tab: %s' % exc, xbmc.LOGWARNING)
+        return
+    # a new catalog starts at its first title (Kodi keeps a list's place when
+    # its items change): the visible title list to 0, the focus back on the tabs
+    if xbmc.getCondVisibility('Control.HasFocus(%d)' % TABS):
+        for cid in TITLE_LISTS:
+            if xbmc.getCondVisibility('Control.IsVisible(%d)' % cid):
+                xbmc.executebuiltin('SetFocus(%d,0,absolute)' % cid)
+        xbmc.executebuiltin('SetFocus(%d)' % TABS)
+
+
 def republish():
     """A row of the page came back empty: the page's rows again, without it."""
     data = C.read_json(C.spec_file(TAB), {}) or {}
@@ -208,7 +296,8 @@ def republish():
         tr = rows.app().tr
     except Exception:
         tr = (lambda text: text)
-    _publish(list(data.get('rows') or []), data.get('ref') or {}, data.get('title') or '', tr)
+    from ..folder_view import apply_current
+    apply_current()
 
 
 OPEN_REQUEST = 'dhs.fold.request'
@@ -226,6 +315,8 @@ def request_open(params, handle):
     request = {'params': dict(params), 'token': token, 'scope': profile_scope.key()}
     C.set_prop(OPEN_TOKEN, token)
     C.set_prop('dhs.fold.loading_label', 'Loading…' if _english() else 'جارٍ التحميل…')
+    from ..folder_view import apply_current
+    apply_current()
     C.set_prop('dhs.fold.loading', 'true')
     C.set_prop('dhs.fold.new', '1')
     xbmc.executebuiltin('ActivateWindow(%d)' % window)
@@ -250,6 +341,11 @@ def watch_open_requests(monitor):
     C.set_prop('dhs.fold.opener', '1')
     try:
         while not monitor.abortRequested():
+            focus = C.prop('dhs.fold.focus_pending')
+            if focus in ('7001','7100') and xbmc.getCondVisibility('Window.IsActive(1190)'):
+                if xbmc.getCondVisibility('Integer.IsGreater(Container(%s).NumItems,0)' % focus):
+                    xbmc.executebuiltin('SetFocus(%s)' % focus)
+                    C.set_prop('dhs.fold.focus_pending','')
             raw = C.prop(OPEN_REQUEST)
             if raw:
                 C.set_prop(OPEN_REQUEST, '')
@@ -266,9 +362,49 @@ def watch_open_requests(monitor):
                     if _request_current(token):
                         C.set_prop('dhs.fold.loading_label', 'Could not load collection. Press Back.' if _english()
                                    else 'تعذر تحميل الكوليكشن. اضغط رجوع.')
+            _follow_tabs()
             if monitor.waitForAbort(0.1 if raw else 0.25):
                 break
     finally:
         C.set_prop('dhs.fold.opener', '')
         C.set_prop(OPEN_REQUEST, '')
         C.set_prop('dhs.fold.loading', '')
+
+
+def read_ahead(url, stop=None, readers=4):
+    """v5.10.476: the catalogs of a collection page (its skin_fold address)
+    read and saved before it opens (the service, worker.take_fold): the
+    ones with no fresh copy, the single catalogs first and "All" (every
+    catalog together, the slowest) last, four at a time."""
+    import time
+    from urllib.parse import parse_qsl, urlsplit
+    from . import rows
+    from ..homeui import window as W
+    params = dict(parse_qsl(urlsplit(url).query))
+    ref = dict((k, params.get(k) or '') for k in ('set_id', 'group_id', 'folder_id', 'media_filter'))
+    if not ref['folder_id']:
+        return 0
+    started = time.monotonic()
+    home = rows.HeadlessHome(rows.app(), 'all')
+    _folder, sources = W.BrowseWindow.__dict__['_folder_sources'](home, ref)
+    todo = []
+    for spec in _specs(ref, sources)[:12]:
+        data = C.read_json(C.row_file(TAB, spec['id']))
+        if not data or not data.get('items') or not C.fresh_copy(data, rows.ttl_of(spec)):
+            todo.append(spec)
+    if not todo:
+        return 0
+    todo.sort(key=lambda spec: 1 if (spec.get('params') or {}).get('action') == 'collection_nuvio_sources_open' else 0)
+
+    def read(spec):
+        if stop is not None and stop():
+            return
+        try:
+            rows.fetch(TAB, spec['id'], spec, wait_other=False)
+        except Exception as exc:
+            C.log('collection read ahead: %s: %s' % (spec.get('title'), exc.__class__.__name__))
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=readers, thread_name_prefix='DexHub-fold-ahead') as pool:
+        list(pool.map(read, todo))
+    C.log('collection read ahead: %d catalog(s) in %.0f ms' % (len(todo), (time.monotonic() - started) * 1000))
+    return len(todo)

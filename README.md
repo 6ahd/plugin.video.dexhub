@@ -1,58 +1,155 @@
 <div align="center">
 
+<img src=".github/screenshots/banner.jpg" alt="Dex Hub: every source you trust, in any Kodi skin" />
+
 # Dex Hub
 
-**A modern Stremio-style streaming experience for Kodi, with its own skin**
+**Every source you trust, in any Kodi skin. One search, one picker, play in a second.**
 
-Stremio & Nuvio add-ons · Plex, Emby, Jellyfin & Silo · Live TV · Native Trakt, Simkl & MDBList · Arabic-first UI · TMDb Helper integration
+Any Stremio & Nuvio add-on · Plex, Emby, Jellyfin & Silo · Live TV · Native Trakt, Simkl & MDBList · With or without its own skin · Arabic-first UI
 
-[![Version](https://img.shields.io/badge/version-5.10.383-7c3aed)]()
-[![Skin](https://img.shields.io/badge/skin-3.28.110-ffd23f)]()
+[![Version](https://img.shields.io/badge/version-5.10.452-7c3aed)](../../releases/latest)
+[![Skin](https://img.shields.io/badge/skin-3.28.171-ffd23f)](../../releases/latest)
 [![Kodi](https://img.shields.io/badge/Kodi-21%20Omega%20%7C%2022%20Piers-33d8f7)]()
 [![License](https://img.shields.io/badge/license-all%20rights%20reserved-ef4444)](LICENSE.txt)
 [![Ko-fi](https://img.shields.io/badge/support-Ko--fi-ff5e5b)](https://ko-fi.com/dexworld)
 
-[Install](#installation) · [What's new](#whats-new) · [Features](#what-makes-dex-hub-different) · [Skin](#the-dex-hub-skin) · [Screenshots](#screenshots) · [Support](#support-the-project)
-
-<img src=".github/screenshots/home.jpg" alt="Dex Hub Home in the Dex Hub skin" />
+[What's new](#whats-new-in-510452) · [Pick your look](#pick-your-look) · [Why Dex Hub](#why-dex-hub) · [Works with](#works-with) · [DexCloud](#dexcloud-your-phone-and-telegram) · [Screenshots](#screenshots) · [Install](#installation) · [Support](#support-the-project)
 
 </div>
 
-## What's new
+## What's new in 5.10.452
 
-**Dex Hub 5.10.383 · Dex Hub skin 3.28.110**
+**Dex Hub 5.10.452 · Dex Hub skin 3.28.171** · fewer settings to face, a Home that opens on your rows, and a watched mark like Trakt's.
 
-* **Spotlight you set up yourself:** pick, for each tab (Home, Movies, Series), the row its spotlight titles come from (any catalog, Your list, a watchlist, Continue watching, or none) and how many titles it shows (5 to 20). The row's name shows next to the spotlight dots. **Full spotlight** fills the screen with the title and moves the rows down when you go up to it.
-* **Clean look:** white focus, a dotted info line, full release dates, "Ends at", shorter row names, and the selected episode's details at the top of the title page. Turn it off in Menu › Look › Clean look.
-* **Title page:** no longer cut at the top when you go down to the episodes, and the backdrop keeps clear of the logo and the text.
-* **Studio logos:** bigger on the Home and the title page, white logos preferred, sharper TMDb logos, and studio packs inside Textures.xbt are read.
-* **Skip intro** is a white rounded button with black text, as on Apple TV and Netflix. The same fix brings back the button backgrounds and rounded corners in every Dex Hub window.
-* **Watch party (in testing):** the host gets "Back to what we watch" after a restart and returns to the room's place, and an empty party now waits 15 minutes before it closes.
-* **Dex Hub Extra is now DexCloud (in testing):** on first run, under the phone setup QR, link the TV to your DexCloud account with a small QR or a code.
-* **Kodi 22 beta fixes:** the screensaver no longer opens over the source search when you play from a TMDb Helper widget, and settings save again on Kodi 22 beta 1 (CoreELEC) when the settings file was written by a newer Kodi.
-* **Rows:** the selected row stays below the tab bar at every card size, tabs open as soon as you land on them (Live TV on OK), and watch progress keeps clear of the row title on big cards.
+**Quick setup**
+* **Four steps in one screen**, like Apple's own apps: link your accounts (with Kaptain's collection for the Home), choose how titles play (pick the source yourself, or the best one at once), pick your look from pictures (the Home's layout and the title page, with every Home layout in a gallery), and say what your device is (light, balanced or strong, with a suggestion for yours).
+* **Customize** on the last step opens every setting. Subtitles and audio stay in the player's settings, since everyone picks their own language.
+* It shows on Dex Hub's first run, as the first card of the Control centre and the first line of the add-on's settings, and the same questions sit in a **Quick setup** card at the top of the phone setup page.
 
-Full history in [changelog.txt](changelog.txt).
+**A simpler Control centre**
+* **Basic mode is four sections:** Start (Quick setup, accounts, the phone), Look (theme, Home layout, title page, size), Playback (how titles play, audio and subtitles, trailers) and System (cache, diagnostics, Kodi and leaving). Its last card, **All settings**, opens all 13 sections.
 
-## What makes Dex Hub different
+**Home**
+* **No spotlight by default:** the Home opens on your rows. Turn it on in Control centre → All settings → Home & rows → Spotlight titles.
+* **Watched films carry a check mark like Trakt's** (a white check in a red disc) on the Home's cards, the collection page and the title page, and the Home's hero says "Watched". A film counts as watched when you finished it here or when it is in Recently watched (your Trakt or Nuvio history). **Dimmed** is softer too.
 
-Dex Hub brings the Stremio philosophy to Kodi without sacrificing what makes Kodi powerful. Instead of locking you into one provider, it searches every source you trust in parallel and shows the first results within a second: you click and watch.
+## What's new in 5.10.451
 
-* **Stremio and Nuvio add-ons:** paste any Stremio or Nuvio add-on link, or sign in to Nuvio (QR login from your phone) and keep add-ons, collections, watch progress and your saved library in sync.
-* **Your own servers:** Plex, Emby, Jellyfin and Silo, as libraries and as sources in the same picker. They show up right after you sign in.
-* **Live TV:** an Xtream Codes account or an M3U playlist, with channel groups as Home rows, what is on now and next, a programme guide, VOD movies and series, and the channel playing behind the Home.
-* **One unified source picker** with results grouped by type (Usenet, debrid, direct, Plex) and ranked by quality, language and provider. It shows Cached, Uncached or In your account, and its source line can follow your AIOStreams formatter.
-* **Native Trakt, Simkl, MDBList and Floppy:** PIN linking, scrobbling, watched history, watchlists and your lists, no third-party add-on needed.
-* **Continue Watching and Next Up** rows on the Home, quick play from the source you used last, and auto-play of the next episode (or Up Next, if you prefer it).
-* **Subtitles that fit:** subtitles searched while you choose a source, your preferred languages first, AutoSync that fits any external subtitle to the timing of the one inside the video, and AI subtitles when you link DexWorld.
-* **Metadata your way:** one metadata and artwork source for everything (AIOMetadata, TMDb, Cinemeta), Fanart.tv clearlogos, BetterPosters, IMDb and TMDb ratings and more, in Arabic or English.
-* **TMDb Helper player:** one tap registers Dex Hub, so your skin's TMDb widgets hand playback to it.
-* **Arctic Fuse 3 integration:** install Dex Hub's Home and pages into Arctic Fuse 3 in one tap (your skin is backed up first) and restore it whenever you like.
-* **Collections:** build your own from your catalogs, or import Fusion Widgets, Kaptain or Nuvio JSON collections, with animated collection art.
-* **28 themes**, from Dex Crimson and Midnight Ocean to OLED Black and Nuvio White.
-* **Light on low-end boxes:** a one-tap speed profile, a quick lightweight setup and covers that load on focus, built to stay fast on CoreELEC and Zidoo boxes.
-* **Arabic-first UI** with full RTL support, and English too.
-* **Kodi 22 ready:** playback handoff uses the modern VideoInfoTag API, no deprecated calls.
+**Dex Hub 5.10.451 · Dex Hub skin 3.28.170** · a cinema-glass title page, a new player panel for subtitles and audio, and a calmer, clearer Control centre.
+
+<table>
+  <tr>
+    <td align="center" colspan="2"><img src=".github/screenshots/new-cinematic.jpg" alt="The cinematic title page: the backdrop over the whole page, the facts as plain text, glass buttons and glass season chips" /><br><sub><b>The cinematic title page.</b> The backdrop fills the page, the buttons and seasons sit on dark glass, and one button on the page switches between the cinematic and classic layouts.</sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="50%"><img src=".github/screenshots/new-subtitle-colours.jpg" alt="Subtitle look in the player: ready colours as swatches and a shade row under them" /><br><sub><b>Subtitle look, in the player.</b> Ready colours as swatches, then their shades from darker to lighter, a step at a time.</sub></td>
+    <td align="center" width="50%"><img src=".github/screenshots/new-control-centre.jpg" alt="The new Control centre: sections on the left, options one a row with their values" /><br><sub><b>The Control centre, redrawn.</b> Sections on the left, one option a row, real switches, and a Basic mode that shows the essentials first.</sub></td>
+  </tr>
+</table>
+
+**In the player**
+* **One subtitle and audio panel on the right.** Subtitles open on their languages, each with its flag and how many: your languages first, the add-ons' results joining as they arrive, and a language with one subtitle taken at once. Audio lists every track with its flag, details and channel and codec badges.
+* **Subtitle look in the same panel:** fonts, size, the ready colours as swatches with a **shade row** (a softer or a stronger yellow), borders, delay and auto sync. Subtitle colours now show at all (Kodi left them out before).
+* **Sound settings with Kodi's options:** volume in dB as Kodi shows it, amplification, audio delay and **Allow passthrough**.
+* **The quick lists** (resting on the Audio or Subtitles button) share the panel's glass look, and the **Episodes panel** shows the episode number on each picture and says which one is playing.
+* **A two-line clock** (the time, and when the video ends) and Arabic text that reads in order.
+
+**Pages and Home**
+* **Cinematic title page** in glass: no side card, plain facts, glass buttons and seasons, "Episodes" over a hairline. The classic layout takes the glass too.
+* **No leftovers:** a title page opening after another never shows the last title's details or episodes.
+* **Collections:** Up, Down and Back from the titles go back to the catalogue tabs.
+* **A quicker Home at Kodi's start**, shaped loading cards, and a **Reduce motion** switch for slower boxes.
+* **Spotlight buttons** on dark glass, and the loading screen before playback without the extra mark.
+
+**Control centre**
+* **Basic and All options:** each section shows its main options first; the last card shows the rest.
+* **Pictures for every look** (below) when you choose a title page, a collection view or a sources theme.
+
+**Servers**
+* **Silo, the way its team asked:** `/api/v2` only, the client named on every request, sessions renewed with their refresh token (one sign-in per device, never copied between TVs), `429` and `Retry-After` honoured, lighter searches and genres.
+* **Silo alerts on Telegram** by a personal Silo webhook to DexCloud 2.17, with no sign-in (your Silo server's admin must allow personal webhooks).
+
+Full history in [changelog.txt](changelog.txt). Earlier: [5.10.451](../../releases/tag/V5.10.451), [5.10.449](../../releases/tag/V5.10.449), [5.10.448](../../releases/tag/V5.10.448).
+
+## Pick your look
+
+Every look below is one choice in the Control centre, and the Control centre now shows these pictures as you choose.
+
+<table>
+  <tr>
+    <td align="center" width="50%"><img src=".github/screenshots/look-title-classic.jpg" alt="Classic title page: the poster beside the details" /><br><sub><b>Title page · Classic</b><br>The poster beside the details, seasons and episodes under them</sub></td>
+    <td align="center" width="50%"><img src=".github/screenshots/look-title-cinematic.jpg" alt="Cinematic title page: the backdrop over the page" /><br><sub><b>Title page · Cinematic</b><br>The backdrop over the page, glass buttons, the details on the left</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src=".github/screenshots/look-collection-tabs.jpg" alt="A collection as catalogue tabs" /><br><sub><b>Collections · Tabs</b><br>Catalogue tabs, the tab's titles in one row under them</sub></td>
+    <td align="center"><img src=".github/screenshots/look-collection-rows.jpg" alt="A collection as rows of posters" /><br><sub><b>Collections · Rows</b><br>Every catalogue a row of posters</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src=".github/screenshots/look-sources-prism.jpg" alt="Sources page, Prism theme" /><br><sub><b>Sources · Prism</b><br>The add-on's lines in full, the focused row grows</sub></td>
+    <td align="center"><img src=".github/screenshots/look-sources-halo.jpg" alt="Sources page, Halo theme" /><br><sub><b>Sources · Halo</b><br>Ready coloured badges and a gradient ring</sub></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2"><img src=".github/screenshots/look-sources-compact.jpg" alt="Sources page, Compact theme" width="50%" /><br><sub><b>Sources · Compact</b> · short rows with a white focus, your badges</sub></td>
+  </tr>
+</table>
+
+> These pictures are drawings with made-up titles, so each look is easy to tell apart. The real pages use your titles' own artwork.
+
+## Why Dex Hub
+
+<img src=".github/screenshots/works-with-everything.png" alt="Any source in, any skin out: Stremio and Nuvio add-ons, your own servers, Live TV and your accounts go into Dex Hub; it plays in the Dex Hub skin, any other skin, Arctic Fuse 3 or your skin's widgets" />
+
+**It takes any add-on as a source.** Paste the link of any Stremio or Nuvio add-on (Torrentio, AIOStreams, Comet, MediaFusion, your own) and it joins the search. Your Plex, Emby, Jellyfin and Silo servers sit in the same picker, next to debrid, Usenet and direct links. No add-on is locked in and none is left out.
+
+**It works in any skin, or with its own.** Dex Hub brings its own Home, title pages and source picker, so it looks the same on Estuary, Arctic Fuse or any other skin. Want more? Turn on the optional Dex Hub skin, or put Dex Hub's Home inside Arctic Fuse 3 in one tap (your skin is backed up first).
+
+**It plays from anywhere in Kodi.** Your skin's TMDb Helper widgets hand playback to Dex Hub with one tap of setup, and every movie and episode in your library gets *Dex Hub: Search sources* in its context menu. It is a subtitle provider for Kodi's own subtitle search too.
+
+**It is fast.** Every source is searched in parallel and the first results show within a second. A one-tap speed profile keeps it smooth on CoreELEC, Fire TV and Zidoo boxes.
+
+**It is yours.** 28 themes, row styles per row, your own covers and fonts, and a phone setup page (scan the QR on the TV) so you never type on the remote.
+
+## Works with
+
+| Sources | | Where you watch | |
+| --- | :---: | --- | :---: |
+| Any Stremio add-on (link) | ✅ | Dex Hub skin (optional) | ✅ |
+| Any Nuvio add-on, or your Nuvio account (QR) | ✅ | Estuary (Kodi default) | ✅ |
+| AIOStreams, with its own formatter | ✅ | Arctic Fuse 3 (Home and pages, one tap) | ✅ |
+| Plex · Emby · Jellyfin | ✅ | Any other Kodi skin (Dex Hub's own Home) | ✅ |
+| Silo (API v2, alerts on Telegram) | ✅ | TMDb Helper widgets in your skin | ✅ |
+| Live TV: Xtream Codes, M3U | ✅ | Library context menu (movies, episodes) | ✅ |
+| Trakt · Simkl · MDBList · Floppy | ✅ | Kodi 21 Omega · Kodi 22 Piers | ✅ |
+| Fusion, Kaptain and Nuvio collections | ✅ | Android · Fire TV · Apple TV · CoreELEC · LibreELEC · Windows · macOS · Linux | ✅ |
+
+## What's included
+
+| Part | What you get |
+| --- | --- |
+| **Home** | A spotlight with trailers, Continue Watching and Next Up, your catalogs as rows in the shape you pick (posters, landscape, logo circles…), collections and Live TV |
+| **Title page** | Classic or cinematic, switched from the page: logo, ratings, age rating and studio, episodes with progress, cast, reviews from Trakt and TMDb, pictures and IMDb's Parents Guide |
+| **Source picker** | Every result in one list, grouped by type and ranked by quality, language and provider, with Cached / In your account and quality badges, in three looks |
+| **Player** | A rating card as a film starts, video and audio badges, one glass panel for subtitles and audio with flags, Skip intro and recap, auto-play next |
+| **Subtitles** | Searched while you pick a source, your languages first (picked by name), ready colours and shades, AutoSync and AI subtitles |
+| **Sync** | Nuvio and Stremio add-ons, progress and library both ways, Trakt scrobbling, and every TV kept in step through DexCloud |
+| **Look** | 28 themes, your fonts and text size, Clear Glass and Apple-style focus, Reduce motion, your own covers for any collection or catalog |
+
+## DexCloud: your phone and Telegram
+
+DexCloud ([hub.dexworld.cc](https://hub.dexworld.cc)) is Dex Hub's free companion site: link your TVs once, then set them up from your phone or computer.
+
+<table>
+  <tr>
+    <td align="center" width="50%"><img src=".github/screenshots/telegram-alert.jpg" alt="A Telegram alert with a designed poster and Play on Kodi" /><br><sub>Telegram alerts with Play on Kodi, the trailer and the title's pages</sub></td>
+    <td align="center" width="50%"><img src=".github/screenshots/play-on-kodi.jpg" alt="Play on Kodi: pick a TV" /><br><sub>Play on Kodi: pick a TV and its sources open</sub></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2"><img src=".github/screenshots/ready-library.jpg" alt="The ready library on DexCloud" /><br><sub>The ready library: hundreds of folders, each with your cover, name, type and source</sub></td>
+  </tr>
+</table>
+
+> The Telegram picture above uses a placeholder logo; real alerts use the title's own logo from TMDb.
 
 ## The Dex Hub skin
 
@@ -63,7 +160,7 @@ An optional skin made for Dex Hub. Kodi draws Dex Hub's Home itself, so it opens
 * icon tabs, an Edit Home button and per-row styles;
 * your Nuvio profile, Dex Hub's title pages, grids and My watching;
 * quality badges in the player: Elite, Gold, Minimalist white or your own images;
-* Arctic Fuse 3's video player, settings pages and dialogs, from ABUKARIM's copy with his CoreELEC player tools (PPI, Dolby Vision VS10) and Arabic font sets.
+* Arctic Fuse 3's video player, settings pages and dialogs, with CoreELEC player tools and Arabic font sets.
 
 Install it from the Dex Hub repository (Look and feel → Skin), or turn it on from Dex Hub's settings with **Home → Dex Hub skin: use it** (it is installed from the repository when missing). **Home → Dex Hub skin: back to the skin used before it** takes you back. The skin needs Kodi 21 or later.
 
@@ -71,22 +168,32 @@ Install it from the Dex Hub repository (Look and feel → Skin), or turn it on f
 
 <table>
   <tr>
+    <td align="center"><img src=".github/screenshots/new-collection-tabs.jpg" alt="A collection page with its catalogs as tabs" /><br><sub>A collection's catalogs as tabs, its titles right under them</sub></td>
+    <td align="center"><img src=".github/screenshots/home-genre-universe.jpg" alt="Genre Universe banners on the Home" /><br><sub>Dex Hub's own collections as big banners</sub></td>
+  </tr>
+  <tr>
     <td align="center"><img src=".github/screenshots/title.jpg" alt="Title page" /><br><sub>Title page with episodes, progress and ratings</sub></td>
     <td align="center"><img src=".github/screenshots/sources.jpg" alt="Source picker" /><br><sub>Source picker with Cached status and badges</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src=".github/screenshots/collection-top10.jpg" alt="A collection's Top 10 tab with large rank numbers" /><br><sub>Top 10 tabs with large numbers</sub></td>
+    <td align="center"><img src=".github/screenshots/series-episodes.jpg" alt="Series page with gold stars on its best episodes" /><br><sub>Series pages with a gold star on standout episodes</sub></td>
   </tr>
   <tr>
     <td align="center"><img src=".github/screenshots/my-library.jpg" alt="My Library" /><br><sub>My Library: every service in one place</sub></td>
     <td align="center"><img src=".github/screenshots/dex-community.jpg" alt="Dex Community" /><br><sub>Dex Community: ready made catalogs</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src=".github/screenshots/collections.jpg" alt="Collections" /><br><sub>Collections from your catalogs</sub></td>
-    <td align="center"><img src=".github/screenshots/spotlight-cards.jpg" alt="Spotlight cards" /><br><sub>Spotlight cards for whole catalogs</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><img src=".github/screenshots/control-centre.jpg" alt="Control centre" /><br><sub>Control centre</sub></td>
+    <td align="center"><img src=".github/screenshots/home-shelf.jpg" alt="Collector's Shelf on the Home" /><br><sub>Collector's Shelf: Remux, Dolby Vision, FEL, Atmos</sub></td>
     <td align="center"><img src=".github/screenshots/screensaver.jpg" alt="Cinema screensaver" /><br><sub>Cinema screensaver: what's coming this week</sub></td>
   </tr>
+  <tr>
+    <td align="center"><img src=".github/screenshots/player.jpg" alt="Player" /><br><sub>Player with ratings, badges and your languages</sub></td>
+    <td align="center"><img src=".github/screenshots/badges.jpg" alt="Quality badges" /><br><sub>Quality badges: pick a pack or bring your own</sub></td>
+  </tr>
 </table>
+
+> The screenshots are from the Dex Hub skin. In another skin, Dex Hub's own Home and pages look the same; your skin keeps its own menus and player.
 
 ## Installation
 
@@ -103,23 +210,21 @@ Dex Hub supports Kodi 21 (Omega) and 22 (Piers) on Android, Linux, Windows, macO
 
 Download both zips from the [latest release](../../releases/latest) and install them with **Add-ons → Install from zip file**: first `plugin.video.dexhub`, then `skin.dexhub`. Zip installs don't update themselves, so the repository is the better choice.
 
-On first launch, Quick Start offers three ways in: connect Nuvio, add Stremio add-ons (Cinemeta and Torrentio are good starters), or set things up by hand.
+On first launch, the Quick setup walks you through your accounts, playback, your look and your device in four short steps (or scan its QR code and do it from your phone).
 
 ## Quick start
 
-In Dex Hub's Control centre:
+In Dex Hub's Control centre: **Start → Quick setup** covers the basics. Below are the paths under **All settings** (the last card of any Basic section):
 
-* **Add a source:** Accounts & Sources → Add a source → paste a Stremio or Nuvio add-on link
-* **Connect Nuvio:** Accounts & Sources → Connect & sync Nuvio
-* **Add Live TV:** Accounts & Sources → Live TV (IPTV) → add your Xtream Codes account, or an M3U playlist through IPTV Simple
-* **Connect Trakt:** Accounts & Sources → Trakt account & sync
-* **Add ready made catalogs:** Home → Dex Community
-* **Arrange your Home:** Home → Arrange Home rows
-* **Back up your setup:** System → Backup and restore
-* **Speed up a slow box:** System → Speed profile, one tap
-* **Switch to the Dex Hub skin:** Home → Dex Hub skin: use it
-* **Dex Hub inside Arctic Fuse 3:** Home → Dex Hub in Arctic Fuse 3: install or update
-* **Choose player badges:** Player → Player badges / Badge pack
+* **Add a source:** Stream sources → Add a source → paste a Stremio or Nuvio add-on link
+* **Connect Nuvio:** Accounts & sync → Nuvio sync
+* **Add Live TV:** IPTV & servers → add your Xtream Codes account, or an M3U playlist through IPTV Simple
+* **Connect Trakt:** Accounts & sync → Trakt
+* **Add ready made catalogs:** Home & rows → Catalogs & collections
+* **Choose your looks:** Home & rows → Home layout, Title page layout, Open collections as; Stream sources → sources theme
+* **Back up your setup:** Maintenance & backup → Backup
+* **Speed up a slow box:** Maintenance & backup → Speed mode, and Theme & appearance → Glass & focus → Reduce motion
+* **Switch to the Dex Hub skin:** Skin & language → Dex Hub skin
 
 ## Support the project
 
@@ -136,10 +241,16 @@ Built in Python 3 on Kodi's own APIs (xbmc, xbmcgui, xbmcplugin, xbmcvfs), with 
 ## Credits
 
 * Dex Hub skin: based on Estuary by Team Kodi
-* The skin's video player, settings pages and dialogs: Arctic Fuse 3 by jurialmunkey, from ABUKARIM's modified copy with his CoreELEC player tools and Arabic font sets
+* The skin's video player, settings pages and dialogs: Arctic Fuse 3 by jurialmunkey
 * Fonts: Inter, IBM Plex Sans Arabic, League Spartan and Font Awesome 6 Free
 * Icons: Font Awesome Free and Simple Icons
 * Badge packs: [Elite](https://github.com/leonevz/Elite-Badges) by leonevz, [Gold](https://github.com/k45sle/NUVIO_BADGES) by k45sle and [Minimalist white](https://github.com/sweatycab/nuvio-minimalist-badges) by sweatycab, downloaded from their own repositories when you pick them
+* Player Info page: based on the Player Info screen of [Lucent](https://github.com/djdirty60/Lucent) by djdirty60
+* Sport: the big match card in My games follows the design of [Lucent](https://github.com/djdirty60/Lucent) by djdirty60
+* Aura sources theme: its colours and the layout of its results page follow [Lucent](https://github.com/djdirty60/Lucent) by djdirty60
+* Sport data: ESPN and FotMob
+* Usenet playback: the engine that reads a release from your NNTP provider is the Usenet engine of [NuvioTV](https://github.com/NuvioMedia/NuvioTV) ([pull request 4426](https://github.com/NuvioMedia/NuvioTV/pull/4426) by haaihond), GPL-3.0. It is not part of Dex Hub: it ships as a separate add-on, `script.dexhub.usenet`, built unchanged from that source with its licence and source statement inside, and Dex Hub only starts it and talks to it over 127.0.0.1
+* Release quality tiers and the Clean filter: data from [TRaSH Guides](https://github.com/TRaSH-Guides/Guides)
 
 ## Disclaimer
 

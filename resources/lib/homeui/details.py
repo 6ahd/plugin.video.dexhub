@@ -36,8 +36,8 @@ BUTTONS, SEASONS, EPISODES, CAST, RELATED = 100, 300, 310, 400, 500
 ZONES = {BUTTONS: 'buttons', SEASONS: 'seasons', EPISODES: 'episodes', CAST: 'cast', RELATED: 'related'}
 SERIES_TYPES = ('series', 'episode', 'tv', 'show', 'anime', 'tvshow')
 TMDB_IMG = 'https://image.tmdb.org/t/p/'
-_DETAIL_TTL = 24 * 3600
-_SEASON_TTL = 12 * 3600
+_DETAIL_TTL = 6 * 3600
+_SEASON_TTL = 1800
 # v5.10.194: a server's movie or show (Plex, Emby, Jellyfin, Silo) opens on
 # the title page too; Play keeps the server's own route (direct from the
 # server when Library playback says so), Sources searches as for any title
@@ -111,7 +111,9 @@ def server_route(tile):
 def supported(tile):
     """Movies and series from catalogs, search and favourites open here."""
     tile = tile or {}
-    if tile.get('kind') != 'work' or tile.get('cw'):
+    if tile.get('kind') != 'work':
+        return False
+    if tile.get('cw') and not (tile.get('folder') and R.params_of(tile.get('path') or '').get('action') in ('item_open', 'series_meta', 'seasons')):
         return False
     media = tile.get('media_type') or ''
     if media not in ('movie', 'series', 'episode'):
@@ -492,7 +494,7 @@ class DetailsWindow(W._BaseWindow):
         self.hero['tmdb_id'] = self.hero.get('tmdb_id') or tmdb
         kind = 'tv' if self.series else 'movie'
         lang = self._tmdb_lang()
-        key = 'dh-details-v3:%s:%s:%s' % (kind, tmdb, lang)   # v5.10.322: with the age rating
+        key = 'dh-details-v4:%s:%s:%s' % (kind, tmdb, lang)   # v5.10.322: with the age rating
         data = T._cache_get(key)
         if data is None:
             data = T._request('/%s/%s' % (kind, tmdb), {
@@ -502,7 +504,7 @@ class DetailsWindow(W._BaseWindow):
             }, timeout=8, max_attempts=2) or {}
             # v5.10.120: an empty answer (a timeout) is asked again after
             # two minutes, not ten: the page's cast and related titles
-            T._cache_set(key, data, _DETAIL_TTL if data else 120)
+            T._cache_set(key, data, (1800 if self.series else _DETAIL_TTL) if data else 120)
         self.tmdb = data if isinstance(data, dict) else {}
 
     def _apply_tmdb(self):
@@ -569,6 +571,17 @@ class DetailsWindow(W._BaseWindow):
                     hero['ratings'] = dict((key, found[key]) for key in RB.ORDER if found.get(key))
             except Exception:
                 pass
+            # v5.10.448: the cinematic title page's details card
+            crew = (data.get('credits') or {}).get('crew') or []
+            makers = [str(m.get('name') or '').strip() for m in (data.get('created_by') or [])]
+            makers += [str(m.get('name') or '').strip() for m in crew if m.get('job') == 'Director']
+            hero['director'] = ', '.join(list(dict.fromkeys(n for n in makers if n))[:2])
+            date = str(data.get('release_date') or data.get('first_air_date') or '')
+            hero['released'] = '.'.join(reversed(date.split('-'))) if len(date) == 10 else date[:4]
+            companies = list(data.get('networks') or []) if self.series else []
+            companies += list(data.get('production_companies') or [])
+            hero['studio'] = ', '.join(list(dict.fromkeys(
+                str((c or {}).get('name') or '').strip() for c in companies if (c or {}).get('name')))[:2])
             cast = []
             for member in ((data.get('credits') or {}).get('cast') or [])[:24]:
                 name = str(member.get('name') or '').strip()
@@ -835,7 +848,7 @@ class DetailsWindow(W._BaseWindow):
         if self.tmdb_id:
             from .. import tmdb_direct as T
             lang = self._tmdb_lang()
-            key = 'dh-season:%s:%s:%s' % (self.tmdb_id, number, lang)
+            key = 'dh-season-v2:%s:%s:%s' % (self.tmdb_id, number, lang)
             data = T._cache_get(key)
             if data is None:
                 try:

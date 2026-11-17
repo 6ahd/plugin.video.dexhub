@@ -150,7 +150,7 @@ def has_client():
 
 def simple_installed():
     try:
-        return bool(xbmc.getCondVisibility('System.HasAddon(%s)' % IPTV_SIMPLE))
+        return bool(xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % IPTV_SIMPLE))
     except Exception:
         return False
 

@@ -47,7 +47,7 @@ WORK_MEDIATYPES = frozenset(('movie', 'tvshow', 'episode', 'season', 'musicvideo
 
 SHAPES = ('poster', 'landscape', 'square', 'wide', 'ranked', 'tall', 'tall_ranked', 'collage', 'wide_ranked',
           'mosaic', 'stack', 'shelf', 'poster_large', 'feature', 'landscape_info',
-          'collection_spotlight', 'collection_compact', 'collection_ranking')
+          'collection_spotlight', 'collection_compact', 'collection_ranking', 'circle')
 
 
 def _txt(value):
@@ -356,7 +356,12 @@ def tile_from_entry(entry, default_shape='poster'):
         if m:
             ids['tmdb_id'] = m.group(1)
     from ..home_art import first
-    poster = first(art.get('poster'), art.get('tvshow.poster'), art.get('thumb'), art.get('icon'))
+    from ..poster_roles import portrait
+    if work:
+        poster = first(*(portrait(value, (art.get('episode.landscape'),)) for value in
+                         (art.get('tvshow.poster'), art.get('poster'), art.get('thumb'))))
+    else:
+        poster = first(art.get('poster'), art.get('thumb'), art.get('icon'))
     fanart = first(art.get('fanart'), art.get('landscape'), props.get('fanart_image'))
     landscape = first(art.get('landscape'), art.get('thumb'), art.get('fanart'))
     clearlogo = first(art.get('clearlogo'), art.get('logo'), art.get('tvshow.clearlogo'))
@@ -627,6 +632,23 @@ def is_empty_note(tile):
 
 
 def capture_tiles(params, api, shape='poster', works_only=False, limit=60, patience=0.0):
+    action = (params or {}).get('action')
+    if action == 'skin_discover':
+        from ..routes import discover_tab      # v5.10.466: Discover's rows on the Home
+        return discover_tab.tiles(params), None
+    if action == 'skin_live':
+        from ..routes import live_tab          # v5.10.466: Live TV's rows on the Home
+        return live_tab.tiles(params), None
+    from ..catalog_navigation import unwrap
+    params = unwrap(params)
+    if not params:
+        return [], None
+    if params.get('action') in ('skin_folder', 'skin_fold'):
+        from ..catalog_navigation import folder_tiles
+        return folder_tiles(params, api), None
+    if params.get('action') == 'skin_follow':
+        from ..catalog_follow import load_target
+        return load_target(params.get('target') or ''), None
     entries, _elapsed = _capture.run_route(params, api, patience=patience)
     if not entries and _capture.last_error():
         # a crash inside the route is a failure, not an empty catalog
@@ -681,6 +703,9 @@ OWN_ROWS = {
     # v5.10.208: TMDb's picks for the last film or show watched (follow.py)
     'because_movies': ({'action': 'lib_because', 'media': 'movie'}, 'movie', 'poster'),
     'because_shows': ({'action': 'lib_because', 'media': 'series'}, 'series', 'poster'),
+    # v5.10.576: Recommended for you, by the viewer's AI (ai_search.picks_rows)
+    'ai_movies': ({'action': 'lib_ai_picks', 'media': 'movie'}, 'movie', 'poster'),
+    'ai_shows': ({'action': 'lib_ai_picks', 'media': 'series'}, 'series', 'poster'),
 }
 OWN_KEYS = frozenset(('continue', 'nextup')) | frozenset(OWN_ROWS)
 _PROGRESS_LOCK = threading.Lock()
@@ -1074,6 +1099,24 @@ def betterposters_tabs(api, media):
         return out
     except Exception:
         return []
+
+
+DEX_GROUPS = ('collection-DEXGENRES', 'collection-DEXMOODS', 'collection-DEXKWAVE', 'collection-DEXSHELF')
+
+
+def dex_collection_entries():
+    """v5.10.448: Dex Hub's own rows (Genre Universe, Moods & Themes,
+    K-Wave) from the bundled collection, for a Home that follows Nuvio's
+    (fallback_collection_entries only fills a Home without it)."""
+    try:
+        from .. import collection_sets as cs
+        row = cs._builtin_kaptain_set()
+    except Exception:
+        return []
+    if not row:
+        return []
+    by_id = dict((_txt(e.get('id')), e) for e in row.get('entries') or [] if isinstance(e, dict))
+    return [(_txt(row.get('id')), by_id[g]) for g in DEX_GROUPS if g in by_id]
 
 
 def fallback_collection_entries():

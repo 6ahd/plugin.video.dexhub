@@ -61,11 +61,37 @@ QUALITY_FILTERS = [
     ('Q:2160P', 'الجودة • 4K / 2160P', ('2160P', '2160', '4K', 'UHD')),
     ('Q:1080P', 'الجودة • 1080P', ('1080P', '1080', 'FHD')),
     ('Q:720P',  'الجودة • 720P',  ('720P', '720', 'HD')),
-    ('Q:480P',  'الجودة • 480P / SD', ('480P', '480', 'SD')),
+    ('Q:480P',  'الجودة • 480P / SD', ('480P', '480', '360', '320', '240', 'SD')),
     ('Q:HDR',   'الجودة • HDR', ('HDR', 'HDR10', 'HDR10+')),
     ('Q:DV',    'الجودة • Dolby Vision', ('DV', 'DOVI', 'DOLBY VISION')),
     ('Q:REMUX', 'الجودة • REMUX', ('REMUX', 'BDREMUX')),
+    # v5.10.543: whole Blu-ray discs (ISO, BDMV): CoreELEC plays them with menus
+    ('Q:DISC', 'الجودة • قرص كامل ISO', ()),
 ]
+
+_DISC_RE = re.compile(r'(?<![a-z0-9])(?:iso|bdmv|br[ ._-]?disk|full[ ._-]?disc|bd(?:25|50|66|100)|'
+                      r'complete[ ._-]?(?:uhd[ ._-]?)?blu[ ._-]?ray)(?![a-z0-9])|\.iso(?:$|[?|])|/index\.bdmv', re.I)
+
+
+def _row_is_disc(row):
+    """A whole Blu-ray disc (an .iso or a BDMV folder), by its name or address."""
+    if not isinstance(row, dict):
+        return False
+    known = row.get('_ui_is_disc')
+    if known is not None:
+        return known
+    # v5.10.546: AIOStreams writes the disc tag (BR-DISK, "ISO boost") only in
+    # the stream's description, so the filter never appeared before
+    text = ' '.join(str(row.get(key) or '') for key in (
+        'title', 'name', 'label', 'label2', 'filename', 'release', 'releaseTitle', 'description',
+        'stream_title', 'stream_name', 'stream_description', 'formatter_tags', 'formatter_summary',
+        'stream_desc_raw', 'stream_name_raw', 'upstream_formatter_text', 'tags',
+        'extraInfo', 'url', 'stream_url'))
+    hints = row.get('behaviorHints') if isinstance(row.get('behaviorHints'), dict) else {}
+    text += ' ' + str(hints.get('filename') or '')
+    found = bool(_DISC_RE.search(text))
+    row['_ui_is_disc'] = found
+    return found
 
 # Built once per interpreter, not once per rendered source row.  The picker can
 # receive hundreds of AIOStreams results and v5.2 rebuilt this palette list for
@@ -209,6 +235,8 @@ def _nuvio_text(text, lines=3):
     out = []
     for line in str(text or '').replace('\r', '').split('\n'):
         line = _NUVIO_EMOJI.sub('', line)
+        # v5.10.434: an add-on's empty numbers ('NaN Mbps • NaN fps') leave the line
+        line = _PLOT_SEP_RE.sub('  •  ', _PLOT_NAN_RE.sub('', line))
         line = _re.sub(r'\s{2,}', ' ', line).strip(' \t|·•-')
         if line:
             out.append(_kodi_safe_text(line))
@@ -234,12 +262,27 @@ def _nuvio_size(value):
 
 def _nuvio_line_count(text, per_line):
     """How many lines Kodi will wrap this text into (v5.10.303, an estimate
-    from the characters a card line holds)."""
+    from the characters a card line holds). v5.10.449: Kodi wraps at spaces,
+    so a long word ('Anywhere][WEBDL-2160p][DV') starts a line of its own;
+    counted word by word, as Kodi lays it out (the plain character count
+    gave the focused card a line or two too few and cut its last lines)."""
+    per_line = max(1, per_line)
     count = 0
     for line in str(text or '').split('\n'):
-        line = line.strip()
-        if line:
-            count += max(1, -(-len(line) // max(1, per_line)))
+        words = line.split()
+        if not words:
+            continue
+        lines, used = 1, 0
+        for word in words:
+            size = len(word)
+            if used and used + 1 + size > per_line:
+                lines, used = lines + 1, 0
+            if used:
+                used += 1
+            used += size
+            while used > per_line:              # a word wider than the line
+                lines, used = lines + 1, used - per_line
+        count += lines
     return count
 
 
@@ -1063,7 +1106,7 @@ def _pack_name_tokens(text):
 
 _BADGE_RESOLUTION = re.compile(
     r'(?<![a-z0-9])(?:4320[pi]?|8k|2160[pi]?|4k|uhd|ultra[ ._-]*hd|'
-    r'1080[pi]?|fhd|full[ ._-]*hd|720[pi]?|576[pi]?|540[pi]?|480[pi]?|360[pi]?|sd)(?![a-z0-9])', re.I)
+    r'1080[pi]?|fhd|full[ ._-]*hd|720[pi]?|576[pi]?|540[pi]?|480[pi]?|360[pi]?|320[pi]?|240[pi]?|sd)(?![a-z0-9])', re.I)
 
 
 def _badge_quality(row, text=''):
@@ -1072,7 +1115,7 @@ def _badge_quality(row, text=''):
         matches = [m.group().lower() for m in _BADGE_RESOLUTION.finditer(str(value or ''))]
         for label, hints in (('8K', ('4320', '8k')), ('4K', ('2160', '4k', 'uhd', 'ultra')),
                              ('1080p', ('1080', 'fhd', 'full')), ('720p', ('720',)),
-                             ('SD', ('576', '540', '480', '360', 'sd'))):
+                             ('SD', ('576', '540', '480', '360', '320', '240', 'sd'))):
             if any(any(m.startswith(h) for h in hints) for m in matches):
                 return label
     return ''
@@ -1175,10 +1218,12 @@ def _elite_badge_images(row, tags=None, max_items=10, skip_resolution=False):
 # Sort modes for the results drawer. Kept separate from QUALITY_FILTERS so a
 # filter and a sort can be active at the same time.
 SORT_MODES = [
+    ('S:TRASH',    'الترتيب \u2022 TRaSH'),
+    ('S:TRASHWEB', 'الترتيب \u2022 TRaSH \u00b7 WEB أول'),
     ('S:DEFAULT',  'الترتيب \u2022 المقترح'),
     ('S:SIZE',     'الترتيب \u2022 الحجم'),
     ('S:QUALITY',  'الترتيب \u2022 الجودة'),
-    ('S:PROVIDER', 'الترتيب \u2022 المصدر'),
+    ('S:PROVIDER', 'الترتيب \u2022 الإضافة'),
     ('S:NAME',     'الترتيب \u2022 الاسم'),
 ]
 
@@ -1187,6 +1232,7 @@ _SORT_QUALITY_RANK = (
     (('1080', 'FHD'), 4),
     (('720', 'HD'), 3),
     (('480', 'SD'), 2),
+    (('360', '320', '240'), 1),
 )
 
 
@@ -1206,7 +1252,7 @@ def _quality_group(row):
         return '1080p'
     if '720' in text:
         return '720p'
-    if any(t in text for t in ('480', '576', 'SD')):
+    if any(t in text for t in ('480', '576', '360', '320', '240', 'SD')):
         return 'SD'
     return text.strip() or tr('أخرى')
 
@@ -1249,19 +1295,10 @@ def _nice_type(label):
     return _TYPE_WORDS.get(text.upper(), text) if text.isupper() else text
 
 
-def _plot_two_lines(text):
-    """v5.10.151: the header's plot in two lines at most (the box showed half
-    of a third line): cut at a word with an ellipsis. Arabic letters are
-    wider in the skin's font, so its budget is smaller."""
-    text = ' '.join(str(text or '').split())
-    budget = 125 if _RTL_STRONG_RE.search(text) else 150
-    if len(text) <= budget:
-        return text
-    cut = text[:budget]
-    space = cut.rfind(' ')
-    if space > budget * 0.6:
-        cut = cut[:space]
-    return cut.rstrip(' ,.;:\u060c\u061b-') + '\u2026'
+def _plot_full(text):
+    """v5.10.449: the header's whole plot on one paragraph. Its box shows
+    three lines and scrolls the rest (autoscroll), so nothing is cut."""
+    return ' '.join(str(text or '').split())
 
 
 _PNG_ASPECT = {}
@@ -1348,6 +1385,7 @@ def _recommendation_reason(factor):
         'provider': 'أولوية المصدر في إعداداتك',
         'resolution': 'دقة أعلى',
         'hdr': 'تفضيل HDR في إعداداتك',
+        'trash': 'أعلى درجة في TRaSH Guides',
         'access': 'نوع الوصول المباشر أو المخزن',
         'release': 'نوع الإصدار',
         'debrid': 'تفضيل Debrid في إعداداتك',
@@ -1387,8 +1425,8 @@ def _sort_quality_rank(row):
     return 0
 
 
-def _sorted_rows(rows, mode):
-    """Reorder rows for the chosen mode. S:DEFAULT keeps the ranked order."""
+def _sorted_rows(rows, mode, anime=False):
+    """Reorder rows for the chosen mode. S:DEFAULT preserves the source/add-on order."""
     rows = list(rows or [])
     mode = str(mode or 'S:DEFAULT')
     if mode == 'S:SIZE':
@@ -1401,6 +1439,14 @@ def _sorted_rows(rows, mode):
                                            -_sort_size_bytes(r)))
     if mode == 'S:NAME':
         return sorted(rows, key=lambda r: str(r.get('name') or '').upper())
+    if mode in ('S:TRASH', 'S:TRASHWEB'):
+        # v5.10.447: as Radarr and Sonarr choose: the resolution, then the
+        # TRaSH Guides score (trash_guides; its anime scores for an anime
+        # title; WEB first drops Remux and Blu-ray below WEB), then the size
+        from .trash_guides import entry_score
+        prefer = 'web' if mode == 'S:TRASHWEB' else ''
+        return sorted(rows, key=lambda r: (-_sort_quality_rank(r), -entry_score(r, anime=anime, prefer=prefer),
+                                           -_sort_size_bytes(r)))
     return rows
 
 
@@ -1431,6 +1477,8 @@ def _filter_label(value):
 
 
 def _row_matches_quality(row, filter_value):
+    if filter_value == 'Q:DISC':
+        return _row_is_disc(row)
     blob = _row_quality_blob(row)
     return _blob_matches_quality(blob, filter_value)
 
@@ -1692,13 +1740,34 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         self.retry_source = kwargs.get('retry_source')
         self.selected = None
         self.active_filter = 'ALL'
-        # --- dexhub-407-patch ---
+        # v5.10.557: the filter panel's choice; one saved with "Keep it" starts on
         try:
-            self.active_sort = str(ADDON.getSetting('source_sort_mode') or 'S:DEFAULT') or 'S:DEFAULT'
+            from . import source_filter
+            self.smart = source_filter.remembered()
         except Exception:
-            self.active_sort = 'S:DEFAULT'
+            self.smart = {}
+        self._smart_keep = self._smart_kept = bool(self.smart)
+        # v5.10.557: the sources that failed for this title a moment ago (auto_next brought
+        # the page back): moved to the end and marked
+        self._failed_keys, self._failed_marks = set(), set()
+        try:
+            from . import auto_next
+            from .skinui.osd_sources import _item_key
+            _meta = self.meta if isinstance(self.meta, dict) else {}
+            if not _meta.get('canonical_id'):           # the page's details may not carry the ids
+                _meta = next((row for row in (kwargs.get('results') or []) if isinstance(row, dict)), {})
+            self._failed_keys, self._failed_marks = auto_next.failed_marks(
+                _item_key(_meta.get('canonical_id'), _meta.get('season'), _meta.get('episode')))
+        except Exception as _silent_exc:
+            log.silent('RESULTS_WIN', _silent_exc)
+        # --- dexhub-407-patch ---
+        # v5.10.447: TRaSH Guides' order unless the user picked another
+        try:
+            self.active_sort = str(ADDON.getSetting('source_sort_mode') or 'S:TRASH') or 'S:TRASH'
+        except Exception:
+            self.active_sort = 'S:TRASH'
         if self.active_sort not in [k for k, _l in SORT_MODES]:
-            self.active_sort = 'S:DEFAULT'
+            self.active_sort = 'S:TRASH'
         self.filters = []
         self.play_mode = _normalize_mode(kwargs.get('play_mode') or MODE_ASK)
         self.play_with_subtitles = False
@@ -1774,8 +1843,21 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         except Exception:
             pass
 
+    def close(self):
+        try:
+            from . import page_guard
+            page_guard.unwatch(self)
+        except Exception:
+            pass
+        super().close()
+
     def onInit(self):
         self._touch_interactive()
+        try:
+            from . import page_guard        # v5.10.448: closed by something else
+            page_guard.watch(self)
+        except Exception:
+            pass
         try:
             xbmc.log('[DexHub] scan-ui results window: onInit (inited=%s)' % bool(getattr(self, '_inited', False)), xbmc.LOGINFO)
         except Exception:
@@ -1796,6 +1878,11 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             self._update_loading_state()
             return
         self._inited = True
+        try:
+            from .sources_loading import results_shown     # v5.10.448: the search screen goes now
+            results_shown()
+        except Exception:
+            pass
         # v4.5.1: classic composition only — the search stopwatch stays for
         # the live summary strip.
         if not hasattr(self, '_search_t0'):
@@ -1878,12 +1965,14 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         # "previous item's poster appears briefly" issue.
         self.setProperty('dexhub.results.fanart', _fanart or '')
         self.setProperty('dexhub.results.clearlogo', _clearlogo or '')
+        self._aura_tint(_fanart)
         # v3.9.89: _poster is always either a TMDb URL, a vetted addon
         # URL, or the local portrait placeholder — never empty, never
         # landscape — so no extra fallback is needed here.
         self.setProperty('dexhub.results.poster', _poster or '')
         self.setProperty('title', _title)
-        self.setProperty('plot', _plot_two_lines(_clean_header_plot(_plot)))
+        # v5.10.449: the whole plot; the box scrolls it (sources_*.xml autoscroll)
+        self.setProperty('plot', _plot_full(_clean_header_plot(_plot)))
         self.setProperty('year', _year)
         self.setProperty('rating', _rating)
         self.setProperty('genre', _genre)
@@ -2007,9 +2096,13 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         return True
 
     def _start_remote_meta_enrich(self):
-        if self.meta.get('_dexhub_meta_source_id') not in (None, '', 'auto'):
-            return
-        if self.meta.get('_dexhub_helper_cache_only'):
+        # v5.10.565: a title whose metadata source the user chose (Nuvio's
+        # TMDb, a catalog's own) keeps its pictures, but its plot in the
+        # metadata language and its ratings are still read: the catalogs of a
+        # Nuvio profile carry that mark, and their plots stayed in English
+        strict = self.meta.get('_dexhub_meta_source_id') not in (None, '', 'auto')
+        if self.meta.get('_dexhub_helper_cache_only') and not getattr(self, '_want_ratings', False):
+            # v5.10.479: Compact's ratings under the picture are read even then, in the background
             return
         if self._meta_enrich_started:
             return
@@ -2021,6 +2114,31 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             year = str(self.meta.get('year') or '').strip()
             media_type = str(self.meta.get('media_type') or self.meta.get('type') or 'movie').strip().lower()
             needs = not (self.meta.get('studio') or self.meta.get('studios')) or not (self.meta.get('clearlogo') or self.meta.get('logo'))
+            # v5.10.479: the ratings of Compact (under the picture) and
+            # Classic (on top) are looked up for a title that came without
+            # them; v5.10.481: or with only a few (TMDb's own score alone
+            # left Classic's row with one chip): every source is asked
+            want_ratings = False
+            if getattr(self, '_want_ratings', False):
+                from .homeui import ratings as _ratings
+                home = xbmcgui.Window(10000)
+                shown = [k for k in _ratings.ORDER if home.getProperty('dexhub.rating.%s' % k)]
+                # v5.10.482: of the ratings the user shows (three chosen: three is all)
+                picked = _ratings.chosen()
+                want_ratings = len(shown) < min(4, len(picked)) or ('imdb' in picked and 'imdb' not in shown)
+            # v5.10.562: the plot in the metadata language: an Arabic user saw
+            # Cinemeta's English overview (TMDb was asked in English first, for its logos)
+            want_arabic = False
+            try:
+                from .meta_source import meta_language
+                plot_now = str(self.meta.get('plot') or self.meta.get('description') or self.meta.get('overview') or '')
+                want_arabic = meta_language() == 'ar' and not re.search(u'[؀-ۿ]', plot_now)
+            except Exception:
+                want_arabic = False
+            if strict:
+                needs = want_ratings or want_arabic
+            else:
+                needs = needs or not self.meta.get('year') or want_ratings or want_arabic
             if not needs or not (tmdb_id or imdb_id or title):
                 return
         except Exception:
@@ -2042,21 +2160,47 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                     title=title, year=year) or {}
                 if not isinstance(remote, dict) or not remote:
                     return
+                if want_arabic:
+                    local = tmdb_direct.meta_for(
+                        tmdb_id=tmdb_id or str(remote.get('tmdb_id') or ''), imdb_id=imdb_id,
+                        media_type=media_type, title=title, year=year, language_override='ar-SA') or {}
+                    text = local.get('plot') or local.get('overview') or local.get('description')
+                    if text:
+                        remote = dict(remote, plot=text)
                 update = {}
-                if remote.get('studio_logos'):
+                if strict:
+                    # the chosen source's pictures and text stay: the plot only, when it is Arabic now
+                    if want_arabic and re.search(u'[\u0600-\u06FF]', str(remote.get('plot') or '')):
+                        update['plot'] = remote['plot']
+                    remote_keys = ()
+                else:
+                    remote_keys = ('poster', 'fanart', 'clearlogo', 'plot', 'year', 'rating', 'studio')
+                if remote.get('studio_logos') and not strict:
                     update['studio_logos'] = list(remote.get('studio_logos') or [])
-                for key in ('poster', 'fanart', 'clearlogo', 'plot', 'year', 'rating', 'studio'):
+                for key in remote_keys:
                     value = remote.get(key)
                     if key == 'plot' and not value:
                         value = remote.get('overview') or remote.get('description')
                     if value not in (None, '', [], {}):
                         update[key] = value
                 genres = remote.get('genre') or remote.get('genres') or ''
-                if genres:
+                if isinstance(genres, (list, tuple)):
+                    genres = ' / '.join(str(g) for g in genres[:3] if g)       # v5.10.479: not ['Family', ...]
+                if genres and not strict:
                     update['genre'] = genres
                 window = window_ref()
                 if update and window is not None:
                     window._queue_art_update(update)
+                if want_ratings and window is not None:
+                    from .homeui import ratings as _ratings
+                    from . import tmdbh_context
+                    found = _ratings.collect(tmdb_id=tmdb_id or str(remote.get('tmdb_id') or ''),
+                                             imdb_id=imdb_id or str(remote.get('imdb_id') or ''),
+                                             media_type='series' if media_type in ('series', 'tv', 'show', 'episode') else 'movie',
+                                             network=True, full=True)
+                    window = window_ref()
+                    if found and window is not None:
+                        tmdbh_context.publish_ratings(window, {'ratings': found})
             except Exception as exc:
                 try:
                     xbmc.log('[DexHub] async TMDb header enrich skipped: %s' % exc, xbmc.LOGDEBUG)
@@ -2113,6 +2257,165 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             self.setProperty('dexhub.search.done', '1' if done else '')
         except Exception:
             pass
+        if getattr(self, '_halo', False):
+            self._update_halo_search(done)
+
+    _HALO_BAR = 560
+
+    def _update_halo_search(self, done):
+        """v5.10.439: the Halo page's search card: add-ons answered of all,
+        seconds, the add-on that answered last and the progress line."""
+        try:
+            home = xbmcgui.Window(10000)
+            try:
+                total = int(home.getProperty('dexhub.search.total') or 0)
+            except ValueError:
+                total = 0
+            try:
+                t0 = float(home.getProperty('dexhub.search.t0') or 0) or getattr(self, '_search_t0', time.time())
+            except ValueError:
+                t0 = getattr(self, '_search_t0', time.time())
+            pending = getattr(self, '_search_pending', None)
+            pending = max(0, int(pending or 0)) if pending is not None else 0
+            total = max(total, pending)
+            answered = total - pending if total else 0
+            if done:
+                answered = total
+            pct = int(round(100.0 * answered / total)) if total else (100 if done else 0)
+            end = getattr(self, '_search_finished_at', None) if done else None
+            props = {
+                'halo_searching': '' if done else '1',
+                'halo_pct': '%d%%' % pct,
+                'halo_addons': ('%d / %d %s' % (answered, total, tr('إضافات'))) if total else '',
+                'halo_elapsed': '%.1f %s' % (max(0.0, (end or time.time()) - t0), tr('ث')),
+                'halo_checking': ('%s  %s' % (tr('يفحص الآن:'), self._search_last))
+                                 if (not done and getattr(self, '_search_last', '')) else '',
+                'halo_found': str(len(getattr(self, '_visible_rows', None) or self.results or [])),
+            }
+            for key, value in props.items():
+                if self.getProperty(key) != value:
+                    self.setProperty(key, value)
+            try:
+                self.getControl(2450).setWidth(max(8, int(self._HALO_BAR * pct / 100.0)))
+            except Exception:
+                pass
+        except Exception as _silent_exc:
+            log.silent('RESULTS_WIN', _silent_exc)
+
+    _PRISM_BAR = 660
+
+    def _prism_bar(self, counts):
+        """v5.10.447: Prism's share bar: one part each for 4K, 1080p, 720p
+        and SD as wide as its share of the results (controls 2461-2464,
+        only on the Prism page)."""
+        if not getattr(self, '_prism', False):
+            return
+        parts = [(2461 + i, counts.get(k, 0)) for i, k in enumerate(('4k', '1080', '720', 'sd'))]
+        total = sum(c for _cid, c in parts)
+        shown = [(cid, c) for cid, c in parts if c]
+        room = self._PRISM_BAR - 4 * max(0, len(shown) - 1)
+        x = 24
+        try:
+            for cid, count in parts:
+                ctl = self.getControl(cid)
+                if not count:
+                    ctl.setVisible(False)
+                    continue
+                width = max(6, int(round(room * count / float(total))))
+                if (cid, count) == shown[-1]:
+                    width = max(6, 24 + self._PRISM_BAR - x)
+                ctl.setPosition(x, 120)
+                ctl.setWidth(width)
+                ctl.setVisible(True)
+                x += width + 4
+        except Exception as _silent_exc:
+            log.silent('RESULTS_WIN', _silent_exc)
+
+    def _aura_tint(self, url):
+        """v5.10.560: the Aura page's colour bloom: the backdrop's own colour (art_colour), read in
+        the background; Lucent's pale glow until then, and for a picture with no colour of its own.
+        v5.10.574: every theme but Classic has it (they all take Aura's colours)."""
+        if not (getattr(self, '_aura', False) or getattr(self, '_bloom', False)):
+            return
+        # on Home: the page's XML reads it there, so the filter panel open over the page (the active
+        # window then) does not turn the glows white
+        home = xbmcgui.Window(10000)
+        if not getattr(self, '_aura_tint_set', False):
+            self._aura_tint_set = True
+            home.setProperty('dexhub.aura.tint', '40D6F0FF')
+            home.setProperty('dexhub.aura.tint2', '26D6F0FF')
+        url = str(url or '').strip()
+        if not url or url == getattr(self, '_aura_tint_url', ''):
+            return
+        self._aura_tint_url = url
+
+        def read():
+            try:
+                from . import art_colour
+                found = art_colour.colour(url) or {}
+                accent = str(found.get('accent') or '')
+                if len(accent) == 8 and getattr(self, '_aura_tint_url', '') == url:
+                    home.setProperty('dexhub.aura.tint', '73' + accent[2:])
+                    home.setProperty('dexhub.aura.tint2', '40' + accent[2:])
+            except Exception as _silent_exc:
+                log.silent('RESULTS_WIN', _silent_exc)
+        threading.Thread(target=read, name='DexHub-aura-tint').start()
+
+    def _halo_stop_search(self):
+        """Keep what was found and stop asking the add-ons still searching."""
+        if self.session_key:
+            try:
+                source_session.close(self.session_key)
+            except Exception as _silent_exc:
+                log.silent('RESULTS_WIN', _silent_exc)
+        self.setProperty('loading_more', 'false')
+        self._update_loading_state()
+        try:
+            self.setFocusId(2000)
+        except Exception:
+            pass
+
+    def _halo_quality_tile(self, control_id):
+        value = {2411: 'Q:2160P', 2412: 'Q:1080P', 2413: 'Q:720P', 2414: 'Q:480P'}.get(control_id)
+        if not value:
+            return
+        if self.active_filter == value:
+            value = 'ALL'
+        self._apply_filter(value)
+
+    def _halo_settings(self):
+        """The gear: the search and sources theme, from the page itself."""
+        from .ui_preferences import OPTIONS, value as pref_value, set_value
+        try:
+            from .i18n import is_english
+            en = is_english()
+        except Exception:
+            en = False
+        choices = OPTIONS['sources_row_style'][1]
+        # v5.10.574: all but Classic in Aura's colours, each its own layout
+        names = {'full': (('Prism', 'Prism'), ('البيانات كاملة: سطور الإضافة نفسها مثل Nuvio TV، وإحصاء المصادر، وشاراتك الخاصة',
+                                               "Full details: the add-on's own lines like Nuvio TV, the sources' count, your own badges")),
+                 'compact': (('بوستر', 'Poster'), ('البوستر والقصة والتقييمات يسار، والمصادر مختصرة بشاراتك الخاصة',
+                                                    'The poster, plot and ratings on the left, short rows with your own badges')),
+                 'halo': (('Halo', 'Halo'), ('شاراته ملونة بالكلام، والمصدر المحدد يكبر سطر سطر ويبين سطور الإضافة',
+                                             'Coloured badges in words; the selected source grows a line at a time with the add-on\'s lines')),
+                 'aura': (('Aura', 'Aura'), ('الخلفية واضحة والألواح زجاج: كل مصدر بالكلام مع شاراته الملونة، وتفاصيل الملف المحدد كمربعات',
+                                             'Clear artwork under glass panels: each source in words with coloured badges, and the selected file\'s details as tiles')),
+                 'classic': (('كلاسيكي', 'Classic'), ('التصميم السابق: البوستر يسار، وكل التقييمات فوق بكبسولات زجاج',
+                                                      'The earlier page: the poster on the left, every rating on top as glass chips'))}
+        current = pref_value('sources_row_style')
+        items = []
+        for c in choices:
+            (ar, enl), (ard, end) = names.get(c, ((c, c), ('', '')))
+            item = xbmcgui.ListItem(label=(enl if en else ar) + ('  ✓' if c == current else ''), label2=end if en else ard)
+            items.append(item)
+        pick = xbmcgui.Dialog().select(OPTIONS['sources_row_style'][3 if en else 2], items, useDetails=True,
+                                       preselect=choices.index(current) if current in choices else 0)
+        if pick < 0 or choices[pick] == current:
+            return
+        set_value('sources_row_style', choices[pick])
+        xbmcgui.Dialog().notification('Dex Hub', 'Next time you open the sources' if en else 'يتغيّر من المرة الجاية',
+                                      time=3000, sound=False)
 
     def _update_subtitle_status(self, force=False):
         """Publish the shared source-scan subtitle job without blocking UI."""
@@ -2175,6 +2478,7 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         done = bool(payload.get('done'))
         self._search_pending = payload.get('search_pending')
         self._search_failed = payload.get('search_failed', 0)
+        self._search_last = payload.get('search_last') or getattr(self, '_search_last', '')
         self.setProperty('loading_more', 'false' if done else 'true')
         # v3.9.263: live provider tally (Fen Light-style) — "AIOStreams: 12 |
         # Torrentio: 8". Updates as each provider's results stream in, so a
@@ -2254,13 +2558,14 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                     self.setProperty('dexhub.results.poster', _kodi_safe_text(art.get('poster') or ''))
                 if art.get('fanart'):
                     self.setProperty('dexhub.results.fanart', _kodi_safe_text(art.get('fanart') or ''))
+                    self._aura_tint(art.get('fanart'))
                 if art.get('clearlogo'):
                     self.setProperty('dexhub.results.clearlogo', _kodi_safe_text(art.get('clearlogo') or ''))
                 # v3.9.144: hero TEXT filled from the same TMDb meta_for call.
                 if art.get('plot'):
                     _cleaned_plot = _clean_header_plot(art.get('plot'))
                     if _cleaned_plot:
-                        self.setProperty('plot', _plot_two_lines(_cleaned_plot))
+                        self.setProperty('plot', _plot_full(_cleaned_plot))
                 if art.get('year'):
                     self.setProperty('year', _kodi_safe_text(art.get('year') or ''))
                 if art.get('genre'):
@@ -2367,6 +2672,8 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             for quality in quality_order:
                 if _blob_matches_quality(quality_blob, quality):
                     candidates.append(quality)
+            if _row_is_disc(row):
+                candidates.append('Q:DISC')
             candidates.extend((
                 _row_type_filter(row), _row_group_filter(row),
                 _row_provider_filter(row),
@@ -2383,6 +2690,11 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                   order['T'] + order['V'] + order['P'])
         self._facet_rows = facets
         self.filters = values
+        _discs = len(facets.get('Q:DISC') or ())
+        if _discs != getattr(self, '_logged_discs', -1):
+            self._logged_discs = _discs
+            # v5.10.548: says in kodi.log why the Full disc filter is or is not there
+            xbmc.log('[DexHub] source filters: %d rows, %d full disc' % (len(rows), _discs), xbmc.LOGINFO)
         try:
             control = self.getControl(2100)
         except Exception:
@@ -2406,19 +2718,57 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             item_specs.append((sort_key, label))
         for name in values:
             item_specs.append((name, _filter_label(name)))
-        signature = tuple(item_specs)
+        signature = tuple(item_specs) + (getattr(self, 'active_filter', 'ALL'),)
         # Live providers frequently publish a new payload with the same filter
         # vocabulary. Do not reset the Kodi control (and its cursor) then.
         if signature == getattr(self, '_filter_signature', None):
             return
         self._filter_signature = signature
         restore_idx = -1
+        # v5.10.438: the Halo drawer shows sections, the chosen entry and counts
+        try:
+            from .i18n import is_english
+            _en = is_english()
+        except Exception:
+            _en = False
+        _sections = {'S': ('الترتيب', 'Sort'), 'A': ('عرض', 'Show'), 'Q': ('الجودة', 'Quality'),
+                     'T': ('النوع', 'Type'), 'V': ('الإضافة', 'Add-on'), 'P': ('المزود', 'Provider'),
+                     'I': ('المفهرس', 'Indexer')}
+        _last_section = None
+        item_values = []
         for idx, (filter_value, label) in enumerate(item_specs):
             # v5.10.165: fresh items, filled before the list gets them: offscreen
-            li = _offscreen_item(label, {'label': label, 'filter_value': filter_value})
+            _v = str(filter_value or '')
+            if idx < len(SORT_MODES):
+                _sec, _active, _plain = 'S', _v == self.active_sort, _sort_mode_label(_v)
+            else:
+                _sec = 'A' if _v == 'ALL' else (_v[:1] if _v[1:2] == ':' and _v[:1] in 'TVPI' else 'Q')
+                _active = _v == getattr(self, 'active_filter', 'ALL')
+                _plain = _v[2:] if _sec in ('T', 'V', 'P', 'I') else label
+            _count = len(facets.get(_v) or ()) if _sec != 'S' else 0
+            _props = {'label': label, 'filter_value': filter_value,
+                      'halo_label': _plain, 'halo_active': '1' if _active else '',
+                      'halo_count': str(_count) if _count else '',
+                      'halo_section': (_sections[_sec][1 if _en else 0]
+                                       if _sec != _last_section else '')}
+            if getattr(self, '_halo', False):
+                # Halo: the section is a row of its own (Kodi lays a list row
+                # out by the focused row's properties, so a heading inside an
+                # entry could not show); the plain name drops "Sort •"
+                if _props['halo_section']:
+                    items.append(_offscreen_item(_props['halo_section'], {
+                        'label': '', 'filter_value': '', 'halo_header': '1',
+                        'halo_label': _props['halo_section']}))
+                    item_values.append(None)
+                if _sec in ('S', 'Q') and u' \u2022 ' in _plain:
+                    _props['halo_label'] = _plain.split(u' \u2022 ', 1)[1]
+            _last_section = _sec
+            li = _offscreen_item(label, _props)
             items.append(li)
+            item_values.append(filter_value)
             if previous_value and filter_value == previous_value:
-                restore_idx = idx
+                restore_idx = len(items) - 1
+        self._drawer_values = list(item_values)     # v5.10.447: _open_filters starts on what is on
         try:
             control = control or self.getControl(2100)
             control.reset()
@@ -2426,12 +2776,63 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             if items:
                 if restore_idx < 0:
                     restore_idx = min(max(previous_pos, 0), len(items) - 1)
+                while restore_idx < len(items) - 1 and item_values[restore_idx] is None:
+                    restore_idx += 1
                 control.selectItem(restore_idx)
         except Exception as _silent_exc:
             log.silent('RESULTS_WIN', _silent_exc)
     def _results_for_filter(self, filter_value):
         # --- dexhub-407-patch --- filter first, then apply the active sort
-        return _sorted_rows(self._filtered_rows(filter_value), getattr(self, 'active_sort', 'S:DEFAULT'))
+        rows = self._filtered_rows(filter_value)
+        # v5.10.557: the filter panel's choice (several groups at once) narrows what the tab shows
+        smart = getattr(self, 'smart', None)
+        if smart:
+            from . import source_filter
+            kept = source_filter.apply(rows, smart, self._smart_minutes(), getattr(self, '_anime', False))
+            if not kept and rows and getattr(self, '_smart_kept', False) and str(filter_value or 'ALL') == 'ALL':
+                # a kept filter that leaves this title with nothing steps aside for it
+                self._smart_kept = False
+                self.smart = {}
+                try:
+                    xbmcgui.Dialog().notification('Dex Hub', tr('الفلتر المثبّت ما طابق أي مصدر هنا، عرضنا الكل'),
+                                                  xbmcgui.NOTIFICATION_INFO, 4000)
+                except Exception as _silent_exc:
+                    log.silent('RESULTS_WIN', _silent_exc)
+            else:
+                rows = kept
+        rows = _sorted_rows(rows, getattr(self, 'active_sort', 'S:DEFAULT'),
+                            anime=getattr(self, '_anime', False))
+        if self._failed_keys or self._failed_marks:
+            rows = ([row for row in rows if not self._row_failed(row)] +
+                    [row for row in rows if self._row_failed(row)])
+        return rows
+
+    def _row_failed(self, row):
+        """This source did not play a moment ago."""
+        if str(row.get('stream_key') or '') in self._failed_keys:
+            return True
+        return (str(row.get('name') or row.get('stream_title') or '?'),
+                str(row.get('provider') or row.get('provider_name_raw') or '')) in self._failed_marks
+
+    def _smart_minutes(self, lookup=False):
+        # the running time turns a size into a bitrate; asked of TMDb once, only when the
+        # panel opens or a kept bitrate choice needs it
+        from . import source_filter
+        meta = self.meta if isinstance(self.meta, dict) else {}
+        minutes = getattr(self, '_smart_min', 0) or source_filter.minutes_of(meta)
+        if not minutes and (lookup or (getattr(self, 'smart', None) or {}).get('rate')) \
+                and not getattr(self, '_smart_min_asked', False):
+            self._smart_min_asked = True
+            minutes = source_filter.minutes_lookup(meta)
+        self._smart_min = minutes
+        return minutes
+
+    def _smart_text(self):
+        smart = getattr(self, 'smart', None)
+        if not smart:
+            return ''
+        from . import source_filter
+        return source_filter.summary(smart)
 
     def _filtered_rows(self, filter_value):
         cached = getattr(self, '_facet_rows', {}).get(str(filter_value or 'ALL'))
@@ -2492,6 +2893,8 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             types = sorted(
                 [key for key in order if key[2] == 'type'],
                 key=lambda key: (type_priority.get(key[0], 99), order.index(key)))
+            if getattr(self, '_halo', False):
+                types = []   # v5.10.439: Halo's tabs are add-ons; kinds are in the filters
             providers = sorted(
                 [key for key in order if key[2] == 'provider'],
                 key=lambda key: (-counts[key], order.index(key)))
@@ -2525,8 +2928,11 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             restore_idx = -1
             for idx, (label, count, filter_value, coloridx, is_active) in enumerate(entries):
                 # v5.10.165: fresh items, filled before the list gets them: offscreen
+                _parts = [p.strip() for p in str(label).split('\u2022')]
+                _short = _parts[0] if len(_parts) == 2 and _parts[0].casefold() == _parts[1].casefold() else label
                 li = _offscreen_item(label, {
                     'label': '%s  %d' % (_kodi_safe_text(label), count),
+                    'halo_name': _kodi_safe_text(_short), 'halo_count': str(count),
                     'filter_value': filter_value,
                     'vfilter': filter_value,  # compatibility with old skins
                     'coloridx': str(coloridx) if coloridx else '',
@@ -2720,6 +3126,8 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         """
         row = row if isinstance(row, dict) else {}
         name = _kodi_safe_text(row.get('name') or '')
+        if (self._failed_keys or self._failed_marks) and self._row_failed(row):
+            name = u'%s  \u00b7  %s' % (tr('ما اشتغل'), name)
         # v5.10.165: the properties are gathered here and put on a fresh
         # offscreen ListItem for each display (_make_result_item)
         li = _PropRecorder()
@@ -2781,10 +3189,20 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             # v5.10.303: the focused card grows to its text: the height step
             # (a focused layout per step of 58 px from 140, chosen by the
             # container from the focused row's nv_fh; sources_nuvio.xml)
-            _nv_desc_lines = _nuvio_line_count(_nv_desc, 68)
-            _h = (58 if _nv_name_lines < 2 else 94) + 29 * min(14, _nv_desc_lines) + 52
-            li.setProperty('nv_fh', str(max(0, min(7, -(-(_h - 140) // 58)))))
+            # v5.10.449: the card's text box is 610 px of af3_font_mini, about
+            # 46 characters a line (measured on the Mac: 'Inception (2010) -
+            # [Movies' then 'Anywhere][WEBDL-2160p][DV HDR10][EAC3 5'); its
+            # name is one scrolling line, so only the description adds lines.
+            # v5.10.450: the Apple TV draws the same font 31 px a line (its
+            # photo of 30 Oct: the fifth line cut under 'EAC3 • 5.1'), the
+            # layouts' steps are 29 px: sized for 32 px lines and 44
+            # characters, a little room to spare on the Mac.
+            # Prism's text box is 29 + 58n px, Halo's 29 + 29n.
+            _nv_desc_px = 32 * _nuvio_line_count(_nv_desc, 44)
+            li.setProperty('nv_fh', str(max(0, min(7, -(-(_nv_desc_px - 29) // 58)))))
             li.setProperty('nv_desc', _nuvio_lines(_nv_desc))
+            # v5.10.438: Halo's focused card grows one line (29 px) at a time
+            li.setProperty('halo_fh', str(max(0, min(13, -(-(_nv_desc_px - 29) // 29)))))
             # single line forms for the resting card (v5.10.303)
             li.setProperty('nv_name1', _bidi_anchor('  ·  '.join(x for x in _nv_name.split('\n') if x)))
             li.setProperty('nv_desc1', _bidi_anchor((_nv_desc.split('\n') or [''])[0]))
@@ -2827,6 +3245,9 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         # One badge from each useful category gives much better scanability than
         # simply taking the first six tokens from a release name.
         _add_native(('2160P', '4K', '1080P', '720P'))
+        if _row_is_disc(row) and 'ISO' not in seen:
+            tags.append({'text': 'ISO', 'bg': 'FF2A2112', 'fg': 'FFF2C879'})
+            seen.add('ISO')
         _add_native(('DV',))
         _add_native(('HDR10+', 'HDR10', 'HDR'))
         _add_native(('REMUX', 'BLURAY', 'WEB-DL', 'WEBDL', 'WEBRIP'))
@@ -2873,6 +3294,55 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             li.setProperty('fmt%d_label' % n, _label)
             if _label:
                 compact_labels.append(_label)
+        # v5.10.438: the Halo theme's row: one quality pill on every row and
+        # up to five calm badges without the resolution the pill already shows
+        # (the add-on's own lines, size and add-on are the nv_ properties)
+        try:
+            _hq = _halo_quality(row, all_bits_up)
+            li.setProperty('halo_q', {'4k': '4K', '1080': '1080p', '720': '720p', 'sd': 'SD'}.get(_hq, '–'))
+            li.setProperty('halo_qk', _hq)
+            # v5.10.447: why TRaSH ranks it where it is
+            try:
+                from .trash_guides import reason as _trash_reason
+                li.setProperty('trash_line', _kodi_safe_text(_trash_reason(row, anime=getattr(self, '_anime', False))))
+            except Exception as _silent_exc:
+                log.silent('RESULTS_WIN', _silent_exc)
+            # v5.10.447: Prism's line under the quality: the picture (DV,
+            # HDR10+), else the kind of copy (Remux, WEB, Blu-ray)
+            _up = [str(tag.get('text') or '').strip().upper() for tag in tags]
+            _dr = []
+            for _u in _up:
+                _n = 'DV' if _u in ('DV', 'DOLBY VISION', 'DOVI') else (_u if (_u.startswith('HDR') or _u == 'HLG') else '')
+                if _n and _n not in _dr:
+                    _dr.append(_n)
+            if 'HDR' in _dr and any(x.startswith('HDR') and x != 'HDR' for x in _dr):
+                _dr.remove('HDR')
+            if not _dr:
+                for _u in _up:
+                    if _halo_tone(_u) == 'remux' or _u in ('WEB', 'WEB-DL', 'WEBDL', 'WEBRIP', 'BLURAY', 'BLU-RAY', 'BDRIP', 'HDTV', 'DVD', 'DVDRIP'):
+                        _dr.append(_HALO_NAMES.get(_u, _u))
+                        break
+            li.setProperty('prism_dr', _kodi_safe_text(' · '.join(_dr[:2])))
+            # v5.10.439: no badge for what the add-on's own name line says already
+            _said = ' %s ' % re.sub(r'[^A-Z0-9+.]+', ' ', str(row.get('stream_name_raw') or '').upper())
+            _hb = []
+            for tag in tags:
+                _t = str(tag.get('text') or '').strip()
+                _u = _t.upper()
+                if not _t or _u in ('2160P', '4K', '1080P', '720P', '480P', 'UHD', 'SD') or _u in _hb:
+                    continue
+                if (' %s ' % _u) in _said or (_u == 'DV' and ' DOLBY VISION ' in _said):
+                    continue
+                # one HDR badge (HDR, HDR10, HDR10+), none when the name says HDR
+                if _u.startswith('HDR') and (' HDR' in _said or any(x.startswith('HDR') for x in _hb)):
+                    continue
+                _hb.append(_u)
+            for _i in range(5):
+                _t = _hb[_i] if _i < len(_hb) else ''
+                li.setProperty('halo_b%d' % (_i + 1), _kodi_safe_text(_HALO_NAMES.get(_t, _t)))
+                li.setProperty('halo_t%d' % (_i + 1), _halo_tone(_t))
+        except Exception as _silent_exc:
+            log.silent('RESULTS_WIN', _silent_exc)
         # v5.4.24: the Quality Badges setting owns badge visibility. Earlier
         # builds tied image badges to Lightweight Mode, so a user could enable
         # badges and select a BetterFormatter/Sterzeck JSON set yet NEVER see
@@ -2898,7 +3368,8 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
 
         elite_images = []
         if badges_enabled:
-            layout = _source_badge_layout(_elite_badge_images(row, tags=tags, max_items=10))
+            # v5.10.434: the row already writes its quality ("4K"), so no second 4K badge
+            layout = _source_badge_layout(_elite_badge_images(row, tags=tags, max_items=10, skip_resolution=True))
             elite_images = [image for image, shape in layout]
             moves = _source_badge_moves(layout)
             for badge_idx, (image, shape) in enumerate(layout, 1):
@@ -2915,6 +3386,32 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         if elite_images:
             li.setProperty('fmt_focus_label', '')
 
+        if getattr(self, '_aura', False):     # v5.10.560: the Aura theme's words
+            try:
+                _m = self.meta if isinstance(self.meta, dict) else {}
+                _work = [_m.get(k) for k in ('originaltitle', 'original_title', 'title_en', 'en_title', 'title',
+                                             'tvshowtitle', 'showname') if _m.get(k)]
+                for _key, _value in _aura_props(row, getattr(self, '_smart_min', 0) or self._smart_minutes(lookup=True),
+                                                getattr(self, '_anime', False), _work).items():
+                    li.setProperty(_key, _value)
+                if (self._failed_keys or self._failed_marks) and self._row_failed(row):
+                    li.setProperty('aura_head', u'%s  \u00b7  %s' % (tr('ما اشتغل'), li.props.get('aura_head', '')))
+                # its coloured badges: every fact but the resolution (the pill says it); unlike
+                # Halo's, none is dropped for being in the add-on's name, which this row does not show
+                _ab = []
+                for tag in tags:
+                    _u = str(tag.get('text') or '').strip().upper()
+                    if not _u or _u in ('2160P', '4K', '1080P', '720P', '480P', 'UHD', 'SD') or _u in _ab:
+                        continue
+                    if _u.startswith('HDR') and any(x.startswith('HDR') for x in _ab):
+                        continue
+                    _ab.append(_u)      # every fact as a badge, as Lucent's results page (12 Nov)
+                for _i in range(8):
+                    _t = _ab[_i] if _i < len(_ab) else ''
+                    li.setProperty('aura_b%d' % (_i + 1), _kodi_safe_text(_HALO_NAMES.get(_t, _t)))
+                    li.setProperty('aura_t%d' % (_i + 1), _halo_tone(_t))
+            except Exception as _silent_exc:
+                log.silent('RESULTS_WIN', _silent_exc)
         li.setProperty('source_info', _kodi_safe_text(row.get('source_info') or ''))
         li.setProperty('qtone', _quality_tone(row))
         return name, li.props
@@ -2939,11 +3436,30 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             except Exception as _silent_exc:
                 log.silent('RESULTS_WIN', _silent_exc)
             filter_value = self.active_filter or 'ALL'
+        _filter_changed = self.active_filter != (filter_value or 'ALL')
         self.active_filter = filter_value or 'ALL'
+        if _filter_changed:
+            self.setProperty('halo_qf', self.active_filter)
+            try:
+                self._build_filters()   # v5.10.438: the drawer marks the chosen filter
+            except Exception as _silent_exc:
+                log.silent('RESULTS_WIN', _silent_exc)
         visible_all = self._results_for_filter(self.active_filter)
+        # v5.10.442: an empty list says it is the filter, not the search
+        _empty = (tr('لا توجد نتائج بهذا الفلتر') if not visible_all and
+                  (self.active_filter != 'ALL' or getattr(self, 'smart', None)) else '')
+        if self.getProperty('halo_empty') != _empty:
+            self.setProperty('halo_empty', _empty)
         from .stream_ranking import recommendation
+        if self.active_sort in ('S:TRASH', 'S:TRASHWEB') and (getattr(self, '_anime', False) or self.active_sort == 'S:TRASHWEB'):
+            from .trash_guides import entry_score
+            for _row in visible_all:
+                _rank = _row.get('_dh_rank')
+                if isinstance(_rank, list) and len(_rank) == 9:
+                    _rank[2] = entry_score(_row, anime=getattr(self, '_anime', False),
+                                           prefer='web' if self.active_sort == 'S:TRASHWEB' else '')
         winner, factor = (recommendation(visible_all, self._ranking_settings)
-                          if self.active_sort == 'S:DEFAULT' else (None, ''))
+                          if self.active_sort in ('S:DEFAULT', 'S:TRASH', 'S:TRASHWEB') else (None, ''))
         self._best_identity = _result_identity(visible_all[winner]) if winner is not None else ''
         self._best_reason = _recommendation_reason(factor) if winner is not None else ''
         # v5.10.165: the rows mark the suggestion by comparing their own
@@ -2952,6 +3468,23 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         if self.getProperty('best_identity') != self._best_identity:
             self.setProperty('best_identity', self._best_identity)
         self._visible_rows = visible_all
+        # v5.10.438: how many 4K, 1080p, 720p and SD rows (Halo theme)
+        try:
+            _q = {'4k': 0, '1080': 0, '720': 0, 'sd': 0, '': 0}
+            # v5.10.443: every result, so the tiles keep their counts while
+            # one of them (or any filter) is on
+            _all = getattr(self, '_facet_rows', {}).get('ALL')
+            for _row in (_all if _all is not None else (self.results or [])):
+                if isinstance(_row, dict):
+                    _q[_halo_quality(_row)] += 1
+            _q.pop('')
+            for _key, _count in _q.items():
+                _value = str(_count) if _count else ''
+                if self.getProperty('halo_q_' + _key) != _value:
+                    self.setProperty('halo_q_' + _key, _value)
+            self._prism_bar(_q)
+        except Exception as _silent_exc:
+            log.silent('RESULTS_WIN', _silent_exc)
         loading = self.getProperty('loading_more') == 'true'
         total_label = str(len(visible_all))
         if loading:
@@ -2961,9 +3494,23 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         _info_bits = []
         if self.active_filter != 'ALL':
             _info_bits.append(_filter_label(self.active_filter))
+        _smart_text = self._smart_text()
+        if _smart_text:
+            _info_bits.append(_smart_text)
         if getattr(self, 'active_sort', 'S:DEFAULT') != 'S:DEFAULT':
             _info_bits.append(_sort_mode_label(self.active_sort))
         self.setProperty('filter_info', (u'| %s' % u'  \u00b7  '.join(_info_bits)) if _info_bits else '')
+        # v5.10.447: the tab track's end names the filter that is on, or
+        # says Left opens the filters; the drawer says what is on
+        _on = str(self.active_filter or 'ALL') != 'ALL' or bool(_smart_text)
+        # the value alone fits the track's end ("4K / 2160P", not "Quality • 4K / 2160P")
+        _hint = (_smart_text or _filter_label(self.active_filter).split(u' \u2022 ')[-1]) if _on else tr('\u25c0  الفلاتر')
+        for _key, _value in (('halo_filter_hint', _hint), ('halo_filter_on', '1' if _on else ''),
+                             ('halo_drawer_on', u'  \u00b7  '.join(
+                                 [_sort_mode_label(getattr(self, 'active_sort', 'S:DEFAULT'))] +
+                                 ([_smart_text or _filter_label(self.active_filter)] if _on else [])))):
+            if self.getProperty(_key) != _value:
+                self.setProperty(_key, _value)
         self._build_provider_chips()
         previous_key = ''
         previous_pos = 0
@@ -2972,8 +3519,11 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             if keep_cursor:
                 previous_pos = int(control.getSelectedPosition())
                 current_item = control.getSelectedItem()
+                # v5.10.560: on the first row the cursor stays on the first row when late sources
+                # come in (it followed that source, which the new order could put last: the page
+                # then opened on its worst row); further down it keeps to the source it is on
                 previous_key = (current_item.getProperty('result_identity')
-                                if current_item else '')
+                                if current_item and previous_pos > 0 else '')
         except Exception:
             control = None
         # Only materialize the first chunk through Kodi's Python/C++ bridge.
@@ -3224,7 +3774,28 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             item = self.getControl(2100).getSelectedItem()
         except Exception:
             item = None
+        if item and item.getProperty('halo_header'):
+            return None
         return item.getProperty('filter_value') if item else 'ALL'
+
+    def _skip_drawer_heading(self, action_id):
+        """v5.10.438: the Halo drawer's headings are rows the cursor steps over."""
+        try:
+            control = self.getControl(2100)
+            pos = int(control.getSelectedPosition())
+            size = int(control.size())
+            step = -1 if action_id in (3, 5) else 1
+            nxt = pos
+            while 0 <= nxt < size and control.getListItem(nxt).getProperty('halo_header'):
+                nxt += step
+            if not 0 <= nxt < size:
+                nxt = pos
+                while 0 <= nxt < size and control.getListItem(nxt).getProperty('halo_header'):
+                    nxt -= step
+            if nxt != pos and 0 <= nxt < size:
+                control.selectItem(nxt)
+        except Exception as _silent_exc:
+            log.silent('RESULTS_WIN', _silent_exc)
 
     def _filters_open(self):
         try:
@@ -3233,6 +3804,12 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             return False
 
     def _open_filters(self):
+        # v5.10.557: the filters are a panel of their own (source_filter): several groups at
+        # once, counts on every chip, smart picks. The old drawer stays as the fallback.
+        if self._closing or self._mode_dialog_open:
+            return False
+        if self._open_filter_panel():
+            return True
         if len(self.filters or []) <= 1:
             return False
         self.setProperty('filters_visible', 'true')
@@ -3240,6 +3817,67 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             self.setFocusId(2100)
         except Exception as _silent_exc:
             log.silent('RESULTS_WIN', _silent_exc)
+        # v5.10.447: the cursor starts on the filter that is on (else the order)
+        try:
+            want = (self.active_filter if str(self.active_filter or 'ALL') != 'ALL'
+                    else getattr(self, 'active_sort', ''))
+            values = getattr(self, '_drawer_values', None) or []
+            if want in values:
+                self.getControl(2100).selectItem(values.index(want))
+        except Exception as _silent_exc:
+            log.silent('RESULTS_WIN', _silent_exc)
+        return True
+
+    def _open_filter_panel(self):
+        rows = [row for row in (self.results or []) if isinstance(row, dict)]
+        if not rows:
+            return False
+        from . import source_filter
+        before = dict((g, set(v)) for g, v in (getattr(self, 'smart', None) or {}).items() if v)
+        state = {'changed': False}
+
+        def follow(chosen, sort):
+            """The list shows the choice at once, while the panel is still open."""
+            chosen = dict((g, set(v)) for g, v in chosen.items() if v)
+            changed = chosen != (getattr(self, 'smart', None) or {})
+            if changed:
+                self._smart_kept = False        # the user's own choice never steps aside
+                self.smart = chosen
+                self._render_limit = self._render_chunk
+                state['changed'] = True
+            if sort and sort != self.active_sort:
+                self._apply_filter(sort)        # stores the order and draws the list again
+            elif changed:
+                self._apply_filter(self.active_filter, keep_cursor=False)
+
+        self._mode_dialog_open = True
+        self.setProperty('sf_open', '1')        # v5.10.560: Aura's glass panel: the page's left column steps aside
+        try:
+            sorts = [(key, _sort_mode_label(key).split(u' \u2022 ')[-1]) for key, _label in SORT_MODES]
+            chosen, sort, keep = source_filter.run(rows, self._smart_minutes(lookup=True), before, self.active_sort,
+                                                   sorts, getattr(self, '_smart_keep', False), on_change=follow,
+                                                   edge=not getattr(self, '_halo', True),
+                                                   anime=getattr(self, '_anime', False))
+        except Exception as exc:
+            xbmc.log('[DexHub] filter panel failed, the drawer opens instead: %s' % exc, xbmc.LOGWARNING)
+            self._mode_dialog_open = False
+            self.clearProperty('sf_open')
+            return False
+        self._mode_dialog_open = False
+        self.clearProperty('sf_open')
+        self._action_guard['filter'] = time.monotonic()
+        follow(chosen, sort)
+        chosen = dict((g, set(v)) for g, v in chosen.items() if v)
+        if keep != getattr(self, '_smart_keep', False) or (keep and chosen != before):
+            source_filter.remember(chosen if keep else {})
+        self._smart_keep = bool(keep and chosen)
+        if state['changed']:
+            xbmc.log('[DexHub] source filter: %s' % (source_filter.summary(chosen) or 'cleared'), xbmc.LOGINFO)
+        try:
+            self.setFocusId(2000)
+        except Exception as _silent_exc:
+            log.silent('RESULTS_WIN', _silent_exc)
+        self._drain_pending_updates()
         return True
 
     def _close_filters(self):
@@ -3255,6 +3893,8 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         # list 2100 to its first row, so OK visibly selected one filter but
         # silently applied another.
         filter_value = filter_value or self._selected_filter_value()
+        if filter_value is None:
+            return
         self._apply_filter(filter_value)
         self._close_filters()
         self._drain_pending_updates()
@@ -3297,11 +3937,26 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                 self._choose()
         elif controlId == 2100:
             filter_value = self._selected_filter_value()
+            if filter_value is None:
+                return
             if not self._guard_action('filter'):
                 self._apply_selected_filter(filter_value)
         elif controlId == 2200:
             if not self._guard_action('mode'):
                 self._pick_play_mode()
+        elif controlId == 2201:
+            self._open_filters()               # v5.10.439: Halo's Filters button
+        elif controlId == 2202:
+            self._halo_settings()
+        elif controlId == 2401:
+            self._halo_stop_search()
+        elif controlId == 2402:
+            self.selected = None
+            self._closing = True
+            self._shutdown()
+            self.close()
+        elif controlId in (2411, 2412, 2413, 2414):
+            self._halo_quality_tile(controlId)
         elif controlId == 2300:
             # v4.6.1: provider chip — apply / toggle the top-level V: filter.
             if not self._guard_action('chip'):
@@ -3312,21 +3967,21 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         from . import source_diagnostics as diagnostics
         states = diagnostics.snapshot()
         if not states:
-            xbmcgui.Dialog().notification('Dex Hub', 'لا توجد حالة مسجلة لهذا البحث')
+            xbmcgui.Dialog().notification('Dex Hub', tr('لا توجد حالة مسجلة لهذا البحث'))
             return
         labels = ['%s / %s / %.1fs' % (s['name'], diagnostics.LABELS.get(s['status'], s['status']),
                    s.get('elapsed', time.monotonic()-s['started'])) for s in states]
-        idx = xbmcgui.Dialog().select('حالة المصادر — اختر لإعادة المحاولة', labels)
+        idx = xbmcgui.Dialog().select(tr('حالة المصادر — اختر لإعادة المحاولة'), labels)
         if idx < 0:
             return
         if self.getProperty('loading_more') == 'true':
-            xbmcgui.Dialog().notification('Dex Hub', 'البحث مستمر؛ انتظر اكتماله قبل إعادة المحاولة')
+            xbmcgui.Dialog().notification('Dex Hub', tr('البحث مستمر؛ انتظر اكتماله قبل إعادة المحاولة'))
             return
         state = states[idx]
         # Retry only after the live scan is done: its snapshots must not
         # overwrite a manually refreshed source list.
         if not callable(self.retry_source):
-            xbmcgui.Dialog().notification('Dex Hub', 'إعادة المحاولة غير متاحة من هذا المدخل')
+            xbmcgui.Dialog().notification('Dex Hub', tr('إعادة المحاولة غير متاحة من هذا المدخل'))
             return
         fresh = self.retry_source(state, self.meta)
         if fresh:
@@ -3378,8 +4033,12 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             # RIGHT closes without changing the selected filter; OK applies.
             self._close_filters()
             return
+        if drawer_open and focus_id == 2100 and action_id in ACTION_MOVE and getattr(self, '_halo', False):
+            self._skip_drawer_heading(action_id)
         if drawer_open and focus_id == 2100 and action_id in ACTION_SELECT:
             filter_value = self._selected_filter_value()
+            if filter_value is None:
+                return
             if not self._guard_action('filter'):
                 self._apply_selected_filter(filter_value)
             return
@@ -3407,6 +4066,8 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             # sort drawer, as before.
             if not self._guard_action('group', 0.12):
                 if not self._step_group(-1):
+                    # v5.10.447: the far left opens the filters (no button);
+                    # the quality tiles are Left from the first tab
                     self._open_filters()
             return
         if not drawer_open and action_id in ACTION_LEFT and focus_id == 2100:
@@ -3486,21 +4147,288 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         }
 
 
+def _halo_quality(row, bits=()):
+    """v5.10.438: '4k', '1080', '720', 'sd' or '' (unknown) from the row's
+    quality, else its name, file and lines; SD only when something says so."""
+    from .sources_loading import _quality_bucket
+    blob = ' '.join(str(x or '') for x in (
+        row.get('quality'), ' '.join(bits or ()), ' '.join(row.get('video_bits') or ()),
+        row.get('filename'), row.get('stream_name_raw'), row.get('stream_desc_raw'))).lower()
+    bucket = _quality_bucket(blob)
+    if bucket == 'sd' and not _HALO_SD_RE.search(blob):
+        return ''
+    return bucket
+
+
+_HALO_SD_RE = re.compile(r'\b(480p?|576p?|sd|dvd(rip)?|xvid|cam|ts|hdtv)\b')
+
+
+def _halo_tone(text):
+    """v5.10.443: the Halo badge style for a badge word. Gradients for what
+    makes a copy special (Dolby Vision, HDR, Atmos, DTS:X, Hybrid), light for
+    lossless (Remux, TrueHD, DTS-HD MA), red for low quality, an outline for
+    where it comes from and plain audio, grey for the rest."""
+    t = str(text or '').upper().replace(' ', '')
+    if t in ('DV', 'DOLBYVISION', 'DOVI'):
+        return 'dv'
+    if t.startswith('HDR') or t == 'HLG':
+        return 'hdr'
+    if t == 'ATMOS':
+        return 'atmos'
+    if t in ('DTS-X', 'DTS:X', 'DTSX'):
+        return 'dtsx'
+    if t == 'HYBRID':
+        return 'hybrid'
+    if t == 'REMUX':
+        return 'remux'
+    if t in ('TRUEHD', 'DTS-HDMA', 'DTS-HD.MA', 'DTS-HDMA'):
+        return 'lossless'
+    if t in ('CAM', 'TS', 'TC', 'SCR', 'HDCAM', 'TELESYNC', 'HC', 'HCSUBS'):
+        return 'low'
+    if t in ('WEB', 'WEB-DL', 'WEBDL', 'WEBRIP', 'BLURAY', 'BLU-RAY', 'BDRIP', 'HDTV', 'DVD', 'DVDRIP',
+             'DD', 'DD+', 'DDP', 'AC3', 'EAC3', 'DTS', 'DTS-HD', 'SDR', '3D', 'IMAX'):
+        return 'outline'
+    return ''
+
+
+_HALO_NAMES = {'DTS-X': 'DTS:X', 'DTSX': 'DTS:X', 'BLURAY': 'BLU-RAY', 'TRUEHD': 'TrueHD', 'H264': 'H.264',
+               'H265': 'H.265', 'WEB-DL': 'WEB', 'WEBDL': 'WEB', 'DTS-HDMA': 'DTS-HD MA', 'DDP': 'DD+'}
+
+_AURA_CH = re.compile(r'(?<![0-9.])(?:([57])[ .](1)|(2)[ .](0))(?![0-9])')
+_AURA_SOUND = (('FLAC', r'(?<![A-Z0-9])FLAC'), ('PCM', r'(?<![A-Z0-9])L?PCM'), ('Dolby Digital', r'(?<![A-Z0-9])(?:AC[ ._-]?3|DD)(?![A-Z+])'),
+               ('AAC', r'(?<![A-Z0-9])AAC'), ('Opus', r'(?<![A-Z0-9])OPUS'), ('MP3', r'(?<![A-Z0-9])MP3'))
+_AURA_FILE = re.compile(r'[^\s/\\|]+\.(?:mkv|mp4|m2ts|ts|avi|iso|m4v|wmv|mov)\b', re.I)
+
+
+_AURA_EXT = re.compile(r'\.(mkv|mp4|m2ts|ts|avi|iso|m4v|wmv|mov)$', re.I)
+
+
+def _aura_release_name(name, work=''):
+    """v5.10.560: a release's name without the title's own words and year (the page shows the title
+    in large already) and without dots: 'John.Wick.Chapter.3.Parabellum.2019.PROPER.UHD.BluRay.2160p
+    .TrueHD.Atmos.7.1.DV.HEVC.HYBRID.REMUX-FraMeSToR' -> 'PROPER UHD BluRay 2160p TrueHD Atmos 7.1 DV
+    HEVC HYBRID REMUX-FraMeSToR' (the user, 12 Nov 2026: the name came cut off)."""
+    text = _AURA_EXT.sub('', str(name or '').strip())
+    for one in (work if isinstance(work, (list, tuple)) else [work]):
+        words = [w for w in re.split(r'[^0-9a-z]+', str(one or '').lower()) if w]
+        if not words:
+            continue
+        # the title's words in order at the start, whatever separates them, then a year
+        pattern = r'^\W*' + r'[\W_]+'.join(re.escape(w) for w in words) + r'[\W_]*(?:\(?(?:19|20)\d\d\)?[\W_]*)?'
+        cut = re.sub(pattern, '', text, count=1, flags=re.I)
+        if len(cut) >= 6 and cut != text:
+            text = cut
+            break
+    text = re.sub(r'(?<=\D)\.|\.(?=\D)|_', ' ', text)        # dots between words, not in 7.1 or 5.1
+    text = re.sub(r'[\[\]{}]', ' ', text)
+    text = re.sub(r'\s*-\s*(?=[A-Za-z0-9]+$)', '-', text.strip())
+    text = re.sub(r'\b([HhXx]) (26[45])\b', r'\1.\2', text)       # H.265, x264
+    return re.sub(r'\s{2,}', ' ', text).strip(' -.')
+
+
+def _aura_props(row, minutes=0, anime=False, work=''):
+    """v5.10.560: the Aura theme's row and its file details, as words instead of badges.
+    Row: aura_kind (Remux, WEB...), aura_head ('Dolby Vision · TrueHD Atmos 7.1'), aura_sub
+    ('FraMeSToR · 80.3 GB · ~82 Mbps'), aura_tier, aura_ready. Details of the selected row:
+    aura_big, aura_video, aura_audio, aura_size, aura_release, aura_file."""
+    from . import source_filter as F
+    from .i18n import is_english
+    en = is_english()
+    fact = F.facts(row, minutes, anime)
+    name = lambda key: F.NAMES.get(key, (key, key))[1 if en else 0]
+    blob = _row_quality_blob(row)
+    pics = [name(k) for k in ('DV', 'HDR10+', 'HDR') if k in fact.get('pic', ())]
+    aud = fact.get('aud', ())
+    codec = next((k for k in ('TRUEHD', 'DTSX', 'DTSHD', 'DDP', 'DTS') if k in aud), '')
+    sound = name(codec) if codec else ''
+    if codec == 'DDP':
+        sound = 'DD+'
+    if 'ATMOS' in aud:
+        sound = (sound + ' Atmos').strip()
+    if not sound:
+        sound = next((label for label, pattern in _AURA_SOUND if re.search(pattern, blob)), '')
+    # the channels: from the release's own name, after its sound format ('TrueHD.7.1', 'DDP5.1')
+    names = ' '.join(str(row.get(k) or '') for k in ('stream_desc_raw', 'stream_title', 'filename', 'name'))
+    channels = _AURA_CH.search(' '.join(str(b) for b in (row.get('audio_bits') or ()))) or \
+        _AURA_CH.search(names.upper().split('P ', 1)[-1])
+    if channels and sound:
+        sound = '%s %s.%s' % (sound, channels.group(1) or channels.group(3), channels.group(2) or channels.group(4))
+    video = ('AV1' if re.search(r'(?<![A-Z0-9])AV1(?![A-Z0-9])', blob) else
+             'HEVC' if re.search(r'HEVC|[HX][ .]?265', blob) else
+             'H.264' if re.search(r'[HX][ .]?264|(?<![A-Z0-9])AVC(?![A-Z0-9])', blob + ' ' + names.upper()) else
+             'XviD' if re.search(r'XVID|DIVX', blob) else '')
+    res = {'4K': '4K', '1080': '1080p', '720': '720p', 'SD': 'SD'}.get(fact.get('res'), '')
+    kind = name(fact['rel']) if fact.get('rel') else ''
+    group = ''
+    try:
+        from . import trash_guides
+        group = str(trash_guides._kept(row, anime)[3] or '')
+    except Exception:
+        pass
+    size = _sort_size_bytes(row)
+    size_text = _nuvio_size(row.get('stream_video_size')) or str(row.get('size_label') or '').strip()
+    if size_text in ('--', '0', '0 B'):
+        size_text = ''
+    rate = ''
+    if size > 0 and minutes:
+        mbps = size * 8.0 / (minutes * 60.0) / 1000000.0
+        if 0.2 <= mbps < 200:                  # a season pack's size is not one episode's
+            rate = ('~%d Mbps' % round(mbps)) if mbps >= 10 else ('~%.1f Mbps' % mbps)
+    tier = fact.get('tier') or ''
+    hints = row.get('behaviorHints') if isinstance(row.get('behaviorHints'), dict) else {}
+    filename = str(row.get('filename') or hints.get('filename') or '').strip()
+    if not filename:
+        for text in (row.get('stream_title'), row.get('stream_desc_raw'), row.get('stream_name_raw'), row.get('name')):
+            found = _AURA_FILE.search(str(text or ''))
+            if found:
+                filename = found.group(0)
+                break
+    if not filename:
+        filename = _nuvio_text(row.get('stream_title') or row.get('stream_desc_raw') or row.get('name') or '',
+                               lines=1).replace('\n', ' ')
+    # the row's line says which copy it is (its kind and its release group): the picture and the
+    # sound are its badges, the resolution its pill, so nothing is said twice (the user, 12 Nov
+    # 2026: "the data is repeated")
+    head = '  ·  '.join(x for x in (kind, group) if x)
+    if not head:
+        head = _nuvio_text(row.get('stream_desc_raw') or row.get('stream_title') or
+                           row.get('stream_name_raw') or row.get('name') or '', lines=1).replace('\n', ' ')
+    chan = ('%s.%s' % (channels.group(1) or channels.group(3), channels.group(2) or channels.group(4))) if channels else ''
+    ready = row.get('cached')
+    if row.get('in_library'):
+        ready_text, ready_kind = tr('في حسابك'), 'lib'
+    elif ready is True or ready is False:
+        ready_text, ready_kind = (tr('جاهز'), 'ok') if ready else (tr('غير جاهز'), 'no')
+    else:
+        # neither: how it is served (Direct, Usenet...), as the other themes write it
+        ready_text = re.sub(r'\[/?(?:COLOR|B|I)[^\]]*\]', '', str(row.get('source_type_label') or '')).strip()
+        ready_text, ready_kind = (ready_text[:1].upper() + ready_text[1:].lower() if ready_text.isupper() else ready_text), ''
+    score = ''
+    try:
+        kept = trash_guides._kept(row, anime)
+        score = str(int(kept[0])) if kept[1] else ''
+    except Exception:
+        pass
+    dash = lambda text: text or u'\u2013'
+    codec_name = name(codec) if codec else re.sub(r'\s+\d\.\d$', '', sound).replace(' Atmos', '').strip()
+    if codec == 'DDP':
+        codec_name = 'DD+'
+    extra = '  ·  '.join(x for x in ('Atmos' if 'ATMOS' in aud else '',
+                                     ('%s.%s' % (channels.group(1) or channels.group(3), channels.group(2) or channels.group(4)))
+                                     if channels and sound else '') if x)
+    if 'ATMOS' in aud and not codec:
+        codec_name, extra = 'Atmos', extra.replace('Atmos', '').strip(' ·')
+    flags = []
+    for label, pattern in (('Hybrid', r'HYBRID'), ('Proper', r'(?<![A-Z])PROPER'), ('Repack', r'(?<![A-Z])REPACK'),
+                           ('IMAX', r'(?<![A-Z])IMAX'), ('Extended', r'(?<![A-Z])EXTENDED'),
+                           ('Remastered', r'REMASTERED'), ("Director's cut", r'DIRECTOR.?S[ ._-]?CUT'),
+                           ('Unrated', r'(?<![A-Z])UNRATED'), ('Criterion', r'(?<![A-Z])CRITERION')):
+        if re.search(pattern, blob) or re.search(pattern, names.upper()):
+            flags.append(label)
+    bits = re.search(r'(?<![0-9])(8|10|12)[ ._-]?BIT', blob) or re.search(r'(?<![0-9])(8|10|12)[ ._-]?BIT', names.upper())
+    title = _aura_release_name(filename, work)
+    meta = '  ·  '.join(x for x in (size_text, str(row.get('addon') or row.get('provider_name_raw') or row.get('provider') or '').upper(),
+                                    rate) if x)
+    ready_tone = {'ok': 'FF4CC38A', 'no': 'FFF2B84B', 'lib': 'FF7FD1FF'}.get(ready_kind, '')
+    meta2 = ('[COLOR %s][B]%s[/B][/COLOR]  ·  %s' % (ready_tone, ready_text, meta) if ready_tone and meta else
+             '[COLOR %s][B]%s[/B][/COLOR]' % (ready_tone, ready_text) if ready_tone else meta)
+    out = {'aura_title': title, 'aura_meta': meta, 'aura_meta2': meta2, 'aura_res2': {'4K': '2160p', '1080p': 'Full HD', '720p': 'HD'}.get(res, ''),
+           'aura_bits': ('%s-bit' % bits.group(1)) if bits else '', 'aura_kind2': dash(kind),
+           'aura_flags': '  ·  '.join(flags[:2]),
+           'aura_pic': dash(pics[0] if pics else ('SDR' if res else '')), 'aura_pic2': pics[1] if len(pics) > 1 else '',
+           'aura_snd': dash(codec_name), 'aura_snd2': extra, 'aura_codec': dash(video), 'aura_group': dash(group),
+           'aura_gb': dash(size_text), 'aura_rate': rate, 'aura_score': dash(score),
+           # the line under the copy's name: its channels and edition (the bitrate is under its size)
+           'aura_sub2': '  ·  '.join(x for x in [chan] + flags[:2] if x),
+           'aura_q': res, 'aura_kind': kind, 'aura_head': head,
+           'aura_sub': '  ·  '.join(x for x in (group, size_text, rate) if x),
+           'aura_tier': ('Tier %s' % tier[1:]) if tier else '', 'aura_ready': ready_text, 'aura_rk': ready_kind,
+           'aura_big': ' '.join(x for x in (res, pics[0] if pics else kind) if x),
+           'aura_video': '  ·  '.join(x for x in [video, res] + pics if x),
+           'aura_audio': sound, 'aura_size': '  ·  '.join(x for x in (size_text, rate) if x),
+           'aura_release': '  ·  '.join(x for x in (kind, group) if x), 'aura_file': filename}
+    # aura_rk and aura_q are compared by the page: kept bare (the anchor is a character)
+    return dict((key, value if key in ('aura_rk', 'aura_q', 'aura_meta2') or value == u'\u2013' else _bidi_anchor(_kodi_safe_text(value)))
+                for key, value in out.items())
+
+
+def _is_anime_title(meta):
+    """An anime title: in the anime id mapping (anime_ids), or Anime among
+    its genres."""
+    meta = meta or {}
+    if 'anime' in str(meta.get('genre') or '').lower():
+        return True
+    try:
+        from . import anime_ids
+        return bool(anime_ids.lookup({'tmdb_id': meta.get('tmdb_id'), 'imdb_id': meta.get('imdb_id'),
+                                      'tvdb_id': meta.get('tvdb_id')}))
+    except Exception:
+        return False
+
+
 def open_sources_window(results, meta, play_mode=MODE_ASK, session_key='', retry_source=None):
+    # v5.10.442: three themes: Prism (sources_nuvio.xml, the add-on's own
+    # lines like Nuvio TV, key "full"), Compact (sources_results.xml) and
+    # Halo (sources_halo.xml, ready-made)
     skin_xml = 'sources_results.xml'
-    # v5.10.302: Nuvio TV's sources page unless the compact rows are chosen
     try:
         from .ui_preferences import value as _pref
-        if _pref('sources_row_style') != 'compact':
-            skin_xml = 'sources_nuvio.xml'
+        # v5.10.481: and Classic (sources_classic.xml, 5.10.441's page: the
+        # poster on the left, the logo and every rating on top, the groups as tabs)
+        # v5.10.560: and Aura (sources_aura.xml: rows as words, the selected file's details)
+        skin_xml = {'halo': 'sources_halo.xml', 'full': 'sources_nuvio.xml', 'aura': 'sources_aura.xml',
+                    'classic': 'sources_classic.xml'}.get(_pref('sources_row_style'), 'sources_results.xml')
     except Exception:
-        skin_xml = 'sources_nuvio.xml'
-    SOURCE_BADGE_LIMIT[0] = 610 if skin_xml == 'sources_nuvio.xml' else 1170
+        pass
+    # v5.10.444: the three pages share one layout; your badges fit the text
+    # column (1.3 times larger, so 470 px is about 610 on screen)
+    SOURCE_BADGE_LIMIT[0] = 1170 if skin_xml == 'sources_classic.xml' else 470
     try:
         xbmc.log('[DexHub] scan-ui results window: opening with %d row(s)' % len(results or []), xbmc.LOGINFO)
     except Exception:
         pass
     win = SourcesWindow(skin_xml, ADDON_PATH, 'Default', '1080i', results=results, meta=meta, play_mode=play_mode, session_key=session_key, retry_source=retry_source)
+    # v5.10.444: every theme has Halo's layout and behaviour; v5.10.481: but
+    # the Classic theme, the page of 5.10.441 with its own
+    win._halo = skin_xml != 'sources_classic.xml'
+    win._prism = skin_xml == 'sources_nuvio.xml'     # v5.10.447: its quality share bar
+    # v5.10.479: Compact shows them under the picture; v5.10.481: Classic on top
+    win._want_ratings = skin_xml in ('sources_results.xml', 'sources_classic.xml', 'sources_aura.xml')   # v5.10.560: Aura
+    win._anime = _is_anime_title(meta)                # v5.10.447: TRaSH's anime scores
+    # v5.10.560: Aura; v5.10.574: every theme but Classic takes Aura's colours: the backdrop's
+    # colour bloom and the gold highlight
+    win._aura = skin_xml == 'sources_aura.xml'
+    win._bloom = skin_xml != 'sources_classic.xml'
+    if win._bloom:
+        from .i18n import is_english
+        # Aura's highlight (the 4K pill, the tab under the cursor, what is on in its filter) and the
+        # text colour on it: gold, as its gradient badges (the user did not want white)
+        try:
+            _home = xbmcgui.Window(10000)
+            _home.setProperty('dexhub.aura.rec', '★ RECOMMENDED' if is_english() else '★ موصى به')
+            _home.setProperty('dexhub.aura.hi', 'FFE8C35A')      # Lucent's Gold focus colour
+            _home.setProperty('dexhub.aura.ht', 'FF0B1119')      # and its on-focus navy
+        except Exception:
+            pass
+    try:
+        from .i18n import is_english
+        _en = is_english()
+        for _key, _ar, _enw in (('halo_streams', 'المصادر', 'Streams'),        # v5.10.438
+                                ('halo_stop', 'وقّف البحث', 'Stop searching'),  # v5.10.439
+                                ('halo_cancel', 'إلغاء', 'Cancel'),
+                                ('aura_l_sel', 'المصدر المحدد', 'Selected source'),      # v5.10.560
+                                ('aura_l_res', 'الدقة', 'Resolution'), ('aura_l_pic', 'الصورة', 'Picture'),
+                                ('aura_l_video', 'الفيديو', 'Video'), ('aura_l_audio', 'الصوت', 'Sound'),
+                                ('aura_l_size', 'الحجم', 'Size'), ('aura_l_group', 'الفريق', 'Group'),
+                                ('aura_l_rel', 'الإصدار', 'Release'), ('aura_l_ratings', 'التقييمات', 'Ratings'),
+                                ('aura_l_dist', 'المصادر حسب الجودة', 'Sources by quality'),
+                                ('aura_l_rec', '★ موصى به', '★ RECOMMENDED'),
+                                ('aura_l_score', 'تقييم TRaSH', 'TRaSH score'),
+                                ('aura_l_src', 'المصدر', 'Source'), ('aura_l_file', 'اسم الملف', 'File name'),
+                                ('halo_filters', 'الفلتر', 'Filters')):
+            win.setProperty(_key, _enw if _en else _ar)
+    except Exception:
+        pass
     try:
         return win.run()
     finally:

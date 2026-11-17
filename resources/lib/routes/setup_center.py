@@ -58,69 +58,16 @@ def status_text(api):
 
 
 def render(api):
-    """Single, compact Settings home. Detailed controls live one level down."""
-    add = api.add_item
-    url = api.build_url
-    art = api.root_art
-
-    # Nuvio is first-class: it can mirror the exact Home order/catalogs plus progress/library.
-    try:
-        from resources.lib.dexhub import nuvio_stremio_sync as _sync
-        linked = _sync.Nuvio.is_linked()
-        profile = _sync.Nuvio.profile_name()
-    except Exception:
-        linked, profile = False, ''
-    status = (api.tr('متصل ✓') + ((' • ' + profile) if profile else '')) if linked else api.tr('غير متصل')
-    add('Nuvio • %s' % status, url(action='nuvio_sync_menu'),
-        art=art('sync'),
-        info={'title': 'Nuvio',
-              'plot': api.tr('ربط الحساب من موقع Nuvio ثم مزامنة نفس الهوم والكتالوجات والترتيب.')})
-
-    add('Nuvio Home / Fallback', url(action='collection_settings_hub'),
-        art=art('movie_collections'),
-        info={'title': 'Nuvio Home / Fallback',
-              'plot': api.tr('Nuvio هو المصدر الأساسي؛ Self‑Hosted والملفات المحلية احتياطية فقط.')})
-
-    add(api.tr('المصادر والمكتبات'), url(action='setup_connections'),
-        art=art('providers'),
-        info={'title': api.tr('المصادر والمكتبات'),
-              'plot': api.tr('إضافات Stremio ومكتبات Plex وEmby وJellyfin في صفحة واحدة.')})
-
-    add(api.tr('التشغيل والجودة'), url(action='setup_playback_quality'),
-        art=art('play'),
-        info={'title': api.tr('التشغيل والجودة'),
-              'plot': api.tr('طريقة اختيار الستريم، ملف الجودة وشارات DV/HDR/Atmos.')})
-
-    add(api.tr('الميتاداتا والصور'), url(action='meta_sources_menu'),
-        art=art('tmdb'),
-        info={'title': api.tr('الميتاداتا والصور'),
-              'plot': api.tr('TMDb Helper، البوسترات، Fanart، ClearLogo والاستوديو.')})
-
-    add(api.tr('الترجمة'), url(action='setup_subtitles'),
-        is_folder=False, art=art('subtitles'),
-        info={'title': api.tr('الترجمة'),
-              'plot': api.tr('وضع الترجمة ومدة البحث واللغات.')})
-
-    add(api.tr('المظهر والواجهة'), url(action='theme_select'),
-        is_folder=False, art=art('settings'),
-        info={'title': api.tr('المظهر والواجهة'),
-              'plot': api.tr('الثيم وطريقة العرض بما فيها Arctic Fuse 3.')})
-
-    add(api.tr('الأداء والصيانة'), url(action='setup_performance'),
-        art=art('settings'),
-        info={'title': api.tr('الأداء والصيانة'),
-              'plot': api.tr('الوضع الخفيف، الكاش، التشخيص والنسخ الاحتياطي.')})
-
-    add(api.tr('حسابات أخرى'), url(action='sync_accounts_menu'),
-        art=art('sync'),
-        info={'title': api.tr('حسابات أخرى'),
-              'plot': api.tr('Stremio وTrakt وSimkl وMDBList. Nuvio له صفحة مستقلة أعلاه.')})
-
-    add(api.tr('متقدم'), url(action='open_settings'),
-        is_folder=False, art=art('settings'),
-        info={'title': api.tr('متقدم'),
-              'plot': api.tr('الخيارات النادرة والتقنية في نافذة Kodi الأصلية.')})
-    return api.end_dir(content='files', cache=False)
+    """The same organized categories as every add-on settings entry point."""
+    from ..settings_sections import SECTIONS, DESCRIPTIONS
+    from ..i18n import is_english
+    english=is_english()
+    for key,ar,en,action,folder,icon,asset,skin_id in SECTIONS:
+        title=en if english else ar
+        description=DESCRIPTIONS[key][1 if english else 0]
+        api.add_item(title,api.build_url(action=action),is_folder=folder,
+                     art=api.root_art('settings'),info={'title':title,'plot':description})
+    return api.end_dir(content='files',cache=False)
 
 
 def connections(api):
@@ -233,7 +180,7 @@ def quality(api):
     api.ADDON.setSetting('quality_profile', values[idx])
     api.notify(api.tr('تم حفظ ملف الجودة'))
     if idx == 3:
-        api.open_settings_action()
+        __import__('xbmc').executebuiltin('RunPlugin(plugin://plugin.video.dexhub/?action=preferences_sources)')
     return True
 
 

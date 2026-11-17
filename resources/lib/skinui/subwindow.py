@@ -1,28 +1,27 @@
 # -*- coding: utf-8 -*-
-"""The player's subtitle page and audio page (v5.10.316), one design for both.
+"""The player's subtitles and audio: one panel on the right (v5.10.451,
+after Nuvio Arc's track panel; one page with a side page before). The
+Subtitles and Audio buttons open it on their own tracks.
 
-Subtitles:
-  الترجمة              the subtitle on screen; OK opens the side page with
-                       every track (Left and Right step through them)
-  ترجمات من الإضافات   OK opens the side page and asks the subtitle add-ons
-                       (the Stremio broker, as Kodi's subtitle search did);
-                       a result is downloaded and shown at once
-  إظهار، التأخير، الرفع والخفض، المزامنة التلقائية
-  the look: four ready looks, font, size, style, colour, opacity, border,
-  background, shadow, blur, line spacing, position (Kodi's own subtitle
-  settings, applied to the line on screen as they change)
-  إعدادات Kodi للترجمة
-Audio: the track (side page), delay, volume, amplification, passthrough,
-stereo upmix, Kodi's audio dialog.
+Subtitles, the tracks view:
+  شكل الترجمة      the settings view in the same panel: show, delay, auto
+                   sync, the ready looks, font, size, colour... (Kodi's own
+                   subtitle settings, applied to the line on screen)
+  بحث عن ترجمة     the add-ons and Kodi's subtitle services, in the panel
+  بدون ترجمة
+  then one row per language (its flag, name and how many): your languages
+  first, the others by name, an unknown language last. OK on a language
+  lists its subtitles (the file's own first, then the add-ons' results,
+  asked as the panel opens); a language with one subtitle takes it at once.
+Audio, the tracks view: ضبط الصوت (delay, volume, amplification,
+passthrough, stereo upmix, Kodi's audio dialog), then every track in the
+file's order with its flag, details and channel and codec badges.
 
-A Dex Hub window (WindowXMLDialog, dexhub_subtitles.xml): Left and Right
-change the focused row in this window's own Python. Delay, position and
-amplification are player actions: 5.10.315 sent them to the full-screen
-window, which does not handle them (Kodi's player controller listens on
-the application), so they did nothing; they now go to the application.
-
-Kodi's own subtitle search dialog is no longer opened from here: the search
-runs inside the page and its results open beside it, in the same design.
+Back goes from a language to the languages, from the settings or the
+search to the tracks, then closes. A Dex Hub window (WindowXMLDialog,
+dexhub_subtitles.xml): Left and Right change a settings row in this
+window's own Python. Delay, position and amplification are player actions
+sent to the application (Kodi's player controller listens there).
 """
 import os
 import re
@@ -39,6 +38,7 @@ LEFT, RIGHT, UP, DOWN = 1, 2, 3, 4
 CLOSE = (92, 10, 13, 216, 247, 257, 275, 61448, 61467)
 MAIN, SIDE, HEAD, DEX, KODI = 100, 200, 210, 220, 300
 PROVIDER = 'dhs.subpage.provider'
+BACK_ICON = 'dexhub/osd/legacy/chevron-left.png'
 
 _AR = {'ar': 'العربية', 'en': 'الإنجليزية', 'fr': 'الفرنسية', 'es': 'الإسبانية', 'de': 'الألمانية',
        'it': 'الإيطالية', 'tr': 'التركية', 'fa': 'الفارسية', 'ur': 'الأردية', 'hi': 'الهندية', 'ru': 'الروسية',
@@ -106,6 +106,16 @@ def _lang_label(code):
         return code.upper()
 
 
+def _flag_for(code):
+    """A language's flag (v5.10.451); a globe when it is not known."""
+    from . import streamrows
+    if code in streamrows.OWN_FLAGS:
+        return streamrows.OWN_FLAGS[code]
+    if code and code in streamrows.FLAGS:
+        return streamrows.FLAG_DIR + code + '.png'
+    return 'dexhub/osd/legacy/globe.png'
+
+
 def _preferred():
     try:
         from ..playback.subtitle_files import _preferred_subtitle_lang_keys
@@ -166,6 +176,32 @@ def _readable(name):
     return text
 
 
+SHIFT = 'subtitle_shift_steps'
+
+
+def _shift_steps():
+    try:
+        from ..settings_cache import cached_addon
+        return int(cached_addon().getSetting(SHIFT) or 0)
+    except Exception:
+        return 0
+
+
+def _shift_save(value):
+    try:
+        from ..settings_cache import cached_addon, invalidate
+        cached_addon().setSetting(SHIFT, str(int(value)))
+        invalidate()
+    except Exception:
+        pass
+
+
+def _shift_text(value):
+    """0 where it started, +3 three steps up, -2 two down (the row's own
+    arrows say Left and Right change it)."""
+    return '%+d' % value if value else '0'
+
+
 def _act(name):
     """A player action, to the application (Kodi's player controller listens
     there), waited for; its slider is closed again, the page shows the value."""
@@ -173,15 +209,83 @@ def _act(name):
     xbmc.executebuiltin('Dialog.Close(sliderdialog,true)')
 
 
+# Kodi moves a subtitle by speed: one pixel on the first action, nothing for a
+# second one in the same frame, then faster while actions come within 200 ms.
+# 5 actions 120 ms apart are about 13 pixels, a step you can see
+SHIFT_ACTIONS, SHIFT_GAP, SHIFT_PIXELS = 5, 120, 12
+QUIET = 'dh.sub.quiet'  # skin: DialogSlider draws nothing, it dimmed the whole screen a moment
+
+
+def _shift(up):
+    """One press: a step anyone can see, kept for every video (save). The
+    position must be Manual, the only one Kodi moves while playing."""
+    if S._get('subtitles.align') != 0:
+        S._set('subtitles.align', 0)
+    home = xbmcgui.Window(10000)
+    home.setProperty(QUIET, '1')
+    name = 'subtitleshiftup' if up else 'subtitleshiftdown'
+    for _action in range(SHIFT_ACTIONS):
+        xbmc.executebuiltin('%s(save)' % name, True)
+        xbmc.sleep(SHIFT_GAP)
+    xbmc.executebuiltin('Dialog.Close(sliderdialog,true)', True)
+    home.clearProperty(QUIET)
+
+
+PASSTHROUGH = 'dhs.audio.passthrough'
+
+
+def _passthrough():
+    """Kodi's Allow passthrough. JSON-RPC answers only while the setting is
+    shown in Kodi's settings (a Mac with no passthrough output hides it);
+    Kodi's audio dialog shows it anyway, so it is read from guisettings.xml
+    then, and the value this panel set last wins (the file is written later)."""
+    value = S._get('audiooutput.passthrough')
+    if value is not None:
+        return bool(value)
+    kept = xbmcgui.Window(10000).getProperty(PASSTHROUGH)
+    if kept:
+        return kept == 'true'
+    try:
+        import xbmcvfs
+        with open(xbmcvfs.translatePath('special://profile/guisettings.xml'), encoding='utf-8') as fh:
+            found = re.search(r'id="audiooutput\.passthrough"[^>]*>(\w+)<', fh.read())
+        return bool(found) and found.group(1) == 'true'
+    except Exception:
+        return False
+
+
+def _toggle_passthrough():
+    now = _passthrough()
+    if S._get('audiooutput.passthrough') is not None:
+        S._set('audiooutput.passthrough', not now)
+        xbmcgui.Window(10000).clearProperty(PASSTHROUGH)
+        return
+    # the hidden setting: Kodi's own switch (the action of its dialog's toggle)
+    xbmc.executebuiltin('Action(AudioToggleDigital)', True)
+    xbmcgui.Window(10000).setProperty(PASSTHROUGH, 'false' if now else 'true')
+
+
+
+def _disc_offer(local):
+    """v5.10.567: a subtitle file on a disc in its menus never shows; offer the main movie."""
+    try:
+        from .. import disc_menu
+        disc_menu.offer(local, os.path.basename(local))
+    except Exception as exc:
+        C.log('subtitle page: disc offer: %s' % exc, xbmc.LOGDEBUG)
+
 class SubtitleWindow(xbmcgui.WindowXMLDialog):
 
     def __init__(self, *args, **kwargs):
         super(SubtitleWindow, self).__init__(*args)
         self.section = kwargs.get('section') or ''
-        self.kind = kwargs.get('kind') or 'subtitles'
+        self.kind = kwargs.get('kind') or 'subtitles'      # the section the page opens on
+        self.side_kind = self.kind                          # whose tracks the side page lists
         self.rows = []
         self.side_rows = []
-        self.side = ''              # '', 'tracks', 'online'
+        self.side = ''              # '', 'tracks', 'online' (whose rows fill_side lists)
+        self.view = 'tracks'        # 'tracks', 'settings', 'online': what the panel shows
+        self.lang = ''              # the language whose subtitles the tracks view lists
         self.list = None
         self.side_list = None
         self.found = None           # the add-ons' subtitles, while the page is open
@@ -196,60 +300,59 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
 
     # ------------------------------------------------------------ main rows
     def _audio_rows(self):
-        got = _props('currentaudiostream', 'audiostreams')
-        current = got.get('currentaudiostream') or {}
-        from . import streamrows
-        name = streamrows.short_audio(current) if current else ''
-        rows = [{'id': 'astream', 'label': _t('مسار الصوت', 'Audio track'), 'value': name or '-',
-                 'adjust': len(got.get('audiostreams') or []) > 1, 'opens': True, 'kick': _t('الصوت', 'AUDIO')}]
+        rows = []
         rows.append({'id': 'adelay', 'label': _t('تأخير الصوت', 'Audio delay'),
                      'value': xbmc.getInfoLabel('Player.AudioDelay') or '0.000 s', 'adjust': True})
         volume = ((_rpc('Application.GetProperties', {'properties': ['volume']}).get('result') or {}).get('volume'))
-        rows.append({'id': 'volume', 'label': _t('مستوى الصوت', 'Volume'),
-                     'value': '%s %%' % volume if volume is not None else '', 'adjust': True,
+        # v5.10.451: in dB as Kodi's audio dialog shows it (60 dB over the
+        # range: 30 % is -42.0 dB), and the percent after it
+        level = ''
+        if volume is not None:
+            level = ('%.1f dB  ·  %s %%' % ((float(volume) / 100.0 - 1.0) * 60.0, volume)) if volume > 0 \
+                else _t('صامت', 'Muted')
+        rows.append({'id': 'volume', 'label': _t('مقدار الصوت', 'Volume'),
+                     'value': level, 'adjust': True,
                      'pct': max(1, min(99, int(volume or 0))) if volume is not None else 0})
         rows.append({'id': 'amp', 'label': _t('تضخيم الصوت', 'Volume amplification'), 'value': '', 'adjust': True})
-        for key, ar, en in (('audiooutput.passthrough', 'تمرير الصوت للجهاز', 'Passthrough'),
-                            ('audiooutput.stereoupmix', 'توسيع الستيريو', 'Stereo upmix')):
-            value = S._get(key)
-            if value is None:
-                continue
-            rows.append({'id': key, 'label': _t(ar, en), 'value': _t('مفعّل', 'On') if value else _t('مطفأ', 'Off'),
-                         'adjust': True, 'toggle': True})
-        rows.append({'id': 'kodi_audio', 'label': _t('إعدادات Kodi', 'Kodi settings'), 'value': '',
-                     'opens': True, 'kick': _t('المزيد', 'MORE')})
+        on, off = _t('مفعّل', 'On'), _t('مطفأ', 'Off')
+        # v5.10.451: always there, as in Kodi's audio dialog (_passthrough)
+        rows.append({'id': 'passthrough', 'label': _t('السماح بتمرير الصوت', 'Allow passthrough'),
+                     'value': on if _passthrough() else off, 'adjust': True})
+        value = S._get('audiooutput.stereoupmix')
+        if value is not None:
+            rows.append({'id': 'audiooutput.stereoupmix', 'label': _t('توسيع الستيريو', 'Stereo upmix'),
+                         'value': on if value else off, 'adjust': True, 'toggle': True})
         return rows
 
     def _rows(self):
-        if self.kind == 'audio':
-            return self._audio_rows()
-        rows = []
-        state = _props('currentsubtitle', 'subtitleenabled', 'subtitles')
+        """The settings view of the panel's kind, a row back to the tracks first."""
+        rows = [{'id': 'back', 'label': _t('رجوع للمسارات', 'Back to tracks'), 'value': '', 'flag': BACK_ICON}]
+        if self.side_kind == 'audio':
+            rows.extend(self._audio_rows())
+            # what Kodi keeps to its own dialog (no add-on can set them)
+            rows.append({'id': 'kodi_audio', 'label': _t('إعدادات Kodi للصوت', 'Kodi audio settings'),
+                         'value': _t('مستوى الوسط والافتراضي', 'Centre mix, default'), 'opens': True})
+            return rows
+        state = _props('subtitleenabled')
         enabled = bool(state.get('subtitleenabled'))
-        current = state.get('currentsubtitle') or {}
-        tracks = state.get('subtitles') or []
-        if enabled and current:
-            from . import streamrows
-            value = _lang_label(streamrows.track_code(current))
-        else:
-            value = _t('مطفأة', 'Off')
-        count = (_t('%d نتيجة', '%d found') % len(self.found)) if self.found else (
-            _t('أبحث…', 'Searching…') if self.searching else '')
-        rows.append({'id': 'track', 'label': _t('الترجمة', 'Subtitle'), 'value': value, 'adjust': bool(tracks),
-                     'opens': True, 'kick': _t('الترجمة', 'SUBTITLES')})
-        rows.append({'id': 'online', 'label': _t('بحث عن ترجمة', 'Find subtitles'),
-                     'value': count or self._provider().get('name', ''), 'opens': True})
         rows.append({'id': 'show', 'label': _t('إظهار الترجمة', 'Show subtitles'),
                      'value': _t('مفعّلة', 'On') if enabled else _t('مطفأة', 'Off'), 'adjust': True})
         rows.append({'id': 'delay', 'label': _t('التأخير', 'Delay'),
                      'value': xbmc.getInfoLabel('Player.SubtitleDelay') or '0.000 s', 'adjust': True})
-        rows.append({'id': 'shift', 'label': _t('رفع وخفض الترجمة', 'Move up or down'),
-                     'value': '', 'adjust': True})
-        rows.append({'id': 'sync', 'label': _t('مزامنة تلقائية', 'Auto sync'), 'value': '', 'opens': True})
+        # v5.10.539: always here, no need to pick Manual first
+        rows.append({'id': 'shift', 'label': _t('رفع وخفض الترجمة', 'Height'),
+                     'value': _shift_text(_shift_steps()), 'adjust': True})
+        # v5.10.491: one switch for every subtitle (a Silo one syncs on the
+        # server, any other locally), and the one-off sync beside it
+        from ..subsync import sync_prefs
+        rows.append({'id': 'autosync', 'label': _t('مزامنة تلقائية', 'Auto sync'),
+                     'value': _t('شغالة لكل الترجمات', 'On, all subtitles') if sync_prefs.auto_on() else _t('مطفية', 'Off'),
+                     'adjust': True})
+        rows.append({'id': 'sync', 'label': _t('زامن الترجمة الحين', 'Sync this subtitle now'), 'value': '', 'opens': True})
         preset = xbmcgui.Window(10000).getProperty('dhs.substyle.preset')
         rows.append({'id': 'preset', 'label': _t('شكل جاهز', 'Look'),
                      'value': dict(PRESET_NAMES).get(preset, ('', ''))[1 if _english() else 0] or _t('اختر', 'Choose'),
-                     'adjust': True, 'kick': _t('الشكل', 'LOOK')})
+                     'adjust': True})
         settings = S._all()
         background = (settings.get('subtitles.backgroundtype') or {}).get('value')
         for row in S.ROWS:
@@ -263,6 +366,15 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
             entry = {'id': key, 'label': _t(ar, en), 'value': S._value_text(row, setting, value), 'adjust': True}
             if kind == 'colour':
                 entry['swatch'] = str(value or 'FFFFFFFF')
+                # v5.10.451: the ready colours as a row of swatches (Nuvio
+                # Arc's), the one in use ringed; Left and Right go along it
+                entry['swatches'] = [c for c, _a, _e in extra]
+                upper = [c.upper() for c in entry['swatches']]
+                shown = str(value or '').upper()
+                if key == 'subtitles.colorpick':
+                    shown = S.base_of(shown)        # a shade rings its colour
+                    entry['value'] = dict((c.upper(), _t(a, e)) for c, a, e in extra).get(shown, entry['value'])
+                entry['sel'] = upper.index(shown) if shown in upper else -1
             if kind in ('pct', 'int'):
                 low, high, _step = extra
                 try:
@@ -270,11 +382,17 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
                 except Exception:
                     entry['pct'] = 1
             rows.append(entry)
+            if key == 'subtitles.colorpick':
+                # v5.10.451: right under it, the colour's shades, darker to lighter
+                at = S.shade_index(value)
+                rows.append({'id': 'shade', 'label': _t('درجة اللون', 'Shade'), 'adjust': True,
+                             'value': _t(*S.SHADE_NAMES[at]) if at >= 0 else '',
+                             'swatches': S.shades(S.base_of(value)), 'sel': at})
         if S.fonts_waiting():
             rows.append({'id': 'note', 'label': _t('خطوط عربية جديدة', 'New Arabic fonts'),
-                         'value': _t('بعد إعادة التشغيل', 'after a restart'), 'kick': _t('المزيد', 'MORE')})
-        rows.append({'id': 'kodi', 'label': _t('إعدادات Kodi', 'Kodi settings'), 'value': '',
-                     'opens': True, 'kick': '' if S.fonts_waiting() else _t('المزيد', 'MORE')})
+                         'value': _t('بعد إعادة التشغيل', 'after a restart')})
+        rows.append({'id': 'kodi', 'label': _t('إعدادات Kodi للترجمة', 'Kodi subtitle settings'), 'value': '',
+                     'opens': True})
         return rows
 
     @staticmethod
@@ -284,13 +402,23 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
                           'opens': '1' if row.get('opens') else '', 'kick': row.get('kick') or '',
                           'swatch': row.get('swatch') or '', 'pct': str(row.get('pct') or ''),
                           'current': '1' if row.get('current') else '', 'busy': '1' if row.get('busy') else '',
-                          'flag': row.get('flag') or ''})
+                          'flag': row.get('flag') or '', 'count': str(row.get('count') or ''),
+                          'b1': row.get('b1') or '', 'b2': row.get('b2') or ''})
+        SubtitleWindow._swatches(li, row)
         if row.get('pct'):
             try:
                 li.getVideoInfoTag().setResumePoint(float(row['pct']), 100.0)
             except Exception:
                 pass
         return li
+
+    @staticmethod
+    def _swatches(li, row):
+        colours = row.get('swatches') or []
+        for i in range(10):
+            li.setProperty('c%d' % i, colours[i] if i < len(colours) else '')
+        li.setProperty('sel', str(row.get('sel', -1)) if colours else '')
+        li.setProperty('n', str(len(colours)) if colours else '')
 
     def build(self, keep=''):
         with self.lock:
@@ -300,10 +428,12 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
                 position = next((i for i, r in enumerate(self.rows) if r['id'] == keep), 0)
             elif self.section == 'look':
                 position = next((i for i, r in enumerate(self.rows) if r['id'] == 'preset'), 0)
+            else:
+                position = min(1, len(self.rows) - 1)       # the first setting, under the way back
             self.list.reset()
             self.list.addItems([self._item(r) for r in self.rows])
             self.list.selectItem(position)
-        if not self.side:
+        if self.view == 'settings':
             self.setFocusId(MAIN)
 
     def refresh_row(self, index):
@@ -321,6 +451,7 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
                 li = self.list.getListItem(i)
                 li.setLabel2(row.get('value') or '')
                 li.setProperty('swatch', row.get('swatch') or '')
+                self._swatches(li, row)
                 li.setProperty('pct', str(row.get('pct') or ''))
                 if row.get('pct'):
                     try:
@@ -333,63 +464,129 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
         if index >= 0:
             self.refresh_row(index)
 
-    # ------------------------------------------------------------ side page
+    # ------------------------------------------------------------ tracks view
     def _track_rows(self):
-        if self.kind == 'audio':
-            got = _props('currentaudiostream', 'audiostreams')
-            current = (got.get('currentaudiostream') or {}).get('index')
-            out = []
-            for stream in got.get('audiostreams') or []:
-                code = _code(stream.get('language'))
-                bits = [x for x in (str(stream.get('codec') or '').upper(),
-                                    ('%s ch' % stream.get('channels')) if stream.get('channels') else '') if x]
-                from . import streamrows
-                look = streamrows.props('audio', stream)
-                out.append({'id': 'a:%s' % stream.get('index'), 'label': look.get('dh_title') or _lang_label(code),
-                            'value': '  ·  '.join(x for x in (_lang_label(code), look.get('dh_tags') or ' · '.join(bits)) if x),
-                            'lang': code,
-                            'flag': look.get('dh_flag') or '',
-                            'current': stream.get('index') == current, 'index': stream.get('index')})
-            return self._group(out)
+        if self.side_kind == 'audio':
+            return self._audio_tracks()
+        enabled, items = self._subtitle_items()
+        if self.lang:
+            # a language's subtitles: the file's own first, then the add-ons'
+            mine = [r for r in items if r.get('lang') == self.lang]
+            mine.sort(key=lambda r: (0 if r['id'].startswith('s:') else 1))
+            return [{'id': 'back', 'label': _lang_label(self.lang), 'value': _t('كل اللغات', 'All languages'),
+                     'flag': BACK_ICON}] + mine
+        if self.searching and not self.found:
+            online = _t('أبحث في إضافات الترجمة…', 'Asking the subtitle add-ons…')
+        elif self.found:
+            online = _t('%d ترجمة من الإضافات', '%d from the add-ons') % len(self.found)
+        else:
+            online = self._provider().get('name', '')
+        rows = [{'id': 'look', 'label': _t('شكل الترجمة', 'Subtitle look'),
+                 'value': _t('التأخير، الخط، الحجم، اللون', 'Delay, font, size, colour'),
+                 'flag': 'dexhub/osd/legacy/style.png', 'opens': True},
+                {'id': 'online', 'label': _t('بحث عن ترجمة', 'Find subtitles'), 'value': online,
+                 'flag': 'dexhub/osd/legacy/search.png', 'opens': True, 'busy': self.searching},
+                # v5.10.557: a subtitle file of the viewer's own
+                {'id': 'file', 'label': _t('ترجمة من ملف', 'Subtitle from a file'),
+                 'value': _t('من الجهاز، الشبكة، أو اللي رفعته من الجوال', 'This device, the network, or sent from a phone'),
+                 'flag': 'dexhub/osd/legacy/download.png', 'opens': True},
+                {'id': 'off', 'label': _t('بدون ترجمة', 'No subtitles'), 'value': '', 'current': not enabled,
+                 'flag': 'dexhub/osd/legacy/x.png'}]
+        langs = {}
+        for row in items:
+            langs.setdefault(row.get('lang') or 'und', []).append(row)
+        rank = dict((c, i) for i, c in enumerate(_preferred()))
+        for code in sorted(langs, key=lambda c: (rank.get(c, 99), c == 'und', _lang_label(c))):
+            group = langs[code]
+            own = sum(1 for r in group if r['id'].startswith('s:'))
+            added = len(group) - own
+            parts = []
+            if own:
+                parts.append(_t('%d في الملف', '%d in the file') % own)
+            if added:
+                parts.append(_t('%d من الإضافات', '%d from add-ons') % added)
+            rows.append({'id': 'L:' + code, 'label': _lang_label(code), 'value': '  ·  '.join(parts),
+                         'count': len(group), 'flag': _flag_for(code), 'opens': True,
+                         'current': any(r.get('current') for r in group)})
+        return rows
+
+    def _subtitle_items(self):
+        """(subtitles on, every subtitle as a row): the file's tracks (and the
+        files added to it) and the add-ons' results not added yet."""
         got = _props('currentsubtitle', 'subtitleenabled', 'subtitles')
         enabled = bool(got.get('subtitleenabled'))
         current = (got.get('currentsubtitle') or {}).get('index') if enabled else None
-        out = [{'id': 'off', 'label': _t('بدون ترجمة', 'No subtitles'), 'value': '', 'current': not enabled,
-                'flag': 'dexhub/osd/legacy/x.png'}]
+        from . import streamrows
         rows = []
         for stream in got.get('subtitles') or []:
             raw = str(stream.get('name') or '')
-            from . import streamrows
             code = streamrows.track_code(stream)
             external = 'External' in raw or 'خارجية' in raw or raw.lower().endswith(('.srt', '.ass', '.vtt'))
             tags = []
+            known = streamrows._known(stream)
+            label = ((known.get('n') or known.get('s')) if known else '') or _clean_name(raw) or _lang_label(code)
+            if known and known.get('s') and known.get('s') != label:
+                tags.append(known['s'])
+            elif not known:
+                tags.append(_t('خارجية', 'External') if external else _t('في الملف', 'In the file'))
+            fmt = str(stream.get('codec') or '').upper()
+            if fmt and fmt not in ('UND', 'NONE'):
+                tags.append(fmt.replace('SUBRIP', 'SRT').replace('HDMV_PGS_SUBTITLE', 'PGS'))
             if stream.get('isforced'):
                 tags.append(_t('إجبارية', 'Forced'))
             if stream.get('isimpaired'):
                 tags.append('SDH')
-            tags.append(_t('خارجية', 'External') if external else _t('مضمّنة', 'Embedded'))
-            known = streamrows._known(stream)
-            label = ((known.get('n') or known.get('s')) if known else '') or _clean_name(raw) or _lang_label(code)
-            if known and known.get('s') and known.get('s') != label:
-                tags.insert(0, known['s'])
             rows.append({'id': 's:%s' % stream.get('index'), 'label': _readable(label),
-                         'value': '  ·  '.join([_lang_label(code)] + tags), 'lang': code,
+                         'value': '  ·  '.join(tags), 'lang': code,
                          'current': stream.get('index') == current,
-                         'flag': streamrows.props('subtitle', stream).get('dh_flag') or '',
+                         'flag': streamrows.props('subtitle', stream).get('dh_flag') or _flag_for(code),
                          'index': stream.get('index')})
-        return out + self._group(rows)
+        return enabled, rows + [r for r in self._result_rows() if not r.get('_loaded')]
 
-    @staticmethod
-    def _group(rows):
-        """Your languages first (in your order), then the others; the
-        language as the kicker of its first row."""
-        rank = dict((c, i) for i, c in enumerate(_preferred()))
-        rows.sort(key=lambda r: (rank.get(r.get('lang'), 99), r.get('lang') or ''))
-        last = None
+    def _audio_tracks(self):
+        got = _props('currentaudiostream', 'audiostreams')
+        current = (got.get('currentaudiostream') or {}).get('index')
+        from . import streamrows
+        rows = [{'id': 'look', 'label': _t('ضبط الصوت', 'Sound settings'),
+                 'value': _t('التأخير، مستوى الصوت، التضخيم', 'Delay, volume, amplification'),
+                 'flag': 'dexhub/osd/legacy/sliders-horizontal.png', 'opens': True}]
+        for stream in got.get('audiostreams') or []:
+            code = _code(stream.get('language'))
+            look = streamrows.props('audio', stream)
+            rows.append({'id': 'a:%s' % stream.get('index'), 'label': look.get('dh_title') or _lang_label(code),
+                         'value': '  ·  '.join(x for x in (_lang_label(code), look.get('dh_tags')) if x),
+                         'lang': code, 'flag': look.get('dh_flag') or _flag_for(code),
+                         'b1': look.get('dh_b1') or '', 'b2': look.get('dh_b2') or '',
+                         'current': stream.get('index') == current, 'index': stream.get('index')})
+        return rows
+
+    def _result_rows(self):
+        """The add-ons' subtitles as rows (r:<n>), each with its language."""
+        if not self.found:
+            return []
+        from .. import subtitle_service as SS
+        rows = []
+        seen = {}
+        for i, row in enumerate(self.found):
+            lang = _code(SS._base(row.get('lang')) or 'und')
+            provider = SS._clean(row.get('sourceName') or 'Dex Hub', 'Dex Hub')
+            release = _release_name(SS._row_name(row), provider, lang)
+            key = (provider, lang)
+            seen[key] = seen.get(key, 0) + 1
+            details = [provider if release else '']      # no name of its own: the add-on is the row's name
+            if SS._is_ai(row):
+                details.append(_t('ذكاء اصطناعي', 'AI'))
+            hearing = row.get('hearing_impaired') or row.get('hi') or row.get('sdh')
+            if hearing in (True, 'true', '1', 1):
+                details.append('SDH')
+            rows.append({'id': 'r:%d' % i, 'label': _readable(release) or provider, '_n': seen[key], '_key': key,
+                         'value': '  ·  '.join(x for x in details if x), 'lang': lang, 'flag': _flag_for(lang),
+                         'current': bool(row.get('_loaded')), 'busy': bool(row.get('_loading')),
+                         '_loaded': bool(row.get('_loaded'))})
+        # the same add-on's subtitles told apart: "OpenSubtitles v3  ·  2"
         for row in rows:
-            lang = row.get('lang')
-            row['kick'] = _lang_label(lang) if lang != last else ''
-            last = lang
+            if seen[row['_key']] > 1 and row['label'] == row['_key'][0]:
+                row['label'] = '%s  ·  %d' % (row['label'], row['_n'])
         return rows
 
     def _online_rows(self):
@@ -399,31 +596,9 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
         if not self.found:
             return [{'id': 'again', 'label': _t('ما لقيت ترجمة', 'No subtitles found'),
                      'value': _t('اضغط للبحث مرة ثانية', 'Press to search again')}]
-        from .. import subtitle_service as SS
-        from . import streamrows
-        rows = []
-        seen = {}
-        for i, row in enumerate(self.found):
-            lang = SS._base(row.get('lang')) or 'und'
-            provider = SS._clean(row.get('sourceName') or 'Dex Hub', 'Dex Hub')
-            release = _release_name(SS._row_name(row), provider, lang)
-            key = (provider, lang)
-            seen[key] = seen.get(key, 0) + 1
-            details = [_lang_label(lang), provider if release else '']
-            if SS._is_ai(row):
-                details.append(_t('ذكاء اصطناعي', 'AI'))
-            hearing = row.get('hearing_impaired') or row.get('hi') or row.get('sdh')
-            if hearing in (True, 'true', '1', 1):
-                details.append('SDH')
-            rows.append({'id': 'r:%d' % i, 'label': _readable(release) or provider, '_n': seen[key], '_key': key,
-                         'value': '  ·  '.join(x for x in details if x),
-                         'flag': streamrows.OWN_FLAGS.get(lang) or (streamrows.FLAG_DIR + lang + '.png'
-                                                                    if lang in streamrows.FLAGS else ''),
-                         'current': bool(row.get('_loaded')), 'busy': bool(row.get('_loading'))})
-        # the same add-on's subtitles told apart: "OpenSubtitles v3  ·  2"
+        rows = self._result_rows()
         for row in rows:
-            if seen[row['_key']] > 1 and row['label'] == row['_key'][0]:
-                row['label'] = '%s  ·  %d' % (row['label'], row['_n'])
+            row['value'] = '  ·  '.join(x for x in (_lang_label(row['lang']), row['value']) if x)
         return rows
 
     # ------------------------------------------------------------ providers
@@ -508,49 +683,64 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
         self.query = text.strip()
         self.use_provider(fresh=self._provider().get('id') == 'dexhub')
 
-    def open_side(self, mode):
-        self.side = mode
-        if mode == 'tracks':
-            title = _t('مسارات الصوت', 'Audio tracks') if self.kind == 'audio' else _t('الترجمات', 'Subtitles')
-            icon = 'dexhub/osd/legacy/audio-lines.png' if self.kind == 'audio' else 'dexhub/osd/legacy/languages.png'
-            hint = _t('اختر، ويمين للرجوع', 'Choose; Right goes back')
+    def show_view(self, view, select=''):
+        """The panel shows its tracks, its settings or the subtitle search."""
+        self.view = view
+        audio = self.side_kind == 'audio'
+        if view == 'settings':
+            self.side = ''
+            self.build()
+            title = _t('ضبط الصوت', 'Sound settings') if audio else _t('شكل الترجمة', 'Subtitle look')
+            focus = MAIN
+        elif view == 'online':
+            self.side = 'online'
+            self.use_provider()
+            title = _t('بحث عن ترجمة', 'Find subtitles')
+            focus = HEAD
+        else:
+            self.side = 'tracks'
             self.side_list = self.track_list
             self.side_rows = []
-            self.fill_side(focus_current=True)
+            self.fill_side(focus_current=not select, select=select)
+            title = _t('الصوت', 'Audio') if audio else _t('الترجمة', 'Subtitles')
             focus = SIDE
-        else:
-            title = _t('بحث عن ترجمة', 'Find subtitles')
-            icon = 'dexhub/osd/legacy/search.png'
-            hint = _t('يمين ويسار يغيّرون المزوّد، وتحت للنتائج', 'Left and Right change the provider; Down for results')
-            self.use_provider()
-            focus = HEAD
-        self.setProperty('side_title', title)
-        self.setProperty('side_icon', icon)
-        self.setProperty('side_hint', hint)
-        self.setProperty('side', mode)
+        self.setProperty('title', title)
+        self.setProperty('view', view)
         self.setFocusId(focus)
 
-    def close_side(self):
-        was = self.side
-        self.side = ''
-        self.clearProperty('side')
-        self.setFocusId(MAIN)
-        self.refresh_id('astream' if self.kind == 'audio' else 'track')
-        if was == 'online':
-            self.refresh_id('online')
+    def go_back(self):
+        """Back: a language to the languages, the settings or the search to
+        the tracks; False when the panel is on its tracks (it closes)."""
+        if self.view == 'settings':
+            self.show_view('tracks', select='look')
+            return True
+        if self.view == 'online':
+            self.show_view('tracks', select='online')
+            return True
+        if self.lang:
+            code, self.lang = self.lang, ''
+            self.side_rows = []
+            self.fill_side(select='L:' + code)
+            return True
+        return False
 
     def _side_ids(self):
         return (SIDE,) if self.side == 'tracks' else (HEAD, KODI if self.getProperty('src') == 'kodi' else DEX)
 
-    def fill_side(self, focus_current=False):
+    def fill_side(self, focus_current=False, select=''):
         with self.lock:
             if self.side == 'online' and self.side_list is not self.dex_list:
+                return
+            if self.side not in ('tracks', 'online'):
                 return
             rows = self._track_rows() if self.side == 'tracks' else self._online_rows()
             same = bool(self.side_rows) and [r['id'] for r in rows] == [r['id'] for r in self.side_rows]
             at = self.side_list.getSelectedPosition() if self.side_rows else 0
+            # the cursor stays on its row when rows come in above it (the
+            # add-ons' languages arrive after the panel opened)
+            was = self.side_rows[at]['id'] if 0 <= at < len(self.side_rows) else ''
             self.side_rows = rows
-            if same:
+            if same and not select:
                 for i, row in enumerate(rows):
                     li = self.side_list.getListItem(i)
                     li.setLabel2(row.get('value') or '')
@@ -559,8 +749,12 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
                 return
             self.side_list.reset()
             self.side_list.addItems([self._item(r) for r in rows])
-            if focus_current:
+            if select:
+                at = next((i for i, r in enumerate(rows) if r['id'] == select), at)
+            elif focus_current:
                 at = next((i for i, r in enumerate(rows) if r.get('current')), 0)
+            elif was:
+                at = next((i for i, r in enumerate(rows) if r['id'] == was), at)
             self.side_list.selectItem(max(0, min(at, len(rows) - 1)))
 
     def pick(self):
@@ -569,25 +763,126 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
             return
         row = self.side_rows[index]
         rid = row['id']
+        if rid == 'look':
+            self.show_view('settings')
+            return
+        if rid == 'online':
+            self.show_view('online')
+            return
+        if rid == 'file':
+            self.load_file()
+            return
+        if rid == 'back':
+            self.go_back()
+            return
+        if rid.startswith('L:'):
+            code = rid[2:]
+            _enabled, items = self._subtitle_items()
+            mine = [r for r in items if r.get('lang') == code]
+            if len(mine) == 1:
+                # one subtitle in the language: it is taken at once
+                self._take(mine[0])
+                return
+            self.lang = code
+            self.side_rows = []
+            self.fill_side(focus_current=True)
+            if not any(r.get('current') for r in self.side_rows):
+                self.side_list.selectItem(min(1, len(self.side_rows) - 1))
+            return
+        if rid == 'again':
+            self.search()
+            self.fill_side()
+            return
+        self._take(row)
+
+    def load_file(self):
+        """v5.10.557: a subtitle file of the viewer's own (the user: "add loading a local
+        subtitle"). Kodi's file browser opens on the folder the phone page's Files sends to
+        (special://home/dexhub-files), and reaches this device, USB sticks and the network
+        sources too. The file is copied next to Dex Hub's own subtitle files, its text turned
+        into what Kodi reads (an Arabic file saved as Windows-1256 would show as noise), then
+        shown."""
+        import xbmcvfs
+        start = 'special://home/dexhub-files/'
+        try:
+            if not xbmcvfs.exists(start):
+                xbmcvfs.mkdirs(start)
+        except Exception:
+            pass
+        kinds = ('srt', 'ass', 'ssa', 'vtt', 'sub', 'smi', 'sup', 'idx', 'txt')
+        try:
+            path = xbmcgui.Dialog().browse(1, _t('اختر ملف الترجمة', 'Choose the subtitle file'), 'files',
+                                           '|'.join('.' + k for k in kinds), False, False, start)
+        except Exception as exc:
+            C.log('subtitle page: file browser: %s' % exc, xbmc.LOGWARNING)
+            return
+        if not path or path == start or path.endswith('/'):
+            return
+        ext = path.rsplit('.', 1)[-1].lower() if '.' in path[-6:] else ''
+        if ext not in kinds:
+            self.setProperty('side_hint', _t('هذا مو ملف ترجمة', 'That is not a subtitle file'))
+            return
+        local = path
+        try:
+            from ..playback import subtitle_files as sf
+            from ..playback import subtitle_names
+            name = os.path.basename(path.rstrip('/')).rsplit('.', 1)[0]
+            stem = sf._safe_subtitle_filename_part(name or 'subtitle', limit=60) or 'subtitle'
+            target = os.path.join(sf._subs_tmp_dir(), '%s - %s.%s' % (stem, _t('ملفي', 'my file'), ext))
+            handle = xbmcvfs.File(path)
+            try:
+                payload = bytes(handle.readBytes())
+            finally:
+                handle.close()
+            if ext in ('srt', 'ass', 'ssa', 'vtt', 'smi', 'txt', 'sub') and payload:
+                try:
+                    from .. import subtitle_encoding
+                    # a file that is not UTF-8 is read in the viewer's subtitle language's
+                    # old encoding (Arabic: Windows-1256), then marked for Kodi
+                    payload = subtitle_encoding.normalize(payload, (list(_preferred() or []) + ['ar'])[0])
+                    fixed = subtitle_encoding.for_kodi(payload, ext)
+                    payload = fixed if isinstance(fixed, (bytes, bytearray)) else (
+                        fixed.encode('utf-8') if isinstance(fixed, str) else payload)
+                except Exception as exc:
+                    C.log('subtitle page: encoding left as is: %s' % exc, xbmc.LOGDEBUG)
+            if payload:
+                with open(target, 'wb') as out:
+                    out.write(payload)
+                local = target
+                subtitle_names.remember(local, name, _t('ملفي', 'My file'), '')
+        except Exception as exc:
+            C.log('subtitle page: own file used in place: %s' % exc, xbmc.LOGWARNING)
+        try:
+            player = xbmc.Player()
+            player.setSubtitles(local)
+            player.showSubtitles(True)
+            C.log('subtitle page: showing the viewer\'s own file %s' % os.path.basename(local))
+            _disc_offer(local)
+            self.setProperty('side_hint', _t('تعمل الآن: %s', 'Showing: %s') % os.path.basename(path))
+        except Exception as exc:
+            C.log('subtitle page: could not show %s: %s' % (local, exc), xbmc.LOGWARNING)
+            self.setProperty('side_hint', _t('ما قدرت أشغّل هذا الملف', 'Could not show this file'))
+            return
+        xbmc.sleep(400)         # Kodi adds the file a moment after setSubtitles
+        if not self.closed:
+            self.fill_side()
+
+    def _take(self, row):
+        """Show a subtitle (off, a track, an add-on's result) or play an audio track."""
+        rid = row['id']
         if rid == 'off':
             xbmc.Player().showSubtitles(False)
         elif rid.startswith('s:'):
             _rpc('Player.SetSubtitle', {'playerid': _player_id(), 'subtitle': row['index'], 'enable': True})
         elif rid.startswith('a:'):
             _rpc('Player.SetAudioStream', {'playerid': _player_id(), 'stream': row['index']})
-        elif rid == 'again':
-            self.search()
-            self.fill_side()
-            return
         elif rid.startswith('r:'):
             self.download(int(rid[2:]))
             return
         else:
             return
-        xbmc.sleep(150)
+        xbmc.sleep(150)         # Kodi's change lands first
         self.fill_side()
-        xbmc.sleep(150)
-        self.close_side()
 
     # ------------------------------------------------------------ online
     def search(self):
@@ -618,9 +913,7 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
         if self.closed:
             return
         try:
-            if self.side == 'online':
-                self.fill_side()
-            self.refresh_id('online')
+            self.fill_side()
         except Exception:
             pass
 
@@ -663,17 +956,17 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
             except Exception as exc:
                 C.log('subtitle page: could not show %s: %s' % (local, exc), xbmc.LOGWARNING)
             C.log('subtitle page: showing %s' % os.path.basename(local))
+            _disc_offer(local)
         else:
             xbmcgui.Dialog().notification('Dex Hub', _t('ما قدرت أنزل هذي الترجمة', 'Could not download it'),
                                           xbmcgui.NOTIFICATION_WARNING, 2500, False)
         if self.closed:
             return
         try:
-            if self.side == 'online':
-                self.fill_side()
-            time.sleep(0.4)
+            self.fill_side()
+            time.sleep(0.6)             # Kodi lists the file among the subtitles
             if not self.closed:
-                self.refresh_id('track')
+                self.fill_side()
         except Exception:
             pass
 
@@ -720,14 +1013,15 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
             except Exception as exc:
                 C.log('subtitle page: could not show %s: %s' % (local, exc), xbmc.LOGWARNING)
             C.log('subtitle page: showing %s from %s' % (os.path.basename(local), info.get('source')))
+            _disc_offer(local)
         if self.closed:
             return
         self.setProperty('side_hint', (_t('تعمل الآن: %s', 'Showing: %s') % (info['name'] or info['source']))
                          if local else _t('ما قدرت أنزل هذي الترجمة', 'Could not download it'))
         try:
-            time.sleep(0.4)
+            time.sleep(0.6)
             if not self.closed:
-                self.refresh_id('track')
+                self.fill_side()
         except Exception:
             pass
 
@@ -738,14 +1032,11 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
         self.head_list = self.getControl(HEAD)
         self.dex_list = self.getControl(DEX)
         self.side_list = self.track_list
-        self.setProperty('title', _t('إعدادات الصوت', 'Audio settings') if self.kind == 'audio'
-                         else _t('إعدادات الترجمة', 'Subtitle settings'))
-        self.setProperty('icon', 'dexhub/osd/legacy/audio-lines.png' if self.kind == 'audio'
-                         else 'dexhub/osd/legacy/captions.png')
-        self.setProperty('hint', _t('يمين ويسار للتغيير، وOK يفتح القائمة', 'Left and Right change it; OK opens the list'))
-        self.build()
-        if self.section == 'tracks':
-            self.open_side('tracks')
+        if self.side_kind != 'audio':
+            # the add-ons are asked as the panel opens: their subtitles join
+            # the languages when they come (Nuvio Arc lists them together)
+            self.search()
+        self.show_view('settings' if self.section == 'look' else 'tracks')
 
     def onAction(self, action):
         aid = action.getId()
@@ -758,19 +1049,19 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
             self.service_pick()
             return
         if aid in CLOSE:
-            if self.side:
-                self.close_side()
-            else:
+            if not self.go_back():
                 self.close()
             return
-        if self.side:
+        if self.view == 'online':
             ids = self._side_ids()
             if focus == HEAD and aid in (LEFT, RIGHT) and self.head_list.getSelectedPosition() == 0:
                 self.use_provider(-1 if aid == LEFT else 1)
-            elif aid == RIGHT:
-                self.close_side()
             elif focus not in ids and aid in (LEFT, UP, DOWN):
                 self.setFocusId(ids[0])
+            return
+        if self.view == 'tracks':
+            if focus != SIDE and aid in (LEFT, RIGHT, UP, DOWN):
+                self.setFocusId(SIDE)
             return
         if focus != MAIN:
             if aid in (LEFT, RIGHT, UP, DOWN):
@@ -797,10 +1088,8 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
         index = self.list.getSelectedPosition()
         row = self.rows[index] if 0 <= index < len(self.rows) else {}
         rid = row.get('id')
-        if rid in ('track', 'astream'):
-            self.open_side('tracks')
-        elif rid == 'online':
-            self.open_side('online')
+        if rid == 'back':
+            self.go_back()
         elif rid == 'sync':
             self.close()
             xbmc.executebuiltin('RunPlugin(%s)' % C.url('subtitle_sync'))
@@ -823,23 +1112,30 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
         key = row['id']
         if key == 'show':
             xbmc.Player().showSubtitles(not bool(_props('subtitleenabled').get('subtitleenabled')))
-        elif key == 'track':
-            _rpc('Player.SetSubtitle', {'playerid': _player_id(), 'subtitle': 'next' if step > 0 else 'previous',
-                                        'enable': True})
         elif key == 'delay':
             _act('SubtitleDelayPlus' if step > 0 else 'SubtitleDelayMinus')
         elif key == 'shift':
-            _act('SubtitleShiftUp' if step > 0 else 'SubtitleShiftDown')
-        elif key == 'astream':
-            _rpc('Player.SetAudioStream', {'playerid': _player_id(), 'stream': 'next' if step > 0 else 'previous'})
+            # v5.10.448: a number the user can read (0 where it started, +1
+            # a step up); Kodi moves a subtitle only in its Manual position
+            _shift(step > 0)
+            _shift_save(_shift_steps() + (SHIFT_PIXELS if step > 0 else -SHIFT_PIXELS))
+            self.refresh_row(-1)        # the Position row may have changed
+            return
         elif key == 'adelay':
             _act('AudioDelayPlus' if step > 0 else 'AudioDelayMinus')
         elif key == 'volume':
             _rpc('Application.SetVolume', {'volume': 'increment' if step > 0 else 'decrement'})
         elif key == 'amp':
             _act('VolAmpUp' if step > 0 else 'VolAmpDown')
+        elif key == 'passthrough':
+            _toggle_passthrough()
+        elif key == 'autosync':
+            from ..subsync import sync_prefs
+            sync_prefs.set_auto(not sync_prefs.auto_on())
         elif row.get('toggle'):
             S._set(key, not bool(S._get(key)))
+        elif key == 'shade':
+            S.set_shade(step)
         elif key == 'preset':
             names = [n for n, _l in PRESET_NAMES]
             current = xbmcgui.Window(10000).getProperty('dhs.substyle.preset')

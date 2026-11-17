@@ -167,6 +167,33 @@ def active_sets():
 
 
 def _builtin_kaptain_set():
+    row = _builtin_kaptain_set_raw()
+    if not row:
+        return row
+    return _dressed([row])[0]
+
+
+def _with_dex_collections(entries):
+    """v5.10.448: Dex Hub's own rows in the bundled collection, after Moods &
+    Vibes: Genre Universe, Moods & Themes and K-Wave (resources/data/
+    dex_collections.json, built by tools/collections). Without the file, or
+    with a broken one, the bundled collection stays as it is."""
+    try:
+        from . import bundled_data as _bundled_data
+        root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        text = _bundled_data.read_text(os.path.join(root, 'resources', 'data', 'dex_collections.json'))
+        ours = parse_collection_json(text) if text else []
+    except Exception:
+        ours = []
+    if not ours:
+        return entries
+    known = set(str(e.get('id') or '') for e in entries)
+    ours = [e for e in ours if str(e.get('id') or '') not in known]
+    after = next((i for i, e in enumerate(entries) if str(e.get('name') or '') == 'Moods & Vibes'), len(entries) - 1)
+    return list(entries[:after + 1]) + ours + list(entries[after + 1:])
+
+
+def _builtin_kaptain_set_raw():
     global _BUILTIN_SET_CACHE
     if _BUILTIN_SET_CACHE is not None:
         return _BUILTIN_SET_CACHE
@@ -179,6 +206,7 @@ def _builtin_kaptain_set():
         return None
     if not entries:
         return None
+    entries = _with_dex_collections(entries)
     _BUILTIN_SET_CACHE = {
         'id': BUILTIN_KAPTAIN_ID,
         'name': 'Dex Collection',
@@ -268,6 +296,27 @@ def _file_mtime():
 
 
 def _read():
+    # v5.10.426: with the covers chosen on the account page (cover_overrides)
+    return _dressed(_read_raw())
+
+
+def _dressed(rows):
+    try:
+        from .cover_overrides import dress
+        return dress(rows)
+    except Exception:
+        return rows
+
+
+def _undressed(rows):
+    try:
+        from .cover_overrides import undress
+        return undress(rows)
+    except Exception:
+        return rows
+
+
+def _read_raw():
     global _CACHE_ROWS, _CACHE_MTIME
     mtime = _file_mtime()
     if _CACHE_ROWS is not None and mtime == _CACHE_MTIME:
@@ -292,6 +341,7 @@ def _write(rows):
     # then memory cache is updated.
     from .dexhub.safe_io import write_json as _safe_write_json
     global _CACHE_ROWS, _CACHE_MTIME
+    rows = _undressed(rows)
     _safe_write_json(SETS_FILE, rows)
     _CACHE_ROWS = list(rows)
     _CACHE_MTIME = _file_mtime()
@@ -308,6 +358,7 @@ def _write_fast(rows):
     not block on fsync/backup snapshot.
     """
     global _CACHE_ROWS, _CACHE_MTIME
+    rows = _undressed(rows)
     os.makedirs(os.path.dirname(SETS_FILE), exist_ok=True)
     tmp_path = '%s.tmp.%d.fast' % (SETS_FILE, os.getpid())
     try:
@@ -450,6 +501,8 @@ def _normalize_nuvio_source(src):
             'sortBy': str(src.get('sortBy') or filters.get('sortBy') or filters.get('sort_by') or '').strip(),
             'sortHow': str(src.get('sortHow') or '').strip(),
             'filters': filters,
+            # v5.10.426: a full Discover query (AIO Metadata, DexCloud packs) is kept
+            'tmdbParams': dict(src.get('tmdbParams')) if isinstance(src.get('tmdbParams'), dict) else {},
             'genre': genre,
         }
 
@@ -1688,12 +1741,19 @@ def _fetch_raw_text(url):
         last_err = exc
         try:
             import xbmc as _xbmc
-            _xbmc.log('[DexHub] fetch_raw_text default fetch failed: %s — trying unverified SSL' % exc, _xbmc.LOGINFO)
+            _xbmc.log('[DexHub] fetch_raw_text default fetch failed: %s' % exc, _xbmc.LOGINFO)
         except Exception:
             pass
 
-    # Attempt 2: unverified SSL context — covers stale CA stores.
+    # Attempt 2: unverified SSL context — covers stale CA stores. v5.10.524:
+    # only when the first attempt failed on the certificate (any failure,
+    # a timeout too, dropped the check before)
+    reason = getattr(last_err, 'reason', None)
+    cert_problem = isinstance(last_err, _ssl.SSLCertVerificationError) or isinstance(reason, _ssl.SSLCertVerificationError) \
+        or 'CERTIFICATE_VERIFY_FAILED' in str(last_err or '')
     try:
+        if not cert_problem:
+            raise last_err if last_err is not None else RuntimeError('no response')
         ctx = _ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = _ssl.CERT_NONE
@@ -1707,11 +1767,12 @@ def _fetch_raw_text(url):
             return _read_body(resp)
     except Exception as exc:
         last_err = exc
-        try:
-            import xbmc as _xbmc
-            _xbmc.log('[DexHub] fetch_raw_text unverified SSL failed: %s' % exc, _xbmc.LOGINFO)
-        except Exception:
-            pass
+        if cert_problem:
+            try:
+                import xbmc as _xbmc
+                _xbmc.log('[DexHub] fetch_raw_text unverified SSL failed: %s' % exc, _xbmc.LOGINFO)
+            except Exception:
+                pass
 
     # Attempt 3: third-party requests library if available.
     try:

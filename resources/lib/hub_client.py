@@ -529,9 +529,21 @@ def menu():
 # ------------------------------------------------------------------ Telegram (v5.10.367)
 def telegram_menu(tg):
     if tg.get('linked'):
-        pick = xbmcgui.Dialog().select('Telegram' + ((' @' + tg['username']) if tg.get('username') else ''), [
-            _t('غيّر التنبيهات من صفحة Dex Hub (باركود)', 'Change the messages on the Dex Hub page (QR)'),
-            _t('فك ربط تيليجرام', 'Unlink Telegram')])
+        rows = [_t('غيّر التنبيهات من صفحة Dex Hub (باركود)', 'Change the messages on the Dex Hub page (QR)'),
+                _t('فك ربط تيليجرام', 'Unlink Telegram')]
+        # v5.10.451: Silo's alerts, by a Silo webhook to the hub (silo_telegram.py)
+        silo = None
+        try:
+            from .providers import silo_provider
+            if silo_provider.is_signed_in():
+                from . import silo_telegram as silo
+                rows.append(('✓ ' if silo.is_on() else '○ ') + _t('تنبيهات Silo على تيليجرام', 'Silo alerts on Telegram'))
+        except Exception:
+            silo = None
+        pick = xbmcgui.Dialog().select('Telegram' + ((' @' + tg['username']) if tg.get('username') else ''), rows)
+        if pick == 2 and silo is not None:
+            silo.toggle()
+            return
         if pick == 0:
             telegram_link()
         elif pick == 1 and xbmcgui.Dialog().yesno('Telegram', _t('توقف رسائل تيليجرام لهذا الحساب؟', 'Stop Telegram messages for this account?')):

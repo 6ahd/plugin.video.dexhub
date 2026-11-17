@@ -28,6 +28,7 @@ SERVICES = (
     ('silo', 'Silo', 'silo_client'),
 )
 BRANDS = dict((service, brand) for service, brand, _client in SERVICES)
+BRANDS['nas'] = 'NAS'      # v5.10.550: NAS folders are listed with the servers
 # routes that list what is being watched: landscape cards with progress
 PROGRESS_ACTIONS = frozenset(('plex_continue', 'emby_continue', 'jellyfin_continue'))
 # menu entries that are not a library: search, account and settings actions,
@@ -157,6 +158,9 @@ def continue_params(server):
 
 
 def recent_params(server, title):
+    if server['service'] == 'nas':
+        # v5.10.550: the newest files of a NAS folder
+        return {'action': 'nas_list', 'share': server.get('id') or '', 'kind': 'recent', 'title': title}
     if server['service'] == 'plex':
         # Plex's own "recently added" across the server's libraries
         return {'action': 'plex_children', 'server_id': server['id'],

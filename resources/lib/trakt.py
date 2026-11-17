@@ -619,7 +619,11 @@ def invalidate_cache(prefix=''):
 # changed since the last pull is skipped: the playback list, the watchlist,
 # and Next Up (one request per show) are read again only when something
 # happened on Trakt. Settings, Following and library: Smart Trakt sync.
-ACT_PATH = os.path.join(profile_path(), 'trakt_activities.json')
+# v5.10.543: per profile, like the progress it stands for (playback.db): one
+# file for every profile told a new profile (or one set up from the account
+# page) that Trakt was already pulled, so its Continue Watching stayed empty
+from . import profile_scope as _scope
+ACT_PATH = _scope.ScopedPath('trakt_activities.json')
 _ACT_PROP = 'dexhub.trakt.activities'
 _ACT_TTL = 60.0
 

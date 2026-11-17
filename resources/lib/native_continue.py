@@ -59,7 +59,7 @@ def rows(api, local, limit=500):
     clients = {'plex':api.plex_client, 'emby':api.emby_client, 'jellyfin':api.jellyfin_client, 'silo':api.silo_client}
     window = api.xbmcgui.Window(10000)
     # Account fingerprint prevents a warm interpreter returning another user's shelf.
-    accounts = {name:client.account() for name,client in clients.items()}
+    accounts = {name:_identity(client.account()) for name,client in clients.items()}
     fingerprint = hashlib.sha256(json.dumps(accounts, sort_keys=True).encode()).hexdigest()
     prop = 'dexhub.native_continue.' + fingerprint
     try:
@@ -151,6 +151,8 @@ def rows(api, local, limit=500):
         elif _claim_refresh(window, prop):
             # never read: the servers get a moment, then the rows they have
             # not answered for follow when they do (the Home is told)
+            api.xbmc.log('[DexHub] continue: no saved shelf for this account, waiting for the servers',
+                         api.xbmc.LOGINFO)
             done, box = threading.Event(), {}
             announce['on'] = False
 
@@ -176,6 +178,17 @@ def rows(api, local, limit=500):
 
 
 _FIRST_WAIT = 2.5      # v5.10.188: how long a shelf never read waits for its servers
+_PASSING = ('token', 'expires', 'signed_in', 'received')
+
+
+def _identity(account):
+    """v5.10.529: who the account is, without what changes while it stays the
+    same account. The whole record went into the fingerprint, so a refreshed
+    token lost the saved shelf and the row waited out _FIRST_WAIT (2.5 s of
+    3.3 s measured on a start)."""
+    if not isinstance(account, dict):
+        return account
+    return {k: v for k, v in account.items() if not any(word in k.lower() for word in _PASSING)}
 
 
 def _shelf_key(rows):

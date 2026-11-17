@@ -5127,7 +5127,7 @@ def hub_search_menu(query=''):
     # v4.9.0: TMDb used to short-circuit this route. As soon as it returned
     # one row DexWorld, Plex and Emby were never searched at all. TMDb is now
     # one bounded parallel job in the same coordinator as every other source.
-    rows = store.list_providers()
+    rows = store.enabled_providers()
     return _hub_search_unified_render(query, rows, include_tmdb=True)
 
 
@@ -5153,9 +5153,40 @@ def hub_search_collect(query, progress=None, should_stop=None, partial=None):
         _sh.add(query, media_type='all')
     except Exception:
         pass
+    # v5.10.576: a search that reads like a description also asks the
+    # viewer's AI (ai_search), alongside the usual sources; its picks come back
+    # flagged 'ai' and the search page shows them as a row of their own
+    ai = {'rows': None}
+    ai_thread = None
+    try:
+        from . import ai_search as _ai
+        if _ai.wants(query):
+            def _ask_ai():
+                try:
+                    ai['rows'] = _ai.search_entries(query)
+                except Exception as exc:
+                    xbmc.log('[DexHub] AI search failed: %s' % exc, xbmc.LOGWARNING)
+            ai_thread = threading.Thread(target=_ask_ai, name='DexHub-ai-search')
+            ai_thread.daemon = True
+            ai_thread.start()
+    except Exception:
+        ai_thread = None
+    started = time.monotonic()
     out = {'progress': progress, 'should_stop': should_stop, 'partial': partial}
-    _hub_search_unified_render(query, store.list_providers(), include_tmdb=True, collect=out)
-    return list(out.get('rows') or []), out.get('status') or 'empty'
+    _hub_search_unified_render(query, store.enabled_providers(), include_tmdb=True, collect=out)
+    rows = list(out.get('rows') or [])
+    status = out.get('status') or 'empty'
+    if ai_thread is not None:
+        # the AI usually answers in a few seconds; it never holds the results past 25 s
+        while ai_thread.is_alive() and time.monotonic() - started < 25:
+            if should_stop and should_stop():
+                break
+            ai_thread.join(0.25)
+        if ai['rows']:
+            rows = list(ai['rows']) + rows
+            if status in ('empty', 'no_catalogs'):
+                status = 'ok'
+    return rows, status
 
 
 class _QuietSearchLoader(object):
@@ -5206,7 +5237,7 @@ class _QuietSearchLoader(object):
             pass
         self._report()
 
-    def add_results(self, n=0, provider_name='', unique_total=None):
+    def add_results(self, n=0, provider_name='', unique_total=None, rows=None):
         try:
             self.results = int(unique_total) if unique_total is not None else self.results + int(n or 0)
         except Exception:
@@ -5983,7 +6014,26 @@ def _hub_search_unified_render(query, providers_list, include_tmdb=False, collec
                 if _catalog_supports_search(cat):
                     jobs.append((provider, cat, media_type))
 
-    jobs = _fair_search_job_order(jobs)
+    # v5.10.482: an add-on with ids of its own has titles nobody else lists: its
+    # site's search is one (each catalog only filters it), so two catalogs a
+    # type are asked, first in the queue, and the search waits for its answer
+    # (it came after the settle and the title was missing: 15 catalogs queued).
+    _own_jobs = []
+    try:
+        from .dexhub import title_bridge as _bridge
+        _kept = []
+        for _job in jobs:
+            _p, _c, _mt = _job
+            if isinstance(_p, dict) and _p.get('manifest') and _bridge.own_prefixes(_p):
+                if (_c or {}).get('id') not in [c.get('id') for c in _bridge.search_catalogs(_p, _mt)]:
+                    continue
+                _own_jobs.append(_job)
+                continue
+            _kept.append(_job)
+        jobs = _kept
+    except Exception:
+        _own_jobs = []
+    jobs = _own_jobs + _fair_search_job_order(jobs)
     # A manifest can expose the same searchable catalog through both its
     # ``types`` declaration and catalog list (or repeat the catalog verbatim).
     # Collapse identical requests before they consume a worker/network slot.
@@ -6009,6 +6059,24 @@ def _hub_search_unified_render(query, providers_list, include_tmdb=False, collec
         _job_signatures.add(_signature)
         _unique_jobs.append(_job)
     jobs = _unique_jobs
+
+    # v5.10.547: catalogs that refused (HTTP 4xx) or never answered in the
+    # last searches sit out a while (search_rest), unless nothing else is left
+    try:
+        from . import search_rest as _search_rest
+        _resting = _search_rest.resting()
+    except Exception:
+        _search_rest, _resting = None, {}
+    if _resting:
+        def _job_name(_job):
+            return str(((_job[0] or {}).get('name') if isinstance(_job[0], dict) else _job[0]) or '')
+        _active = [_job for _job in jobs if _job_name(_job) not in _resting]
+        _left_out = sorted(set(_job_name(_job) for _job in jobs) & set(_resting))
+        if _active and _left_out:
+            jobs = _active
+            xbmc.log('[DexHub] search: left out for now: %s'
+                     % ', '.join('%s (%s)' % (n, _resting[n]) for n in _left_out), xbmc.LOGINFO)
+    _job_started = {}
 
     # Plex servers join the SAME parallel search — one job per server,
     # results interleaved into the type sections below.
@@ -6041,6 +6109,10 @@ def _hub_search_unified_render(query, providers_list, include_tmdb=False, collec
         _hit = _search_cache_get(_ck)
         if _hit is not None:
             return _hit
+        try:
+            _job_started.setdefault(str((job[0] or {}).get('name') or ''), time.monotonic())
+        except Exception:
+            pass
 
         def _keep(value):
             # Never cache a failure: the next attempt must be allowed to retry.
@@ -6278,14 +6350,33 @@ def _hub_search_unified_render(query, providers_list, include_tmdb=False, collec
         # Search owns a small lane that cannot block source discovery after the
         # user clicks a result. Polling (rather than a fixed sleep) also lets us
         # render as soon as the useful responses settle.
+        _own_waiting = set(id(_job) for _job in jobs if any(_job is _o for _o in _own_jobs))
+        if _own_jobs:
+            _ceiling = max(_ceiling, 6)     # it answers in 2 to 4 s: a 4 s ceiling cut it off
+        # v5.10.547: answers saved from the last few minutes are used at once.
+        # They used to wait for a search worker like any request, and a search
+        # typed right after another queued them behind the slow catalogs still
+        # running from the one before (5.6 s for a repeat of a 2 s search).
+        _cached_pairs, _to_fetch = [], []
+        for _job in jobs:
+            try:
+                _hit = _search_cache_get(_job_cache_key(_job))
+            except Exception:
+                _hit = None
+            if _hit is not None:
+                _cached_pairs.append((_job, _hit))
+            else:
+                _to_fetch.append(_job)
         _search_race = start_parallel_race(
-            _run_one, jobs,
-            workers=max(2, min(4, parallel_workers(), len(jobs))),
+            _run_one, _to_fetch,
+            workers=max(2, min(4, parallel_workers(), len(_to_fetch) or 1)) + len(_own_waiting),
             timeout=float(_ceiling), lane='search',
         )
 
-        for idx, (job, result) in enumerate(
-                _iter_search_race(
+        def _search_completions():
+            for _pair in _cached_pairs:
+                yield _pair
+            for _pair in _iter_search_race(
                     _search_race, lambda: kept_count[0],
                     lambda: bool(relevant_sources),
                     should_stop=loader.is_stopped,
@@ -6299,10 +6390,16 @@ def _hub_search_unified_render(query, providers_list, include_tmdb=False, collec
                     real_goal=max(48, 12 * len(jobs)),
                     quiet_seconds=1.5,
                     fallback_seconds=float(_ceiling),
-                ), start=1):
+                    hold=lambda: bool(_own_waiting),
+            ):
+                yield _pair
+
+        _completions = _search_completions()
+        for idx, (job, result) in enumerate(_completions, start=1):
             if loader.is_stopped():
                 break
             provider, cat, media_type = job
+            _own_waiting.discard(id(job))
             loader.update(
                 provider_name=provider.get('name') or '',
                 index=idx,
@@ -6344,10 +6441,15 @@ def _hub_search_unified_render(query, providers_list, include_tmdb=False, collec
                 if _t_key and _y_key and len(_t_key) >= 3:
                     identity.add('title:%s:%s' % (_t_key, _y_key))
                 identity = {'%s|%s' % (_norm_type, k) for k in identity}
-                if meta.get('_backend') in SERVER_BACKENDS or meta.get('_backend') == 'dwiptv':
+                if meta.get('_backend') in SERVER_BACKENDS or meta.get('_backend') == 'dwiptv' or any(job is _o for _o in _own_jobs):
                     # A copy on the user's OWN server is a different class of
                     # result — it always renders, and it never suppresses the
                     # addon rows for the same title (those still carry streams).
+                    # v5.10.482: so does an add-on with ids of its own: it
+                    # answers first now and took the place of TMDb's row.
+                    if any(job is _o for _o in _own_jobs) and ('%s|own|%s' % (_norm_type, meta.get('id'))) in seen_ids:
+                        continue      # the same entry from its other catalog
+                    seen_ids.add('%s|own|%s' % (_norm_type, meta.get('id')))
                     kept_count[0] += 1
                     metas_by_type.setdefault(actual_type, []).append(meta)
                     continue
@@ -6383,6 +6485,16 @@ def _hub_search_unified_render(query, providers_list, include_tmdb=False, collec
                         import traceback as _tb
                         xbmc.log('[DexHub] search: early results failed:\n%s' % _tb.format_exc(),
                                  xbmc.LOGWARNING)
+        # a break (or one while saved answers were still being read) leaves the
+        # race running: end it here, as _iter_search_race's own exit does
+        try:
+            _completions.close()
+        except Exception:
+            pass
+        try:
+            _search_race.cancel()
+        except Exception:
+            pass
         was_cancelled = loader.is_cancelled()
         loader.set_finalizing()
 
@@ -6402,6 +6514,20 @@ def _hub_search_unified_render(query, providers_list, include_tmdb=False, collec
         if isinstance(_j[0], dict):
             _expected.add(_j[0].get('name') or '?')
     _silent = sorted(_expected - answered - set(failed))
+    # v5.10.547: remember who refused or ran the whole limit without answering
+    if _search_rest is not None and not was_cancelled:
+        try:
+            _now = time.monotonic()
+            for _name, _why in failed.items():
+                if _search_rest.refused(_why):
+                    _search_rest.mark(_name, _search_rest.REFUSED_MINUTES, 'refused')
+            for _name in _silent:
+                _since = _job_started.get(_name)
+                if _since is not None and _now - _since >= float(_ceiling) - 0.5:
+                    _search_rest.mark(_name, _search_rest.SLOW_MINUTES, 'no answer')
+            _search_rest.clear(answered)
+        except Exception:
+            pass
     try:
         xbmc.log('[DexHub] search done: %d results | answered=%d/%d | failed=%s | timed_out=%s'
                  % (total_count, len(answered), len(_expected),
@@ -6730,7 +6856,7 @@ def ready_collection(set_id='', page='1'):
     return end_dir(content=_directory_content_for_type(media_type), cache=True)
 
 
-def tmdb_titles_view(mode='', tid='', media='movie', name='', page='1'):
+def tmdb_titles_view(mode='', tid='', media='movie', name='', page='1', sort='', genre='', when=''):
     """v5.10.313: a TMDb collection's films in release order, or a studio's
     or a network's titles (most popular first): what the title page's
     Collection card and Studios tiles open in the grid."""
@@ -6752,11 +6878,25 @@ def tmdb_titles_view(mode='', tid='', media='movie', name='', page='1'):
         media_type = 'series' if kind == 'tv' else 'movie'
         from .skinui import title_extras as _tx
         language = _tx._lang()
-        key = 'dh-studio1:%s:%s:%s:%s:%d' % (mode, tid, kind, language, page_num)
+        key = 'dh-studio1:%s:%s:%s:%s:%d:%s:%s:%s' % (mode, tid, kind, language, page_num, sort, genre, when)
         cached = _tmdb._cache_get(key)
         if cached is None:
             query = {'page': str(page_num), 'sort_by': 'popularity.desc', 'include_adult': 'false',
                      'language': language, ('with_networks' if mode == 'network' else 'with_companies'): tid}
+            # v5.10.507: a network's page asks for more than its most popular
+            import datetime as _dt
+            today = _dt.date.today()
+            date_key = 'first_air_date' if kind == 'tv' else 'primary_release_date'
+            if sort == 'rated':
+                query.update({'sort_by': 'vote_average.desc', 'vote_count.gte': '150'})
+            elif sort == 'new':
+                query.update({'sort_by': '%s.desc' % date_key, '%s.lte' % date_key: today.isoformat(),
+                              'vote_count.gte': '5'})
+            if when == 'airing' and kind == 'tv':
+                query.update({'air_date.gte': (today - _dt.timedelta(days=10)).isoformat(),
+                              'air_date.lte': (today + _dt.timedelta(days=7)).isoformat()})
+            if str(genre).replace(',', '').replace('|', '').isdigit():
+                query['with_genres'] = str(genre)
             data = _tmdb._request('/discover/%s' % kind, query, timeout=6, max_attempts=2) or {}
             cached = {'rows': [_tmdb._row_from_tmdb(r, media_type) for r in data.get('results') or []
                                if isinstance(r, dict)],
@@ -6786,7 +6926,7 @@ def tmdb_titles_view(mode='', tid='', media='movie', name='', page='1'):
                  context_menu=_build_source_picker_menu(
                      media_type=media_type, canonical_id='tmdb:%s' % tmdb_id, title=title))
     if more:
-        add_item(tr('المزيد'), build_url(action='tmdb_titles', mode=mode, id=tid, media=media, name=name,
+        add_item(tr('المزيد'), build_url(action='tmdb_titles', mode=mode, id=tid, media=media, name=name, sort=sort, genre=genre, when=when,
                                           page=str(page_num + 1)),
                  art=root_art('catalogs'), info={'title': tr('المزيد')})
     return end_dir(content=_directory_content_for_type(media_type), cache=True)
@@ -6847,6 +6987,14 @@ def config_backup_menu():
             add_item(title, build_url(action='phone_setup', section=section), is_folder=False,
                      art=root_art('settings'), info={'title':title, 'plot':description})
         return end_dir(content='files', cache=False)
+    add_item(tr('نسخة كاملة لكودي'), build_url(action='kodi_backup_full'),
+             is_folder=False, art=root_art('settings'),
+             info={'title': tr('نسخة كاملة لكودي'),
+                   'plot': tr('كل شي: الإضافات والإعدادات والمكتبة. جهاز جديد يصير نفس القديم')})
+    add_item(tr('نسخة إعدادات كودي كلها'), build_url(action='kodi_backup_settings'),
+             is_folder=False, art=root_art('settings'),
+             info={'title': tr('نسخة إعدادات كودي كلها'),
+                   'plot': tr('إعدادات كودي وكل الإضافات وبياناتها، بدون الإضافات نفسها')})
     add_item(tr('نسخة احتياطية جديدة'), build_url(action='backup_new'),
              is_folder=False, art=root_art('settings'),
              info={'title': tr('نسخة احتياطية جديدة'),
@@ -8569,15 +8717,29 @@ def plex_continue(server_id=''):
     failure = None
     try:
         servers = [_plex_server(server_id)] if server_id else plex_client.servers()
-        for server in servers:
-            try:
-                rows.extend(plex_client.on_deck(server))
-            except Exception as exc:
-                failure = exc
+        if not server_id:
+            # v5.10.498: a server that gave no answer lately is left out here too
+            # (it held the list 7.5 s each, two of them 15 s of a 20 s list),
+            # and the others are read side by side, 5 s at most each
+            servers = [s for s in servers if not plex_client.resting(s)]
+
+        def deck(server):
+            if server_id:                     # one server opened by hand: its own time
+                return plex_client.on_deck(server)
+            with plex_client.bounded_timeout(5):
+                return plex_client.on_deck(server)
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=max(1, min(6, len(servers))), thread_name_prefix='DexHub-plex-deck') as pool:
+            futures = [pool.submit(deck, server) for server in servers]
+            for future in futures:
                 try:
-                    xbmc.log('[DexHub] Plex On Deck skipped: %s' % exc, xbmc.LOGWARNING)
-                except Exception:
-                    pass
+                    rows.extend(future.result())
+                except Exception as exc:
+                    failure = exc
+                    try:
+                        xbmc.log('[DexHub] Plex On Deck skipped: %s' % exc, xbmc.LOGWARNING)
+                    except Exception:
+                        pass
     except Exception as exc:
         _plex_error(exc)
     if server_id and failure is not None and not rows:
@@ -11169,7 +11331,15 @@ def providers():
     # Missing artwork must never cause a network sweep every time Sources is
     # opened. At most one silent refresh per hour per Kodi session.
     _logo_refresh_due = False
-    if stale:
+    # v5.10.526: never from a skin widget (Arctic Fuse 3 reloads Sources on
+    # its Home after a video stops, alongside many other calls). A crash
+    # report of 5 Nov 17:10 (LibreELEC, Kodi 22 RC1, Python 3.14): Kodi's
+    # collection at the end of that call crashed in a weak reference's
+    # callback while its DexHub-bg worker had been fetching manifests and
+    # other calls still ran network threads. Opened on purpose, Sources still
+    # refreshes the missing logos (idea from a user's suggested change).
+    _widget = 'reload=' in (sys.argv[2] if len(sys.argv) > 2 else '') or _skin_widget_call('providers')
+    if stale and not _widget:
         try:
             _w = xbmcgui.Window(WINDOW_ID)
             _last = float(_w.getProperty('dexhub.provider_logo_refresh_ts') or 0)
@@ -11203,11 +11373,19 @@ def providers():
         if total >= 2:
             ctx_menu.append(('تغيير ترتيب المصدر',
                 'RunPlugin(%s)' % build_url(action='provider_set_position', provider_id=provider_id)))
+        enabled = store.is_enabled(row)
         ctx_menu.extend([
             (tr('تغيير مصدر الميتاداتا'), 'RunPlugin(%s)' % build_url(action='meta_pick_for_provider', provider_id=provider_id)),
+            (tr('تعطيل الإضافة') if enabled else tr('تفعيل الإضافة'),
+             'RunPlugin(%s)' % build_url(action='provider_toggle_enabled', provider_id=provider_id)),
             ('تحديث المصدر', 'RunPlugin(%s)' % build_url(action='refresh_provider', provider_id=provider_id)),
             ('إزالة المصدر', 'RunPlugin(%s)' % build_url(action='remove_provider', provider_id=provider_id)),
         ])
+        if not enabled:
+            # v5.10.566: a switched-off add-on stays in the list, greyed, marked off
+            display_label = '[COLOR FF8A8F98]%s[/COLOR]' % label
+            position_badge = '%s · %s' % (tr('معطّلة'), position_badge)
+            plot = tr('الإضافة معطّلة: ما تجيب كتالوجات ولا مصادر. فعّلها من قائمتها.') + '\n' + plot
         add_item(display_label, build_url(action='provider_menu', provider_id=provider_id),
                  label2=position_badge,
                  info={'title': display_label, 'plot': plot},
@@ -11222,6 +11400,10 @@ def provider_menu(provider_id):
         return end_dir()
     pname = provider.get('name') or 'Provider'
     summary = _provider_summary(provider)
+    if not store.is_enabled(provider):
+        add_item(tr('تفعيل الإضافة'), build_url(action='provider_toggle_enabled', provider_id=provider_id),
+                 is_folder=False, info={'title': tr('تفعيل الإضافة'),
+                                        'plot': tr('الإضافة معطّلة: ما تجيب كتالوجات ولا مصادر.')})
 
     for catalog in _provider_catalogs(provider):
         cname = catalog.get('name') or catalog.get('id') or 'Catalog'
@@ -11252,6 +11434,23 @@ def provider_menu(provider_id):
     # Management stays on the provider row context menu. Duplicating Refresh
     # and Delete as normal catalogue rows made this page look like Settings.
     end_dir()
+
+
+def provider_toggle_enabled(provider_id):
+    """v5.10.566 (GitHub #28): switch an add-on off, or back on, without removing it."""
+    provider = store.get_provider(provider_id)
+    if not provider:
+        return
+    turn_on = not store.is_enabled(provider)
+    store.set_provider_enabled(provider_id, turn_on)
+    name = provider.get('name') or provider_id
+    notify((tr('تم تفعيل: %s') if turn_on else tr('تم تعطيل: %s')) % name)
+    try:
+        from .homeui.bar_editor import _home_changed
+        _home_changed()
+    except Exception as exc:
+        xbmc.log('[DexHub] add-on switch: the Home was not rebuilt: %s' % exc, xbmc.LOGWARNING)
+    xbmc.executebuiltin('Container.Refresh')
 
 
 def remove_provider(provider_id):
@@ -12975,7 +13174,7 @@ def search(media_type, provider_id=None, query=''):
 
 def _provider_order_for_id(media_type, canonical_id):
     rows = []
-    for provider in store.list_providers():
+    for provider in store.enabled_providers():
         if supports_resource(provider, 'stream', media_type=media_type, item_id=canonical_id) or supports_resource(provider, 'meta', media_type=media_type, item_id=canonical_id):
             rows.append(provider)
     # Bug fix: previously, if the strict idPrefix filter matched 0 providers
@@ -12985,7 +13184,7 @@ def _provider_order_for_id(media_type, canonical_id):
     # stream-capable providers and let each provider decide whether it can
     # actually resolve the ID — this matches Stremio's own behavior.
     if not rows:
-        for provider in store.list_providers():
+        for provider in store.enabled_providers():
             if supports_resource(provider, 'stream', media_type=media_type) or supports_resource(provider, 'meta', media_type=media_type):
                 rows.append(provider)
     return rows
@@ -13311,7 +13510,7 @@ def _ordered_stream_candidate_ids(provider_ids, season=None, episode=None):
 def _anime_prefix_providers():
     """Installed addons whose stream resource only accepts anime ids."""
     out = []
-    for provider in store.list_providers():
+    for provider in store.enabled_providers():
         for prefix in _stream_resource_id_prefixes(provider):
             if str(prefix).split(':')[0] in ('kitsu', 'mal', 'anilist', 'anidb'):
                 out.append(provider)
@@ -13660,7 +13859,7 @@ def _dispatch_dexhub_play(media_type='', canonical_id='', title='', video_id='',
 
 def _has_tmdbhelper():
     try:
-        return xbmc.getCondVisibility('System.HasAddon(plugin.video.themoviedb.helper)')
+        return xbmc.getCondVisibility('System.AddonIsEnabled(plugin.video.themoviedb.helper)')
     except Exception:
         return False
 
@@ -15084,6 +15283,10 @@ def _quality_badge(video_bits):
         return '720P', 'FF059669'
     if '480P' in bits:
         return '480P', 'FFD97706'
+    # v5.10.482: what a small site's copies come in
+    for low in ('360P', '320P', '240P'):
+        if low in bits:
+            return low, 'FF92400E'
     return '--', 'FF475569'
 
 
@@ -16226,6 +16429,11 @@ def _show_stream_window(entries, meta, session_key=''):
             return
     else:
         _clear_tmdbh_transient()
+        try:
+            from . import page_guard            # v5.10.448: Back with no pick
+            page_guard.no_choice()
+        except Exception:
+            pass
         # TMDb Helper invokes this route through ResolvePath. Closing the
         # source picker without choosing a stream must complete that resolver
         # explicitly; otherwise Kodi waits for the Python invoker and reports
@@ -16425,7 +16633,7 @@ def _torrent_handoff_url(magnet):
         try:
             # the skin condition first: Addon() on a missing add-on logs an
             # EXCEPTION line in kodi.log
-            if not xbmc.getCondVisibility('System.HasAddon(%s)' % addon_id):
+            if not xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % addon_id):
                 continue
             xbmcaddon.Addon(addon_id)
             return template % quote_plus(magnet)
@@ -16826,6 +17034,9 @@ def _append_stream_entries_from_data(entries, data, provider, request_id, media_
             'request_headers': _stream_row_request_headers(row),
             'external_url': row.get('externalUrl') or '',
             'info_hash': (row.get('infoHash') or row.get('infohash') or ((row.get('behaviorHints') or {}) if isinstance(row.get('behaviorHints') or {}, dict) else {}).get('infoHash') or ''),
+            # v5.10.568: the torrent's file the add-on named (debrid_source picks it)
+            'file_idx': (row.get('fileIdx') if row.get('fileIdx') not in (None, '')
+                         else ((row.get('behaviorHints') or {}) if isinstance(row.get('behaviorHints') or {}, dict) else {}).get('fileIdx')),
         }
         # A Stremio episode request is made with the series identity, so keep
         # that identity explicit before any native source row replaces the
@@ -16884,7 +17095,7 @@ def _append_stream_entries_from_data(entries, data, provider, request_id, media_
             rp = 0.0
         if rp > 1.0 and rp < 95.0:
             payload['resume_percent'] = rp
-        cache_key = cache_store.put('stream', payload)
+        cache_key = cache_store.put_later('stream', payload)  # v5.10.547: one commit per answer, flush() below
         _diag.trace('cache-written', _row_index, _row_started)
         _row_tags = facts.get('tags') or {}
         _stype, _stype_label, _stype_color = facts.get('source_type') or (
@@ -16932,7 +17143,8 @@ def _append_stream_entries_from_data(entries, data, provider, request_id, media_
                                      facts.get('origin_line') or provider_name),
             'upstream_formatter_preview': _aio_preview,
             'upstream_formatter_text': _aio_description,
-            # v5.10.297: the add-on's own row text, shown as Nuvio shows it
+            # v5.10.302: the add-on's own row text, shown as Nuvio shows it
+            # (5.10.297 put it in plugin.py only; this is the builder in use)
             'stream_name_raw': str(row.get('name') or '')[:400],
             'stream_desc_raw': str(row.get('description') or row.get('title') or '')[:900],
             'stream_video_size': ((row.get('behaviorHints') or {}).get('videoSize') if isinstance(row.get('behaviorHints'), dict) else '') or '',
@@ -16963,6 +17175,10 @@ def _append_stream_entries_from_data(entries, data, provider, request_id, media_
                                         provider=facts.get('addon') or provider_name),
         })
         _diag.trace('row-ready', _row_index, _row_started)
+    try:
+        cache_store.flush()
+    except Exception:
+        pass
     # Publish the growing index once per provider, not once per result.
     try:
         _publish_last_streams_index(canonical_id, season, episode, entries, poster=art.get('poster') or '')
@@ -17124,9 +17340,12 @@ def _server_stream_rows(backend, server, ids, media_type, titles,
             except Exception:
                 pass
         used = set()
+        # v5.10.554: ids are no titles for any server (a silo: id was sent
+        # to Plex as the search text); this only covered Jellyfin before
+        from .search.native_titles import is_id_like as _id_like
         for candidate in (titles or []):
             value = str(candidate or '').strip()
-            if backend == 'jellyfin' and re.fullmatch(r'(?:tt\d+(?::\d+){0,2}|(?:imdb|tmdb|tvdb):.*)', value, flags=re.I):
+            if _id_like(value):
                 continue
             if value and value.casefold() not in used:
                 used.add(value.casefold())
@@ -17138,7 +17357,7 @@ def _server_stream_rows(backend, server, ids, media_type, titles,
                 loaded = []
             for candidate in loaded:
                 value = str(candidate or '').strip()
-                if value and value.casefold() not in used and not re.fullmatch(r'(?:tt\d+(?::\d+){0,2}|(?:imdb|tmdb|tvdb):.*)', value, flags=re.I):
+                if value and value.casefold() not in used and not _id_like(value):
                     used.add(value.casefold())
                     titles = list(titles or []) + [value]
                     yield value
@@ -17559,8 +17778,11 @@ def _source_enough_wait_seconds():
     return max(1.5, min(raw, 4.0))
 
 
-def _source_progress_unique_count(entries):
-    """Return the post-dedup count without ranking or rebuilding UI rows."""
+def _source_progress_unique_count(entries, out=None):
+    """Return the post-dedup count without ranking or rebuilding UI rows.
+
+    v5.10.438: ``out`` (a list) receives the rows the count stands for, so
+    the search screen can show how many are 4K, 1080p, cached and so on."""
     rows = list(entries or [])
     try:
         rows, _removed = _collapse_repeated_provider_rows(rows)
@@ -17576,6 +17798,8 @@ def _source_progress_unique_count(entries):
             )
     except Exception:
         pass
+    if out is not None:
+        out[:] = rows
     return len(rows)
 
 
@@ -17585,7 +17809,7 @@ def _collect_stream_entries(targets, media_type, canonical_id, best_meta, art, b
                             video_id='', season=None, episode=None, show_title='', resume_seconds=0.0,
                             resume_percent=0.0,
                             stop_after_first=False, show_loader=False,
-                            processed_targets=None, scan_state=None):
+                            processed_targets=None, scan_state=None, progress=None):
     entries = []
     if not targets:
         return entries
@@ -17672,6 +17896,11 @@ def _collect_stream_entries(targets, media_type, canonical_id, best_meta, art, b
                     sub_status='%d %s' % (len(entries), tr('مصدر')) if entries else '',
                 )
             if isinstance(data, Exception) or not data:
+                if progress is not None:
+                    try:
+                        progress(idx, len(targets), entries)
+                    except Exception:
+                        pass
                 continue
             before = len(entries)
             _append_stream_entries_from_data(
@@ -17680,12 +17909,23 @@ def _collect_stream_entries(targets, media_type, canonical_id, best_meta, art, b
                 resume_seconds=resume_seconds, resume_percent=resume_percent,
             )
             if len(entries) > before:
-                _unique_count = _source_progress_unique_count(entries)
+                _unique_rows = []
+                _unique_count = _source_progress_unique_count(entries, _unique_rows)
+            else:
+                _unique_rows = None
+            if progress is not None:
+                # v5.10.253: the player's Sources panel fills as each
+                # provider answers
+                try:
+                    progress(idx, len(targets), entries)
+                except Exception:
+                    pass
             if loader is not None:
                 loader.add_results(
                     len(entries) - before,
                     provider_name=provider.get('name') or (provider.get('manifest') or {}).get('name') or '',
                     unique_total=_unique_count,
+                    rows=_unique_rows,
                 )
         if scan_state is not None:
             scan_state['race'] = _source_race
@@ -17809,6 +18049,7 @@ def _start_stream_session_refresh(session_key, initial_entries, remaining_target
         refresh_race = scan_race
         pending_count = len(remaining_targets)
         failed_count = 0
+        last_name = ''   # v5.10.439: the add-on that answered last (Halo)
 
         def _publish_status(done=False):
             nonlocal version
@@ -17817,6 +18058,7 @@ def _start_stream_session_refresh(session_key, initial_entries, remaining_target
                 'entries': list(entries), 'done': done, 'version': version,
                 'search_pending': pending_count,
                 'search_failed': failed_count,
+                'search_last': last_name,
             })
 
         _publish_status()
@@ -17870,6 +18112,7 @@ def _start_stream_session_refresh(session_key, initial_entries, remaining_target
                     continue
                 last_request_id = str(video_id or request_id or last_request_id or '')
                 pending_count = max(0, pending_count - 1)
+                last_name = str((provider or {}).get('name') or '')
                 if isinstance(data, Exception):
                     failed_count += 1
                 if isinstance(data, Exception) or not data:
@@ -17900,6 +18143,7 @@ def _start_stream_session_refresh(session_key, initial_entries, remaining_target
                     'version': version,
                     'search_pending': pending_count,
                     'search_failed': failed_count,
+                'search_last': last_name,
                 }):
                     break
 
@@ -17916,6 +18160,7 @@ def _start_stream_session_refresh(session_key, initial_entries, remaining_target
                     'version': version + 1,
                     'search_pending': pending_count,
                     'search_failed': failed_count,
+                'search_last': last_name,
                 })
             except Exception:
                 pass
@@ -18184,11 +18429,16 @@ def _warm_source_targets(targets, media_type):
     done = []
     lock = threading.Lock()
 
+    found = []
+
     def _one(target):
         try:
             payload = _engine.fetch(target, media_type, sys.modules[__name__])
         except Exception:
             return
+        if isinstance(payload, dict):
+            with lock:
+                found.append((target[0] or {}, payload.get('streams') or []))
         try:
             provider, request_id = target
             key = _results.key(provider, media_type, request_id)
@@ -18211,7 +18461,76 @@ def _warm_source_targets(targets, media_type):
         th.join(max(0.0, deadline - time.monotonic()))
     xbmc.log('[DexHub] sources warmed: %d of %d providers, %d streams' % (
         len(done), len(targets), sum(done)), xbmc.LOGINFO)
+    global _WARM_SUMMARY
+    with lock:
+        _WARM_SUMMARY = _warm_summary(found)
     return len(done)
+
+
+_WARM_SUMMARY = []
+_WARM_RANKS = ((re.compile(r'2160|\b4k\b|\buhd\b', re.I), '4K', 4), (re.compile(r'1080', re.I), '1080p', 3),
+               (re.compile(r'720', re.I), '720p', 2))
+_WARM_DV = re.compile(r'\bdv\b|dolby[ ._-]?vision|\bdovi\b', re.I)
+_WARM_HDR = re.compile(r'\bhdr(?:10\+?)?\b', re.I)
+
+
+def _warm_summary(found):
+    """v5.10.448: what the title page's "Available on" card shows: each
+    provider that answered, its best quality, Dolby Vision or HDR there,
+    and how many links; the best first."""
+    out = []
+    for provider, streams in found:
+        if not streams:
+            continue
+        best, rank, dv, hdr = 'SD', 1, False, False
+        for stream in streams:
+            text = ' '.join(str((stream or {}).get(k) or '') for k in ('name', 'title', 'description'))
+            for pattern, label, value in _WARM_RANKS:
+                if value > rank and pattern.search(text):
+                    best, rank = label, value
+                    break
+            dv = dv or bool(_WARM_DV.search(text))
+            hdr = hdr or bool(_WARM_HDR.search(text))
+        name = str(provider.get('name') or provider.get('id') or '').strip()
+        if name:
+            out.append({'name': name, 'q': best, 'rank': rank, 'hdr': 'DV' if dv else ('HDR' if hdr else ''),
+                        'n': len(streams)})
+    out.sort(key=lambda row: (-row['rank'], -row['n']))
+    return out
+
+
+# v5.10.554: copied so this file matches player_runtime.py (the two drifted apart)
+def _kodi_sources_lane(targets, media_type):
+    """v5.10.447: the Kodi source add-ons leave the shared race and search
+    in their own lane (kodi_sources.LateSearch), started now."""
+    try:
+        from .kodi_sources import split_late
+        return split_late(targets, lambda t: _fetch_stream_payload(t, media_type))
+    except Exception as exc:
+        xbmc.log('[DexHub] Kodi add-on sources lane: %s' % exc, xbmc.LOGWARNING)
+        return list(targets or []), None
+
+
+def _kodi_collect(late, convert):
+    """Nothing else found anything: wait for the Kodi add-ons (busy circle)."""
+    xbmc.executebuiltin('ActivateWindow(busydialognocancel)')
+    try:
+        return late.collect(convert)
+    finally:
+        xbmc.executebuiltin('Dialog.Close(busydialognocancel)')
+
+
+def _kodi_rows_converter(media_type, canonical_id, best_meta, art, bg, ids, **context):
+    """A Kodi add-on's answer as finished source rows, like any provider's."""
+    def convert(target, data):
+        provider, request_id = target
+        rows = []
+        _append_stream_entries_from_data(rows, data, provider, request_id, media_type, canonical_id,
+                                         best_meta, art, bg, ids, **context)
+        return _finalize_stream_entries(rows, media_type=media_type, canonical_id=canonical_id,
+                                        video_id=str(context.get('video_id') or ''))
+    return convert
+
 
 
 def streams(media_type, canonical_id, title='', resume_seconds='0', resume_percent='', preferred_provider_name='', source_provider_id='', source_mode='', seed_ids=None, ui_seed=None):
@@ -18264,6 +18583,7 @@ def streams(media_type, canonical_id, title='', resume_seconds='0', resume_perce
     targets_all = _prioritize_provider_targets(list(_stream_provider_targets(media_type, canonical_id, meta=stream_meta)), preferred_provider_name=preferred_provider_name)
     if _WARM_ONLY:
         return _warm_source_targets(targets_all, media_type)
+    targets_all, _kodi_late = _kodi_sources_lane(targets_all, media_type)
     targets, fallback_targets = _split_targets_by_source_mode(targets_all, source_provider_id=source_provider_id, source_mode=source_mode)
 
     xbmc.log('[DexHub timing] stage=source-prepare-total ms=%.1f' % ((time.monotonic() - _prepare_started) * 1000), xbmc.LOGINFO)
@@ -18311,6 +18631,11 @@ def streams(media_type, canonical_id, title='', resume_seconds='0', resume_perce
         else:
             processed_set = set((id(p), rid) for p, rid in processed_targets)
             remaining_targets = [t for t in fallback_targets if (id(t[0]), t[1]) not in processed_set]
+    if not entries and _kodi_late:
+        entries = _kodi_collect(_kodi_late, _kodi_rows_converter(
+            media_type, canonical_id, best_meta, art, bg, ids, title=title,
+            resume_seconds=resume_seconds, resume_percent=resume_percent_val))
+        _kodi_late = None
     if not entries:
         # Nothing matched anywhere — but if this item CAME from the user's own
         # server we do not need a match at all: play the file directly.
@@ -18379,13 +18704,19 @@ def streams(media_type, canonical_id, title='', resume_seconds='0', resume_perce
         'canonical_id': canonical_id,
     }
     session_key = ''
-    if remaining_targets:
+    if remaining_targets or _kodi_late:
         session_key = source_session.create(entries, done=False, version=1)
-        _start_stream_session_refresh(
-            session_key, entries, remaining_targets, media_type, canonical_id, best_meta, art, bg, ids,
-            title=title, resume_seconds=resume_seconds, resume_percent=resume_percent_val,
-            scan_race=_active_race,
-        )
+        if remaining_targets:
+            _start_stream_session_refresh(
+                session_key, entries, remaining_targets, media_type, canonical_id, best_meta, art, bg, ids,
+                title=title, resume_seconds=resume_seconds, resume_percent=resume_percent_val,
+                scan_race=_active_race,
+            )
+        if _kodi_late:
+            _kodi_late.attach(session_key, _kodi_rows_converter(
+                media_type, canonical_id, best_meta, art, bg, ids, title=title,
+                resume_seconds=resume_seconds, resume_percent=resume_percent_val),
+                base_done=not remaining_targets)
     return _show_stream_window(entries, meta, session_key=session_key)
 
 
@@ -18669,6 +19000,49 @@ def _show_imdb_for_episode(canonical_id, video_id, ids):
     return show_imdb + canonical[len(base):], vid, ids
 
 
+def _show_meta_for_targets(meta, show_canonical, ids):
+    """stream_meta for an episode first named by its own IMDb id (v5.10.554).
+
+    _show_imdb_for_episode fixed the id the add-ons are asked with, but the
+    servers (Plex, Emby, Silo, Jellyfin) read theirs from the meta: its 'id'
+    (still the episode's, and extract_ids lets a tt id win over imdb_id) and
+    its name, which was the EPISODE's. The 8 Nov log: "the show (tmdb 108978)
+    is tt9288030", then Plex was asked with imdb_id=tt33782685 for the title
+    "عنوان الحلقة 401" (TMDb's placeholder name). The show's ids and names go
+    in; the episode's name is kept aside as episode_name.
+    """
+    out = dict(meta or {})
+    base = str(show_canonical or '').split(':')[0]
+    if base:
+        out['id'] = base
+    external = dict(out.get('externalIds') or {}) if isinstance(out.get('externalIds'), dict) else {}
+    for src, ext_key, camel in (('imdb_id', 'imdb', 'imdbId'), ('tmdb_id', 'tmdb', 'tmdbId')):
+        val = str((ids or {}).get(src) or '').strip()
+        if val:
+            out[src] = val
+            out[camel] = val
+            external[ext_key] = val
+    if external:
+        out['externalIds'] = external
+    old = str(out.get('name') or out.get('title') or '').strip()
+    try:
+        from . import tmdb_direct as _td
+        names = [str(x) for x in (_td.english_titles_for((ids or {}).get('tmdb_id') or '', 'tv') or []) if x]
+    except Exception:
+        names = []
+    if names:
+        out['name'] = out['title'] = out['tvShowTitle'] = names[0]
+        if old and old.casefold() not in [x.casefold() for x in names]:
+            out['episode_name'] = old
+    elif old and re.search(r'(?:\u0627\u0644\u062d\u0644\u0642\u0629|episode)\s*\d+\s*$', old, flags=re.I):
+        # "Episode 401" / "عنوان الحلقة 401" names no show
+        out['episode_name'] = old
+        out['name'] = out['title'] = ''
+    xbmc.log('[DexHub] episode targets use the show: id=%s name=%s (was %s)'
+             % (out.get('id') or '?', out.get('name') or '-', old or '-'), xbmc.LOGINFO)
+    return out
+
+
 def episode_streams(canonical_id, video_id, season, episode, title='', media_type='', resume_seconds='0', resume_percent='', preferred_provider_name='', source_provider_id='', source_mode='', seed_ids=None, ui_seed=None):
     _prep_started = time.monotonic()
     from . import source_diagnostics
@@ -18692,11 +19066,14 @@ def episode_streams(canonical_id, video_id, season, episode, title='', media_typ
     # EPISODE's IMDb id (MobLand S2E4 came as tt43338257, the show is
     # tt31510819): every add-on was asked for tt43338257:2:4 and found no
     # streams and no subtitles. The show's TMDb id names its real IMDb id.
+    _named_by = canonical_id
     try:
         canonical_id, video_id, ids = _show_imdb_for_episode(canonical_id, video_id, ids)
     except Exception as exc:
         xbmc.log('[DexHub] show imdb check failed: %s' % exc, xbmc.LOGDEBUG)
     stream_meta = _meta_with_seed_ids(best_meta, ids)
+    if canonical_id != _named_by:
+        stream_meta = _show_meta_for_targets(stream_meta, canonical_id, ids)
     try:
         start_subtitle_prefetch(
             media_type, canonical_id, ids=ids,
@@ -18739,6 +19116,7 @@ def episode_streams(canonical_id, video_id, season, episode, title='', media_typ
     targets_all = _prioritize_provider_targets(targets_all, preferred_provider_name=preferred_provider_name)
     if _WARM_ONLY:
         return _warm_source_targets(targets_all, media_type)
+    targets_all, _kodi_late = _kodi_sources_lane(targets_all, media_type)
     targets, fallback_targets = _split_targets_by_source_mode(targets_all, source_provider_id=source_provider_id, source_mode=source_mode)
 
     # v3.9.65: same race strategy as movies — open the source picker
@@ -18811,6 +19189,12 @@ def episode_streams(canonical_id, video_id, season, episode, title='', media_typ
             else:
                 processed_set = set((id(p), rid) for p, rid in processed_targets)
                 remaining_targets = [t for t in fallback_targets if (id(t[0]), t[1]) not in processed_set]
+    if not entries and _kodi_late:
+        entries = _kodi_collect(_kodi_late, _kodi_rows_converter(
+            media_type, canonical_id, best_meta, art, bg, ids, title=title or video_id, video_id=video_id,
+            season=season, episode=episode, show_title=best_meta.get('name') or canonical_id,
+            resume_seconds=resume_seconds, resume_percent=resume_percent_val))
+        _kodi_late = None
     if not entries:
         try:
             if entries is None or _active_race is not None:
@@ -18867,14 +19251,20 @@ def episode_streams(canonical_id, video_id, season, episode, title='', media_typ
         'episode': episode,
     }
     session_key = ''
-    if remaining_targets:
+    if remaining_targets or _kodi_late:
         session_key = source_session.create(entries, done=False, version=1)
-        _start_stream_session_refresh(
-            session_key, entries, remaining_targets, media_type, canonical_id, best_meta, art, bg, ids,
-            title=title or video_id, video_id=video_id, season=season, episode=episode,
-            show_title=best_meta.get('name') or canonical_id, resume_seconds=resume_seconds, resume_percent=resume_percent_val,
-            scan_race=_active_race,
-        )
+        if remaining_targets:
+            _start_stream_session_refresh(
+                session_key, entries, remaining_targets, media_type, canonical_id, best_meta, art, bg, ids,
+                title=title or video_id, video_id=video_id, season=season, episode=episode,
+                show_title=best_meta.get('name') or canonical_id, resume_seconds=resume_seconds, resume_percent=resume_percent_val,
+                scan_race=_active_race,
+            )
+        if _kodi_late:
+            _kodi_late.attach(session_key, _kodi_rows_converter(
+            media_type, canonical_id, best_meta, art, bg, ids, title=title or video_id, video_id=video_id,
+            season=season, episode=episode, show_title=best_meta.get('name') or canonical_id,
+            resume_seconds=resume_seconds, resume_percent=resume_percent_val), base_done=not remaining_targets)
     return _show_stream_window(entries, meta, session_key=session_key)
 
 def _resolve_best_id(video_type, tmdb_id='', imdb_id='', tvdb_id='', title=''):
@@ -18967,7 +19357,7 @@ def _append_a4k_ids_to_url(url, ctx):
     # properties for a4k/subtitle addons.
     if lower.startswith(('http://', 'https://', 'ftp://', 'smb://', 'nfs://', 'dav://', 'davs://', 'file://')):
         return url
-    if lower.startswith(('plugin://', 'magnet:')) or '|ids=' in lower or '&ids=' in lower:
+    if lower.startswith(('plugin://', 'magnet:', 'bluray://', 'udf://')) or '|ids=' in lower or '&ids=' in lower:
         return url
     ids = _ids_from_playback_ctx(ctx)
     payload = {}
@@ -19740,7 +20130,7 @@ def _cw_warm_selected_source(rows):
                     jobs.append(lambda c=canonical, m=media: _cw_warm_tmdb_art(c, m))
             else:
                 jobs.append(lambda s=source_id, m=media, x=metas: _ms.warm_source_metas(
-                    s, m, x, budget_seconds=None if anywhere else 6.0,
+                    s, m, x, budget_seconds=None if anywhere else 2.0,   # v5.10.529: was 6.0
                     max_items=None if anywhere else 8))
         if jobs:
             run_parallel(lambda job: job(), jobs)
@@ -19997,22 +20387,52 @@ def _lazy_fill_row_art_now(row):
     return row
 
 
-def _continue_rows(limit=500):
+class _Stages(object):
+    """v5.10.529: where a listing's time went, in one log line. Rows that
+    took 84 ms one time and 9.4 s the next left nothing between dispatch and
+    the row (CoreELEC log)."""
+
+    def __init__(self, name):
+        self.name, self.parts, self.begin = name, [], time.monotonic()
+        self.last = self.begin
+
+    def mark(self, label):
+        now = time.monotonic()
+        self.parts.append((label, (now - self.last) * 1000))
+        self.last = now
+
+    def add(self, label, seconds):
+        self.parts.append((label, seconds * 1000))
+
+    def log(self, note='', floor_ms=300):
+        total = (time.monotonic() - self.begin) * 1000
+        if total >= floor_ms:
+            xbmc.log('[DexHub] %s stages: %d ms%s: %s' % (
+                self.name, total, note, ', '.join('%s %d' % (k, v) for k, v in self.parts)), xbmc.LOGINFO)
+
+
+def _continue_rows(limit=500, stages=None):
+    mark = stages.mark if stages else (lambda _label: None)
     local = playback_store.list_continue_items(limit=limit)
+    mark('store')
     try:
         from . import native_continue
         rows = native_continue.rows(sys.modules[__name__], local, limit)
     except Exception:
         rows = local
+    mark('servers')
     try:
         from . import continue_nextup
         rows = continue_nextup.merge(rows, _nextup_items_cached(limit=60, cached_only=True),
                                     playback_store.list_finished_items(limit=400), _work_keys)
     except Exception as exc:
         xbmc.log('[DexHub] continue next episode: %s' % exc, xbmc.LOGDEBUG)
+    mark('nextup')
     # v5.10.286: titles removed from Continue Watching stay out (every
     # source's rows of them), until newer progress of the title arrives
-    return _continue_order(_continue_merge(_cw_hidden_filter(_with_iptv(_continue_source_filter(_drop_finished(rows))))))
+    rows = _continue_order(_continue_merge(_cw_hidden_filter(_with_iptv(_continue_source_filter(_drop_finished(rows))))))
+    mark('filters')
+    return rows
 
 
 def _cw_hidden_filter(rows):
@@ -20273,23 +20693,8 @@ def _continue_source_filter(rows):
 
 
 def _cw_direct_from(row):
-    """(name, kind) of what a Continue Watching row plays from directly:
-    'Plex Native • DexMedia' is ('DexMedia', 'plex'); an add-on source is
-    (its name, 'addon'). None when nothing is known."""
-    name = str(row.get('provider_name') or '').strip()
-    # a name, never an address or a file (some rows keep the source's path or
-    # icon there: the hero showed /Users/.../addons/plugin.video...)
-    if not name or '/' in name or '\\' in name or '://' in name or len(name) > 48:
-        return None
-    head, _sep, tail = name.partition('•')
-    head = head.strip()
-    word = head.lower().split(' ')[0] if head else ''
-    for kind in ('plex', 'emby', 'jellyfin', 'silo'):
-        if word == kind:
-            return ((tail.strip() or head), kind)
-    if row.get('native_server_id'):
-        return ((tail.strip() or head), 'server')
-    return (name, 'addon')
+    from .playback_source import label
+    return label(sys.modules[__name__], row)
 
 
 def _native_continue_path(row):
@@ -20491,7 +20896,12 @@ def _cw_episode_poster(row):
     landscape; the portrait poster becomes the show poster when available.
     """
     tmdb_id = str(row.get('show_tmdb_id') or row.get('tmdb_id') or '').strip()
-    imdb_id = str(row.get('imdb_id') or '').strip()
+    imdb_id = str(row.get('show_imdb_id') or row.get('imdb_id') or '').strip()
+    canonical = str(row.get('canonical_id') or '')
+    if not imdb_id and canonical.startswith('tt'):
+        imdb_id = canonical.split(':')[0]
+    if not tmdb_id and canonical.startswith('tmdb:'):
+        tmdb_id = canonical.split(':')[1]
     if not (tmdb_id or imdb_id):
         return ''
     try:
@@ -20641,27 +21051,33 @@ def home_xml():
 
 def continue_watching(page='0'):
     _set_render_section('continue')
+    stages = _Stages('continue')
     # POV-style bridge: pull local POV progress rows into Dex Hub before
     # rendering. This is SQLite-only and throttled, so it stays lightweight.
     try:
         _import_pov_progress_if_available()
     except Exception:
         pass
+    stages.mark('pov')
     # Keep the screen snappy: slice first, then enrich only the visible rows.
-    all_rows = _continue_rows(limit=500)
+    all_rows = _continue_rows(limit=500, stages=stages)
     page_num, _page_size, raw_rows, has_more = _page_slice(all_rows, page)
     # v5.10.239: IPTV rows carry their own art and play from their subscription
     _iptv = set(id(r) for r in raw_rows if str(r.get('canonical_id') or '').startswith('iptv|'))
     _cw_warm_selected_source([r for r in raw_rows if id(r) not in _iptv])
+    stages.mark('warm')
     rows = []
     for _row, _filled in run_parallel(lambda r: r if id(r) in _iptv else _lazy_fill_row_art(r), raw_rows):
         rows.append(_filled if not isinstance(_filled, Exception) else _row)
+    stages.mark('art')
     rows = _continue_order(_continue_merge(rows))
     any_series = any(_continue_row_is_episode(r) for r in rows)
     any_movie = any(not _continue_row_is_episode(r) for r in rows)
     if any_series:
         _warm_episode_names([r for r in rows if _continue_row_is_episode(r)
                              and not str(r.get('canonical_id') or '').startswith('iptv|')])
+    stages.mark('names')
+    _enrich_took = 0.0
     if any_series and not any_movie:
         content_type = 'episodes'
     elif any_movie and not any_series:
@@ -20677,9 +21093,11 @@ def continue_watching(page='0'):
         try:
             from . import continue_metadata, meta_source as _cw_meta_source
             _metadata_ids = _merge_seed_ids(extract_ids({'id': row.get('canonical_id') or ''}), _get_tmdbh_seed_ids(row.get('canonical_id') or ''))
+            _enrich_at = time.monotonic()
             row = continue_metadata.enrich(row, _metadata_ids,
                 source=_cw_meta_source.get_meta_source_for(_cw_target_key(row)),
                 is_episode=is_episode)
+            _enrich_took += time.monotonic() - _enrich_at
         except Exception:
             pass
         title = row.get('title') or ''
@@ -20805,19 +21223,14 @@ def continue_watching(page='0'):
             info['resumetime'] = float(position)
             info['totaltime'] = float(duration)
 
-        _row_poster = row.get('poster') or ''
+        from .poster_roles import portrait
+        _row_poster = portrait(row.get('poster'))
         if is_episode:
-            # Portrait slot gets the SHOW poster when cached; the episode
-            # still (a random frame) only ever suits the landscape slot.
-            _row_poster = _cw_episode_poster(row) or _row_poster
-        if not _row_poster:
-            # v5.10.251: no poster at all (an episode whose show art is not
-            # cached, a server title): the show's backdrop, then the
-            # episode's own picture, instead of a blank card
-            if is_episode and not row.get('background'):
-                row = _recent_show_art(row)
-            _row_poster = (row.get('show_poster') or row.get('background')
-                           or (_episode_picture(row, row_ids, started=True) if is_episode else '') or '')
+            _row_poster = (portrait(_cw_episode_poster(row))
+                           or portrait(row.get('show_poster')) or _row_poster)
+        # A backdrop or episode still is a display fallback, never a poster.
+        # Missing show posters are completed by the existing background art
+        # worker with exact show IDs; listing a shelf does not wait on HTTP.
         # v5.10.302: Like Nuvio: the profile's poster pattern on Continue Watching
         _row_poster = _cw_nuvio_poster(row, _row_poster, is_episode)
         _poster_art = _wrap_tokenized_url(_row_poster)
@@ -20848,11 +21261,10 @@ def continue_watching(page='0'):
         }
         # v5.10.221: OK plays straight from a server or a known source: say
         # which one (skin.dexhub draws it over the plot of the hero)
-        if not path_is_folder:
-            _direct = _cw_direct_from(row)
-            if _direct:
-                properties['dexhub.direct_from'] = _direct[0]
-                properties['dexhub.direct_kind'] = _direct[1]
+        _direct = _cw_direct_from(row)
+        if _direct:
+            properties['dexhub.direct_from'] = _direct[0]
+            properties['dexhub.direct_kind'] = _direct[1]
         if not path_is_folder:
             if duration > 0 and position > 0:
                 if _KODI_MAJOR < 20:
@@ -20915,7 +21327,10 @@ def continue_watching(page='0'):
             info={'title': 'المزيد', 'plot': 'تحميل عناصر إضافية من متابعة المشاهدة'},
             art=root_art('continue'),
         )
+    stages.mark('build')
+    stages.add('of which enrich', _enrich_took)
     end_dir(content=content_type, cache=False)
+    stages.log(' (%d rows)' % len(rows))
 
 
 def cw_remove(media_type='', canonical_id='', video_id='', refresh=True, on_local=None):
@@ -22439,11 +22854,13 @@ def _list_plugin_directory_items(directory):
         except Exception as rich_exc:
             xbmc.log('[DexHub] rich plugin directory read failed for %s: %s; falling back' % (directory, rich_exc), xbmc.LOGDEBUG)
             items = _fetch(minimal_props)
+        # v5.10.575 (GitHub #29): a Kodi path's folder lists Kodi paths and files
+        own = _kodi_own_route(directory)
         for item in items:
             if not isinstance(item, dict):
                 continue
             file_url = str(item.get('file') or '').strip()
-            if not file_url.startswith('plugin://'):
+            if not file_url or (not own and not file_url.startswith('plugin://')):
                 continue
             filetype = str(item.get('filetype') or '').strip().lower()
             label = str(item.get('label') or item.get('title') or item.get('label2') or file_url).strip()
@@ -22910,7 +23327,7 @@ def _addon_meta_for_id(addon_id):
 def _pick_skin_widget_route(default_route='', default_label=''):
     """Use Skin Shortcuts' widget picker and return (path, label, addon_meta)."""
     try:
-        if not xbmc.getCondVisibility('System.HasAddon(script.skinshortcuts)'):
+        if not xbmc.getCondVisibility('System.AddonIsEnabled(script.skinshortcuts)'):
             error(tr('إضافة Skin Shortcuts غير مثبتة، لذلك لا يمكن فتح صفحة الويدجت'))
             return '', '', {}
     except Exception:
@@ -25087,12 +25504,159 @@ def _content_type_from_plugin_rows(rows):
     return 'movies'
 
 
+def youtube_play(video_id='', title=''):
+    """v5.10.497: a YouTube video: the official YouTube add-on finds its stream
+    and Dex Hub plays it, every quality switchable in the player."""
+    from . import youtube_feed as _yt
+    video_id = str(video_id or '')
+    if _yt.open_in_app(video_id):
+        if HANDLE >= 0:
+            xbmcplugin.setResolvedUrl(HANDLE, False, xbmcgui.ListItem())
+        return
+    if not video_id or not _yt.addon_ready(install=False):
+        xbmcgui.Dialog().notification('YouTube', tr('ثبّت إضافة YouTube الرسمية أولاً'), xbmcgui.NOTIFICATION_WARNING, 4000)
+        if HANDLE >= 0:
+            xbmcplugin.setResolvedUrl(HANDLE, False, xbmcgui.ListItem())
+        return
+    _yt.quiet_setup()
+    # every quality as its own stream, so the player's Sources button switches
+    # them in place; the add-on plays it itself if its resolver fails
+    item = _yt.player_item(video_id, title) if HANDLE >= 0 else None
+    if item is not None:
+        xbmcplugin.setResolvedUrl(HANDLE, True, item)
+        return
+    url = _yt.play_url(video_id)
+    if HANDLE >= 0:
+        item = xbmcgui.ListItem(title or video_id, offscreen=True)
+        item.setPath(url)
+        xbmcplugin.setResolvedUrl(HANDLE, True, item)
+    else:
+        xbmc.executebuiltin('PlayMedia(%s)' % _yt.dexhub_url(video_id, title))
+
+
+def dexworld_row_browse(row_id='', title='', page='1'):
+    """v5.10.496: a DexWorld block (blocks.dexworld.cc) as a folder of titles,
+    40 a page; the Home rows, the bar sections and the grid read it."""
+    from . import dexworld as _dw
+    try:
+        number = max(1, int(page or 1))
+    except (TypeError, ValueError):
+        number = 1
+    data = _dw.row_page(str(row_id or ''), number)
+    items = data.get('items') or []
+    if not items:
+        # v5.10.504: a collection (a kit: TV Networks, Documentaries) has no titles
+        # of its own: its lists, each a cover that opens it, as the site shows them
+        page_data = _dw.page()
+        by_id = _dw.rows_by_id(page_data)
+        owner = by_id.get(str(row_id or '')) or {}
+        members = []
+        for member in owner.get('members') or []:
+            # a member is {id, title, cover}; the one on the page has its titles too
+            ident = member.get('id') if isinstance(member, dict) else member
+            full = dict(by_id.get(ident) or {})
+            if isinstance(member, dict):
+                full.update(dict((k, v) for k, v in member.items() if v))
+            if full.get('id') and full.get('ready', True):
+                members.append(full)
+        if members:
+            for member in members:
+                first = (member.get('items') or [{}])[0] or {}
+                cover = member.get('cover') or first.get('backdrop') or first.get('poster') or ''
+                art = {'thumb': cover, 'landscape': cover, 'fanart': first.get('backdrop') or cover,
+                       'poster': first.get('poster') or cover}
+                add_item(member.get('title') or '', build_url(action='dexworld_row', id=member.get('id') or '',
+                                                              title=member.get('title') or ''),
+                         info={'title': member.get('title') or '', 'plot': member.get('desc') or member.get('meta') or ''},
+                         art=art, properties={'dexhub.tile_shape': 'landscape'})
+            return end_dir(content='videos')
+        error(tr('القائمة فارغة أو غير متاحة'))
+        return end_dir()
+    any_series = any_movie = False
+    for entry in items:
+        tmdb = str(entry.get('tmdb') or '').strip()
+        imdb = str(entry.get('imdb') or '').strip()
+        if not (tmdb or imdb):
+            continue
+        is_series = entry.get('type') == 'tv'
+        media_type = 'series' if is_series else 'movie'
+        any_series = any_series or is_series
+        any_movie = any_movie or not is_series
+        canonical = imdb if imdb.startswith('tt') else 'tmdb:%s' % tmdb
+        name = str(entry.get('title') or '').strip()
+        poster = entry.get('poster') or ''
+        fanart = entry.get('backdrop') or poster
+        art = {'thumb': poster, 'poster': poster, 'fanart': fanart, 'landscape': entry.get('backdrop') or ''}
+        info = {'title': name, 'sorttitle': name, 'mediatype': 'tvshow' if is_series else 'movie'}
+        try:
+            info['year'] = int(str(entry.get('year') or '')[:4])
+        except ValueError:
+            pass
+        if entry.get('rating'):
+            info['rating'] = float(entry['rating'])
+        ids_out = {'imdb_id': imdb if imdb.startswith('tt') else '', 'tmdb_id': tmdb, 'tvdb_id': ''}
+        path, path_is_folder = _content_click_path(media_type=media_type, canonical_id=canonical, title=name, tmdb_id=tmdb,
+                                                   imdb_id=ids_out['imdb_id'], ui_seed=art)
+        props = {'dexhub.tile_shape': 'poster', 'dexhub.work_item': '1', 'dexhub.clearlogo_as_title': '1'}
+        if entry.get('rank'):
+            props['dexhub.rank'] = str(entry['rank'])
+        add_item(name, path, is_folder=path_is_folder, info=info, art=art, ids=ids_out, properties=props)
+    if number < int(data.get('pages') or 1):
+        add_item(tr('المزيد'), build_url(action='dexworld_row', id=row_id, title=title, page=str(number + 1)),
+                 info={'title': tr('المزيد'), 'plot': tr('تحميل عناصر إضافية من هذا المسار')}, art=root_art('catalogs'))
+    end_dir(content=('tvshows' if any_series and not any_movie else ('movies' if any_movie and not any_series else 'videos')))
+
+
+def youtube_row_browse(kind='', ident='', name='', title=''):
+    """v5.10.501: a YouTube row (youtube_feed.row_items) as a folder of cards:
+    a video plays through Dex Hub's YouTube player, a playlist or a channel
+    opens as its own folder. The Home rows and the bar sections read it."""
+    from . import youtube_feed as _yt
+    try:
+        found = _yt.row_items(kind, ident, name)
+    except Exception as exc:
+        xbmc.log('[DexHub] youtube row %s: %s' % (kind, exc), xbmc.LOGWARNING)
+        found = []
+    if not found:
+        return end_dir()
+    for item in found[:60]:
+        label = item.get('title') or ''
+        art = {'thumb': item.get('thumb') or '', 'fanart': item.get('big') or item.get('thumb') or '',
+               'landscape': item.get('big') or item.get('thumb') or '', 'poster': item.get('thumb') or ''}
+        info = {'title': label, 'plot': ' · '.join(x for x in (item.get('channel'), item.get('when')) if x),
+                'mediatype': 'video'}
+        if item['kind'] == 'video':
+            props = {'IsPlayable': 'true', 'dexhub.tile_shape': 'landscape'}
+            if item.get('live'):
+                props['dexhub.badge_line'] = tr('مباشر')
+            add_item(label, _yt.dexhub_url(item['id'], label), is_folder=False, info=info, art=art,
+                     properties=props, label2=item.get('length') or '')
+        elif item['kind'] == 'playlist':
+            add_item(label, build_url(action='youtube_row', kind='playlist', id=item['id'], title=label),
+                     info=info, art=art, properties={'dexhub.tile_shape': 'landscape'})
+        elif item['kind'] == 'channel':
+            add_item(label, build_url(action='youtube_row', kind='channel', id=item['id'], title=label),
+                     info=info, art=dict(art, landscape=''), properties={'dexhub.tile_shape': 'circle'})
+    end_dir(content='videos', cache=False)
+
+
+def _kodi_own_route(route_url):
+    """v5.10.575 (GitHub #29): a Kodi path, not an add-on's: video sources,
+    library nodes, favourites, playlists, network or local folders."""
+    low = str(route_url or '').lower()
+    return bool(low) and not low.startswith('plugin://') and (
+        '://' in low or low.startswith('/') or (len(low) > 2 and low[1] == ':'))
+
+
 def kodi_route_browse(route='', title='', background='', page='0'):
     route_url = str(route or '').strip()
-    if not route_url.startswith('plugin://'):
+    own = _kodi_own_route(route_url)
+    if not route_url.startswith('plugin://') and not own:
         error(tr('رابط plugin غير صالح'))
         return end_dir(content='files')
     rows = _list_plugin_directory_items(route_url)
+    if not rows and own:
+        return end_dir(content='files')
     if not rows:
         # Last-resort fallback: some plugins refuse JSON-RPC directory reads but
         # work with a native Container.Update. Use replace to avoid a deep back
@@ -25119,7 +25683,8 @@ def kodi_route_browse(route='', title='', background='', page='0'):
         cast = info.pop('cast', None) if isinstance(info.get('cast'), list) else None
         if row.get('is_folder'):
             path = build_url(action='kodi_route_browse', route=item_url, title=label, background=fanart or background, page='0')
-            ctx_menu = [(tr('فتح بالمسار الأصلي'), 'Container.Update(%s)' % _kodi_builtin_arg(item_url))]
+            ctx_menu = [(tr('فتح بالمسار الأصلي'), ('ActivateWindow(Videos,%s,return)' if _kodi_own_route(item_url)
+                                                   else 'Container.Update(%s)') % _kodi_builtin_arg(item_url))]
             add_item(label, path, is_folder=True, info=info, art=art, ids=ids, cast=cast, context_menu=ctx_menu)
         else:
             # Keep playable plugin items in Dex Hub's list. Kodi will hand them
@@ -25197,10 +25762,10 @@ def trakt_hub():
              art=root_art('movie_collections'),
              info={'title': tr('لستاتي في Trakt'),
                    'plot': tr('كل القوائم التي أنشأتها في حسابك')})
-    add_item(tr('التقويم'), build_url(action='calendar', scope='my', days='14'),
-             art=root_art('calendar'),
-             info={'title': tr('تقويم Trakt'),
-                   'plot': tr('حلقات الأسبوعين القادمين لمسلسلاتك')})
+    add_item(tr('التقويم'), build_url(action='home_calendar'),
+             art=root_art('calendar'), is_folder=False,
+             info={'title': tr('التقويم'),
+                   'plot': tr('أسبوع وقائمة وشهر لكل اللي تتابعه')})
     add_item(tr('مجموعتي • أفلام'),
              build_url(action='trakt_collection', media_type='movies'),
              art=root_art('movie_collections'),
@@ -25425,7 +25990,7 @@ def trakt_list_browse(username, slug, title='', background='', media_filter='aut
                ('movies' if any_movie and not any_series else 'videos'))
     end_dir(content=content)
 
-def _render_idlist_rows(rows, more_url='', title='', background='', media_filter='auto', force_remote=False):
+def _render_idlist_rows(rows, more_url='', title='', background='', media_filter='auto', force_remote=False, origin=''):
     """Shared renderer for id-shaped catalog rows (v4.1.0).
 
     Consumes rows shaped {'_type','title','year'/'release_year','overview',
@@ -25561,6 +26126,10 @@ def _render_idlist_rows(rows, more_url='', title='', background='', media_filter
         except Exception:
             pass
         path, path_is_folder = _content_click_path(media_type=media_type, canonical_id=canonical, title=display_name, tmdb_id=tmdb, imdb_id=ids_out.get('imdb_id') or '', tvdb_id=tvdb, source_provider_id='virtual.collection.trakt', ui_seed=art)
+        if origin == 'nas' and path.startswith('plugin://'):
+            # v5.10.561: a title of the NAS section: its page plays the NAS file
+            # directly (skinui/actions), Sources still searches every source
+            path += ('&' if '?' in path else '?') + 'dh_nas=1'
         ctx_menu = [(tr('تغيير مصدر الميتاداتا'), 'RunPlugin(%s)' % build_url(action='meta_pick_target', target_key='virtual.collection.trakt', title=tr('الكوليكشن • عناصر Trakt')))] + _build_source_picker_menu(media_type=media_type, canonical_id=canonical, title=display_name, source_provider_id='virtual.collection.trakt') + _build_player_chooser_menu(media_type=media_type, canonical_id=canonical, title=display_name, tmdb_id=tmdb, imdb_id=ids_out.get('imdb_id') or '', tvdb_id=tvdb, source_provider_id='virtual.collection.trakt')
         _studio = info.get('studio') or ''
         _studio_text = ', '.join(_studio) if isinstance(_studio, (list, tuple)) else str(_studio or '')
@@ -25591,6 +26160,23 @@ def mdblist_list_browse(username, slug, title='', background='', media_filter='a
     if next_cursor:
         more_url = build_url(action='mdblist_list_browse', username=username, slug=slug, title=title, background=background, media_filter=media_filter, cursor=next_cursor, **_force_remote_query(force_remote))
     return _render_idlist_rows(rows, more_url=more_url, title=title, background=background, media_filter=media_filter, force_remote=force_remote)
+
+
+def nas_list_browse(share='', kind='movie', title='', offset='0'):
+    """v5.10.550: a NAS folder's films, series or newest files as a catalog
+    (the Servers tab and a bar section's rows). Each title opens its page,
+    where the file is one of its sources."""
+    from . import nas_sources
+    try:
+        rows, following = nas_sources.catalog(share, kind, offset, _listing_page_size())
+    except Exception as exc:
+        xbmc.log('[DexHub] NAS catalog: %s' % exc, xbmc.LOGWARNING)
+        rows, following = [], None
+    if not rows:
+        return end_dir()
+    more_url = build_url(action='nas_list', share=share, kind=kind, title=title, offset=following) \
+        if following is not None else ''
+    return _render_idlist_rows(rows, more_url=more_url, title=title, origin='nas')
 
 
 def mdblist_list_browse_id(list_id, title='', background='', media_filter='auto', cursor='', force_remote=''):
@@ -27840,6 +28426,8 @@ def _dispatch(params=None):
         return refresh_provider(params.get('provider_id'))
     if action == 'remove_provider':
         return remove_provider(params.get('provider_id'))
+    if action == 'provider_toggle_enabled':
+        return provider_toggle_enabled(params.get('provider_id'))
     if action == 'catalog':
         return catalog(params.get('provider_id'), params.get('media_type'), params.get('catalog_id'), params.get('label', ''), params.get('page', '0'), genre=params.get('genre', ''), year=params.get('year', ''), force_remote=params.get('force_remote', ''), nuvio=params.get('nuvio', ''), meta_target=params.get('meta_target', ''), cursor=params.get('cursor', ''), extras=params.get('extras', ''))
     if action == 'catalog_all':
@@ -28153,8 +28741,18 @@ def _dispatch(params=None):
         return collection_entry_open(set_id=params.get('set_id', ''), entry_id=params.get('entry_id', ''), media_filter=params.get('media_filter', ''))
     if action == 'trakt_list_browse':
         return trakt_list_browse(username=params.get('username', ''), slug=params.get('slug', ''), title=params.get('title', ''), background=params.get('background', ''), media_filter=params.get('media_filter', 'auto'), page=params.get('page', '0'), force_remote=params.get('force_remote', ''))
+    if action == 'nas_list':
+        return nas_list_browse(share=params.get('share', ''), kind=params.get('kind', 'movie'),
+                               title=params.get('title', ''), offset=params.get('offset', '0'))
     if action == 'mdblist_list_browse':
         return mdblist_list_browse(username=params.get('username', ''), slug=params.get('slug', ''), title=params.get('title', ''), background=params.get('background', ''), media_filter=params.get('media_filter', 'auto'), cursor=params.get('cursor', ''), force_remote=params.get('force_remote', ''))
+    if action == 'youtube_play':
+        return youtube_play(video_id=params.get('v', ''), title=params.get('title', ''))
+    if action == 'dexworld_row':
+        return dexworld_row_browse(row_id=params.get('id', ''), title=params.get('title', ''), page=params.get('page', '1'))
+    if action == 'youtube_row':
+        return youtube_row_browse(kind=params.get('kind', ''), ident=params.get('id', ''), name=params.get('name', ''),
+                                  title=params.get('title', ''))
     if action == 'kodi_route_browse':
         return kodi_route_browse(route=params.get('route', ''), title=params.get('title', ''), background=params.get('background', ''), page=params.get('page', '0'))
     if action == 'trakt_hub':
@@ -28275,7 +28873,8 @@ def _dispatch(params=None):
         return ready_collections_menu()
     if action == 'tmdb_titles':
         return tmdb_titles_view(params.get('mode') or '', params.get('id') or '', params.get('media') or 'movie',
-                                params.get('name') or '', params.get('page') or '1')
+                                params.get('name') or '', params.get('page') or '1', sort=params.get('sort') or '',
+                                genre=params.get('genre') or '', when=params.get('when') or '')
     if action == 'ready_collection':
         return ready_collection(params.get('set_id') or '', params.get('page') or '1')
     if action == 'config_export':

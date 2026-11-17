@@ -156,6 +156,32 @@ def get_provider(provider_id):
     return None
 
 
+def is_enabled(provider):
+    """v5.10.566: an add-on switched off in its menu stays installed but gives
+    no catalogs, sources, subtitles or metadata until it is switched back on."""
+    return (provider or {}).get('enabled') not in (False, 'false', 0)
+
+
+@_scope.bound
+def enabled_providers():
+    return [row for row in list_providers() if is_enabled(row)]
+
+
+@_scope.bound
+def set_provider_enabled(provider_id, enabled):
+    rows = list_providers()
+    for row in rows:
+        if row.get('id') == provider_id:
+            if enabled:
+                row.pop('enabled', None)
+            else:
+                row['enabled'] = False
+            _write_json(PROVIDERS_PATH, rows)
+            _invalidate_providers_cache(rows)
+            return row
+    return None
+
+
 def _catalog_state():
     global _STATE_CACHE, _STATE_MTIME
     mtime = _file_mtime(CATALOG_STATE_PATH)

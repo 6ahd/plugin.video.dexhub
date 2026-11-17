@@ -74,3 +74,22 @@ def seed_hero(hero, query):
     for key, value in values.items():
         if value and not hero.get(key):
             hero[key] = value
+
+
+# v5.10.560: an IPTV title's own details (its provider's poster, plot, year),
+# for the title page where TMDb has nothing; written by the Home's VOD pages
+def _iptv_file(title_id):
+    import re
+    safe = re.sub(r'[^A-Za-z0-9_-]', '', str(title_id or ''))
+    return C.folder('iptv_seed') + '/%s.json' % safe if safe else ''
+
+
+def save_iptv(title_id, data):
+    path = _iptv_file(title_id)
+    if path:
+        C.write_json(path, dict((k, v) for k, v in (data or {}).items() if v))
+
+
+def iptv(title_id):
+    path = _iptv_file(title_id)
+    return (C.read_json(path) or {}) if path else {}

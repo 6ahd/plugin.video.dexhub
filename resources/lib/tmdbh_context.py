@@ -297,6 +297,14 @@ def publish_ratings(window, ctx):
                       for k in ('imdb', 'tmdb', 'trakt', 'rt_crit', 'rt_aud', 'metacritic',
                                 'letterboxd', 'mdblist', 'mal'))
         values['dexhub.rating.any'] = '1' if ratings else ''
+    try:
+        # v5.10.562: the Aura page shows only the chips that fit its row whole
+        from .homeui import ratings as _rb
+        fit = _rb.row_fit(values)
+        for key in _rb.ORDER:
+            values['dexhub.rating.fit.%s' % key] = '1' if key in fit else ''
+    except Exception:  # pylint: disable=broad-except
+        pass
     any_rating = values.get('dexhub.rating.any') == '1'
     for win in targets:
         try:

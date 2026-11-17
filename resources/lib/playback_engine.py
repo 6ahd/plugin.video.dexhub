@@ -17,26 +17,72 @@ def _attach_before_mode(api):
         return False
 
 
-def _configure_content_lookup(item, stream_url, switching=False):
+_MIME_BY_EXT = {'mkv': 'video/x-matroska', 'mp4': 'video/mp4',
+                'm4v': 'video/mp4', 'webm': 'video/webm',
+                'avi': 'video/x-msvideo', 'ts': 'video/mp2t',
+                'm2ts': 'video/mp2t', 'm3u8': 'application/vnd.apple.mpegurl',
+                'mpd': 'application/dash+xml'}
+_STREAMING_HINTS = ('m3u8', '.mpd', 'manifest', '/hls', 'hls/', 'dash/', '/dash', 'playlist')
+_FILE_ENDPOINTS = ('/playback/', '/usenet/stream/', '/debrid/', '/dl/', '/download/', '/resolve/')
+
+
+def _ctx_file_extension(ctx):
+    """The media file's extension as the source named it (AIOStreams and
+    other Stremio add-ons give behaviorHints.filename even when the link
+    itself is an endpoint with no extension)."""
+    ctx = ctx if isinstance(ctx, dict) else {}
+    hints = ctx.get('behaviorHints') if isinstance(ctx.get('behaviorHints'), dict) else {}
+    for raw in (ctx.get('filename'), hints.get('filename'), ctx.get('stream_filename')):
+        name = str(raw or '').strip().lower()
+        if '.' in name:
+            extension = name.rsplit('.', 1)[-1]
+            if extension in _MIME_BY_EXT:
+                return extension
+    return ''
+
+
+def _ctx_is_file(ctx, path):
+    """True when the source is a single media file (a debrid, usenet or
+    download link), not a live or adaptive stream."""
+    ctx = ctx if isinstance(ctx, dict) else {}
+    hints = ctx.get('behaviorHints') if isinstance(ctx.get('behaviorHints'), dict) else {}
+    if hints.get('videoSize') or hints.get('filename') or ctx.get('filename'):
+        return True
+    if ctx.get('size_bytes') or ctx.get('stream_video_size') or ctx.get('info_hash'):
+        return True
+    return any(mark in path for mark in _FILE_ENDPOINTS)
+
+
+def _configure_content_lookup(item, stream_url, switching=False, ctx=None):
     """Known HTTP media files need no MIME HEAD request on the GUI thread.
 
     On a source switch, an opaque endpoint is left for the input stream's
     content probe, without guessing a MIME type or issuing a GUI MIME HEAD.
-    Initial playback of an unknown endpoint keeps Kodi's usual detection.
+
+    v5.10.547: a first play of an endpoint with no extension did the HEAD
+    too. Kodi sends it from its GUI thread, and an AIOStreams debrid or usenet
+    link answers only once the file is ready: on the CoreELEC box The Batman
+    froze the screen for 27 s (two 10 s HEAD timeouts) before Kodi opened it.
+    A file source now takes its type from the file name the source gave, or
+    is left to the player's own probe; a link that may be HLS or DASH keeps
+    Kodi's detection.
     """
     from urllib.parse import urlsplit
     try:
         parsed = urlsplit(str(stream_url).split('|', 1)[0])
         if parsed.scheme.lower() not in ('http', 'https'):
             return False
-        extension = parsed.path.lower().rsplit('.', 1)[-1]
-        mime = {'mkv': 'video/x-matroska', 'mp4': 'video/mp4',
-                'm4v': 'video/mp4', 'webm': 'video/webm',
-                'avi': 'video/x-msvideo', 'ts': 'video/mp2t',
-                'm2ts': 'video/mp2t', 'm3u8': 'application/vnd.apple.mpegurl',
-                'mpd': 'application/dash+xml'}.get(extension)
+        path = parsed.path.lower()
+        tail = path.rsplit('/', 1)[-1]
+        extension = tail.rsplit('.', 1)[-1] if '.' in tail else ''
+        mime = _MIME_BY_EXT.get(extension)
         if not mime and not switching:
-            return False
+            whole = (path + '?' + parsed.query.lower())
+            if any(hint in whole for hint in _STREAMING_HINTS):
+                return False
+            mime = _MIME_BY_EXT.get(_ctx_file_extension(ctx))
+            if not mime and not _ctx_is_file(ctx, path):
+                return False
         if mime:
             item.setMimeType(mime)
         item.setContentLookup(False)
@@ -118,6 +164,15 @@ def _switch_marked(api):
         return False
 
 
+def _next_source(ctx, stream_key, reason):
+    """v5.10.448: a source with no link gives way to the next one (auto_next)."""
+    try:
+        from . import auto_next
+        return auto_next.try_next(dict(ctx or {}, stream_key=stream_key or (ctx or {}).get('stream_key') or ''), reason)
+    except Exception:
+        return False
+
+
 def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta=None, use_resolved_url=None):
     """Play a stream via xbmc.Player().play() — matches the original behavior
     that reliably starts playback without leaving an empty folder behind.
@@ -130,6 +185,64 @@ def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta
     # this call reuses that same keyed job and never starts a duplicate.
     ctx = dict(ctx or {})
     fallback_keys = []
+    # v5.10.447: a Kodi add-on's row: that add-on resolves and plays it.
+    # v5.10.448: one that can (POV) only resolves it, and Dex Hub plays the
+    # link here like any other source (one waiting screen, one player)
+    # v5.10.568: a torrent (or TorBox Usenet) row played through the viewer's Debrid account
+    try:
+        from . import debrid_source as _debrid
+        if _debrid.is_row(ctx):
+            link = _debrid.resolve(ctx)
+            if link:
+                ctx['stream_url'] = link
+            else:
+                if not _next_source(ctx, stream_key, 'no link'):
+                    api.xbmcgui.Dialog().notification('Dex Hub', api.tr('المصدر مو جاهز في حسابك، جرّب غيره'),
+                                                      api.xbmcgui.NOTIFICATION_WARNING, 4000)
+                return
+    except Exception as _debrid_exc:
+        api.xbmc.log('[DexHub] Debrid playback: %s' % _debrid_exc, api.xbmc.LOGWARNING)
+    # v5.10.558: a Usenet row: its NZB link becomes the film's address on this device
+    try:
+        from . import usenet_source as _usenet
+        if _usenet.is_row(ctx):
+            link = _usenet.resolve(ctx)
+            if link:
+                ctx['stream_url'] = link
+            else:
+                _next_source(ctx, stream_key, 'no link')
+                return
+    except Exception as _usenet_exc:
+        api.xbmc.log('[DexHub] Usenet playback: %s' % _usenet_exc, api.xbmc.LOGWARNING)
+    # v5.10.557: an EasyNews row: its members link is turned into the file's own address
+    try:
+        from . import easynews_source as _easynews
+        if _easynews.is_row(ctx):
+            link = _easynews.resolve(ctx)
+            if link:
+                ctx['stream_url'] = link
+            else:
+                if not _next_source(ctx, stream_key, 'no link'):
+                    api.xbmcgui.Dialog().notification('Dex Hub', api.tr('لا يوجد رابط تشغيل'),
+                                                      api.xbmcgui.NOTIFICATION_WARNING, 4000)
+                return
+    except Exception as _easynews_exc:
+        api.xbmc.log('[DexHub] EasyNews playback: %s' % _easynews_exc, api.xbmc.LOGWARNING)
+    try:
+        from . import kodi_sources as _kodi
+        if _kodi.is_kodi_row(ctx):
+            link = _kodi.resolve(ctx)
+            if link:
+                ctx['stream_url'] = link
+            elif link is None and _kodi.play(ctx, getattr(api, 'HANDLE', -1)):
+                return
+            elif link == '':
+                if not api.xbmc.Player().isPlaying() and not _next_source(ctx, stream_key, 'no link'):
+                    api.xbmcgui.Dialog().notification('Dex Hub', api.tr('لا يوجد رابط تشغيل'),
+                                                      api.xbmcgui.NOTIFICATION_WARNING, 4000)
+                return
+    except Exception as _kodi_exc:
+        api.xbmc.log('[DexHub] Kodi add-on playback: %s' % _kodi_exc, api.xbmc.LOGWARNING)
     if _same_play_starting(api, ctx, stream_key):
         return
     # v5.10.94: direct library routes (plex_play, emby_play, silo_play, the
@@ -252,6 +365,19 @@ def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta
     # The flag is now cleared on real playback lifecycle events instead.
 
     stream_url = api._append_a4k_ids_to_url(ctx.get('stream_url') or '', ctx)
+    # v5.10.543: a Blu-ray image behind an address with no .iso (disc_play)
+    try:
+        from . import disc_play
+        stream_url = disc_play.wrap(stream_url, ctx)
+    except Exception as _disc_exc:
+        api.xbmc.log('[DexHub] disc: %s' % _disc_exc, api.xbmc.LOGWARNING)
+    # v5.10.576: a Blu-ray image on CoreELEC/LibreELEC opens on its film when a subtitle file
+    # will be wanted (no subtitle in the viewer's language on the disc) or Kodi plays films only
+    try:
+        from . import disc_menu as _disc_menu
+        stream_url = _disc_menu.film_path(stream_url)
+    except Exception as _film_exc:
+        api.xbmc.log('[DexHub] disc film: %s' % _film_exc, api.xbmc.LOGWARNING)
     if stream_url != (ctx.get('stream_url') or ''):
         try:
             ctx = dict(ctx or {})
@@ -269,7 +395,8 @@ def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta
                 api.xbmcplugin.setResolvedUrl(api.HANDLE, False, api.xbmcgui.ListItem())
             except Exception:
                 pass
-        api.error(api.tr('لا يوجد رابط تشغيل'))
+        if not _next_source(ctx, stream_key, 'no link'):
+            api.error(api.tr('لا يوجد رابط تشغيل'))
         return
 
     try:
@@ -282,7 +409,7 @@ def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta
         _switch_lookup = 0 <= api.time.time() - _switch_stamp < 15
     except Exception:
         pass
-    if _configure_content_lookup(item, stream_url, switching=_switch_lookup):
+    if _configure_content_lookup(item, stream_url, switching=_switch_lookup, ctx=ctx):
         api.xbmc.log('[DexHub] playback: MIME lookup skipped', api.xbmc.LOGINFO)
     _is_ep = bool(ctx.get('season') or ctx.get('episode'))
     _sub_ctx, _sub_ep = ctx, _is_ep
@@ -491,6 +618,10 @@ def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta
         pass
     reusing_switched_subtitle = bool(ctx.get('source_switch_reuse_subtitle') and ctx.get('switch_subtitle_path'))
     force_subtitles = bool(ctx.get('play_with_subtitles')) and not reusing_switched_subtitle
+    from .settings_cache import cached_addon
+    if ((cached_addon().getSetting('embedded_subtitle_mode') or 'preferred') != 'preferred'
+            and not ctx.get('selected_subtitle')):
+        force_subtitles = False
     # Native Plex/Emby sidecars are already matched to the selected file. Treat
     # them like DPlex: materialize the preferred external track immediately so
     # it survives Kodi 22 playlist handoff, while the remaining tracks attach
@@ -587,6 +718,12 @@ def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta
         prepared_first, _silo_left = api._prepare_subtitle_files_bounded(
             _silo_rows, stream_key or 'play', budget_seconds=(3.5 if _before else 1.0))
         other_subs = list(_silo_left) + ([] if _before else list(other_subs))
+        if str(ctx.get('server_type') or '').lower() == 'silo':
+            try:
+                from .silo_subsync import leave_to_server
+                leave_to_server([row.get('path') for row in prepared_first if row.get('path')])
+            except Exception:
+                pass
     else:
         prepared_first = api._prepare_subtitle_files(
             selected_first,
@@ -603,6 +740,30 @@ def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta
             defer_download=True)
         prepared_first.extend(prepared_other)
         other_subs = []
+    # v5.10.491: an "Arabic" file with English text inside is not the Arabic
+    # subtitle; when the one prepared was such a file, up to two more Arabic
+    # candidates are fetched (two seconds at most) before the election
+    try:
+        from .subtitle_logic import demote_wrong_text, has_lang
+        if demote_wrong_text(prepared_first) and not has_lang(prepared_first, 'ar'):
+            spare = [r for r in other_subs if has_lang([r], 'ar')][:2]
+            if spare:
+                more, _left = api._prepare_subtitle_files_bounded(spare, stream_key or 'play', budget_seconds=2.0)
+                demote_wrong_text(more)
+                prepared_first.extend(more)
+                # v5.10.494: the leftovers are copies (the bounded prepare
+                # copies each row), so they are told apart by their link: a
+                # spare not prepared in time stays for the post-start attach
+                def _sub_key(r):
+                    return (str(r.get('url') or r.get('path') or r.get('file') or ''), str(r.get('lang') or r.get('language') or ''))
+                left_keys = set(_sub_key(r) for r in _left)
+                done = set(_sub_key(r) for r in spare if _sub_key(r) not in left_keys)
+                other_subs = [r for r in other_subs if _sub_key(r) not in done]
+                if str(ctx.get('server_type') or '').lower() == 'silo':
+                    from .silo_subsync import leave_to_server
+                    leave_to_server([row.get('path') for row in more if row.get('path')])
+    except Exception as exc:
+        api.xbmc.log('[DexHub] subtitle text check: %s' % exc, api.xbmc.LOGDEBUG)
     subs = [row.get('path') for row in prepared_first if row.get('path')]
     if force_subtitles and not subs and not other_subs:
         try:
@@ -732,7 +893,19 @@ def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta
             _usable = resume_seconds >= 30.0 or (_switching and resume_seconds > 1.0)
             if _usable and total_for_resume > 0.0 and resume_seconds > total_for_resume - 90.0:
                 _usable = False
-            if _usable and api._get_bool_setting('native_start_offset', True):
+            _disc = False
+            try:
+                # v5.10.567: a disc image opened at an offset always goes to its
+                # menus (Kodi applies its Blu-ray playback setting only at the
+                # start), where subtitle files never line up; it starts at 0 and
+                # the companion seeks once the main movie plays
+                from . import disc_menu
+                _disc = disc_menu.is_disc(stream_url)
+            except Exception:
+                pass
+            if _usable and _disc:
+                api.xbmc.log('[DexHub] native resume skipped for a disc image: it opens at its start', api.xbmc.LOGINFO)
+            elif _usable and api._get_bool_setting('native_start_offset', True):
                 item.setProperty('StartOffset', '%.3f' % resume_seconds)
                 try:
                     api.xbmc.log('[DexHub] native resume: StartOffset=%.1fs (companion verifies, seeks only if needed)' % resume_seconds, api.xbmc.LOGINFO)
@@ -745,6 +918,29 @@ def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta
                     pass
         except Exception:
             pass
+
+    # v5.10.577: a Blu-ray opened on its main title (bluray://…/BDMV/PLAYLIST/n.mpls, the
+    # path debrid/bdinfo and the Usenet engine give when Kodi's Blu-ray playback is "Play
+    # main movie" or the menus are Java) starts one second in. Started at 0, Kodi picks
+    # the main title again by itself, and on CoreELEC 22 with Java installed that pick
+    # opened the disc in its menus (The Batman UHD over Usenet, 16 Nov 2026), where
+    # subtitle files never show; at an offset Kodi plays the playlist it is given.
+    try:
+        import re as _re
+        _plain = str(stream_url or '').split('|', 1)[0]
+        if _plain.lower().startswith('bluray://'):
+            try:
+                # Kodi answers '0.000000' for an item with no start offset
+                _offset = float(item.getProperty('StartOffset') or 0)
+            except ValueError:
+                _offset = 0.0
+            if _re.search(r'/BDMV/PLAYLIST/\d{5}\.mpls$', _plain, _re.I) and _offset <= 0.0:
+                item.setProperty('StartOffset', '1.000')
+                api.xbmc.log('[DexHub] disc main title: opened 1 s in, so Kodi keeps it', api.xbmc.LOGINFO)
+            else:
+                api.xbmc.log('[DexHub] disc: opened as given (%s)' % _plain.rsplit('/', 1)[-1], api.xbmc.LOGINFO)
+    except Exception as _mt_exc:
+        api.xbmc.log('[DexHub] disc main title: %r' % _mt_exc, api.xbmc.LOGWARNING)
 
     # Explicitly close any busy dialog Kodi opened on our behalf BEFORE we
     # start playback, so the user sees the player loading screen instead of
@@ -911,4 +1107,10 @@ def play_selected(api, stream_key, resume_seconds='', resume_percent='', fallbac
         ctx['source_switch_reuse_subtitle'] = True
         ctx['play_with_subtitles'] = False
         ctx['selected_subtitle'] = ''
+        try:
+            # v5.10.572: DexSubtitles' own automatic pick keeps away from a subtitle the
+            # viewer chose and Dex Hub carries over (a disc played again as its main movie)
+            api.xbmcgui.Window(10000).setProperty('dexhub.sub.carried', str(int(api.time.time())))
+        except Exception:
+            pass
     api._play_with_context(ctx, stream_key, fallback_keys=fallback)

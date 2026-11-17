@@ -13,6 +13,8 @@
   skin_folder    a collection folder's catalogs, as cards
   skin_facet     Sort, Genre and Filter of a grid (homeui grid_filters)
 """
+import json
+import re
 import threading
 import time
 from .. import lazy_tb as traceback
@@ -226,8 +228,10 @@ def _menu_once(params, from_menu=False):
     tr = _tr
     key = params.get('key') or ''
     # v5.10.299: the skin's settings page opens the one Appearance place
-    looks = {'customize': 'look_layout', 'look': 'look_theme', 'look_theme': 'look_theme',
-             'look_layout': 'look_layout', 'look_motion': 'look_motion'}
+    looks = {'customize': 'home', 'look': 'theme', 'look_theme': 'theme',
+             'look_layout': 'home', 'look_motion': 'trailers'}
+    from ..menu_taxonomy import META
+    looks.update({'section_'+section:section for section in META})
     if not key or key in looks:
         from ..homeui import control
         if key in looks:
@@ -283,9 +287,9 @@ def _menu_once(params, from_menu=False):
             return 'settings:cancel'
         return 'settings'
     elif key == 'kodi':
-        launch('ActivateWindow(Settings)')
+        launch('RunPlugin(%s)' % _arg(C.url('open_kodi_settings')))
     elif key == 'theme':
-        launch('ActivateWindow(1191)')          # v5.10.299: the skin's theme gallery
+        launch('ActivateWindow(1191)' if xbmc.getSkinDir() == 'skin.dexhub' else 'RunPlugin(%s)' % _arg(C.url('theme_select')))          # v5.10.299: the skin's theme gallery
     elif key == 'skin_pick':
         from . import switch
         switch.pick({})
@@ -338,16 +342,24 @@ def skin_size(tr):
 
 
 def layout_editor():
-    """The Home layout editor (homeui), for the tab on show; the rows follow it."""
-    from ..homeui.layout_window import open_editor
-    from . import rows
+    """The pen: the Home's one editor (bar_editor, v5.10.501), open on the tab on show:
+    the bar's sections and each one's rows, added from any source."""
+    from ..homeui.bar_editor import open_editor
     tab = C.prop('dhs.tab') or 'all'
-    if tab not in C.TABS or tab in ('library', 'servers'):
-        tab = 'all'         # the add-ons page and the Library have no editable rows
-    app = rows.app()
-    changed = open_editor(app, rows.HeadlessHome(app, tab), media=tab)
-    if changed:
-        _republish('layout')
+    # v5.10.577: the row the viewer was on (herofocus keeps it as tab:row id): the editor
+    # opens on it and new rows go above it
+    row_key = ''
+    try:
+        kept_tab, _sep, row_id = (C.prop('dhs.fr.row') or '').partition(':')
+        if kept_tab == tab and row_id:
+            from .board import find_spec
+            row_key = str((find_spec(tab, row_id) or {}).get('key') or '')
+    except Exception:
+        row_key = ''
+    try:
+        open_editor(select=tab, row_key=row_key)
+    finally:
+        C.set_prop('dhs.fr.row', '')
 
 
 def community():
@@ -396,10 +408,30 @@ def _hero_tile(t, params):
     return tile
 
 
+def _nas_route(t, season=None, episode=None, video_id=''):
+    """v5.10.561: a title opened from the NAS section plays its NAS file
+    directly: the NAS as the only source, its best file starting at once
+    (Sources on the page still searches everything)."""
+    args = {'action': 'play_item', 'media_type': 'series' if t.series else 'movie',
+            'canonical_id': t.canonical, 'title': t.hero.get('title') or '',
+            # quick_same: the NAS search only, and its first (best) file starts,
+            # whatever "how titles play" says; nothing found opens the sources page
+            'source_provider_id': '__nas__', 'source_mode': 'quick_same',
+            'tmdb_id': t.hero.get('tmdb_id') or t.tmdb_id or '', 'imdb_id': t.hero.get('imdb_id') or ''}
+    if season not in (None, '') and episode not in (None, ''):
+        args.update({'season': str(season), 'episode': str(episode), 'video_id': video_id or t.canonical})
+    return C.BASE + '?' + urlencode([(k, v) for k, v in args.items() if v not in (None, '')])
+
+
 def play(params, handle):
     from . import rows
     from ..homeui import rows as R
     clear_trailer_mark()
+    if params.get('nas') == '1':
+        t = _title(params)
+        if not t.series:
+            launch('RunPlugin(%s)' % _arg(_nas_route(t)))
+            return None
     if _same_page(params):
         exact = dialog_label('Property(dhs.play)')
         if exact.startswith(C.BASE) and R.params_of(exact).get('action') in R.PLAYER_ACTIONS:
@@ -472,6 +504,23 @@ def _play_episode(t, ctx, row, params, choose=False):
     if not row:
         notify(_tr('لا توجد حلقات لهذا المسلسل في مصادر البيانات'))
         return
+    if (params.get('nas') or (getattr(t, 'q', None) or {}).get('nas')) == '1' and not choose:
+        # v5.10.561: the NAS section's series: the episode's NAS file directly
+        launch('RunPlugin(%s)' % _arg(_nas_route(t, row.get('season'), row.get('episode'),
+                                                  row.get('video_id') or '')))
+        return
+    vs = params.get('vs') or (getattr(t, 'q', None) or {}).get('vs')
+    if vs:
+        # v5.10.560: an IPTV series' page plays the provider's own episode
+        from ..homeui import vod
+        try:
+            route = vod.episode_routes(vs, int(row.get('season') or 0), t.hero.get('title') or '',
+                                       t.tmdb_id).get(int(row.get('episode') or 0))
+        except Exception:
+            route = ''
+        if route:
+            launch('RunPlugin(%s)' % _arg(route))
+            return
     if choose:
         command = next((m[1] for m in row.get('menu') or [] if m and len(m) > 1), '')
         extra = {'media_type': 'episode', 'season': str(row.get('season')), 'episode': str(row.get('episode'))}
@@ -564,6 +613,8 @@ def warm_sources(params, handle):
     stamp = 'dexhub.warm.%s' % (params.get('id') or params.get('canonical_id') or '')
     try:
         if time.time() - float(home.getProperty(stamp) or 0) < 240:
+            # warmed a moment ago: the card shows what that run found
+            _republish_available(home, params.get('pid'))
             return None
     except Exception:
         pass
@@ -590,11 +641,15 @@ def warm_sources(params, handle):
         command = next((m[1] for m in entries if m and len(m) > 1), '')
         path = _route_of(command) if command else ''
     if not path:
+        C.log('warm: no sources route for "%s"' % (t.hero.get('title') or t.canonical))
         return None
     from ..homeui import rows as R
     q = R.params_of(path)
     api = rows.api()
+    page = params.get('pid') or t.title_id
+    api._WARM_SUMMARY = []
     api._WARM_ONLY = True
+    home.setProperty('dhs.tp.avail.busy', page or '')
     try:
         if q.get('action') == 'episode_streams':
             api.episode_streams(q.get('canonical_id', ''), q.get('video_id', ''), q.get('season', ''),
@@ -607,7 +662,41 @@ def warm_sources(params, handle):
         C.log('warm failed:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
     finally:
         api._WARM_ONLY = False
+    _publish_available(home, page, getattr(api, '_WARM_SUMMARY', None) or [])
+    if home.getProperty('dhs.tp.avail.busy') == page:
+        home.setProperty('dhs.tp.avail.busy', '')
     return None
+
+
+def _publish_available(home, page, summary, rows=3):
+    """v5.10.448: the cinematic title page's "Available on" card
+    (dhs.tp.avail.*): the warmed providers, best first; shown while
+    dhs.tp.avail.id names the open page's title (dhs.id)."""
+    if not page:
+        return
+    home.setProperty('dhs.tp.avail.id', '')
+    for n in range(1, rows + 1):
+        row = summary[n - 1] if n <= len(summary) else {}
+        for field in ('name', 'q', 'hdr'):
+            home.setProperty('dhs.tp.avail.%d.%s' % (n, field), str(row.get(field) or ''))
+        home.setProperty('dhs.tp.avail.%d.n' % n, str(row.get('n') or ''))
+    home.setProperty('dhs.tp.avail.total', str(sum(r.get('n') or 0 for r in summary)) if summary else '')
+    home.setProperty('dhs.tp.avail.id', page if summary else '')
+    home.setProperty('dhs.tp.avail.last.%s' % page, json.dumps(summary[:rows]))
+
+
+def _republish_available(home, page):
+    """The page opened again inside the warm-up's four minutes (no new
+    run): the card gets that title's last summary back, even when another
+    title's sources were shown in between."""
+    if not page or home.getProperty('dhs.tp.avail.id') == page:
+        return
+    try:
+        summary = json.loads(home.getProperty('dhs.tp.avail.last.%s' % page) or '[]')
+    except ValueError:
+        summary = []
+    if summary:
+        _publish_available(home, page, summary)
 
 
 def trailer(params, handle):
@@ -871,11 +960,33 @@ def open_title(params, handle):
     from . import title as T
     q = T.query_of(params)
     q.pop('page', None)
+    # v5.10.560: an IPTV film's page plays its own file (the provider's VOD)
+    vplay = q.pop('vplay', '')
+    # an IPTV series: '<source>|<series id>', kept in the page's query so its
+    # episodes list and Play find the provider's episodes (title.episode_items)
+    vs = q.pop('vs', '')
+    from ..homeui import rows as R
+    if not (vplay.startswith(C.BASE) and R.params_of(vplay).get('action') in R.PLAYER_ACTIONS):
+        vplay = ''
+
+    iptv = q.get('ip') == '1'
+
+    def show(li):
+        if vplay:
+            li.setProperty('dhs.play', vplay)
+        extra = [(k, v) for k, v in (('vs', vs), ('ip', '1' if iptv else ''), ('nas', q.get('nas') or '')) if v]
+        if extra and li.getProperty('dhs.q'):
+            li.setProperty('dhs.q', li.getProperty('dhs.q') + '&' + urlencode(extra))
+        xbmc.executebuiltin('Dialog.Close(movieinformation,true)', True)
+        # the skin draws an IPTV title's page with its poster and tabs
+        # (Includes_DexHub.xml dhs_tp_cin / dhs_tp_tabs); the page clears it
+        C.set_prop('dhs.tp.iptv', '1' if iptv else '')
+        C.show_info(li)
+
     from .title_seed import cached_item
     seeded = cached_item(q)
     if seeded is not None:
-        xbmc.executebuiltin('Dialog.Close(movieinformation,true)', True)
-        C.show_info(I.listitem(seeded))
+        show(I.listitem(seeded))
         return None
     tile = None
     # the related title's own data, as the page that listed it knew it
@@ -897,11 +1008,23 @@ def open_title(params, handle):
                 'path': C.url('item_open', media_type=media, canonical_id=q.get('id') or '',
                               title=q.get('title') or '', tmdb_id=q.get('tmdb') or ''),
                 'folder': media == 'series'}
+    if iptv:
+        # v5.10.560: the poster the VOD page already showed, at once (and as
+        # the backdrop when the provider has none); TMDb's art follows
+        from .title_seed import iptv as iptv_seed
+        seed = iptv_seed(q.get('i'))
+        for key in ('poster', 'plot', 'rating', 'genres'):
+            if seed.get(key) and not tile.get(key):
+                tile[key] = seed[key]
+        if not tile.get('year') and seed.get('year'):
+            tile['year'] = seed['year']
+        if not tile.get('fanart'):
+            tile['fanart'] = seed.get('fanart') or seed.get('poster') or ''
+        if not tile.get('landscape'):
+            tile['landscape'] = tile['fanart']
     ctx = rows.Context('all')
     item = ctx.item(tile, {'shape': 'poster'})
-    li = I.listitem(item)
-    xbmc.executebuiltin('Dialog.Close(movieinformation,true)', True)
-    C.show_info(li)
+    show(I.listitem(item))
     return None
 
 
@@ -924,7 +1047,10 @@ def grid(params, handle):
     from . import items as I
     from ..homeui import rows as R
     from ..homeui import grid_filters as GF
-    route = dict(parse_qsl(params.get('r') or '', keep_blank_values=True))
+    from ..catalog_navigation import unwrap
+    route = unwrap(dict(parse_qsl(params.get('r') or '', keep_blank_values=True)))
+    if not route:
+        return _end(handle)
     title = params.get('t') or ''
     shape = params.get('s') or ''
     continuation = bool(params.get('n'))
@@ -1095,6 +1221,112 @@ def _facet_props(facets, state, app):
     }
 
 
+# v5.10.448: the folder view, after Nuvio's "tabs over a grid": the
+# collection's catalogs are tabs (this listing, part=tabs), the titles of the
+# tab the cursor rests on fill the row under them (folderpage.publish_pick
+# puts that catalog in the page's first row slot), and the focused title (or
+# catalog) fills the top of the page. A tab keeps what it shows in
+# fold_art.json once found (a listing no longer opens every catalog's cached
+# row), asked at the size it is shown (a 4K "original" backdrop was the
+# slowest part of the page on a TV box).
+KINDS = {
+    # kind: (tint, Font Awesome glyph)
+    'all': ('FF6E8BFF', '\uf5fd'),        # layer group
+    'movie': ('FFE8A33D', '\uf008'),      # film
+    'series': ('FF35BFA8', '\uf26c'),     # tv
+    '': ('FF8A94A6', '\uf03a'),           # list
+}
+_TOP = re.compile(r'\btop[ ._-]?(?:10|ten)\b|أفضل\s*10|توب\s*10', re.I)
+
+
+def _art_index():
+    import os
+    return os.path.join(C.folder(), 'fold_art.json')
+
+
+def _catalog_kinds(folder_data, specs):
+    """'all', 'movie', 'series' or '' for each catalog."""
+    sources = ((folder_data or {}).get('payload') or {}).get('sources') or []
+    out = []
+    for key, name, _sub, _route in specs:
+        index = str(key).rpartition(':')[2]
+        if index == 'all':
+            out.append('all')
+            continue
+        try:
+            source = sources[int(index)] or {}
+        except Exception:
+            source = {}
+        kind = str(source.get('mediaType') or source.get('catalogType') or source.get('type') or '').lower()
+        if kind in ('series', 'tv', 'show', 'shows', 'tvshow', 'anime'):
+            out.append('series')
+        elif kind in ('movie', 'movies', 'film'):
+            out.append('movie')
+        else:
+            low = str(name or '').lower()
+            out.append('series' if any(w in low for w in ('series', 'show', ' tv', 'مسلسل')) else
+                       'movie' if any(w in low for w in ('movie', 'film', 'فيلم', 'أفلام')) else '')
+    return out
+
+
+def _bare(url):
+    return str(url or '').split('?', 1)[0].rstrip('/')
+
+
+def _catalog_art(ref, specs, wanted=None, avoid=()):
+    """What each catalog's tab shows, {'a': backdrop, 'n': titles read}
+    (wanted: the indexes to look up; the others are {} unless known). The
+    backdrop: a cover chosen for the catalog (cover_overrides) first, then
+    the one kept for it, then the first picture its row read that no
+    catalog before it uses. avoid: the collection's own pictures (a Trakt
+    row's titles without a backdrop carry the collection's)."""
+    from .folderpage import TAB, _specs
+    try:
+        from ..cover_overrides import catalog_cover
+    except Exception:
+        catalog_cover = None
+    index_path = _art_index()
+    known = C.read_json(index_path, {}) or {}
+    avoid = set(_bare(u) for u in avoid if u)
+    for key, value in list(known.items()):
+        value = value if isinstance(value, dict) else {'a': value}      # 5.10.448 first kept the picture only
+        if _bare(value.get('a')) in avoid:
+            value = dict(value, a='')
+        known[key] = value
+    used = set(v.get('a') for v in known.values() if v.get('a'))
+    found, added = [], False
+    for n, spec in enumerate(_specs(ref, specs)):
+        index = str(spec.get('key') or '').rpartition(':')[2]     # fold:src:<n> / fold:src:all
+        entry = dict(known.get(spec['id']) or {})
+        if (wanted is None or n in wanted) and 'n' not in entry:
+            try:
+                data = C.read_row(C.row_file(TAB, spec['id'])) or {}
+            except Exception:
+                data = {}
+            items = data.get('items') or []
+            if items:
+                if not entry.get('a'):
+                    for item in items[:12]:
+                        pics = item.get('art') or {}
+                        pic = str(pics.get('fanart') or pics.get('landscape') or '')
+                        if pic and pic not in used and _bare(pic) not in avoid:
+                            entry['a'] = pic
+                            used.add(pic)
+                            break
+                entry['n'] = len(items)
+                known[spec['id']] = entry
+                added = True
+        cover = catalog_cover(ref.get('set_id'), ref.get('folder_id'), index) if catalog_cover else ''
+        if cover:
+            entry = dict(entry, a=cover)
+        found.append(entry)
+    if added:
+        if len(known) > 600:
+            known = dict(list(known.items())[-400:])
+        C.write_json(index_path, known)
+    return found
+
+
 def folder(params, handle):
     """A collection folder's catalogs as cards ("All" first when it has it)."""
     from . import rows
@@ -1106,30 +1338,74 @@ def folder(params, handle):
            'folder_id': params.get('folder_id') or '', 'media_filter': params.get('media_filter') or ''}
     fn = W.BrowseWindow.__dict__['_folder_sources']
     folder_data, specs = fn(home, ref)
-    title = params.get('t') or (folder_data or {}).get('name') or ''
+    title = (folder_data or {}).get('name') or params.get('t') or ''
     wrap = getattr(rows.api(), '_wrap_tokenized_url', None) or (lambda u: u)
     cover = ''
     background = ''
     if folder_data:
         cover = wrap(str(folder_data.get('background') or folder_data.get('poster') or ''))
         background = wrap(str(folder_data.get('background') or folder_data.get('poster') or ''))
+    logo = wrap(str((folder_data or {}).get('clearlogo') or ((folder_data or {}).get('poster') if (folder_data or {}).get('hide_title') else '') or ''))
     items = []
-    for key, name, subtitle, route in specs:
+    inline = params.get('inline') == '1'
+    part = (params.get('part') or '') if inline else ''
+    want = params.get('k') or ''                 # the tabs' kind filter (All / Movies / Series)
+    kinds = _catalog_kinds(folder_data, specs)
+    avoid = [(folder_data or {}).get(k) for k in ('background', 'poster')] + [cover, background]
+    shown = _catalog_art(ref, specs, None, avoid) if inline else [{}] * len(specs)
+    from ..image_policy import cap_url
+    kind_labels = {'all': app.tr('الكل'), 'movie': app.tr('أفلام'), 'series': app.tr('مسلسلات'), '': app.tr('كتالوج')}
+    from ..cover_overrides import folder_key, catalog_key
+    cover_menu = []
+    if ref.get('folder_id'):
+        cover_menu.append((app.tr('غلاف المجلد…'), 'RunPlugin(%s)' % C.url(
+            'skin_cover_pick', kind='folder', name=title,
+            # a top-level folder is the collection's entry itself (no group)
+            key=folder_key(ref['set_id'], ref.get('group_id'), ref['folder_id']) if ref.get('group_id')
+            else folder_key(ref['set_id'], ref['folder_id']))))
+    for n, ((key, name, subtitle, route), entry, kind) in enumerate(zip(specs, shown, kinds)):
+        if part == 'tabs' and want and kind != want:
+            continue
         target = rows.list_url(route, title='%s  •  %s' % (title, name) if title else name)
+        art = entry.get('a') or ''
+        card = cap_url(art, 'w780') if art else cover
+        index = str(key).rpartition(':')[2]
+        tint, glyph = KINDS.get(kind) or KINDS['']
+        menu = [(app.tr('غلاف الكتالوج…'), 'RunPlugin(%s)' % C.url(
+            'skin_cover_pick', kind='catalog', name=name,
+            key=catalog_key(ref['set_id'], ref['folder_id'], index)))] + cover_menu
+        count = (app.tr('%d عنوان') % entry['n']) if entry.get('n') else ''
         items.append({
+            'menu': menu,
             'label': name, 'label2': subtitle, 'path': target, 'folder': True,
-            'art': {'poster': cover, 'landscape': cover, 'thumb': cover, 'fanart': background},
-            'info': {'title': name, 'mediatype': 'video', 'plot': subtitle},
+            'art': {'poster': cover, 'landscape': card, 'thumb': card,
+                    'fanart': cap_url(art, 'w1280') if art else background, 'clearlogo': ''},
+            'info': {'title': name, 'mediatype': 'video', 'plot': ''},
             'props': {'kind': 'nav', 'subtitle': subtitle, 'dhs.click': 'grid', 'dhs.target': target,
-                      'dhs.badge': app.tr('كتالوج'), 'dhs.meta': subtitle},
+                      'dhs.badge': app.tr('كتالوج'), 'dhs.spec': str(n),
+                      'dhs.meta': '  ·  '.join(p for p in (subtitle, count) if p),
+                      'dhs.top10': '1' if _TOP.search(name or '') else '',
+                      'dhs.ckind': kind or 'other', 'dhs.ckind_label': kind_labels.get(kind, ''),
+                      'dhs.tint': tint, 'dhs.glyph': glyph},
         })
     row = params.get('row') or ''
+    if inline:
+        # the folder view's tabs (an older skin's card lists get nothing)
+        if part != 'tabs':
+            items = []
+        I.directory(handle, items, content='videos')
+        return None
     if row:
         # the last row of a collection folder's page (folderpage.py)
         I.directory(handle, items, tab=row.split(':', 1)[0], content='videos', row=row)
         raise SystemExit        # a row of a page, like the Home's (serve.widget)
+    data = C.read_json(C.spec_file('fold'), {}) or {}
+    if data.get('ref') != ref:
+        C.write_json(C.spec_file('fold'), {'ref': ref, 'title': title})
+    for item in items:
+        item['menu'] = list(item.get('menu') or []) + [(app.tr('طريقة فتح الكوليكشن'), 'RunPlugin(%s)' % C.url('skin_folder_view'))]
     I.directory(handle, items, content='videos',
-                props={'dhs.grid': '1', 'dhs.title': title, 'dhs.shape': 'landscape'})
+                props={'dhs.grid': '1', 'dhs.title': title, 'dhs.title_logo': logo, 'dhs.shape': 'landscape'})
     return None
 
 
@@ -1223,10 +1499,10 @@ def row_facet(params, handle):
         if tab == 'fold':
             xbmc.executebuiltin('SetFocus(%d)' % (7000 + slot))
         elif C.skin_active() and xbmc.getCondVisibility('Window.IsActive(home)'):
-            xbmc.executebuiltin('SetFocus(%d)' % (5000 + slot))
+            xbmc.executebuiltin('SetFocus(%d)' % C.layout().row_list(slot, tab))
 
 
-_PLAIN_STYLES = ('poster', 'landscape', 'square', 'wide', 'tall', 'poster_large', 'feature', 'landscape_info')
+_PLAIN_STYLES = ('poster', 'landscape', 'square', 'wide', 'tall', 'poster_large', 'feature', 'landscape_info', 'circle')
 
 
 def row_shape(params, handle):
@@ -1240,15 +1516,19 @@ def row_shape(params, handle):
         return
     a = rows.app()
     current = a.layout.shape(spec['key'])
-    from ..homeui.layout import pick_style, style_choices_for
+    from ..homeui.layout import pick_style, style_choices_for, suggested_styles
+    progress = bool(spec.get('own') or spec.get('progress'))
     key = pick_style(a.tr, a.media_path, current, spec.get('title') or '',
-                     only=style_choices_for(shelf=bool(spec.get('shelf')),
-                                            progress=bool(spec.get('own') or spec.get('progress'))))
+                     only=style_choices_for(shelf=bool(spec.get('shelf')), progress=progress),
+                     suggested=suggested_styles(spec.get('title') or '', collection=spec.get('kind') == 'collection',
+                                                progress=progress))
     if key is None or key == current:
         return
     a.layout.set_shape(spec['key'], key)
     # v5.10.179: the rows are published again with the new style (a row's
     # shape, a collection row's look) at once
+    from . import home_layouts
+    home_layouts.force_next()       # v5.10.532: the user's own style shows at once
     C.ask_republish('row style')
     if key in _PLAIN_STYLES and not spec.get('shelf') and not spec.get('walls') and spec.get('kind') != 'collection':
         # v5.10.188: a plain style shows at once on the row as it is (the
@@ -1270,9 +1550,83 @@ def row_shape(params, handle):
     C.request_refresh(tab, row_id)
 
 
+def row_follow(params, handle):
+    from . import rows
+    from .. import row_follow as policy
+    tab = params.get('m') or C.prop('dhs.tab') or 'all'
+    spec = rows.find_spec(tab, params.get('id') or '')
+    if spec and spec.get('key'):
+        a = rows.app()
+        policy.edit(tab, spec['key'], spec.get('title') or '', a.tr)
+
+
 def trailer_config(params, handle):
     from ..trailer_preferences import publish_presentation
     publish_presentation()
+
+
+def title_look(params, handle):
+    """v5.10.556: the title page's look as picture cards (title_look.py); the plain
+    list below is used when that window cannot open."""
+    try:
+        import xbmcvfs
+        from .. import title_look as TL
+        if xbmcvfs.exists('special://home/addons/plugin.video.dexhub/resources/skins/Default/1080i/dexhub_look.xml') \
+                or xbmcvfs.exists('special://xbmc/addons/plugin.video.dexhub/resources/skins/Default/1080i/dexhub_look.xml'):
+            return TL.run()
+    except Exception as exc:
+        C.log('title look window: %s' % exc)
+    return _title_look_list(params, handle)
+
+
+def _title_look_list(params, handle):
+    """v5.10.556: the title page's look in one list of plain choices. The first
+    menu had three rows that flipped (layout, poster, tabs), and its poster row
+    did nothing in the cinematic layout; the user found it muddled (10 Nov
+    2026). Now each row is a whole look, the one in use is ticked, a pick
+    applies at once and the list stays until Back:
+      layout    classic with the poster / classic without it / cinematic
+      sections  all on one page / tabs
+    """
+    from ..homeui import control as CT
+    looks = (('poster', _tr('كلاسيكي مع البوستر'), _tr('البوستر على اليسار والمعلومات بجانبه')),
+             ('plain', _tr('كلاسيكي بدون بوستر'), _tr('المعلومات تبدأ من يسار الصفحة')),
+             ('cinematic', _tr('سينمائي'), _tr('صورة العمل تملأ الصفحة، بدون بوستر')))
+    sections = (('page', _tr('الأقسام كلها في صفحة وحدة'), _tr('الممثلون والمراجعات والمشابه تحت بعض، تنزل لها')),
+                ('tabs', _tr('الأقسام تبويبات'), _tr('قسم واحد يظهر تحت الأزرار، وكل قسم يتحمّل لما تفتحه')))
+    last = -1
+    while True:
+        cinematic = (xbmc.getInfoLabel('Skin.String(dh.titlelayout)') or '').strip().lower() == 'cinematic'
+        try:
+            poster = (CT._addon().getSetting('homeui_title_poster') or 'true').lower() != 'false'
+        except Exception:
+            poster = True
+        tabs = CT._skin_on('title_tabs')
+        look = 'cinematic' if cinematic else ('poster' if poster else 'plain')
+        part = 'tabs' if tabs else 'page'
+        rows = []
+        for group, current, choices in ((_tr('الشكل'), look, looks), (_tr('أقسام الصفحة'), part, sections)):
+            for key, name, line in choices:
+                li = xbmcgui.ListItem('%s  %s' % ('●' if key == current else '○', name),
+                                      '%s · %s' % (group, line), offscreen=True)
+                rows.append((key, li))
+        pick = xbmcgui.Dialog().select(_tr('شكل صفحة العمل'), [li for _k, li in rows],
+                                       preselect=last if last >= 0 else [k for k, _l in rows].index(look), useDetails=True)
+        if pick < 0:
+            return
+        last = pick
+        key = rows[pick][0]
+        try:
+            if key in ('poster', 'plain', 'cinematic'):
+                if key != 'cinematic' and poster != (key == 'poster'):
+                    CT.apply_entry('title_poster', key == 'poster')
+                if cinematic != (key == 'cinematic'):
+                    CT.set_skin_string('dh.titlelayout', 'cinematic' if key == 'cinematic' else '')
+            elif tabs != (key == 'tabs'):
+                CT.set_skin_string('dh.titletabs', 'on' if key == 'tabs' else '')
+        except Exception as exc:
+            C.log('title look: %s' % exc)
+        xbmc.sleep(150)
 
 
 def _social(name):
@@ -1288,7 +1642,9 @@ ROUTES = {
     'skin_review_write': _social('review_write'),
     'skin_art_set': _social('art_set'),
     'skin_trailer_config': trailer_config,
+    'skin_title_look': title_look,
     'skin_row_shape': row_shape,
+    'skin_row_follow': row_follow,
     'skin_publish': publish,
     'skin_refresh': refresh_home,
     'skin_menu': menu,
@@ -1325,8 +1681,14 @@ def _panel(name, params, handle):
 
 
 def _fold(params, handle):
-    from . import folderpage
-    return folderpage.open_page(params, handle)
+    from ..folder_view import rows_enabled
+    # v5.10.511: a DexWorld collection has only the page (the old list view
+    # knows nothing of it and opened empty)
+    if rows_enabled() or params.get('dw'):
+        from .folderpage import open_page
+        return open_page(params, handle)
+    from ..catalog_navigation import open_selector
+    return open_selector(params, handle)
 
 
 def _profile(params, handle):

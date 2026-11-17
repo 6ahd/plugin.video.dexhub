@@ -19,6 +19,7 @@ again from its fresh cache; a row whose content did not change is left alone.
 Nothing is read while a video plays, except the progress rows after it.
 """
 import bisect
+import threading
 import os
 import time
 from .. import lazy_tb as traceback
@@ -265,6 +266,16 @@ class Worker(object):
                 C.log('row caches given their quick copy: %d' % made)
         except Exception:
             C.log('row copies:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
+        # v5.10.132: grids and title lists worked out here for the plugin
+        # calls (listing.py), skin.dexhub and Arctic Fuse 3 alike. v5.10.537:
+        # before the first publish: it came 24 s after Kodi's start on the AM8
+        self.listing = None
+        try:
+            from .listing import Server
+            self.listing = Server(self.monitor)
+            self.listing.start()
+        except Exception:
+            C.log('listing server off:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
         self.start()
         import threading
         threading.Thread(target=self.first_run, name='dexhub-skin-firstrun', daemon=True).start()
@@ -300,18 +311,16 @@ class Worker(object):
                 self.ratings.start()
             except Exception:
                 C.log('ratings off:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
-        # v5.10.132: grids and title lists worked out here for the plugin
-        # calls (listing.py), skin.dexhub and Arctic Fuse 3 alike
-        self.listing = None
-        try:
-            from .listing import Server
-            self.listing = Server(self.monitor)
-            self.listing.start()
-        except Exception:
-            C.log('listing server off:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
+        self.catalog_follow = None
+        if self.mode == 'dexhub':
+            from .catalog_follow import Controller
+            self.catalog_follow = Controller(self.monitor, lambda: self.busy() or self.preview_transition())
+            self.catalog_follow.start()
         try:
             self._loop(rows)
         finally:
+            if self.catalog_follow is not None:
+                self.catalog_follow.stop()
             if self.listing is not None:
                 self.listing.stop()
             if self.ratings is not None:
@@ -373,8 +382,11 @@ class Worker(object):
     def _loop(self, rows):
         if self.mode == 'dexhub':
             try:
-                from .. import theme_sync
+                from .. import theme_sync, interface_fonts
                 theme_sync.reset()
+                interface_fonts.reset()
+                from ..folder_view import initialize_defaults
+                initialize_defaults()
             except Exception:
                 pass
         else:
@@ -388,6 +400,8 @@ class Worker(object):
                 self.read_ahead()
                 continue
             self.dispatch_requests(rows)
+            self.take_warm()
+            self.take_fold()
             self.read_rows_ahead()
             self.focus_gif(rows)
             self.publish_later()
@@ -396,6 +410,8 @@ class Worker(object):
                 try:
                     from .. import theme_sync
                     theme_sync.tick()
+                    from .. import interface_fonts
+                    interface_fonts.tick()
                 except Exception:
                     C.log('theme:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
             self.watch_playback()
@@ -648,6 +664,102 @@ class Worker(object):
                 return None
         return (kind == 'e', slot != center, abs(slot - center))
 
+    def take_warm(self):
+        """v5.10.448: a title's sources searched ahead (skin_warm_sources),
+        handed over by the plugin call (serve.py): run here, one at a time,
+        the newest waiting, so no short-lived interpreter is torn down after
+        a search's threads (Kodi 22 crashed there now and then)."""
+        raw = C.prop('dhs.warm.request')
+        if not raw:
+            return
+        C.set_prop('dhs.warm.request', '')
+        try:
+            import json
+            request = json.loads(raw)
+        except Exception:
+            return
+        if time.time() - float(request.get('t') or 0) > 60:
+            return
+        self._warm_next = request
+        thread = getattr(self, '_warm_thread', None)
+        if thread is not None and thread.is_alive():
+            return
+        thread = threading.Thread(target=self._warm_run, name='DexHubWarmService')
+        thread.daemon = True
+        self._warm_thread = thread
+        thread.start()
+
+    def take_fold(self):
+        """v5.10.476: a collection's catalogs read ahead (spotlight._note_fold),
+        in a thread of this service, the newest card waiting."""
+        raw = C.prop('dhs.fold.warm')
+        if not raw:
+            return
+        C.set_prop('dhs.fold.warm', '')
+        try:
+            import json
+            request = json.loads(raw)
+        except Exception:
+            return
+        if time.time() - float(request.get('t') or 0) > 60:
+            return
+        self._fold_next = request
+        thread = getattr(self, '_fold_thread', None)
+        if thread is not None and thread.is_alive():
+            return
+        thread = threading.Thread(target=self._fold_run, name='DexHubFoldAhead')
+        thread.daemon = True
+        self._fold_thread = thread
+        thread.start()
+
+    def _fold_run(self):
+        from .. import profile_scope
+        from . import folderpage
+        while not self.stopped():
+            request, self._fold_next = getattr(self, '_fold_next', None), None
+            if not request:
+                return
+            try:
+                with profile_scope.bind(request.get('scope')):
+                    folderpage.read_ahead(request.get('u') or '', stop=self.stopped)
+            except Exception:
+                C.log('collection read ahead (service):\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
+
+    def _warm_run(self):
+        from .. import profile_scope
+        from . import actions
+        while not self.stopped():
+            request, self._warm_next = getattr(self, '_warm_next', None), None
+            if not request:
+                return
+            if not self._warm_settled(request):
+                continue
+            try:
+                with profile_scope.bind(request.get('scope')):
+                    actions.warm_sources(dict(request.get('params') or {}), -1)
+            except Exception:
+                C.log('warm (service):\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
+
+    WARM_SETTLE = 3.0   # v5.10.518: seconds a title page gets to fill before its sources search
+
+    def _warm_settled(self, request):
+        """v5.10.518: the sources search waits until the title page asking for
+        it had WARM_SETTLE seconds to fill its sections: run at once it
+        searched a dozen providers (POV and Red Light scrapers, Plex, Silo)
+        in this interpreter while the page's sections were served from it.
+        A Home card's request (no pid) has waited already (spotlight's
+        WARM_DWELL). False when it should not run: a newer request came or
+        the page closed."""
+        params = request.get('params') or {}
+        if not params.get('pid'):
+            return True
+        until = float(request.get('t') or 0) + self.WARM_SETTLE
+        while time.time() < until:
+            if self.stopped() or getattr(self, '_warm_next', None):
+                return False
+            time.sleep(0.2)
+        return bool(xbmc.getCondVisibility('Window.IsVisible(movieinformation)'))
+
     def dispatch_requests(self, rows):
         if self.busy() or self.preview_transition():
             return
@@ -751,7 +863,7 @@ class Worker(object):
         for slot, spec in rows.published(tab):
             if slot > reach:
                 break
-            cid = layout.row_list(slot)
+            cid = layout.row_list(slot, tab)
             key = '%s:%s' % (tab, spec['id'])
             # v5.10.188: the list's first title, not the selected one
             holds = info('Container(%d).ListItemAbsolute(0).Property(dhs.row)' % cid)
@@ -838,7 +950,9 @@ class Worker(object):
         return False
 
     # v5.10.188: a user's pick asks once (no other request follows it)
-    _AT_ONCE = ('row style', 'library source', 'servers source')
+    # v5.10.502: the Home's editor closed (or a row was added from a page's
+    # menu): every tab at once, no settling wait (all of them took 0.1-0.2 s)
+    _AT_ONCE = ('row style', 'library source', 'servers source', 'home editor')
 
     def republish_if_asked(self, settle=1.0):
         """Publish when asked; a request younger than ``settle`` seconds waits
@@ -875,6 +989,10 @@ class Worker(object):
             elif reason == 'servers source':
                 # v5.10.157: a Servers chip, or its servers read again
                 rows.publish(tabs=('servers',), reason=reason)
+            elif reason == 'home editor':
+                rows.publish(reason=reason, computed=computed)
+                self._note_slow(rows.LAST)
+                self._later = None
             else:
                 # v5.10.188: the tab on screen at once, the others one by one
                 # from the loop a moment later (the Home answers meanwhile).
@@ -1096,7 +1214,7 @@ class Worker(object):
         if not view or view[0] != tab:
             return False
         slot = view[1]
-        cid = 7000 + slot if tab == 'fold' else C.layout().row_list(slot)
+        cid = 7000 + slot if tab == 'fold' else C.layout().row_list(slot, tab)
         return (C.prop('dhs.%s.%d.id' % (tab, slot)) == row_id
                 and xbmc.getCondVisibility('Control.HasFocus(%d)' % cid))
 
@@ -1233,12 +1351,18 @@ class Worker(object):
         """Continue Watching, Next Up and the other progress rows, after
         playback (also when empty and off the Home: a first play brings them)."""
         from . import rows
-        for tab in C.TABS:
-            for spec in rows.load_specs(tab):
+        shown = C.prop('dhs.tab') or 'all'
+        for tab in sorted(C.TABS, key=lambda name: name != shown):
+            # v5.10.540: the tab on screen, and its own rows first. Continue
+            # Watching waited for the cursor to reach it: the Home showed the
+            # old cards for a minute after a stop, behind 80-card server rows
+            for spec in sorted(rows.load_specs(tab), key=lambda row: not row.get('own')):
                 if self.stopped():
                     return
                 if spec.get('progress') or spec.get('own'):
-                    if self.mode == 'dexhub' and self.request_priority(tab, spec['id'], 'r') is None:
+                    own_here = bool(spec.get('own')) and tab == shown
+                    if (self.mode == 'dexhub' and not own_here
+                            and self.request_priority(tab, spec['id'], 'r') is None):
                         # Keep the saved cards visible; ask their source only when shown.
                         path = C.row_file(tab, spec['id'])
                         with C.file_lock(path):

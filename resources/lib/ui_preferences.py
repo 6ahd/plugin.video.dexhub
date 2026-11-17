@@ -5,14 +5,19 @@ import xbmcgui
 
 # key: (default, choices, Arabic label, English label)
 OPTIONS = {
+    'homeui_folder_view': ('catalogs', ('rows', 'catalogs'), 'طريقة فتح الكوليكشن', 'Open collections as'),
+    'homeui_follow_works': ('false', None, 'توصيات الأعمال في صف تابع', 'Dependent rows for title recommendations'),
+    'homeui_follow_rows': ('false', None, 'الصفوف التابعة عند الوقوف', 'Dependent rows on focus'),
+    'metadata_refresh': ('true', None, 'تحديث الميتاداتا تلقائيًا', 'Refresh metadata automatically'),
     'homeui_show_row_source': ('true', None, 'إظهار مصدر الصف', 'Show row source'),
     'homeui_title_style': ('logo', ('logo', 'text'), 'عنوان العمل', 'Title style'),
-    'homeui_background_style': ('cinematic', ('cinematic', 'soft', 'dark', 'fullscreen'), 'نمط الخلفية', 'Background style'),
+    'homeui_background_style': ('fullscreen', ('cinematic', 'soft', 'dark', 'fullscreen'), 'نمط الخلفية', 'Background style'),
     'library_split_media': ('true', None, 'فصل الأفلام والمسلسلات في المكتبة', 'Separate movie and show library rows'),
     'player_badges_visible': ('true', None, 'إظهار رموز الجودة في المشغّل', 'Show player badges'),
+    'player_ppi_page': ('dexhub', ('dexhub', 'tiny'), 'زر PPI في المشغل', 'PPI button in the player'),
     'player_badges_brightness': ('solid', ('solid', 'soft'), 'وضوح رموز الجودة', 'Badge appearance'),
     # v5.10.286: two new Home layouts (cinema, netflix); cinematic stays the default
-    'homeui_layout_mode': ('cinematic', ('legacy', 'cinema', 'netflix', 'two_rows', 'cinematic', 'shelf', 'spotlight_posters'), 'وضع الواجهة', 'Home layout'),
+    'homeui_layout_mode': ('cinema', ('legacy', 'cinema', 'netflix', 'two_rows', 'cinematic', 'shelf', 'spotlight_posters'), 'وضع الواجهة', 'Home layout'),
     'homeui_nav_position': ('top', ('top', 'side'), 'مكان تبويبات الأقسام', 'Section tabs position'),
     'remember_last_source': ('false', None, 'إعادة آخر نسخة شغّلتها للعمل', 'Replay the last version played for this title'),
     'continue_known_source_direct': ('true', None, 'متابعة المشاهدة من المصدر المعروف', 'Resume the known source directly'),
@@ -35,9 +40,10 @@ OPTIONS = {
     'player_badges_place': ('seekbar', ('seekbar', 'info'), 'مكان الرموز في المشغّل', 'Badges place in the player'),
     # v5.10.286 (issue #18): the badges at full opacity by default; 85 or 70 % on request
     'player_badges_opacity': ('100', ('100', '85', '70'), 'شفافية رموز الجودة', 'Badge opacity'),
-    # v5.10.301: the sources window's rows: the add-on's own lines as Nuvio
-    # shows them (full) or Dex Hub's compact rows
-    'sources_row_style': ('full', ('full', 'compact'), 'شكل صفوف المصادر', 'Source rows'),
+    # v5.10.301: the sources window's rows; v5.10.438: the Halo theme (its own
+    # search screen and sources page); v5.10.442: three themes: Prism (the
+    # page like Nuvio TV, key "full"), Compact and Halo
+    'sources_row_style': ('aura', ('full', 'compact', 'halo', 'classic', 'aura'), 'ثيم البحث والمصادر', 'Search and sources theme'),
     # v5.10.298: the player bar's look (osd_look.py): style, darkness, colour
     'player_osd_style': ('classic', ('classic', 'glass', 'cinematic', 'minimal'), 'نمط شريط المشغّل', 'Player bar style'),
     'player_osd_dim': ('70', ('0', '15', '30', '50', '60', '70', '80', '85', '95'), 'تعتيم خلفية المشغّل', 'Player background darkness'),
@@ -66,7 +72,7 @@ OPTIONS = {
     # v5.10.417: the playback capsule (player_capsule.py, skin.dexhub 3.28.134)
     # v5.10.417: the playback capsule; v5.10.423 the rating card alone (player_capsule.py)
     'player_capsule': ('true', None, 'بطاقة التصنيف عند التشغيل', 'Rating card at the start'),
-    'player_capsule_when': ('start', ('start', 'both', 'ok'), 'متى تظهر البطاقة', 'When the card shows'),
+    'player_capsule_when': ('both', ('start', 'both', 'ok'), 'متى تظهر البطاقة', 'When the card shows'),
     'player_capsule_place': ('top_left', ('top_left', 'top_center', 'top_right'), 'مكان البطاقة', 'Card place'),
     'player_capsule_time': ('6', ('4', '6', '10'), 'مدة البطاقة', 'Card time'),
     'player_logo_size': ('normal', ('small', 'normal', 'large'), 'حجم شعار العمل (Clear logo)', 'Clear logo size'),
@@ -102,21 +108,23 @@ OPTIONS = {
     # v5.10.365: the Home's rows and pictures made ready while the screensaver runs
     'homeui_ss_preload': ('true', None, 'تجهيز الرئيسية وقت شاشة التوقف', 'Prepare the Home during the screensaver'),
     # v5.10.326: the trailer behind the page or inside the focused card
-    'homeui_trailer_mode': ('background', ('background', 'card'), 'مكان التريلر', 'Trailer place'),
+    'homeui_trailer_mode': ('card', ('background', 'card'), 'مكان التريلر', 'Trailer place'),
     'homeui_carousel': ('true', None, 'تدوير البانر', 'Banner carousel'),
     'homeui_carousel_interval': ('10', tuple(str(n) for n in range(5, 31)), 'مدة البانر', 'Banner interval'),
     'homeui_kenburns': ('true', None, 'تحريك الخلفيات', 'Animated backgrounds'),
     'homeui_focus_gif': ('true', None, 'الصور المتحركة', 'Animated images'),
     'homeui_plot_scroll': ('false', None, 'تحريك النبذة', 'Scrolling plot'),
     # v5.10.288: side rail as icons only; top bar hidden while scrolling the rows
-    'homeui_nav_icons_only': ('false', None, 'القائمة الجانبية أيقونات فقط', 'Sidebar as icons only'),
-    'homeui_nav_autohide': ('false', None, 'إخفاء القائمة عند التمرير', 'Hide the menu while scrolling'),
+    'homeui_nav_icons_only': ('true', None, 'القائمة الجانبية أيقونات فقط', 'Sidebar as icons only'),
+    'homeui_nav_autohide': ('true', None, 'إخفاء القائمة عند التمرير', 'Hide the menu while scrolling'),
     # v5.10.380: immediate tab focus, with IPTV kept click-only
     'homeui_nav_focus_open': ('true', None, 'فتح الأقسام بالتمرير', 'Open sections on focus'),
     # v5.10.424: the Home comes whole at Kodi's start (skinui/startup_splash.py, skin.dexhub 3.28.139)
     'homeui_startup_splash': ('true', None, 'انتظار تجهيز الرئيسية عند التشغيل', 'Wait for the Home to load at start'),
     # v5.10.363 (GitHub #27): Back on the Home's menu asks to exit Kodi (skin.dexhub 3.28.92)
     'homeui_back_exit': ('true', None, 'الرجوع من القائمة يسأل عن الخروج', 'Back on the menu asks to exit Kodi'),
+    # v5.10.510: a Back to your previous skin item in the power menu, off unless turned on
+    'homeui_skin_back_menu': ('true', None, 'الرجوع للسكين السابق في قائمة الطاقة', 'Back to the previous skin in the power menu'),
     # v5.10.334: the Home's backdrop changes once the cursor rests (lighter scrolling)
     'homeui_bg_settle': ('true', None, 'الخلفية تتبع التحديد بعد التوقف', 'Backdrop waits for the cursor'),
     # v5.10.334: the title, genres and ratings step aside while a trailer plays
@@ -124,14 +132,21 @@ OPTIONS = {
     # v5.10.322 (GitHub #20): the rating at the end of the meta line; the
     # two rows layout with smaller buttons and row names and a wider plot
     'homeui_rating_inline': ('true', None, 'التقييم في سطر التفاصيل', 'Rating on the details line'),
-    'homeui_compact_hero': ('true', None, 'هيرو الصفين أصغر', 'Smaller two rows hero'),
+    'homeui_compact_hero': ('false', None, 'هيرو الصفين أصغر', 'Smaller two rows hero'),
     'homeui_hide_plot': ('false', None, 'إخفاء الحبكة في الواجهة الرئيسية', 'Hide the plot on the Home'),
     # v5.10.189: the top bar's tabs are icons; names only on request
     'homeui_nav_names': ('false', None, 'أسماء الأقسام في الشريط العلوي', 'Tab names in the top bar'),
-    'homeui_focus_motion': ('zoom', ('zoom', 'lift', 'pop', 'glow'), 'حركة التحديد', 'Focus motion'),
+    # v5.10.450: 'tvos' (the default) is Apple TV's focus as Nuvio measured it:
+    # the card grows 9% (posters 14%), rises 8 px and casts a shadow
+    'homeui_focus_motion': ('zoom', ('tvos', 'zoom', 'lift', 'pop', 'glow'), 'حركة التحديد', 'Focus motion'),
+    # v5.10.451: no focus growth, card skeleton pulse, page
+    # transitions or moving backdrops (skin.dexhub 3.28.170, dhs.pref.homeui_calm_motion)
+    'homeui_calm_motion': ('false', None, 'حركة أقل', 'Reduce motion'),
     # v5.10.141: unfocused rows faded to 60 % and made the Home look grey;
     # light (85 %) by default
     'homeui_row_dim': ('light', ('light', 'off', 'strong'), 'تعتيم الصفوف غير المحددة', 'Dim unfocused rows'),
+    # v5.10.448: watched films on the Home's rows (skinui/rows.py _watched_mode)
+    'homeui_watched': ('normal', ('normal', 'dim', 'hide'), 'الأفلام اللي شفتها في الرئيسية', 'Watched films on Home'),
     'homeui_light_mode': ('true', None, 'الوضع الخفيف', 'Light mode'),
     'homeui_live_preview': ('true', None, 'معاينة القنوات', 'Channel previews'),
     'homeui_show_continue': ('true', None, 'صف متابعة المشاهدة', 'Continue Watching row'),
@@ -196,13 +211,41 @@ def _migrate_loading_art():
         addon.setSetting('player_loading_art_migrated', 'true')
 
 
+def _migrate_rating_start():
+    """Restore the requested start + OK mode once; later choices stay intact."""
+    addon = _addon()
+    if addon.getSetting('rating_start_v7') == 'true':
+        return
+    if addon.getSetting('player_capsule_when') == 'ok':
+        if addon.setSetting('player_capsule_when', 'both') is False:
+            return
+    addon.setSetting('rating_start_v7', 'true')
+
+
+def _migrate_collection_click_only():
+    """Apply the requested click-only default once per Kodi profile."""
+    addon = _addon()
+    if addon.getSetting('collection_click_only_v11') == 'true':
+        return
+    for name in ('homeui_follow_rows', 'homeui_follow_works'):
+        if addon.setSetting(name, 'false') is False:
+            return
+    addon.setSetting('collection_click_only_v11', 'true')
+
+
 def value(key):
     default, choices, _, _ = OPTIONS[key]
+    if key in ('homeui_follow_rows', 'homeui_follow_works'):
+        _migrate_collection_click_only()
+    if key == 'player_capsule_when':
+        _migrate_rating_start()
     if key == 'homeui_nav_focus_open':
         _migrate_focus_navigation()
     if key == 'player_loading_art':
         _migrate_loading_art()
     result = _addon().getSetting(key) or default
+    if key == 'sources_row_style' and result not in choices:
+        return 'compact'
     if key == 'homeui_trailer_mode':
         from .trailer_preferences import display_mode
         return display_mode(result)
@@ -254,6 +297,15 @@ def publish():
             win.setProperty(prop, shown)
     from . import playback_choices
     from .i18n import tr
+    # the power menu's Back to your previous skin: its name on the item
+    try:
+        from .skinui import switch
+        before = switch.previous() or 'skin.estuary'
+        label = tr('الرجوع إلى %s') % switch.addon_name(before)
+    except Exception:
+        label = tr('الرجوع للسكين السابق')
+    if win.getProperty('dhs.skinback.label') != label:
+        win.setProperty('dhs.skinback.label', label)
     shown = tr({'choose':'اختيار المصدر من النتائج', 'best':'أفضل نتيجة تلقائيًا',
                 'same':'مصدر العمل أو السيرفر نفسه', 'tmdbh':'تشغيل عبر TMDb Helper'}[playback_choices.mode(_addon())])
     if win.getProperty('dhs.playback.mode') != shown:
@@ -360,6 +412,8 @@ def sync_skin_place(reason='settings'):
 def set_value(key, selected):
     if key not in OPTIONS:
         return False
+    if key in ('homeui_follow_rows', 'homeui_follow_works'):
+        _migrate_collection_click_only()
     choices = OPTIONS[key][1] or ('true', 'false')
     if selected not in choices:
         return False
@@ -374,6 +428,9 @@ def set_value(key, selected):
     from .settings_cache import invalidate
     invalidate()
     publish()
+    if key == 'homeui_folder_view':
+        from .folder_view import apply_current
+        apply_current()
     if key in ('player_show_studio', 'player_show_ratings', 'metadata_badges'):
         from . import player_presentation
         player_presentation.refresh_current()
@@ -398,6 +455,9 @@ def set_value(key, selected):
             osd_look.after_write(key, selected)
         except Exception:
             pass
+    if key in ('homeui_follow_rows', 'homeui_follow_works'):
+        from .skinui.common import ask_republish
+        ask_republish('catalog settings changed')
     if key == 'homeui_show_row_source':
         # v5.10.286: skin.dexhub publishes its rows again with or without the source line
         try:
@@ -426,9 +486,11 @@ def edit(key, txt):
     if choices is None:
         return set_value(key, 'false' if current == 'true' else 'true')
     labels = {
+        'rows': txt('كتالوجات — صفوف بوسترات (الافتراضي)', 'Catalogs — poster rows (default)'),
+        'catalogs': txt('فولدرات — بطاقات اختيار الكتالوج', 'Folders — catalog selector cards'),
         'logo': txt('شعار العمل', 'Clear logo'), 'text': txt('نص', 'Text'),
         'soft': txt('هادئ', 'Soft'), 'dark': txt('داكن', 'Dark'), 'solid': txt('واضح بلا تعتيم', 'Solid'),
-        'fullscreen': txt('ملء الشاشة', 'Full screen'),  # v5.10.374 (skin.dexhub 3.28.98)
+        'fullscreen': txt('خلفية كاملة', 'Full background'),  # v5.10.374 (skin.dexhub 3.28.98)
         'cinematic': txt('سينمائي', 'Cinematic') if key == 'homeui_background_style' else txt('هيرو وصفوف', 'Hero and rows'),
         'shelf': txt('رف بطاقات عريضة', 'Wide card shelf'),
         'legacy': txt('ليقسي', 'Legacy'),  # v5.10.325: the Nuvio Legacy stage
@@ -466,8 +528,11 @@ def edit(key, txt):
         'pop': txt('قفزة', 'Pop'),
         'glow': txt('إضاءة فقط', 'Glow only'),
         'stage': txt('خلف الصفحة، ثم ملء الشاشة', 'Behind the page, then full screen'),
-        'full': txt('مثل Nuvio TV', 'Like Nuvio TV'),
-        'compact': txt('مختصرة', 'Compact'),
+        'full': txt('Prism · البيانات كاملة', 'Prism · full details'),
+        'compact': txt('بوستر · البوستر والقصة', 'Poster · the poster and plot'),
+        'halo': txt('Halo · شارات ملونة', 'Halo · coloured badges'),
+        'classic': txt('كلاسيكي · كل التقييمات فوق', 'Classic · every rating on top'),
+        'aura': txt('Aura · زجاج فوق الخلفية وتفاصيل الملف', 'Aura · glass over the artwork, file details'),
     }
     shown = [labels.get(v, v + txt(' ثوانٍ', ' seconds') if key.endswith(('delay', 'interval')) else v) for v in choices]
     if key == 'player_badges_opacity':  # v5.10.286

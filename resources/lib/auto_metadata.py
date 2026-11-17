@@ -117,9 +117,23 @@ def enrich(meta, media_type, cache_only=False, language='', provider_id='', prov
                  media_type=media_type, title='', year='', language_override=language)
     if query['tmdb_id'] or query['imdb_id']:
         found = T.meta_for_cached_only(**query)
-        if not cache_only and (not complete(out) or not (out.get('clearlogo') or out.get('logo'))):
+        from .ui_preferences import enabled as ui_enabled
+        refresh = ui_enabled('metadata_refresh')
+        if not cache_only and (refresh or not complete(out) or not (out.get('clearlogo') or out.get('logo'))):
             found = T.meta_for(**query, timeout=4, max_attempts=1)
         accept(found)
+        # In Auto, refresh changing facts from an exact TMDb result. Preserve
+        # provider routes, video IDs, episode facts and explicit source modes.
+        valid = exact_ids(found or {})
+        if (not cache_only and refresh and valid and
+                not any(ids[k] != valid[k] for k in ids.keys() & valid.keys())):
+            for group in (GROUPS[3], ('status',), ('number_of_seasons',), ('certification', 'mpaa')):
+                values = {k: found[k] for k in group if present((found or {}).get(k))}
+                if values:
+                    for k in group:
+                        out.pop(k, None)
+                    out.update(values)
+            out['_metadata_fetched_at'] = found.get('_metadata_fetched_at') or time.time()
     # Only a focused/background lookup may use providers over the network.
     # At most two providers and one exact candidate per provider, never a
     # name search or an unbounded crawl of the user's installed sources.
@@ -181,7 +195,8 @@ def enrich_tile(tile, language='', cache_only=False, canonical='', provider_id='
     for target, aliases in fields.items():
         from .home_art import clean
         usable = clean if target in ('fanart', 'poster', 'clearlogo') else present
-        if usable(tile.get(target)):
+        changing = target in ('rating', 'seasons_count', 'tv_status') and found.get('_metadata_fetched_at')
+        if usable(tile.get(target)) and not changing:
             continue
         value = next((found[k] for k in aliases if usable(found.get(k))), None)
         if value is None:

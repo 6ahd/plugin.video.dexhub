@@ -175,6 +175,53 @@ def put(kind, payload, ttl_hours=24):
     return key
 
 
+_PENDING = []
+
+
+def put_later(kind, payload, ttl_hours=24):
+    """put() for a batch (v5.10.547): the key and the in-memory copy at once,
+    the disk write held until flush(). A source search stored each of its
+    rows with a commit of its own (437 commits for one AIOStreams answer);
+    the rows now go to disk in one transaction when the batch ends."""
+    now = int(time.time())
+    try:
+        encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+        key = hashlib.sha1(('%s\0%s' % (kind, encoded)).encode('utf-8')).hexdigest()[:32]
+    except Exception:
+        encoded, key = None, uuid.uuid4().hex
+    with _LOCK:
+        _mem_put(kind, key, payload)
+        if _DISK_DISABLED or encoded is None:
+            return key
+        if now - _WRITTEN.get(key, 0) < _REWRITE_AFTER:
+            return key
+        _PENDING.append((key, kind, encoded, now, ttl_hours))
+    return key
+
+
+def flush():
+    """Write every put_later() row in one transaction."""
+    with _LOCK:
+        rows, _PENDING[:] = list(_PENDING), []
+        if not rows or _DISK_DISABLED:
+            return
+        now = int(time.time())
+        cutoff = now - int(max(row[4] for row in rows) * 3600)
+        try:
+            conn = _conn()
+            conn.executemany(
+                "INSERT OR REPLACE INTO cache_items(cache_key, kind, payload, created_at) VALUES(?,?,?,?)",
+                [row[:4] for row in rows])
+            _prune(conn, cutoff)
+            conn.commit()
+            for row in rows:
+                _WRITTEN[row[0]] = now
+        except sqlite3.Error as exc:
+            _disable_disk(exc)
+        except Exception as exc:
+            _disable_disk(exc)
+
+
 def put_many(kind, payloads, ttl_hours=24):
     """Store several payloads under the caller's own keys in one transaction
     (v5.10.109: skin.dexhub's rows keep one key per title's art, so a row read

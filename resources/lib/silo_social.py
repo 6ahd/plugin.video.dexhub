@@ -204,4 +204,20 @@ def dispatch(item_id=''):
             xbmc.executebuiltin('Container.Refresh')
             xbmcgui.Dialog().notification('Silo', _t('حُفظ التغيير', 'Saved'))
     except Exception as exc:
-        xbmcgui.Dialog().notification('Silo', str(exc), xbmcgui.NOTIFICATION_ERROR)
+        xbmcgui.Dialog().notification('Silo', _i18n_tr(str(exc)), xbmcgui.NOTIFICATION_ERROR)
+
+
+def _i18n_tr(text):
+    try:
+        from .i18n import tr
+        return tr(text)
+    except Exception:
+        return text
+
+
+def _i18n_en():
+    try:
+        from .i18n import is_english
+        return bool(is_english())
+    except Exception:
+        return False

@@ -137,7 +137,7 @@ def base_url():
 def addon_key():
     """The key saved in the Dex IPTV add-on (plugin.video.dexworld), when it is installed."""
     try:
-        if not xbmc.getCondVisibility('System.HasAddon(%s)' % DEXWORLD_ADDON):
+        if not xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % DEXWORLD_ADDON):
             return ''
         return (xbmcaddon.Addon(DEXWORLD_ADDON).getSetting('api_key') or '').strip()
     except Exception:
@@ -291,6 +291,16 @@ def provider_for(src):
     return None
 
 
+def stream_wait(provider, default=12):
+    """Seconds to wait for a stream (v5.10.560): DexWorld's server took
+    about 24.5 s for every stream on 12 Nov 2026, and 12 s gave up on all
+    of them; other add-ons keep ``default``."""
+    try:
+        return 30 if dexworld_parts(provider) else default
+    except Exception:
+        return default
+
+
 def _dexworld_of(src):
     if src == 'dw':
         key = live_key()
@@ -396,6 +406,32 @@ _pages = {}             # (src, type, catalog, genre, skip) -> (time, [ids], [me
 _pages_lock = threading.Lock()
 
 
+UPSTREAM_PAUSE = 2.0
+_turn = threading.Lock()    # one catalog at a time: a burst is what a provider turns away
+
+
+def _upstream_failed(data):
+    failure = (data or {}).get('dexworldError')
+    return isinstance(failure, dict) and failure.get('code') == 'IPTV_UPSTREAM'
+
+
+def _log_refused(data, params):
+    failure = data.get('dexworldError') or {}
+    xbmc.log('[DexHub] live: IPTV source %s said %s to the server for %s, asking once more' % (
+        failure.get('source') or '?', failure.get('status') or '?', params.get('catalog') or '?'), xbmc.LOGINFO)
+
+
+def _last_copy(provider, params, extra):
+    """The last good answer on disk, up to a week old (errors are never saved)."""
+    try:
+        client = _client()
+        url = client.build_resource_url(provider, 'catalog', params['type'], params['catalog'], extra=extra)
+        saved, _age = client._read_stale_cache(url, client.CATALOG_STALE_SECONDS)
+        return saved if isinstance(saved, dict) and saved.get('metas') else None
+    except Exception:
+        return None
+
+
 def _add_on_page(provider, params, skip, timeout):
     """(ids, metas, raw count) of one answer of the add-on, an id once, from
     the copy above when fresh. The raw count (duplicates included) is how far
@@ -416,10 +452,23 @@ def _add_on_page(provider, params, skip, timeout):
         kwargs = {'timeout_override': timeout, 'retry': False}
         if params.get('_refresh'):
             kwargs['force_refresh'] = True
-        data = _client().fetch_catalog(provider, params['type'], params['catalog'], extra=extra,
-                                       **kwargs) or {}
+        with _turn:
+            data = _client().fetch_catalog(provider, params['type'], params['catalog'], extra=extra,
+                                           **kwargs) or {}
+            if _upstream_failed(data):
+                # v5.10.537: DexWorld's server was refused by the IPTV provider
+                # (HTTP 200 with dexworldError; seen on the AM8, the channels
+                # themselves play). Once more after a moment, then the last copy.
+                _log_refused(data, params)
+                time.sleep(UPSTREAM_PAUSE)
+                data = _client().fetch_catalog(provider, params['type'], params['catalog'], extra=extra,
+                                               timeout_override=timeout, retry=False, force_refresh=True) or {}
     except Exception as exc:
         raise LS.SourceError(LS.safe(exc)) from None
+    if _upstream_failed(data):
+        saved = _last_copy(provider, params, extra)
+        if saved:
+            data = saved
     failure = data.get('dexworldError')
     if isinstance(failure, dict) and failure.get('code') == 'IPTV_UPSTREAM':
         status = str(failure.get('status') or '')
@@ -580,16 +629,30 @@ def resolve(tile, app):
     provider = dict(provider, _force_stream_refresh=True)    # a live address may expire
     info = tile.get('stream') or {}
     ctype, cid = info.get('type') or 'tv', info.get('id') or ''
+    # v5.10.560: a DexWorld channel whose provider account is known plays
+    # from the provider at once (DexWorld's /stream/ took 25-80 s that day)
     try:
-        data = _client().fetch_streams(provider, ctype, cid, timeout_override=12) or {}
+        from .. import dexworld_direct
+        parts = _dexworld_of(tile.get('src'))
+        address = dexworld_direct.channel_address(parts[0], parts[1], cid) if parts else ''
+    except Exception:
+        address = ''
+    if address:
+        stream = LS.stream_for(address, {}, key=path, logo=tile.get('logo') or '')
+        if stream:
+            _streams[path] = (time.time(), stream)
+            return stream
+    try:
+        wait = stream_wait(provider)
+        data = _client().fetch_streams(provider, ctype, cid, timeout_override=wait) or {}
         chosen = pick(data.get('streams'))
         if chosen is None and ctype == 'channel':
             # a Stremio "channel" may hold videos: the first one is its live stream
-            meta = (_client().fetch_meta(provider, ctype, cid, timeout_override=10) or {}).get('meta') or {}
+            meta = (_client().fetch_meta(provider, ctype, cid, timeout_override=wait) or {}).get('meta') or {}
             videos = [v for v in meta.get('videos') or [] if isinstance(v, dict) and v.get('id')]
             if videos:
                 data = _client().fetch_streams(provider, ctype, str(videos[0]['id']),
-                                               timeout_override=12) or {}
+                                               timeout_override=wait) or {}
                 chosen = pick(data.get('streams'))
     except Exception as exc:
         LS.log('channel stream not found: %s' % LS.failure(exc), xbmc.LOGWARNING)
@@ -737,11 +800,25 @@ def link(app):
     if not key:
         return ''
     _busy(True)
-    try:
-        check_key(key)
-    except Exception as exc:
+    # v5.10.560: DexWorld's keys are case-sensitive (a capital letter typed
+    # in lower case gets 403) and Kodi's keyboard starts in lower case: the
+    # key's other usual casings are tried before giving up
+    tried, error = [], None
+    for candidate in (key, key[:1].upper() + key[1:], key.capitalize(), key.lower(), key.upper()):
+        if candidate in tried:
+            continue
+        tried.append(candidate)
+        try:
+            check_key(candidate)
+        except Exception as exc:
+            error = error or exc
+            continue
+        key, error = candidate, None
+        break
+    if error is not None:
         _busy(False)
-        dialog.ok('DexWorld', '%s\n%s' % (tr('تعذر ربط الاشتراك'), tr(LS.safe(exc))))
+        dialog.ok('DexWorld', '%s\n%s\n%s' % (tr('تعذر ربط الاشتراك'), tr(LS.safe(error)),
+                                             tr('المفتاح حساس لحالة الأحرف (الكبيرة والصغيرة)')))
         return ''
     _busy(False)
     try:

@@ -34,6 +34,12 @@ _content_click_path = _plugin._content_click_path
 _build_source_picker_menu = _plugin._build_source_picker_menu
 _pagination_hidden = getattr(_plugin, '_pagination_hidden', lambda: False)
 
+# v5.10.448: an All tab asks every catalog of its folder at once. Four at a
+# time made a ten-catalog folder (Dex Hub's Horror) wait three rounds, about
+# ten seconds of empty cards; Trakt and TMDb take ten requests together.
+_ALL_WORKERS = 10
+
+
 def _nuvio_find_group_folder(set_id, group_id='', folder_id=''):
     """Return (set, group, folder) from a lazily imported Nuvio collection."""
     row = _collections_mod.get_set(set_id)
@@ -620,7 +626,7 @@ def _render_nuvio_addon_all(folder, indexed_sources, set_id='', group_id='', pag
     meta_target = _nuvio_collection_meta_target(set_id, group_id, folder)
     source_rows = [None] * len(indexed_sources)
     has_more = False
-    workers = min(4, len(indexed_sources))
+    workers = min(_ALL_WORKERS, len(indexed_sources))
     with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
         future_map = {
             pool.submit(_fetch_nuvio_addon_source_page, source, page, page_size,
@@ -765,6 +771,7 @@ def _fetch_tmdb_trakt_all_source(source, page, limit):
         rows.append({
             'media_type': item.get('_type') or 'movie',
             'tmdb_id': tmdb_id,
+            'imdb_id': str(ids.get('imdb') or '').strip(),
             'title': item.get('title') or '',
             'year': str(item.get('year') or ''),
             'released': item.get('released') or '',
@@ -787,7 +794,7 @@ def _render_nuvio_tmdb_trakt_all(folder, indexed_sources, set_id='', group_id=''
     page_size = max(20, _listing_page_size())
     results = [None] * len(indexed_sources)
     more_flags = [False] * len(indexed_sources)
-    workers = min(4, len(indexed_sources))
+    workers = min(_ALL_WORKERS, len(indexed_sources))
     with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
         future_map = {
             pool.submit(_fetch_tmdb_trakt_all_source, source, page, page_size): pos
@@ -907,9 +914,20 @@ def _render_tmdb_work_rows(folder, rows, source_name='', more_url='', meta_targe
         helper_year = local_meta.get('year')
         if helper_year not in (None, ''):
             year = str(helper_year)
-        poster_url = local_meta.get('poster') or row.get('poster') or _default_work_poster(media_type)
+        poster_url = local_meta.get('poster') or row.get('poster') or ''
+        imdb_id = str(row.get('imdb_id') or '').strip()
+        if not poster_url and imdb_id:
+            # v5.10.448: a Trakt title of the All tab not in the TMDb cache
+            # yet: its poster by IMDb id, as the list's own tab shows it
+            try:
+                poster_url = _plugin._METAHUB_POSTER % (imdb_id if imdb_id.startswith('tt') else 'tt%s' % imdb_id)
+            except Exception:
+                poster_url = ''
+        poster_url = poster_url or _default_work_poster(media_type)
+        # v5.10.448: never the collection's backdrop as a title's own: every
+        # title then had the same picture (the TMDb pass fills an empty one)
         fanart_url = (local_meta.get('fanart') or local_meta.get('landscape') or
-                      row.get('backdrop') or folder.get('background') or '')
+                      row.get('backdrop') or '')
         clearlogo_url = local_meta.get('clearlogo') or local_meta.get('logo') or ''
         art = {
             'poster': poster_url, 'thumb': poster_url, 'icon': poster_url,
@@ -972,7 +990,7 @@ def _render_tmdb_work_rows(folder, rows, source_name='', more_url='', meta_targe
         # the ClearLogo property as the visible title. The card itself is Poster.
         add_item(
             title, path, is_folder=is_folder, info=info, art=art,
-            ids={'tmdb_id': tmdb_id},
+            ids={'tmdb_id': tmdb_id, 'imdb_id': imdb_id},
             properties={
                 'dexhub.tile_shape': 'poster',
                 'dexhub.work_item': '1',
@@ -1065,7 +1083,7 @@ def _render_nuvio_tmdb_sources_merged(folder, indexed_sources, set_id='', group_
 
     # Parallel fetch keeps a 4-variant genre folder close to a single request's
     # perceived latency. TMDb Direct still applies its own disk/memory cache.
-    workers = min(4, len(sources))
+    workers = min(_ALL_WORKERS, len(sources))
     with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
         future_map = {
             pool.submit(_tmdb.nuvio_source_items, src, page, 20): i
@@ -1228,8 +1246,10 @@ def _render_nuvio_idlist_work_rows(folder, rows, more_url='', title='', meta_tar
             except Exception:
                 poster = ''
         poster = poster or _default_work_poster(media_type)
+        # v5.10.448: not the folder's backdrop as every title's own (the
+        # page keeps it as its background; the TMDb pass fills an empty one)
         fanart = (local_meta.get('fanart') or local_meta.get('landscape') or
-                  row.get('backdrop') or art_bundle.get('fanart') or art_bundle.get('landscape') or folder_bg)
+                  row.get('backdrop') or art_bundle.get('fanart') or art_bundle.get('landscape') or '')
         clearlogo = (local_meta.get('clearlogo') or local_meta.get('logo') or
                      row.get('clearlogo') or art_bundle.get('clearlogo') or '')
         art = {

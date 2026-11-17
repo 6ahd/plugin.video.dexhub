@@ -52,10 +52,10 @@ _SERVICE_NAMES = {'imdb': 'IMDb', 'tmdb': 'TMDb', 'rt': 'RT', 'metacritic': 'Met
 
 
 def _context():
+    """Use the profile-scoped playback session, not the old browsing property."""
     try:
-        import json
-        raw = xbmcgui.Window(10000).getProperty('dexhub.play_context') or '{}'
-        data = json.loads(raw)
+        from .session_store import load_session
+        data = load_session()
         return data if isinstance(data, dict) else {}
     except Exception:
         return {}
@@ -99,8 +99,8 @@ def _audio(text):
 
 def _cert(ctx):
     info = ctx.get('kodi_info') if isinstance(ctx.get('kodi_info'), dict) else {}
-    cert = str(info.get('mpaa') or xbmc.getInfoLabel('VideoPlayer.mpaa') or '').strip()
-    return re.sub(r'^(?:Rated|US:)\s*', '', cert)[:10]
+    cert = str(info.get('mpaa') or ctx.get('certification') or ctx.get('mpaa') or xbmc.getInfoLabel('VideoPlayer.mpaa') or '').strip()
+    return re.sub(r'^(?:Rated\s+|US:\s*)', '', cert, flags=re.I)[:32]
 
 
 def _first_rating(ctx):
@@ -125,7 +125,8 @@ def _first_rating(ctx):
 
 
 def _imdb(ctx):
-    for raw in (ctx.get('show_imdb_id'), ctx.get('imdb_id'), ctx.get('canonical_id')):
+    ids = ctx.get('external_ids') if isinstance(ctx.get('external_ids'), dict) else {}
+    for raw in (ctx.get('show_imdb_id'), ctx.get('imdb_id'), ids.get('imdb_id'), ids.get('imdb'), ctx.get('canonical_id')):
         raw = str(raw or '')
         if raw.startswith('tt'):
             return raw.split(':')[0]
@@ -156,10 +157,43 @@ def _words(rows):
     return ' · '.join(PG.SHORT[cid][en] for _r, _i, cid in picked)
 
 
+# v5.10.552: Apple's card: each reason on its own line with a letter in a square
+_LETTERS = {'PROFANITY': ('L', 'اللغة', 'Language'), 'VIOLENCE': ('V', 'العنف', 'Violence'),
+            'NUDITY': ('N', 'العري', 'Nudity'), 'ALCOHOL': ('D', 'المخدرات', 'Drugs'),
+            'FRIGHTENING': ('I', 'مشاهد مخيفة', 'Intense')}
+
+
+def _reasons(rows):
+    """[(letter, word)] for the categories rated severe, then moderate (four at most)."""
+    try:
+        from . import parents_guide as PG
+        en = 2 if PG._english() else 1
+    except Exception:
+        return []
+    rank = {'SEVERE': 0, 'MODERATE': 1}
+    picked = sorted((rank[sid], i, cid) for i, (cid, sid) in enumerate(rows or []) if sid in rank and cid in _LETTERS)
+    return [(_LETTERS[cid][0], _LETTERS[cid][en]) for _r, _i, cid in picked][:4]
+
+
+def _stacked(cert):
+    """'TV-MA' as Apple draws it: TV over MA."""
+    if re.match(r'^TV-[A-Z0-9]+$', cert or '', re.I):
+        return cert[:2] + '[CR]' + cert[3:]
+    return cert
+
+
 def card(ctx, text, rating='', guide=None, place='top_left'):
     """The Home properties the skin draws the card from ({} for nothing to say)."""
     info = '  ·  '.join(x for x in (_video(text), _audio(text), rating) if x)
     props = {'place': place, 'card.cert': _cert(ctx), 'card.words': _words(guide), 'card.info': info}
+    props['card.stack'] = _stacked(props['card.cert'])
+    props['card.tall'] = '1' if '[CR]' in props['card.stack'] else ''
+    reasons = _reasons(guide)
+    for n in range(1, 5):
+        letter, word = reasons[n - 1] if n <= len(reasons) else ('', '')
+        props['card.l%d' % n] = letter
+        props['card.w%d' % n] = word
+    props['card.n'] = str(len(reasons))
     if not any(props[k] for k in ('card.cert', 'card.words', 'card.info')):
         return {}
     # the bar beside it is as tall as the lines (tools/release/skin_capsule.py CARD_LINES)
@@ -170,7 +204,7 @@ def card(ctx, text, rating='', guide=None, place='top_left'):
 
 def _tinyppi():
     try:
-        return bool(xbmc.getCondVisibility('System.HasAddon(%s)' % TINYPPI))
+        return bool(xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % TINYPPI))
     except Exception:
         return False
 
@@ -238,12 +272,17 @@ def _why_not():
     from .ui_preferences import value
     if value('player_capsule') == 'false':
         return 'turned off in the player options'
-    skin = xbmc.getSkinDir()
-    if skin not in ('skin.dexhub', 'skin.dexhub.tvos'):
-        return 'the skin is %s, it needs skin.dexhub' % skin
+    path = re.sub(r'/+', '/', unquote(urlsplit(_key()).path)).lower()
+    if 'plugin.video.themoviedb.helper' in path and '/resources/dummy.' in path:
+        return 'TMDb Helper handoff dummy, not the selected video'
     from .trailer_mark import playing_is_trailer
     if playing_is_trailer():
         return 'a trailer'
+    # v5.10.560: a live channel has no age rating; the card read the last
+    # film's play context (a beIN channel showed '4K · DD+ Atmos 5.1')
+    if '/live/' in path or path.startswith('pvr:') or xbmc.getCondVisibility(
+            'Player.IsLive | VideoPlayer.HasEpg | String.StartsWith(Player.FilenameAndPath,pvr://)'):
+        return 'a live channel'
     return ''
 
 
@@ -272,6 +311,8 @@ def start(foreign=False):
     foreign: a video Dex Hub did not start (its play context is another's)."""
     try:
         key = _key()
+        if foreign and xbmc.getSkinDir() not in ('skin.dexhub', 'skin.dexhub.tvos'):
+            return
         why = _why_not()
         if why:
             _note(key, 'not shown (%s)' % why)
@@ -320,6 +361,9 @@ def _publish(token, ctx):
     else:
         win.clearProperty(PREFIX + 'osd')
     win.setProperty(PREFIX + 'ready', '1')
+    if xbmc.getSkinDir() not in ('skin.dexhub', 'skin.dexhub.tvos'):
+        from . import rating_notification
+        rating_notification.ensure(token, lambda: token == _SHOWN['token'])
     return True
 
 
@@ -335,11 +379,32 @@ def _refresh(token):
         xbmc.log('[DexHub] rating card: %s' % exc, xbmc.LOGDEBUG)
 
 
-def _late(token, lookup, ctx):
-    """The words or the rating came after the card: they join it."""
-    lookup.join(10.0)
-    if token == _SHOWN['token']:
-        _publish(token, ctx)
+def _fetch(token, ctx, want_guide):
+    """Enrichment stays off the playback callback and never delays the card."""
+    def fetch(field, lookup):
+        try:
+            found = lookup(ctx)
+            with _LOCK:
+                if token != _SHOWN['token']:
+                    return
+                _SHOWN[field] = found
+            _refresh(token)
+        except Exception as exc:
+            xbmc.log('[DexHub] rating card data: %s' % exc, xbmc.LOGDEBUG)
+    for field, lookup in ([('guide', _guide)] if want_guide else []) + [('rating', _first_rating)]:
+        threading.Thread(target=fetch, args=(field, lookup), name='DexHubRatingCardData', daemon=True).start()
+
+
+def _screen_ready():
+    """Startup logos/seekbar are overlays, not a reason to lose this card.
+
+    TinyPPI can keep its window open for the entire video. The card already
+    chooses a different corner. Both fullscreen and VideoOSD draw the start
+    card, so opening OK no longer consumes time with the card hidden.
+    """
+    return (xbmc.getCondVisibility('Window.IsActive(fullscreenvideo)') and
+            not xbmc.getCondVisibility('Window.IsVisible(busydialog) | Window.IsVisible(busydialognocancel)') and
+            not xbmc.getCondVisibility('Player.Paused'))
 
 
 def _show(token):
@@ -352,21 +417,8 @@ def _show(token):
         ctx = _ctx()
         if _SHOWN.get('foreign') and monitor.waitForAbort(3):
             return
-        lookup = None
         if ctx:
-            # beside the wait for the picture (it may ask IMDb and MDbList)
-            want_guide = str(value('parents_guide') or 'true').lower() != 'false'
-
-            def fetch():
-                if want_guide:
-                    found = _guide(ctx)
-                    if token == _SHOWN['token']:
-                        _SHOWN['guide'] = found
-                found = _first_rating(ctx)
-                if token == _SHOWN['token']:
-                    _SHOWN['rating'] = found
-            lookup = threading.Thread(target=fetch, name='DexHubRatingCardData', daemon=True)
-            lookup.start()
+            _fetch(token, ctx, str(value('parents_guide') or 'true').lower() != 'false')
         # once the picture runs: with refresh rate matching the screen is
         # black for the first seconds
         first, waited = None, time.time()
@@ -377,7 +429,7 @@ def _show(token):
                 at = player.getTime()
             except Exception:
                 at = 0.0
-            first = at if first is None else first
+            first = at if first is None or at < first else first
             if at - first >= 1.5 and not xbmc.getCondVisibility('Player.Paused'):
                 break
             if monitor.waitForAbort(0.4):
@@ -385,18 +437,20 @@ def _show(token):
         else:
             _note(_SHOWN['key'], 'not shown (the playing time did not move for 25 s)')
             return
-        if lookup is not None:
-            lookup.join(2.5)
-        if not _publish(token, ctx):
-            if token == _SHOWN['token']:
-                _note(_SHOWN['key'], 'not shown (nothing to say: no age rating, guide or video details)')
+        # Metadata and the fullscreen window may become ready after AVStarted.
+        deadline = time.monotonic() + 30.0
+        while token == _SHOWN['token'] and player.isPlayingVideo() and not monitor.abortRequested():
+            if (value('player_capsule_when') == 'ok' or _screen_ready()) and _publish(token, _ctx()):
+                break
+            if time.monotonic() >= deadline or monitor.waitForAbort(0.2):
+                _note(_SHOWN['key'], 'not shown (fullscreen or rating details not ready)')
+                return
+        else:
             return
         _note(_SHOWN['key'], 'shown (%r, %r, %r, %s, %s)' % (
             win.getProperty(PREFIX + 'card.cert'), win.getProperty(PREFIX + 'card.words'),
             win.getProperty(PREFIX + 'card.info'), win.getProperty(PREFIX + 'place'),
             value('player_capsule_when') or 'start'))
-        if lookup is not None and lookup.is_alive():
-            threading.Thread(target=_late, args=(token, lookup, ctx), daemon=True).start()
         if value('player_capsule_when') == 'ok':
             return
         win.setProperty(PREFIX + 'on', '1')         # last: the skin shows it whole
@@ -405,10 +459,23 @@ def _show(token):
             seconds = float(value('player_capsule_time') or 6)
         except ValueError:
             seconds = 6.0
-        end = time.time() + seconds
-        while time.time() < end:
-            if token != _SHOWN['token'] or not player.isPlayingVideo() or monitor.waitForAbort(0.3):
+        # A start overlay or OSD must not use up the card's visible seconds.
+        remaining = max(1.0, min(seconds, 15.0))
+        deadline = time.monotonic() + remaining + 30.0
+        while remaining > 0 and time.monotonic() < deadline:
+            if token != _SHOWN['token'] or not player.isPlayingVideo() or monitor.abortRequested():
                 break
+            visible = _screen_ready()
+            if visible:
+                win.setProperty(PREFIX + 'on', '1')
+            else:
+                win.clearProperty(PREFIX + 'on')
+            before = time.monotonic()
+            if monitor.waitForAbort(0.2):
+                break
+            now = time.monotonic()
+            if visible and _screen_ready():
+                remaining -= now - before
     except Exception as exc:
         xbmc.log('[DexHub] rating card: %s' % exc, xbmc.LOGWARNING)
     finally:

@@ -81,9 +81,13 @@ def publish_options():
         addon = cached_addon()
     except Exception:
         addon = None
+    # v5.10.451: Reduce motion stops the moving backdrops as well
+    calm = addon is not None and (addon.getSetting('homeui_calm_motion') or '').lower() == 'true'
     for prop, key in (('dhs.opt.kenburns', 'homeui_kenburns'), ('dhs.opt.carousel', 'homeui_carousel'),
                       ('dhs.opt.gif', 'homeui_focus_gif'), ('dhs.opt.plot_scroll', 'homeui_plot_scroll')):
         enabled = addon is None or flag(addon, key)
+        if calm and key == 'homeui_kenburns':
+            enabled = False
         C.set_prop(prop, '1' if enabled else '')
 
 

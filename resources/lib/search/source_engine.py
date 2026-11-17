@@ -39,6 +39,46 @@ def _fetch_uncached(target, media_type, api):
             from .. import party_share as _party
             payload = _party.payload(provider)
             return payload
+        if (provider or {}).get('id') == '__iptv__':
+            # v5.10.560: the IPTV provider's own file (iptv_vod_source)
+            from .. import iptv_vod_source as _iptv
+            payload = _iptv.payload(provider)
+            return payload
+        if (provider or {}).get('id') == '__nas__':
+            # v5.10.543: films and episodes on the viewer's NAS (nas_sources)
+            from .. import nas_sources as _nas
+            payload = _nas.payload(provider)
+            return payload
+        if (provider or {}).get('id') == '__usenet__':
+            # v5.10.558: the viewer's Newznab indexers (usenet_source)
+            from .. import usenet_source as _usenet
+            payload = _usenet.payload(provider)
+            return payload
+        if (provider or {}).get('id') == '__dexscrapers__':
+            # v5.10.569: Dex Hub's own torrent scrapers (torrent_scrapers)
+            from .. import torrent_scrapers as _scrapers
+            payload = _scrapers.payload(provider)
+            return payload
+        if (provider or {}).get('id') == '__scraperpacks__':
+            # v5.10.568: CocoScrapers and its kin, played through the viewer's Debrid (scraper_packs)
+            from .. import scraper_packs as _packs
+            payload = _packs.payload(provider)
+            return payload
+        if (provider or {}).get('id') in ('__debridcloud__', '__torboxsearch__'):
+            # v5.10.568: the viewer's own Debrid files, and TorBox's own search (debrid_source)
+            from .. import debrid_source as _debrid
+            payload = _debrid.payload(provider)
+            return payload
+        if (provider or {}).get('id') == '__easynews__':
+            # v5.10.557: EasyNews itself, with the viewer's own sign-in (easynews_source)
+            from .. import easynews_source as _easynews
+            payload = _easynews.payload(provider)
+            return payload
+        if (provider or {}).get('id') == '__kodi__':
+            # v5.10.447: Red Light, Fen Light, Umbrella or POV (kodi_sources)
+            from .. import kodi_sources as _kodi
+            payload = _kodi.payload(provider)
+            return payload
         if (provider or {}).get('id') in ('__plex__', '__emby__', '__silo__', '__jellyfin__'):
             backend = provider['id'].strip('_')
             server = (provider or {}).get('_server') or {}
@@ -53,6 +93,12 @@ def _fetch_uncached(target, media_type, api):
                     _why = 'empty' if _budget > 0 else ''
             except Exception:
                 _budget, _why = 0.0, ''
+            if _why == 'skip' and not provider.get('_force_stream_refresh'):
+                # v5.10.494: it ran out of time too many times running; asked
+                # again at its next periodic full-length try
+                api.xbmc.log('[DexHub] %s server skipped until its next try (slow every time): %s' % (
+                    backend, server.get('name') or '?'), api.xbmc.LOGINFO)
+                return {'streams': [], '_source_status': 'skipped'}
             try:
                 # v5.10.85: the lookup may outlive the budget in its own
                 # thread; hand it a stop signal it can poll (see client.py).
@@ -120,7 +166,8 @@ def _fetch_uncached(target, media_type, api):
                 return payload
         except Exception as exc:
             _last_exc = exc
-        if len(_request_ids) > 1:
+        # v5.10.482: not the other id shapes for an add-on that lists its own ids
+        if len(_request_ids) > 1 and not (provider or {}).get('_bridge'):
             _alt, _alt_id, _alt_exc = api._fetch_alternate_ids_parallel(provider, media_type, _request_ids[1:], _timeout)
             if _alt is not None:
                 try:
@@ -130,6 +177,22 @@ def _fetch_uncached(target, media_type, api):
                 payload = _alt
                 return payload
             _last_exc = _alt_exc or _last_exc
+        # v5.10.482: an add-on with ids of its own may have the title by name
+        if (provider or {}).get('_bridge'):
+            try:
+                from ..dexhub import title_bridge as _bridge
+                _found, _own_id = _bridge.payload(
+                    provider, media_type,
+                    lambda rid: api._stremio_provider.fetch(provider, media_type, rid, timeout_override=_timeout),
+                    _timeout)
+                if _found is not None:
+                    provider['_resolved_request_id'] = str(_own_id)
+                    api.xbmc.log('[DexHub] title bridge: provider=%s id=%s streams=%d' % (
+                        provider.get('name') or '?', _own_id, len(_found['streams'])), api.xbmc.LOGINFO)
+                    payload = _found
+                    return payload
+            except Exception as _bridge_exc:
+                api.xbmc.log('[DexHub] title bridge: %s' % _bridge_exc, api.xbmc.LOGWARNING)
         if _last_exc is not None:
             failed = True
             return _last_exc
@@ -147,7 +210,37 @@ def _fetch_uncached(target, media_type, api):
             pass
 
 
+def _partial_answer(payload):
+    """True when an aggregator's answer carries error rows for services that
+    failed (AIOStreams: streamData type 'error', name '[❌] <service>')."""
+    if not isinstance(payload, dict):
+        return False
+    for row in payload.get('streams') or ():
+        if not isinstance(row, dict):
+            continue
+        data = row.get('streamData')
+        if isinstance(data, dict) and str(data.get('type') or '').lower() == 'error':
+            return True
+        if str(row.get('name') or '').lstrip().startswith(('[❌]', '❌')):
+            return True
+    return False
+
+
 def fetch(target, media_type, api):
+    """v5.10.568: the answer, with its torrent rows marked for the viewer's Debrid
+    account (debrid_source.annotate: [RD+] ready, [RD] maybe, unready ones left
+    out). The results cache keeps the add-on's own answer, unmarked."""
+    payload = _fetch(target, media_type, api)
+    try:
+        from .. import debrid_source as _debrid
+        if _debrid.active():
+            payload = _debrid.annotate(payload, target[0], target[1])
+    except Exception as exc:
+        api.xbmc.log('[DexHub] Debrid marks: %s' % exc, api.xbmc.LOGWARNING)
+    return payload
+
+
+def _fetch(target, media_type, api):
     """Cancellation and a short per-title results cache around the real fetch.
 
     v5.10.84: once the user has picked a source the search is cancelled, and a
@@ -162,8 +255,9 @@ def fetch(target, media_type, api):
             return {'streams': [], '_source_status': 'cancelled'}
     except Exception:
         pass
-    if (provider or {}).get('id') == '__party__':
+    if (provider or {}).get('id') in ('__party__', '__kodi__', '__nas__', '__iptv__', '__debridcloud__'):
         # v5.10.373: a ticket of this moment, never from the results cache
+        # (v5.10.447: nor a Kodi add-on's list: its saved copy is what plays)
         return _fetch_uncached(target, media_type, api)
     cache_key = ''
     try:
@@ -185,6 +279,15 @@ def fetch(target, media_type, api):
     except Exception:
         cache_key = ''
     payload = _fetch_uncached(target, media_type, api)
+    if cache_key and _partial_answer(payload):
+        # v5.10.548: AIOStreams answers with an error row ([❌] Easynews+,
+        # Prowlarr…) for each service that failed this time. That answer is
+        # missing those services' results (The Batman on the Mac, 8 Nov: 21
+        # rows instead of 159, the 3 full discs gone), so it is not kept:
+        # the next search asks again.
+        api.xbmc.log('[DexHub] source cache: %s answered with failed services; not kept' % (
+            (provider or {}).get('name') or (provider or {}).get('id') or '?'), api.xbmc.LOGINFO)
+        cache_key = ''
     if cache_key:
         try:
             from . import results_cache as _results

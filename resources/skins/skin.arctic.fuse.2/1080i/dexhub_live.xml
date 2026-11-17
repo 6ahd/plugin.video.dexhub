@@ -3,15 +3,14 @@
 	<!-- dexhub 5.10.193: drawn anew by patch193.py --><defaultcontrol always="false">320</defaultcontrol>
 	<animation effect="fade" start="0" end="100" time="240">WindowOpen</animation>
 	<animation effect="fade" start="100" end="0" time="180">WindowClose</animation>
-	<backgroundcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.surface)]</backgroundcolor>
+	<backgroundcolor>FF0A0F16</backgroundcolor>
 	<controls>
 		<control type="image">
 			<left>0</left>
 			<top>0</top>
 			<width>1920</width>
 			<height>1080</height>
-			<texture colordiffuse="FF0B0D12">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture>
-			<visible>String.IsEmpty(Window(Home).Property(dexhub.tvos.theme.surface))</visible>
+			<texture colordiffuse="FF0A0F16">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture>
 		</control>
 		<control type="image">
 			<left>1056</left>
@@ -22,6 +21,7 @@
 		</control>
 		<control type="image"><left>0</left><top>0</top><width>1920</width><height>1080</height><texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.glow)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_aurora.png</texture></control>
 		<control type="image"><left>0</left><top>0</top><width>1920</width><height>1080</height><texture>$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_vignette.png</texture></control>
+		<control type="image"><left>0</left><top>0</top><width>1920</width><height>1080</height><texture>$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/live_bloom.png</texture></control>
 		<control type="group" id="800">
 			<left>128</left>
 			<top>0</top>
@@ -34,15 +34,15 @@
 					<top>40</top>
 					<width>576</width>
 					<height>324</height>
-					<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface_card)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_block.png</texture>
+					<texture border="18" colordiffuse="14FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_block.png</texture>
 				</control>
 				<control type="image">
-					<left>144</left>
+					<left>191</left>
 					<top>104</top>
-					<width>288</width>
+					<width>194</width>
 					<height>194</height>
 					<aspectratio>keep</aspectratio>
-					<texture>$INFO[Window.Property(g.ch.logo)]</texture>
+					<texture diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/dw_logo_mask.png">$INFO[Window.Property(g.ch.logo)]</texture>
 					<visible>![!String.IsEmpty(Window.Property(dh.trailer.visible)) | [Player.HasVideo + String.IsEmpty(Window.Property(dh.trailer.on))]]</visible>
 				</control>
 				<control type="label">
@@ -77,7 +77,7 @@
 					<top>56</top>
 					<width>104</width>
 					<height>34</height>
-					<texture border="17,0,17,0" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_pill34.png</texture>
+					<texture border="17,0,17,0" colordiffuse="FFE5484D">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_pill34.png</texture>
 					<visible>!String.IsEmpty(Window.Property(dh.trailer.visible))</visible>
 				</control>
 				<control type="label">
@@ -86,7 +86,7 @@
 					<width>104</width>
 					<height>34</height>
 					<font>font_tiny</font>
-					<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]</textcolor>
+					<textcolor>FFFFFFFF</textcolor>
 					<align>center</align>
 					<aligny>center</aligny>
 					<label>$INFO[Window.Property(g.live)]</label>
@@ -350,7 +350,7 @@
 							<top>0</top>
 							<width>52</width>
 							<height>52</height>
-							<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_circle.png</texture>
+							<texture colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_circle.png</texture>
 							<visible>Control.HasFocus(410)</visible>
 						</control>
 						<control type="image">
@@ -366,7 +366,7 @@
 							<top>13</top>
 							<width>26</width>
 							<height>26</height>
-							<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]">$INFO[ListItem.Art(icon)]</texture>
+							<texture colordiffuse="FF0B0D12">$INFO[ListItem.Art(icon)]</texture>
 							<visible>Control.HasFocus(410)</visible>
 						</control>
 						<control type="image">
@@ -413,15 +413,15 @@
 						<top>0</top>
 						<width>196</width>
 						<height>84</height>
-						<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface_card)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_chan.png</texture>
+						<texture border="18" colordiffuse="17FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_chan.png</texture>
 					</control>
 					<control type="image" id="1002">
-						<left>54</left>
+						<left>89</left>
 						<top>12</top>
-						<width>130</width>
+						<width>60</width>
 						<height>60</height>
 						<aspectratio>keep</aspectratio>
-						<texture/>
+						<texture diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/dw_logo_mask.png"/>
 					</control>
 					<control type="label" id="1004">
 						<left>54</left>
@@ -450,7 +450,7 @@
 						<top>0</top>
 						<width>196</width>
 						<height>84</height>
-						<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_ring.png</texture>
+						<texture border="18" colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_ring.png</texture>
 					</control>
 					<control type="group" id="1010">
 						<left>208</left>
@@ -815,15 +815,15 @@
 						<top>0</top>
 						<width>196</width>
 						<height>84</height>
-						<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface_card)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_chan.png</texture>
+						<texture border="18" colordiffuse="17FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_chan.png</texture>
 					</control>
 					<control type="image" id="1102">
-						<left>54</left>
+						<left>89</left>
 						<top>12</top>
-						<width>130</width>
+						<width>60</width>
 						<height>60</height>
 						<aspectratio>keep</aspectratio>
-						<texture/>
+						<texture diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/dw_logo_mask.png"/>
 					</control>
 					<control type="label" id="1104">
 						<left>54</left>
@@ -852,7 +852,7 @@
 						<top>0</top>
 						<width>196</width>
 						<height>84</height>
-						<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_ring.png</texture>
+						<texture border="18" colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_ring.png</texture>
 					</control>
 					<control type="group" id="1110">
 						<left>208</left>
@@ -1217,15 +1217,15 @@
 						<top>0</top>
 						<width>196</width>
 						<height>84</height>
-						<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface_card)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_chan.png</texture>
+						<texture border="18" colordiffuse="17FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_chan.png</texture>
 					</control>
 					<control type="image" id="1202">
-						<left>54</left>
+						<left>89</left>
 						<top>12</top>
-						<width>130</width>
+						<width>60</width>
 						<height>60</height>
 						<aspectratio>keep</aspectratio>
-						<texture/>
+						<texture diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/dw_logo_mask.png"/>
 					</control>
 					<control type="label" id="1204">
 						<left>54</left>
@@ -1254,7 +1254,7 @@
 						<top>0</top>
 						<width>196</width>
 						<height>84</height>
-						<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_ring.png</texture>
+						<texture border="18" colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_ring.png</texture>
 					</control>
 					<control type="group" id="1210">
 						<left>208</left>
@@ -1619,15 +1619,15 @@
 						<top>0</top>
 						<width>196</width>
 						<height>84</height>
-						<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface_card)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_chan.png</texture>
+						<texture border="18" colordiffuse="17FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_chan.png</texture>
 					</control>
 					<control type="image" id="1302">
-						<left>54</left>
+						<left>89</left>
 						<top>12</top>
-						<width>130</width>
+						<width>60</width>
 						<height>60</height>
 						<aspectratio>keep</aspectratio>
-						<texture/>
+						<texture diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/dw_logo_mask.png"/>
 					</control>
 					<control type="label" id="1304">
 						<left>54</left>
@@ -1656,7 +1656,7 @@
 						<top>0</top>
 						<width>196</width>
 						<height>84</height>
-						<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_ring.png</texture>
+						<texture border="18" colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_ring.png</texture>
 					</control>
 					<control type="group" id="1310">
 						<left>208</left>
@@ -2021,15 +2021,15 @@
 						<top>0</top>
 						<width>196</width>
 						<height>84</height>
-						<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface_card)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_chan.png</texture>
+						<texture border="18" colordiffuse="17FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_chan.png</texture>
 					</control>
 					<control type="image" id="1402">
-						<left>54</left>
+						<left>89</left>
 						<top>12</top>
-						<width>130</width>
+						<width>60</width>
 						<height>60</height>
 						<aspectratio>keep</aspectratio>
-						<texture/>
+						<texture diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/dw_logo_mask.png"/>
 					</control>
 					<control type="label" id="1404">
 						<left>54</left>
@@ -2058,7 +2058,7 @@
 						<top>0</top>
 						<width>196</width>
 						<height>84</height>
-						<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_ring.png</texture>
+						<texture border="18" colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_ring.png</texture>
 					</control>
 					<control type="group" id="1410">
 						<left>208</left>
@@ -2423,15 +2423,15 @@
 						<top>0</top>
 						<width>196</width>
 						<height>84</height>
-						<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface_card)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_chan.png</texture>
+						<texture border="18" colordiffuse="17FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_chan.png</texture>
 					</control>
 					<control type="image" id="1502">
-						<left>54</left>
+						<left>89</left>
 						<top>12</top>
-						<width>130</width>
+						<width>60</width>
 						<height>60</height>
 						<aspectratio>keep</aspectratio>
-						<texture/>
+						<texture diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/dw_logo_mask.png"/>
 					</control>
 					<control type="label" id="1504">
 						<left>54</left>
@@ -2460,7 +2460,7 @@
 						<top>0</top>
 						<width>196</width>
 						<height>84</height>
-						<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_ring.png</texture>
+						<texture border="18" colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_ring.png</texture>
 					</control>
 					<control type="group" id="1510">
 						<left>208</left>
@@ -2825,15 +2825,15 @@
 						<top>0</top>
 						<width>196</width>
 						<height>84</height>
-						<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface_card)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_chan.png</texture>
+						<texture border="18" colordiffuse="17FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_chan.png</texture>
 					</control>
 					<control type="image" id="1602">
-						<left>54</left>
+						<left>89</left>
 						<top>12</top>
-						<width>130</width>
+						<width>60</width>
 						<height>60</height>
 						<aspectratio>keep</aspectratio>
-						<texture/>
+						<texture diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/dw_logo_mask.png"/>
 					</control>
 					<control type="label" id="1604">
 						<left>54</left>
@@ -2862,7 +2862,7 @@
 						<top>0</top>
 						<width>196</width>
 						<height>84</height>
-						<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_ring.png</texture>
+						<texture border="18" colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_ring.png</texture>
 					</control>
 					<control type="group" id="1610">
 						<left>208</left>
@@ -3227,15 +3227,15 @@
 						<top>0</top>
 						<width>196</width>
 						<height>84</height>
-						<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface_card)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_chan.png</texture>
+						<texture border="18" colordiffuse="17FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_chan.png</texture>
 					</control>
 					<control type="image" id="1702">
-						<left>54</left>
+						<left>89</left>
 						<top>12</top>
-						<width>130</width>
+						<width>60</width>
 						<height>60</height>
 						<aspectratio>keep</aspectratio>
-						<texture/>
+						<texture diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/dw_logo_mask.png"/>
 					</control>
 					<control type="label" id="1704">
 						<left>54</left>
@@ -3264,7 +3264,7 @@
 						<top>0</top>
 						<width>196</width>
 						<height>84</height>
-						<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_ring.png</texture>
+						<texture border="18" colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_ring.png</texture>
 					</control>
 					<control type="group" id="1710">
 						<left>208</left>
@@ -3629,15 +3629,15 @@
 						<top>0</top>
 						<width>196</width>
 						<height>84</height>
-						<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface_card)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_chan.png</texture>
+						<texture border="18" colordiffuse="17FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_chan.png</texture>
 					</control>
 					<control type="image" id="1802">
-						<left>54</left>
+						<left>89</left>
 						<top>12</top>
-						<width>130</width>
+						<width>60</width>
 						<height>60</height>
 						<aspectratio>keep</aspectratio>
-						<texture/>
+						<texture diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/dw_logo_mask.png"/>
 					</control>
 					<control type="label" id="1804">
 						<left>54</left>
@@ -3666,7 +3666,7 @@
 						<top>0</top>
 						<width>196</width>
 						<height>84</height>
-						<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_ring.png</texture>
+						<texture border="18" colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_ring.png</texture>
 					</control>
 					<control type="group" id="1810">
 						<left>208</left>
@@ -4031,15 +4031,15 @@
 						<top>0</top>
 						<width>196</width>
 						<height>84</height>
-						<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface_card)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_chan.png</texture>
+						<texture border="18" colordiffuse="17FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_chan.png</texture>
 					</control>
 					<control type="image" id="1902">
-						<left>54</left>
+						<left>89</left>
 						<top>12</top>
-						<width>130</width>
+						<width>60</width>
 						<height>60</height>
 						<aspectratio>keep</aspectratio>
-						<texture/>
+						<texture diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/dw_logo_mask.png"/>
 					</control>
 					<control type="label" id="1904">
 						<left>54</left>
@@ -4068,7 +4068,7 @@
 						<top>0</top>
 						<width>196</width>
 						<height>84</height>
-						<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_ring.png</texture>
+						<texture border="18" colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_ring.png</texture>
 					</control>
 					<control type="group" id="1910">
 						<left>208</left>
@@ -4433,7 +4433,7 @@
 						<top>0</top>
 						<width>196</width>
 						<height>84</height>
-						<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface_card)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_chan.png</texture>
+						<texture border="18" colordiffuse="17FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_chan.png</texture>
 					</control>
 					<control type="image" id="2002">
 						<left>54</left>
@@ -4470,7 +4470,7 @@
 						<top>0</top>
 						<width>196</width>
 						<height>84</height>
-						<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_ring.png</texture>
+						<texture border="18" colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_ring.png</texture>
 					</control>
 					<control type="group" id="2010">
 						<left>208</left>
@@ -4846,9 +4846,9 @@
 					<top>40</top>
 					<width>576</width>
 					<height>324</height>
-					<texture border="18" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface_card)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_block.png</texture>
+					<texture border="18" colordiffuse="14FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_block.png</texture>
 				</control>
-				<control type="image">
+				<!-- dh vod wash --><!-- dh vod wash v2 --><control type="image"><left>0</left><top>40</top><width>576</width><height>324</height><aspectratio>scale</aspectratio><texture background="true" colordiffuse="47FFFFFF" diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/mask_landscape.png">$INFO[Container(450).ListItem.Art(poster)]</texture></control><control type="image">
 					<left>0</left>
 					<top>40</top>
 					<width>576</width>
@@ -5026,7 +5026,7 @@
 								<top>-26</top>
 								<width>224</width>
 								<height>310</height>
-								<texture border="60" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.glow_focus)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/glow.png</texture>
+								<texture border="60" colordiffuse="33FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/glow.png</texture>
 								<visible>Control.HasFocus(450) + !String.IsEqual(Window(Home).Property(dexhub.tvos.theme.glow_focus),00000000)</visible>
 							</control>
 							<control type="image">
@@ -5062,7 +5062,7 @@
 								<top>-4</top>
 								<width>180</width>
 								<height>266</height>
-								<texture border="24" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/ring.png</texture>
+								<texture border="24" colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/ring.png</texture>
 								<visible>Control.HasFocus(450)</visible>
 							</control>
 						</control>
@@ -5107,7 +5107,7 @@
 				<top>0</top>
 				<width>480</width>
 				<height>1080</height>
-				<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface_card)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture>
+				<texture colordiffuse="EB0D131D">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture>
 			</control>
 			<control type="image">
 				<left>480</left>
@@ -5186,7 +5186,7 @@
 						<top>0</top>
 						<width>56</width>
 						<height>56</height>
-						<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_circle.png</texture>
+						<texture colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_circle.png</texture>
 						<visible>Control.HasFocus(310)</visible>
 					</control>
 					<control type="image">
@@ -5202,7 +5202,7 @@
 						<top>14</top>
 						<width>28</width>
 						<height>28</height>
-						<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]">$INFO[ListItem.Art(icon)]</texture>
+						<texture colordiffuse="FF0B0D12">$INFO[ListItem.Art(icon)]</texture>
 						<visible>Control.HasFocus(310)</visible>
 					</control>
 					<control type="image">
@@ -5419,7 +5419,7 @@
 						<top>3</top>
 						<width>448</width>
 						<height>56</height>
-						<texture border="28,0,28,0" colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_pill56.png</texture>
+						<texture border="28,0,28,0" colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_pill56.png</texture>
 						<visible>Control.HasFocus(320)</visible>
 					</control>
 					<control type="image">
@@ -5444,7 +5444,7 @@
 						<width>340</width>
 						<height>56</height>
 						<font>font_mini_bold</font>
-						<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]</textcolor>
+						<textcolor>FF0B0D12</textcolor>
 						<align>left</align>
 						<aligny>center</aligny>
 						<scroll>true</scroll>
@@ -5457,7 +5457,7 @@
 						<width>400</width>
 						<height>56</height>
 						<font>font_mini_bold</font>
-						<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]</textcolor>
+						<textcolor>FF0B0D12</textcolor>
 						<align>left</align>
 						<aligny>center</aligny>
 						<scroll>true</scroll>
@@ -5470,7 +5470,7 @@
 						<width>272</width>
 						<height>56</height>
 						<font>font_mini_bold</font>
-						<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]</textcolor>
+						<textcolor>FF0B0D12</textcolor>
 						<align>left</align>
 						<aligny>center</aligny>
 						<scroll>true</scroll>
@@ -5483,7 +5483,7 @@
 						<width>332</width>
 						<height>56</height>
 						<font>font_mini_bold</font>
-						<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]</textcolor>
+						<textcolor>FF0B0D12</textcolor>
 						<align>left</align>
 						<aligny>center</aligny>
 						<scroll>true</scroll>
@@ -5496,7 +5496,7 @@
 						<width>304</width>
 						<height>56</height>
 						<font>font_mini_bold</font>
-						<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]</textcolor>
+						<textcolor>FF0B0D12</textcolor>
 						<align>left</align>
 						<aligny>center</aligny>
 						<scroll>true</scroll>
@@ -5509,7 +5509,7 @@
 						<width>364</width>
 						<height>56</height>
 						<font>font_mini_bold</font>
-						<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]</textcolor>
+						<textcolor>FF0B0D12</textcolor>
 						<align>left</align>
 						<aligny>center</aligny>
 						<scroll>true</scroll>
@@ -5594,7 +5594,7 @@
 						<width>52</width>
 						<height>56</height>
 						<font>font_tiny</font>
-						<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]</textcolor>
+						<textcolor>FF0B0D12</textcolor>
 						<align>right</align>
 						<aligny>center</aligny>
 						<label>$INFO[ListItem.Label2]</label>
@@ -5622,7 +5622,7 @@
 			<top>0</top>
 			<width>104</width>
 			<height>1080</height>
-			<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.surface)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture>
+			<texture colordiffuse="FF0A0F16">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/white.png</texture>
 		</control>
 		<control type="image">
 			<left>0</left>
@@ -5667,12 +5667,7 @@
 					<visible>String.IsEmpty(ListItem.Property(app))</visible>
 				</control>
 				<control type="image">
-					<left>22</left>
-					<top>12</top>
-					<width>60</width>
-					<height>60</height>
-					<aspectratio>keep</aspectratio>
-					<texture>$INFO[ListItem.Art(icon)]</texture>
+					<left>24</left> <top>14</top> <width>56</width> <height>56</height> <aspectratio>scale</aspectratio> <texture diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/dw_logo_mask.png">$INFO[ListItem.Art(icon)]</texture>
 					<visible>!String.IsEmpty(ListItem.Property(app))</visible>
 				</control>
 			</itemlayout>
@@ -5690,7 +5685,7 @@
 					<top>10</top>
 					<width>64</width>
 					<height>64</height>
-					<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.accent)]">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_circle.png</texture>
+					<texture colordiffuse="F2FFFFFF">$INFO[Window(Home).Property(dexhub.assetroot)]/resources/media/homeui/guide_circle.png</texture>
 					<visible>Control.HasFocus(300) + String.IsEmpty(ListItem.Property(app))</visible>
 				</control>
 				<control type="image">
@@ -5706,7 +5701,7 @@
 					<top>26</top>
 					<width>32</width>
 					<height>32</height>
-					<texture colordiffuse="$INFO[Window(Home).Property(dexhub.tvos.theme.on_accent)]">$INFO[ListItem.Art(icon)]</texture>
+					<texture colordiffuse="FF0B0D12">$INFO[ListItem.Art(icon)]</texture>
 					<visible>Control.HasFocus(300) + String.IsEmpty(ListItem.Property(app))</visible>
 				</control>
 				<control type="image">
@@ -5718,12 +5713,7 @@
 					<visible>!Control.HasFocus(300) + String.IsEmpty(ListItem.Property(app))</visible>
 				</control>
 				<control type="image">
-					<left>22</left>
-					<top>12</top>
-					<width>60</width>
-					<height>60</height>
-					<aspectratio>keep</aspectratio>
-					<texture>$INFO[ListItem.Art(icon)]</texture>
+					<left>24</left> <top>14</top> <width>56</width> <height>56</height> <aspectratio>scale</aspectratio> <texture diffuse="special://home/addons/plugin.video.dexhub/resources/media/homeui/dw_logo_mask.png">$INFO[ListItem.Art(icon)]</texture>
 					<visible>!String.IsEmpty(ListItem.Property(app))</visible>
 				</control>
 			</focusedlayout>

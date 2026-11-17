@@ -114,6 +114,8 @@ def _subtitle_attach_before(raw=None):
 
 
 def _subtitle_pick_mode_setting():
+    if (ADDON.getSetting('embedded_subtitle_mode') or 'preferred') != 'preferred':
+        return 'play'
     try:
         raw = str(ADDON.getSetting('subtitle_search_mode') or '').strip().lower()
     except Exception:
@@ -147,7 +149,7 @@ def _preferred_subtitle_lang_keys():
     return out or ['ar', 'en']
 
 
-def _force_preferred_subtitle_on_player(player, show=False, attempts=4, delay_ms=400):
+def _force_preferred_subtitle_on_player(player, show=False, attempts=4, delay_ms=400, expected_uid=''):
     """v3.9.105: after Kodi has loaded subtitle streams, scan them and force
     setSubtitleStream() to the FIRST one matching the user's preferred language
     list (default: ar,en). Kodi otherwise tends to auto-select the last loaded
@@ -158,52 +160,20 @@ def _force_preferred_subtitle_on_player(player, show=False, attempts=4, delay_ms
     after playback starts; the first poll often returns an empty list. `show`
     controls whether we also flip showSubtitles(True) — pass True only when the
     user explicitly asked to play WITH subtitles."""
-    try:
-        prefs = _preferred_subtitle_lang_keys() or ['ar', 'en']
-    except Exception:
-        prefs = ['ar', 'en']
-    pref_bases = [(p.split('-')[0] if p else '').lower() for p in prefs if p]
-    if not pref_bases:
-        return False
-
-    def _lang_base(code):
-        return (str(code or '').split('-')[0] or '').strip().lower()
-
-    for _attempt in range(max(1, attempts)):
+    from .. import track_preferences
+    for attempt in range(max(1, attempts)):
         try:
-            streams = player.getAvailableSubtitleStreams() or []
-        except Exception:
-            streams = []
-        if streams:
-            # Find first stream whose base lang matches our highest-priority pref.
-            chosen_idx = -1
-            for pref in pref_bases:
-                for idx, code in enumerate(streams):
-                    if _lang_base(code) == pref:
-                        chosen_idx = idx
-                        break
-                if chosen_idx >= 0:
-                    break
-            if chosen_idx >= 0:
-                try:
-                    player.setSubtitleStream(chosen_idx)
-                    if show:
-                        player.showSubtitles(True)
-                    try:
-                        xbmc.log('[DexHub] auto-selected subtitle stream #%d (%s) from %d available'
-                                 % (chosen_idx, streams[chosen_idx], len(streams)), xbmc.LOGINFO)
-                    except Exception:
-                        pass
-                    return True
-                except Exception:
+            if expected_uid:
+                from ..session_store import load_session
+                if str((load_session() or {}).get('playback_uid') or '') != str(expected_uid):
                     return False
-            # Streams loaded but no Arabic/preferred match — accept Kodi's default.
-            return False
-        try:
-            xbmc.sleep(delay_ms)
+            pid, props = track_preferences.player_tracks()
+            if pid is not None and props.get('subtitles'):
+                return track_preferences.apply_subtitles(player, show=show, uid=expected_uid)
         except Exception:
-            import time as _t
-            _t.sleep(delay_ms / 1000.0)
+            pass
+        if attempt + 1 < attempts:
+            xbmc.sleep(delay_ms)
     return False
 
 
@@ -228,9 +198,16 @@ def _pick_default_subtitle_index(subtitles, ctx=None):
     for idx, sub in enumerate(rows):
         if not allow_automatic(sub):
             continue
+        # v5.10.491: your language first. A source's "default" flag (often its
+        # English track) came first and beat an Arabic subtitle sitting next
+        # to it; it now only orders tracks of the same language
+        # Silo's server checked it against the audio: a matched subtitle
+        # first, one it found timed for another release last
+        fit = {'synced': 0, 'already_synced': 0, 'no_match': 2}.get(str(sub.get('sync_status') or ''), 1)
         sort_key = (
-            0 if (sub.get('selected') or sub.get('default')) else 1,
             _lang_rank(sub),
+            fit,
+            0 if (sub.get('selected') or sub.get('default')) else 1,
             1 if sub.get('forced') else 0,
             idx,
         )
@@ -1001,7 +978,7 @@ def _sniff_subtitle_format(payload):
     return ''
 
 
-def _download_remote_subtitle(url, local_path, timeout=None):
+def _download_remote_subtitle(url, local_path, timeout=None, language_hint='', extra_headers=None):
     """Download a protected Plex/Emby sidecar when xbmcvfs.copy cannot.
 
     Kodi's VFS HTTP copy is inconsistent with authenticated URLs on some
@@ -1024,6 +1001,8 @@ def _download_remote_subtitle(url, local_path, timeout=None):
                     headers[str(key)] = str(value)
         except Exception:
             pass
+    from ..subtitle_http import headers as subtitle_headers, open_response
+    headers = subtitle_headers(headers, extra_headers)
     try:
         # Use one controlled urllib attempt. Kodi's VFS may inherit global
         # curl retry settings and turn a failed subtitle into minutes of wait.
@@ -1041,11 +1020,12 @@ def _download_remote_subtitle(url, local_path, timeout=None):
             payload = plex_client._request(
                 raw_url, headers=headers, timeout=timeout)[:(5 * 1024 * 1024) + 1]
         else:
-            req = Request(raw_url, headers=headers)
-            with urlopen(req, timeout=timeout) as response:
+            with open_response(raw_url, headers, timeout) as response:
                 payload = response.read((5 * 1024 * 1024) + 1)
         if not payload or len(payload) < 32 or len(payload) > 5 * 1024 * 1024:
             return False
+        from ..subtitle_encoding import normalize
+        payload = normalize(payload, language_hint)
         sniff = payload[:256].lstrip().lower()
         if sniff.startswith((b'<!doctype html', b'<html', b'<?xml')) and b'<tt ' not in sniff:
             return False
@@ -1060,6 +1040,8 @@ def _download_remote_subtitle(url, local_path, timeout=None):
         base, _dot, cur_ext = str(local_path).rpartition('.')
         if base and cur_ext.lower() in ('srt', 'vtt', 'ass', 'ssa') and cur_ext.lower() != real_ext:
             local_path = '%s.%s' % (base, real_ext)
+        from ..subtitle_encoding import for_kodi
+        payload = for_kodi(payload, real_ext)
         fh = xbmcvfs.File(local_path, 'wb')
         try:
             written = fh.write(payload)
@@ -1091,13 +1073,16 @@ def _download_subtitle_jobs_async(jobs):
         return
 
     def _worker():
-        for sub_url, local_path in jobs:
+        for job in jobs:
+            sub_url, local_path = job[:2]
+            language_hint = job[2] if len(job) > 2 else ''
+            extra_headers = job[3] if len(job) > 3 else None
             try:
                 if xbmcvfs.exists(local_path):
                     continue
                 lower = str(sub_url or '').lower()
                 if lower.startswith(('http://', 'https://')):
-                    if not _download_remote_subtitle(sub_url, local_path):
+                    if not _download_remote_subtitle(sub_url, local_path, language_hint=language_hint, extra_headers=extra_headers):
                         xbmc.log('[DexHub] subtitle background download rejected: %s'
                                  % str(sub_url).split('|', 1)[0][:160], xbmc.LOGWARNING)
                 else:
@@ -1130,13 +1115,13 @@ def _prepare_subtitle_files(subtitles, stream_key, prefer_local_copy=False,
     * `defer_download` mirrors DPlex: return expected local paths immediately
       and fetch them in the background, keeping Kodi's playback handoff fast.
     """
-    def _download_now(url, path, timeout=6):
+    def _download_now(url, path, timeout=6, language_hint='', extra_headers=None):
         if deadline is not None:
             remaining = float(deadline) - time.monotonic()
             if remaining <= 0:
                 return False
             timeout = min(float(timeout), remaining)
-        return _download_remote_subtitle(url, path, timeout=timeout)
+        return _download_remote_subtitle(url, path, timeout=timeout, language_hint=language_hint, extra_headers=extra_headers)
 
     if not subtitles:
         return []
@@ -1247,12 +1232,12 @@ def _prepare_subtitle_files(subtitles, stream_key, prefer_local_copy=False,
         if should_copy and defer_download:
             final_path = local_path
             if not xbmcvfs.exists(local_path):
-                download_jobs.append((sub_url, local_path))
+                download_jobs.append((sub_url, local_path, lang_key, sub.get('headers')))
         elif should_copy:
             try:
                 if not xbmcvfs.exists(local_path):
                     if is_remote_http:
-                        _written = _download_now(sub_url, local_path, timeout=6)
+                        _written = _download_now(sub_url, local_path, timeout=6, language_hint=lang_key, extra_headers=sub.get('headers'))
                         if _written:
                             local_path = _written
                     else:
@@ -1278,13 +1263,13 @@ def _prepare_subtitle_files(subtitles, stream_key, prefer_local_copy=False,
                             pass
                         # VFS sometimes stores an HTML auth response. Retry
                         # through urllib before giving up on local materialize.
-                        _written = is_remote_http and _download_now(sub_url, local_path, timeout=6)
+                        _written = is_remote_http and _download_now(sub_url, local_path, timeout=6, language_hint=lang_key, extra_headers=sub.get('headers'))
                         if _written:
                             final_path = _written
                         else:
                             final_path = sub_url
             except Exception:
-                _written = is_remote_http and _download_now(sub_url, local_path, timeout=6)
+                _written = is_remote_http and _download_now(sub_url, local_path, timeout=6, language_hint=lang_key, extra_headers=sub.get('headers'))
                 if _written:
                     final_path = _written
                 else:

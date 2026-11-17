@@ -1,0 +1,3043 @@
+[
+ {
+  "id": "collection-DEXGENRES",
+  "title": "Genre Universe",
+  "pinToTop": false,
+  "focusGlowEnabled": true,
+  "showAllTab": true,
+  "viewMode": "FOLLOW_LAYOUT",
+  "folders": [
+   {
+    "id": "folder-58E27B63",
+    "title": "Action",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "https://collections.wixct.cc/assets/covers/genres/action-1.webp",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/genre-action-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/gqrnQA6Xppdl8vIb2eJc58VC1tW.jpg",
+    "sources": [
+     {
+      "title": "Action Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22032220,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-8E03B90B"
+     },
+     {
+      "title": "Action Thrillers",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22032335,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-CE8082AF"
+     },
+     {
+      "title": "Action Adventures",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22032289,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-C22E02D1"
+     },
+     {
+      "title": "Action Comedies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22032311,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-CE2D76A8"
+     },
+     {
+      "title": "Martial Arts",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 25288445,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-7BD12F69"
+     },
+     {
+      "title": "One-person Army",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29580675,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-2EC2AD34"
+     },
+     {
+      "title": "Superhero Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 25287616,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-13E5355C"
+     },
+     {
+      "title": "Trending Action Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 40,
+       "withGenres": "10759",
+       "with_genres": "10759",
+       "vote_count.gte": 40
+      },
+      "id": "src-3583702C"
+     },
+     {
+      "title": "Top Rated Action Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "vote_average.desc",
+      "filters": {
+       "voteCountGte": 300,
+       "withGenres": "10759",
+       "with_genres": "10759",
+       "vote_count.gte": 300
+      },
+      "id": "src-67F7FBA5"
+     }
+    ]
+   },
+   {
+    "id": "folder-A9E62443",
+    "title": "Thriller",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "https://collections.wixct.cc/assets/covers/genres/thriller-1.webp",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/genre-thriller-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/3RFmTz5h2UuFWEV4oH00XICBR9y.jpg",
+    "sources": [
+     {
+      "title": "Psychological Thrillers",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 21112021,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-F2B78311"
+     },
+     {
+      "title": "Mystery Thrillers",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22033406,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-53E44246"
+     },
+     {
+      "title": "Crime Thrillers",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22033342,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-0EA1B5DF"
+     },
+     {
+      "title": "Sci-fi Thrillers",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22033455,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-3DDBF337"
+     },
+     {
+      "title": "Romantic Thrillers",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 25294390,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-917CC595"
+     },
+     {
+      "title": "Classic Thrillers",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22033245,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-37C88B7B"
+     },
+     {
+      "title": "Edge of Your Seat",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22038244,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-7D3CA6A0"
+     },
+     {
+      "title": "Trending Mystery Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 40,
+       "withGenres": "9648",
+       "with_genres": "9648",
+       "vote_count.gte": 40
+      },
+      "id": "src-31EFCF05"
+     },
+     {
+      "title": "Top Rated Mystery Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "vote_average.desc",
+      "filters": {
+       "voteCountGte": 300,
+       "withGenres": "9648",
+       "with_genres": "9648",
+       "vote_count.gte": 300
+      },
+      "id": "src-19633AEB"
+     }
+    ]
+   },
+   {
+    "id": "folder-A2182FB2",
+    "title": "Horror",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "https://collections.wixct.cc/assets/covers/genres/horror-1.webp",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/genre-horror-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/ecKQlAEG95k62SMGhvX83oEqANK.jpg",
+    "sources": [
+     {
+      "title": "Supernatural Horrors",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29003049,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-FBE70579"
+     },
+     {
+      "title": "Folk Horrors",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29105578,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-2C655C54"
+     },
+     {
+      "title": "Slasher Horrors",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 25291859,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-B87BF07B"
+     },
+     {
+      "title": "Occult Horrors",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 25294423,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-02B509EF"
+     },
+     {
+      "title": "Body Horrors",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29517712,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-8399D2FC"
+     },
+     {
+      "title": "Comedy Horrors",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22032773,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-2991AE71"
+     },
+     {
+      "title": "Foreign Horrors",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 25288728,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-1DD3D266"
+     },
+     {
+      "title": "Classic Horrors",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22038474,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-DFDB3BC4"
+     },
+     {
+      "title": "Found Footage",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 25292755,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-BA66FD68"
+     },
+     {
+      "title": "Scary",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 21160721,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-3C4AAE2B"
+     }
+    ]
+   },
+   {
+    "id": "folder-EB8BE07C",
+    "title": "Comedy",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "https://collections.wixct.cc/assets/covers/genres/comedy-1.webp",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/genre-comedy-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/8Tfys3mDZVp4tNoH2ktm06a0Tau.jpg",
+    "sources": [
+     {
+      "title": "Comedies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20700204,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-7826D1C3"
+     },
+     {
+      "title": "Rom-coms",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 21786046,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-F103ECB7"
+     },
+     {
+      "title": "Dark Comedies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29013760,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-97624E66"
+     },
+     {
+      "title": "Quirky Comedies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29182030,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-4225D805"
+     },
+     {
+      "title": "High-concept Comedies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29914762,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-F722E977"
+     },
+     {
+      "title": "Satire Comedies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 25291519,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-403F08AF"
+     },
+     {
+      "title": "Buddy Comedies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 25292210,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-060B3EE7"
+     },
+     {
+      "title": "Mockumentaries",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29007771,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-144EFB0E"
+     },
+     {
+      "title": "Classic Comedies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22033107,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-1A8DA357"
+     },
+     {
+      "title": "Trending Comedy Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 40,
+       "withGenres": "35",
+       "with_genres": "35",
+       "vote_count.gte": 40
+      },
+      "id": "src-0055200A"
+     },
+     {
+      "title": "Top Rated Comedy Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "vote_average.desc",
+      "filters": {
+       "voteCountGte": 300,
+       "withGenres": "35",
+       "with_genres": "35",
+       "vote_count.gte": 300
+      },
+      "id": "src-419FA5BF"
+     }
+    ]
+   },
+   {
+    "id": "folder-CDEE43A9",
+    "title": "Drama",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "https://collections.wixct.cc/assets/covers/genres/drama-1.webp",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/genre-drama-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/neeNHeXjMF5fXoCJRsOmkNGC7q.jpg",
+    "sources": [
+     {
+      "title": "Dramas",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22033347,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-27C9BB1E"
+     },
+     {
+      "title": "Psychological Dramas",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29053187,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-5AC21C46"
+     },
+     {
+      "title": "Period Dramas",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 25291407,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-A153FABF"
+     },
+     {
+      "title": "Biographical Dramas",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22033014,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-B9B9F559"
+     },
+     {
+      "title": "Political Dramas",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 25294337,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-5EAFEFC8"
+     },
+     {
+      "title": "Dramedies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22033362,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-781F2749"
+     },
+     {
+      "title": "Melodramas",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 25294311,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-6C41B9CA"
+     },
+     {
+      "title": "Classic Dramas",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22033131,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-91AD6E1C"
+     },
+     {
+      "title": "Trending Drama Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 40,
+       "withGenres": "18",
+       "with_genres": "18",
+       "vote_count.gte": 40
+      },
+      "id": "src-C1B66A6D"
+     },
+     {
+      "title": "Top Rated Drama Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "vote_average.desc",
+      "filters": {
+       "voteCountGte": 300,
+       "withGenres": "18",
+       "with_genres": "18",
+       "vote_count.gte": 300
+      },
+      "id": "src-969A1524"
+     }
+    ]
+   },
+   {
+    "id": "folder-1E03C63C",
+    "title": "Romance",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "https://collections.wixct.cc/assets/covers/genres/romance-1.webp",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/genre-romance-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/xj1Sv1xm4Y0ydBueGuf10Y9qM0O.jpg",
+    "sources": [
+     {
+      "title": "Romance",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20700252,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-8EF73F47"
+     },
+     {
+      "title": "Romantic Dramas",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22033419,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-82DB2BB6"
+     },
+     {
+      "title": "Rom-coms",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 21786046,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-F103ECB7"
+     },
+     {
+      "title": "Chick Flicks",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 25289133,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-EDB423CC"
+     },
+     {
+      "title": "Trending Romance Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 40,
+       "withGenres": "18",
+       "withKeywords": "9840",
+       "with_genres": "18",
+       "with_keywords": "9840",
+       "vote_count.gte": 40
+      },
+      "id": "src-BF80ACBC"
+     },
+     {
+      "title": "Top Rated Romance Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "vote_average.desc",
+      "filters": {
+       "voteCountGte": 300,
+       "withGenres": "18",
+       "withKeywords": "9840",
+       "with_genres": "18",
+       "with_keywords": "9840",
+       "vote_count.gte": 300
+      },
+      "id": "src-25A61300"
+     }
+    ]
+   },
+   {
+    "id": "folder-20FCCCA9",
+    "title": "Sci-Fi",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "https://collections.wixct.cc/assets/covers/genres/sci-fi-1.webp",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/genre-scifi-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/eZ239CUp1d6OryZEBPnO2n87gMG.jpg",
+    "sources": [
+     {
+      "title": "Sci-fi Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20700259,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-8E784612"
+     },
+     {
+      "title": "Sci-fi Dramas",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29911263,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-E0630784"
+     },
+     {
+      "title": "Astronomy & Space",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20709064,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-5EA3A97E"
+     },
+     {
+      "title": "Time Travel",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20709447,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-66B80932"
+     },
+     {
+      "title": "Artificial Intelligence",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 27251319,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-54000059"
+     },
+     {
+      "title": "Aliens & Monsters",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22034737,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-8F7BD147"
+     },
+     {
+      "title": "Dystopian Future",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29006737,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-10223252"
+     },
+     {
+      "title": "Classic Sci-fi",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22033156,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-295DC058"
+     },
+     {
+      "title": "Trending Sci-Fi Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 40,
+       "withGenres": "10765",
+       "with_genres": "10765",
+       "vote_count.gte": 40
+      },
+      "id": "src-6DE25BAD"
+     },
+     {
+      "title": "Top Rated Sci-Fi Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "vote_average.desc",
+      "filters": {
+       "voteCountGte": 300,
+       "withGenres": "10765",
+       "with_genres": "10765",
+       "vote_count.gte": 300
+      },
+      "id": "src-D3E86FB5"
+     }
+    ]
+   },
+   {
+    "id": "folder-A9FA3F14",
+    "title": "Fantasy",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "https://collections.wixct.cc/assets/covers/genres/fantasy-1.webp",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/genre-fantasy-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/kxQiIJ4gVcD3K6o14MJ72p5yRcE.jpg",
+    "sources": [
+     {
+      "title": "Fantasy Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22033383,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-055F8871"
+     },
+     {
+      "title": "Dark Fantasy Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 25292649,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-B7D0E61D"
+     },
+     {
+      "title": "High-fantasy Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29119338,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-F47DC286"
+     },
+     {
+      "title": "Sword & Sorcery",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 25294365,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-FF88B007"
+     },
+     {
+      "title": "Action Fantasy",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22033076,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-49A86C79"
+     },
+     {
+      "title": "Quest Adventures",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29914487,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-1CC7A4D9"
+     }
+    ]
+   },
+   {
+    "id": "folder-FC0010ED",
+    "title": "Crime",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "https://collections.wixct.cc/assets/covers/genres/crime-1.webp",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/genre-crime-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/9FE5eD92WfVCiivM9Pq9GVSrlWk.jpg",
+    "sources": [
+     {
+      "title": "Crime Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22033327,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-94AE0850"
+     },
+     {
+      "title": "Crime Dramas",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20830447,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-82BD5D4F"
+     },
+     {
+      "title": "Neo-noir",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22038007,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-D7411F53"
+     },
+     {
+      "title": "Film Noir",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22033476,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-1CE70FCB"
+     },
+     {
+      "title": "Gangster Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 21694603,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-1A1E6307"
+     },
+     {
+      "title": "Con-artists & Heists",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22038231,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-2147754F"
+     },
+     {
+      "title": "Murder Mysteries",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22038258,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-741A4C62"
+     },
+     {
+      "title": "Detective Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 21746684,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-078E5142"
+     },
+     {
+      "title": "Trending Crime Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 40,
+       "withGenres": "80",
+       "with_genres": "80",
+       "vote_count.gte": 40
+      },
+      "id": "src-1E2574AC"
+     },
+     {
+      "title": "Top Rated Crime Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "vote_average.desc",
+      "filters": {
+       "voteCountGte": 300,
+       "withGenres": "80",
+       "with_genres": "80",
+       "vote_count.gte": 300
+      },
+      "id": "src-D966BB34"
+     }
+    ]
+   },
+   {
+    "id": "folder-F2AC8F38",
+    "title": "Animation",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "https://collections.wixct.cc/assets/covers/genres/animation-1.webp",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/genre-animation-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/m4TUa2ciEWSlk37rOsjiSIvZDXE.jpg",
+    "sources": [
+     {
+      "title": "Hand-drawn Animation",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29542636,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-5BE64F57"
+     },
+     {
+      "title": "Studio Ghibli",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29731381,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-9B7BA1E1"
+     },
+     {
+      "title": "Stop Motion Animation",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29542698,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-0C18CAA3"
+     },
+     {
+      "title": "Adult Animation",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29542536,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-48B77EAE"
+     },
+     {
+      "title": "Animated Adult Shows",
+      "provider": "trakt",
+      "mediaType": "TV",
+      "traktListId": 29066371,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-70B1F1AB"
+     },
+     {
+      "title": "Live-action Animated Hybrids",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29552945,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-7F57F376"
+     },
+     {
+      "title": "Trending Animated Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 40,
+       "withGenres": "16",
+       "with_genres": "16",
+       "vote_count.gte": 40
+      },
+      "id": "src-03B2262A"
+     },
+     {
+      "title": "Top Rated Animated Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "vote_average.desc",
+      "filters": {
+       "voteCountGte": 300,
+       "withGenres": "16",
+       "with_genres": "16",
+       "vote_count.gte": 300
+      },
+      "id": "src-10CB4C40"
+     }
+    ]
+   },
+   {
+    "id": "folder-F8668C02",
+    "title": "Documentaries",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "https://collections.wixct.cc/assets/covers/genres/documentary-1.webp",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/genre-docs-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/1DYpBOVdb7Mzc9DgMCdIBTN1JEC.jpg",
+    "sources": [
+     {
+      "title": "Documentaries",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20700238,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-FB444B6E"
+     },
+     {
+      "title": "Critically Acclaimed Docs & Series",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22033528,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-359E262E"
+     },
+     {
+      "title": "True Crime Docs & Series",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 21249694,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-173890A1"
+     },
+     {
+      "title": "Nature Docs & Series",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 21249748,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-7A4E3D22"
+     },
+     {
+      "title": "Biographical Documentaries",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22033024,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-52796DE4"
+     },
+     {
+      "title": "Trending Documentary Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 40,
+       "withGenres": "99",
+       "with_genres": "99",
+       "vote_count.gte": 40
+      },
+      "id": "src-0B611E02"
+     },
+     {
+      "title": "Top Rated Documentary Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "vote_average.desc",
+      "filters": {
+       "voteCountGte": 300,
+       "withGenres": "99",
+       "with_genres": "99",
+       "vote_count.gte": 300
+      },
+      "id": "src-17F9A4C3"
+     }
+    ]
+   },
+   {
+    "id": "folder-6260637B",
+    "title": "War & History",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/genre-war-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/genre-war-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/zb6fM1CX41D9rF9hdgclu0peUmy.jpg",
+    "sources": [
+     {
+      "title": "War Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22033505,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-DD1D82A0"
+     },
+     {
+      "title": "World War Related Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22033500,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-C4778497"
+     },
+     {
+      "title": "Costume Dramas",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29031558,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-9C09928A"
+     },
+     {
+      "title": "Swashbucklers",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29027698,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-940542B0"
+     },
+     {
+      "title": "Sword & Sandal",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29027982,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-D78C3996"
+     },
+     {
+      "title": "Trending War Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 40,
+       "withGenres": "10768",
+       "with_genres": "10768",
+       "vote_count.gte": 40
+      },
+      "id": "src-633D1477"
+     },
+     {
+      "title": "Top Rated War Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "vote_average.desc",
+      "filters": {
+       "voteCountGte": 300,
+       "withGenres": "10768",
+       "with_genres": "10768",
+       "vote_count.gte": 300
+      },
+      "id": "src-23497965"
+     }
+    ]
+   },
+   {
+    "id": "folder-A05DF8E5",
+    "title": "Adventure & Westerns",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/genre-adventure-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/genre-adventure-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/8sNiAPPYU14PUepFNeSNGUTiHW.jpg",
+    "sources": [
+     {
+      "title": "Adventures",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22032399,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-F24938C2"
+     },
+     {
+      "title": "Sea Adventures",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29190890,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-3579E06E"
+     },
+     {
+      "title": "Jungle Adventures",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29575036,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-9F3A340E"
+     },
+     {
+      "title": "Desert Adventures",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29542267,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-D38682BF"
+     },
+     {
+      "title": "Westerns",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22032433,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-033E4573"
+     },
+     {
+      "title": "Classic Westerns",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22033257,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-A5BA727E"
+     },
+     {
+      "title": "Trending Western Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 40,
+       "withGenres": "37",
+       "with_genres": "37",
+       "vote_count.gte": 40
+      },
+      "id": "src-FB5B9F30"
+     },
+     {
+      "title": "Top Rated Western Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "vote_average.desc",
+      "filters": {
+       "voteCountGte": 300,
+       "withGenres": "37",
+       "with_genres": "37",
+       "vote_count.gte": 300
+      },
+      "id": "src-E684345D"
+     }
+    ]
+   },
+   {
+    "id": "folder-C765F68D",
+    "title": "Family",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "https://collections.wixct.cc/assets/covers/genres/family-1.webp",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/genre-family-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/lgotja3xMoJZbynwHfcQcJAEMWH.jpg",
+    "sources": [
+     {
+      "title": "Family Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22032854,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-CE8A5D7B"
+     },
+     {
+      "title": "Animal Tales",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 25294772,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-F1213A38"
+     },
+     {
+      "title": "Dog Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 21663909,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-B5F14F1E"
+     },
+     {
+      "title": "Christmas Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22045337,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-02077B12"
+     },
+     {
+      "title": "Trending Family Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 40,
+       "withGenres": "10751|10762",
+       "with_genres": "10751|10762",
+       "vote_count.gte": 40
+      },
+      "id": "src-3CCBDF10"
+     },
+     {
+      "title": "Top Rated Family Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "vote_average.desc",
+      "filters": {
+       "voteCountGte": 300,
+       "withGenres": "10751|10762",
+       "with_genres": "10751|10762",
+       "vote_count.gte": 300
+      },
+      "id": "src-0CA26BE8"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "collection-DEXMOODS",
+  "title": "Moods & Themes",
+  "pinToTop": false,
+  "focusGlowEnabled": true,
+  "showAllTab": true,
+  "viewMode": "FOLLOW_LAYOUT",
+  "folders": [
+   {
+    "id": "folder-7D9DECBF",
+    "title": "Feel Good",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-feelgood-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-feelgood-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/5bzPWQ2dFUl2aZKkp7ILJVVkRed.jpg",
+    "sources": [
+     {
+      "title": "Heart-warming",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20699217,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-3FEBF3FB"
+     },
+     {
+      "title": "Lighthearted",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20699649,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-5DF89B5F"
+     },
+     {
+      "title": "Sweet",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20700200,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-05584F5C"
+     },
+     {
+      "title": "Inspiring",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20699220,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-BE376BBD"
+     },
+     {
+      "title": "Slice-of-life",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 27257992,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-A17BB0BB"
+     }
+    ]
+   },
+   {
+    "id": "folder-DAF26DAB",
+    "title": "Tearjerkers",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "https://collections.wixct.cc/assets/covers/genres/tearjerkers-1.webp",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-tearjerkers-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/sCzcYW9h55WcesOqA12cgEr9Exw.jpg",
+    "sources": [
+     {
+      "title": "Touching",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20700156,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-A31F87B7"
+     },
+     {
+      "title": "Emotional",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20699212,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-B88F0540"
+     },
+     {
+      "title": "Depressing",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20700167,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-2B4891D1"
+     },
+     {
+      "title": "Melodramas",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 25294311,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-6C41B9CA"
+     }
+    ]
+   },
+   {
+    "id": "folder-208BF2C1",
+    "title": "Dark & Intense",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-dark-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-dark-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/i5H7zusQGsysGQ8i6P361Vnr0n2.jpg",
+    "sources": [
+     {
+      "title": "Dark",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20699198,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-41B3729A"
+     },
+     {
+      "title": "Intense",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20699221,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-8DB433F2"
+     },
+     {
+      "title": "Violent",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 21748707,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-ED9BA398"
+     },
+     {
+      "title": "Suspenseful",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20699665,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-6F882C21"
+     }
+    ]
+   },
+   {
+    "id": "folder-28021EFF",
+    "title": "Mind-Bending",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-mindbending-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-mindbending-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/dqmMWNWfLnExDRpMtIMqI97GQFR.jpg",
+    "sources": [
+     {
+      "title": "Mind-Benders",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20706753,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-6E8C9E38"
+     },
+     {
+      "title": "Thought-provoking",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20699178,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-AC51D1D6"
+     },
+     {
+      "title": "Trippy",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20710634,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-1815AE1D"
+     },
+     {
+      "title": "Surreal",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 21782694,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-39CC150A"
+     },
+     {
+      "title": "Philosophical",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22038206,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-62222A95"
+     },
+     {
+      "title": "Weird",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20699183,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-EC47E0EF"
+     },
+     {
+      "title": "Mindf*ck Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 21100861,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-802B94AB"
+     }
+    ]
+   },
+   {
+    "id": "folder-B5CFA846",
+    "title": "Slow Burn",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-slowburn-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-slowburn-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/pNjh59JSxChQktamG3LMp9ZoQzp.jpg",
+    "sources": [
+     {
+      "title": "Slow-burners",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20699664,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-15B9630D"
+     },
+     {
+      "title": "Atmospheric",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 25287797,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-44A5283A"
+     },
+     {
+      "title": "Dialogue-driven",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29091742,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-490CA58F"
+     }
+    ]
+   },
+   {
+    "id": "folder-86D2C382",
+    "title": "True Stories",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-truestories-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-truestories-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/ufSwlnECLoUbBjPrFqEQcWBzHwc.jpg",
+    "sources": [
+     {
+      "title": "True-story-based",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20700174,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-8040D4AB"
+     },
+     {
+      "title": "Biographical Dramas",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22033014,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-B9B9F559"
+     },
+     {
+      "title": "True Crime Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 25294932,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-62F1B2D5"
+     },
+     {
+      "title": "Biographical Comedies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22033040,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-6C56E804"
+     },
+     {
+      "title": "Based on a True Story",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 798830,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-7DF89745"
+     }
+    ]
+   },
+   {
+    "id": "folder-4577C9A0",
+    "title": "Critics' Choice",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-critics-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-critics-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/5lTZyuBTNOfawsfPT8Q0cIg6qAF.jpg",
+    "sources": [
+     {
+      "title": "Critically Acclaimed Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20732151,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-AD285382"
+     },
+     {
+      "title": "Oscar Winners",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 30888794,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-941B0886"
+     },
+     {
+      "title": "Well-acted",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20700183,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-D49CCF14"
+     },
+     {
+      "title": "Critically Acclaimed Foreign Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22038460,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-86655568"
+     },
+     {
+      "title": "Foreign Oscar Winners",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 30888809,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-944290F2"
+     }
+    ]
+   },
+   {
+    "id": "folder-897538F0",
+    "title": "Certified Fresh",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "https://collections.wixct.cc/assets/covers/lists/certified-fresh-1.webp",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-fresh-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/eeGRpU64sIrRApjWXvTpK5Lep2K.jpg",
+    "sources": [
+     {
+      "title": "Best of 2025",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 30923909,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-DF408968"
+     },
+     {
+      "title": "Best of 2024",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 27068519,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-E8C55262"
+     },
+     {
+      "title": "Best of 2023",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 24798151,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-E814718D"
+     },
+     {
+      "title": "Best of 2022",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22838907,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-21D6BF3B"
+     },
+     {
+      "title": "Best of 2021",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20564209,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-6FAB4A89"
+     },
+     {
+      "title": "Best of 2020",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 10721201,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-3DFDB93C"
+     },
+     {
+      "title": "Best of 2019",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 6172354,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-23A98D8B"
+     },
+     {
+      "title": "Best of 2018",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 4440958,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-0302DD13"
+     },
+     {
+      "title": "Best of 2017",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 3128670,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-CE162E66"
+     },
+     {
+      "title": "Best of 2016",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 1883088,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-18003705"
+     },
+     {
+      "title": "Best of 2015",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 1415526,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-40CE21F6"
+     },
+     {
+      "title": "Best of 2014",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 3214276,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-C73A326D"
+     }
+    ]
+   },
+   {
+    "id": "folder-DD44D1B4",
+    "title": "Hidden Gems & Cult",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-gems-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-gems-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/c6OLXfKAk5BKeR6broC8pYiCquX.jpg",
+    "sources": [
+     {
+      "title": "Hidden Gems",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 28828955,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-43DB9ACD"
+     },
+     {
+      "title": "Cult Classics",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22037939,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-99E9D4BA"
+     },
+     {
+      "title": "Quirky Indies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20709061,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-4FE29565"
+     },
+     {
+      "title": "Original",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20699660,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-8E61C716"
+     },
+     {
+      "title": "Experimental Filmmaking",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29017367,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-02141165"
+     },
+     {
+      "title": "Great Movies You Never Heard Of",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 808094,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-19D3D28A"
+     },
+     {
+      "title": "Worth Seeing",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 5218744,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-DAF22204"
+     }
+    ]
+   },
+   {
+    "id": "folder-8D809EE3",
+    "title": "Indie Labels",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-indie-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-indie-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/fIwiFha3WPu5nHkBeMQ4GzEk0Hv.jpg",
+    "sources": [
+     {
+      "title": "A24 Films",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 27628315,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-8C784188"
+     },
+     {
+      "title": "NEON Films",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 30917084,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-82BF920D"
+     },
+     {
+      "title": "Apatow Productions",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20702993,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-FEE3DD57"
+     }
+    ]
+   },
+   {
+    "id": "folder-19FB7FE4",
+    "title": "Survival & Disaster",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-survival-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-survival-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/hiazLNa1UXuX35OTnMQRKOx3eTk.jpg",
+    "sources": [
+     {
+      "title": "Survival",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20709366,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-2F066534"
+     },
+     {
+      "title": "Disaster Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29003154,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-F53DCCBC"
+     },
+     {
+      "title": "Post-apocalyptic Future",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 25289070,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-56DE65AB"
+     }
+    ]
+   },
+   {
+    "id": "folder-B9D0E683",
+    "title": "Outside the Law",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-law-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-law-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/8ZTVqvKDQ8emSGUEMjsS4yHAwrp.jpg",
+    "sources": [
+     {
+      "title": "Con-artists & Heists",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22038231,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-2147754F"
+     },
+     {
+      "title": "Prison Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 21698338,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-A1F4739A"
+     },
+     {
+      "title": "Courtroom Dramas",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 21745587,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-A7C0509A"
+     },
+     {
+      "title": "Spy & Espionage Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 27251299,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-C1FB20C9"
+     },
+     {
+      "title": "Serial Killers",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 21699093,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-9914D674"
+     },
+     {
+      "title": "Buddy Cop Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 25294174,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-90683D5A"
+     }
+    ]
+   },
+   {
+    "id": "folder-E3513879",
+    "title": "Journeys",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-journeys-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-journeys-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/8hSjOHRY4OUEpqxszYbMdem8z9C.jpg",
+    "sources": [
+     {
+      "title": "Road Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29004003,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-E72241C6"
+     },
+     {
+      "title": "Coming-of-age",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 21665268,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-979D54B9"
+     },
+     {
+      "title": "Foodie Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29717733,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-EDD7924C"
+     },
+     {
+      "title": "Ensemble Cast",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29043215,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-A65F2FD2"
+     }
+    ]
+   },
+   {
+    "id": "folder-55E60B48",
+    "title": "Easy Watching",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-easy-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/mood-easy-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/zUninC7dOHfzwcgCqQMLQjlMtiy.jpg",
+    "sources": [
+     {
+      "title": "Quick Hits",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20731813,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-EE54427F"
+     },
+     {
+      "title": "No-brainers",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 20699653,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-E30FFEC4"
+     },
+     {
+      "title": "Blockbusters",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 27275767,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-68D75230"
+     },
+     {
+      "title": "Sport Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 21698147,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-AE1E0EB4"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "collection-DEXKWAVE",
+  "title": "K-Wave",
+  "pinToTop": false,
+  "focusGlowEnabled": true,
+  "showAllTab": true,
+  "viewMode": "FOLLOW_LAYOUT",
+  "folders": [
+   {
+    "id": "folder-E52A2782",
+    "title": "K-Drama Now",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "https://collections.wixct.cc/assets/covers/genres/k-drama-101.webp",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/kwave-now-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/93KsJLWcGwpFtjfzQ3gOa8GB3bP.jpg",
+    "sources": [
+     {
+      "title": "Trending K-Dramas",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 40,
+       "withGenres": "18",
+       "withOriginalLanguage": "ko",
+       "with_genres": "18",
+       "with_original_language": "ko",
+       "vote_count.gte": 40
+      },
+      "id": "src-C07BDB46"
+     },
+     {
+      "title": "New K-Dramas",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "first_air_date.desc",
+      "filters": {
+       "voteCountGte": 10,
+       "withGenres": "18",
+       "withOriginalLanguage": "ko",
+       "with_genres": "18",
+       "with_original_language": "ko",
+       "vote_count.gte": 10
+      },
+      "id": "src-5B0312E1"
+     },
+     {
+      "title": "All-Time Best K-Dramas",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "vote_average.desc",
+      "filters": {
+       "voteCountGte": 300,
+       "withGenres": "18",
+       "withOriginalLanguage": "ko",
+       "with_genres": "18",
+       "with_original_language": "ko",
+       "vote_count.gte": 300
+      },
+      "id": "src-C1FF4C56"
+     }
+    ]
+   },
+   {
+    "id": "folder-F8AEF811",
+    "title": "K-Romance",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/kwave-romance-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/kwave-romance-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/f44Ykw0MnAcFvBeYhmdKekcX35J.jpg",
+    "sources": [
+     {
+      "title": "Romantic K-Dramas",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 30,
+       "withKeywords": "9840",
+       "withOriginalLanguage": "ko",
+       "with_keywords": "9840",
+       "with_original_language": "ko",
+       "vote_count.gte": 30
+      },
+      "id": "src-D6456C00"
+     },
+     {
+      "title": "Top Rated K-Romance",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "vote_average.desc",
+      "filters": {
+       "voteCountGte": 150,
+       "withKeywords": "9840",
+       "withOriginalLanguage": "ko",
+       "with_keywords": "9840",
+       "with_original_language": "ko",
+       "vote_count.gte": 150
+      },
+      "id": "src-F02DC036"
+     },
+     {
+      "title": "Korean Romance Movies",
+      "provider": "tmdb",
+      "mediaType": "MOVIE",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 50,
+       "withGenres": "10749",
+       "withOriginalLanguage": "ko",
+       "with_genres": "10749",
+       "with_original_language": "ko",
+       "vote_count.gte": 50
+      },
+      "id": "src-560FBF0C"
+     }
+    ]
+   },
+   {
+    "id": "folder-423A02E0",
+    "title": "K-Thrillers",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/kwave-thriller-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/kwave-thriller-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/AjwoDj77HLlqcpwEGqsnvMXm5my.jpg",
+    "sources": [
+     {
+      "title": "Crime & Mystery K-Dramas",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 30,
+       "withGenres": "80|9648",
+       "withOriginalLanguage": "ko",
+       "with_genres": "80|9648",
+       "with_original_language": "ko",
+       "vote_count.gte": 30
+      },
+      "id": "src-27D65591"
+     },
+     {
+      "title": "Top Rated K-Thrillers",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "vote_average.desc",
+      "filters": {
+       "voteCountGte": 150,
+       "withGenres": "80|9648",
+       "withOriginalLanguage": "ko",
+       "with_genres": "80|9648",
+       "with_original_language": "ko",
+       "vote_count.gte": 150
+      },
+      "id": "src-8D911C9C"
+     },
+     {
+      "title": "Korean Thriller Movies",
+      "provider": "tmdb",
+      "mediaType": "MOVIE",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 80,
+       "withGenres": "53|80",
+       "withOriginalLanguage": "ko",
+       "with_genres": "53|80",
+       "with_original_language": "ko",
+       "vote_count.gte": 80
+      },
+      "id": "src-E25E20E7"
+     },
+     {
+      "title": "Korean Thrillers: Fan Picks",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 10832207,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-DE6D0C1F"
+     }
+    ]
+   },
+   {
+    "id": "folder-804215A8",
+    "title": "Korean Cinema",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/kwave-cinema-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/kwave-cinema-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/TU9NIjwzjoKPwQHoHshkFcQUCG.jpg",
+    "sources": [
+     {
+      "title": "Korean Cinema",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 22034546,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-ABB73A90"
+     },
+     {
+      "title": "Popular Korean Movies",
+      "provider": "tmdb",
+      "mediaType": "MOVIE",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 100,
+       "withOriginalLanguage": "ko",
+       "with_original_language": "ko",
+       "vote_count.gte": 100
+      },
+      "id": "src-C52B414F"
+     },
+     {
+      "title": "Top Rated Korean Movies",
+      "provider": "tmdb",
+      "mediaType": "MOVIE",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "vote_average.desc",
+      "filters": {
+       "voteCountGte": 500,
+       "withOriginalLanguage": "ko",
+       "with_original_language": "ko",
+       "vote_count.gte": 500
+      },
+      "id": "src-F1DD6FD7"
+     },
+     {
+      "title": "New Korean Movies",
+      "provider": "tmdb",
+      "mediaType": "MOVIE",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "primary_release_date.desc",
+      "filters": {
+       "voteCountGte": 10,
+       "withOriginalLanguage": "ko",
+       "with_original_language": "ko",
+       "vote_count.gte": 10
+      },
+      "id": "src-F903D5E5"
+     },
+     {
+      "title": "Korean Action & Adventure",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 21698051,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-9529EAA3"
+     }
+    ]
+   },
+   {
+    "id": "folder-CE408484",
+    "title": "Webtoon Originals",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/kwave-webtoon-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/kwave-webtoon-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/vyG93jhmPL7tBIhRtCLa5mdBKob.jpg",
+    "sources": [
+     {
+      "title": "Webtoon K-Dramas",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 10,
+       "withKeywords": "288474|323477",
+       "withOriginalLanguage": "ko",
+       "with_keywords": "288474|323477",
+       "with_original_language": "ko",
+       "vote_count.gte": 10
+      },
+      "id": "src-D568CC88"
+     },
+     {
+      "title": "Top Rated Webtoon Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "vote_average.desc",
+      "filters": {
+       "voteCountGte": 80,
+       "withKeywords": "288474|323477",
+       "withOriginalLanguage": "ko",
+       "with_keywords": "288474|323477",
+       "with_original_language": "ko",
+       "vote_count.gte": 80
+      },
+      "id": "src-E2D9CD2B"
+     },
+     {
+      "title": "Webtoon Movies",
+      "provider": "tmdb",
+      "mediaType": "MOVIE",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 20,
+       "withKeywords": "288474|323477",
+       "withOriginalLanguage": "ko",
+       "with_keywords": "288474|323477",
+       "with_original_language": "ko",
+       "vote_count.gte": 20
+      },
+      "id": "src-B9B9F60E"
+     }
+    ]
+   },
+   {
+    "id": "folder-1BAED524",
+    "title": "Sageuk",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/kwave-sageuk-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/kwave-sageuk-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/uc1p1PEbEMpdIHqnU9TESNC6Jhp.jpg",
+    "sources": [
+     {
+      "title": "Historical K-Dramas",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 10,
+       "withKeywords": "232421|250198|192772",
+       "withOriginalLanguage": "ko",
+       "with_keywords": "232421|250198|192772",
+       "with_original_language": "ko",
+       "vote_count.gte": 10
+      },
+      "id": "src-6E219F3D"
+     },
+     {
+      "title": "Top Rated Sageuk",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "vote_average.desc",
+      "filters": {
+       "voteCountGte": 50,
+       "withKeywords": "232421|250198|192772",
+       "withOriginalLanguage": "ko",
+       "with_keywords": "232421|250198|192772",
+       "with_original_language": "ko",
+       "vote_count.gte": 50
+      },
+      "id": "src-F0968B2B"
+     },
+     {
+      "title": "Korean Period Films",
+      "provider": "tmdb",
+      "mediaType": "MOVIE",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 30,
+       "withKeywords": "232421|250198",
+       "withOriginalLanguage": "ko",
+       "with_keywords": "232421|250198",
+       "with_original_language": "ko",
+       "vote_count.gte": 30
+      },
+      "id": "src-DEDB22A0"
+     }
+    ]
+   },
+   {
+    "id": "folder-08BFBAFF",
+    "title": "Variety & Reality",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/kwave-variety-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/kwave-variety-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/wsHj4oHQJoe7DMYaqNFwVoyLiAh.jpg",
+    "sources": [
+     {
+      "title": "Korean Variety Shows",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 5,
+       "withGenres": "10764|10767",
+       "withOriginalLanguage": "ko",
+       "with_genres": "10764|10767",
+       "with_original_language": "ko",
+       "vote_count.gte": 5
+      },
+      "id": "src-9DA02467"
+     },
+     {
+      "title": "Top Rated Korean Variety",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "vote_average.desc",
+      "filters": {
+       "voteCountGte": 20,
+       "withGenres": "10764|10767",
+       "withOriginalLanguage": "ko",
+       "with_genres": "10764|10767",
+       "with_original_language": "ko",
+       "vote_count.gte": 20
+      },
+      "id": "src-CAAD0304"
+     }
+    ]
+   },
+   {
+    "id": "folder-8AB82DA5",
+    "title": "K-Drama Community Picks",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/kwave-community-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/kwave-community-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/rN9xHDp83kZ3cOr82JR1b4rFIFk.jpg",
+    "sources": [
+     {
+      "title": "Korean Dramas",
+      "provider": "trakt",
+      "mediaType": "TV",
+      "traktListId": 5282533,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-93973BF2"
+     },
+     {
+      "title": "More Korean Dramas",
+      "provider": "trakt",
+      "mediaType": "TV",
+      "traktListId": 5570260,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-41E99DF7"
+     },
+     {
+      "title": "Korean Movies & Series",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 19542161,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-93651D63"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "collection-DEXSHELF",
+  "title": "Collector's Shelf",
+  "pinToTop": false,
+  "focusGlowEnabled": true,
+  "showAllTab": true,
+  "viewMode": "FOLLOW_LAYOUT",
+  "folders": [
+   {
+    "id": "folder-DC4FB222",
+    "title": "Remux 4K",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/shelf-remux-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/shelf-remux-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/vVpEOvdxVBP2aV166j5Xlvb5Cdc.jpg",
+    "sources": [
+     {
+      "title": "Remux 4K",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 10262296,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-076BEEE9"
+     }
+    ]
+   },
+   {
+    "id": "folder-AA9D7977",
+    "title": "Dolby Vision",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/shelf-dv-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/shelf-dv-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/1e0KDRYKRPHiVNj8yQKYuU2jVyQ.jpg",
+    "sources": [
+     {
+      "title": "Dolby Vision",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 24541383,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-3203EF98"
+     }
+    ]
+   },
+   {
+    "id": "folder-166C31ED",
+    "title": "Dolby Vision FEL",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/shelf-fel-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/shelf-fel-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/2lBOQK06tltt8SQaswgb8d657Mv.jpg",
+    "sources": [
+     {
+      "title": "Profile 7 FEL",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 30862919,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-6F6C460E"
+     },
+     {
+      "title": "Profile 7 FEL Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 30893510,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-601CF501"
+     }
+    ]
+   },
+   {
+    "id": "folder-D5B5C76C",
+    "title": "Atmos & DTS:X",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/shelf-atmos-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/shelf-atmos-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/3V4kLQg0kSqPLctI5ziYWabAZYF.jpg",
+    "sources": [
+     {
+      "title": "Atmos & DTS:X",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 29160797,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-6E2A03D1"
+     }
+    ]
+   },
+   {
+    "id": "folder-4BBF2BF7",
+    "title": "4K Blu-ray",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/shelf-uhd-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/shelf-uhd-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/hbz4aeVsjnKb2HRoFbbr46Egh8y.jpg",
+    "sources": [
+     {
+      "title": "Latest 4K Releases",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 6639877,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-C935064F"
+     }
+    ]
+   },
+   {
+    "id": "folder-8F2C6F7E",
+    "title": "New HD Releases",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/shelf-hd-cover-v2.jpg",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/shelf-hd-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/i5E9H7Ik0u61ylDDTbmUpTL3Yw.jpg",
+    "sources": [
+     {
+      "title": "New HD Releases",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 11057926,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-05155063"
+     },
+     {
+      "title": "Upcoming & Anticipated",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 6453737,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-3BFE9C15"
+     }
+    ]
+   },
+   {
+    "id": "folder-2E230BC7",
+    "title": "The Billion-Dollar Club",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "https://collections.wixct.cc/assets/covers/lists/the-billion-dollar-club-1.webp",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/shelf-billion-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/4tjxYg2AbOzzG9G1YuiT2NzYhlH.jpg",
+    "sources": [
+     {
+      "title": "Highest Grossing Movies",
+      "provider": "tmdb",
+      "mediaType": "MOVIE",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "revenue.desc",
+      "filters": {
+       "voteCountGte": 500,
+       "vote_count.gte": 500
+      },
+      "id": "src-10EFC337"
+     },
+     {
+      "title": "Movie Boxsets",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 2562061,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-0201FB26"
+     }
+    ]
+   },
+   {
+    "id": "folder-BCB5A7D6",
+    "title": "Oscars: Best Picture",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "https://collections.wixct.cc/assets/covers/awards/oscars_best_picture-1.webp",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/shelf-oscars-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/ejdD20cdHNFAYAN2DlqPToXKyzx.jpg",
+    "sources": [
+     {
+      "title": "Best Picture Winners",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 832943,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-61D8085E"
+     },
+     {
+      "title": "1001 Greatest Movies",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 1282987,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-796B135B"
+     }
+    ]
+   },
+   {
+    "id": "folder-DAB4783D",
+    "title": "Marvel Cinematic Universe",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "https://collections.wixct.cc/assets/covers/franchises/mcu-1.webp",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/shelf-mcu-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/86IbFy98QjRIqg6WanKYb9tXNbJ.jpg",
+    "sources": [
+     {
+      "title": "Marvel Cinematic Universe",
+      "provider": "trakt",
+      "mediaType": "MOVIE",
+      "traktListId": 1257923,
+      "sortBy": "rank",
+      "sortHow": "asc",
+      "id": "src-2916A79D"
+     }
+    ]
+   },
+   {
+    "id": "folder-31BBF7A8",
+    "title": "DC Universe",
+    "hideTitle": true,
+    "tileShape": "LANDSCAPE",
+    "focusGlowEnabled": true,
+    "focusGifEnabled": false,
+    "coverImageUrl": "https://collections.wixct.cc/assets/covers/franchises/dc-universe-1.webp",
+    "titleLogoUrl": "special://home/addons/plugin.video.dexhub/resources/media/collections/shelf-dc-logo-v2.png",
+    "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/bckxSN9ueOgm0gJpVJmPQrecWul.jpg",
+    "sources": [
+     {
+      "title": "DC Movies",
+      "provider": "tmdb",
+      "mediaType": "MOVIE",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "primary_release_date.desc",
+      "filters": {
+       "voteCountGte": 50,
+       "withCompanies": "9993|429|128064",
+       "vote_count.gte": 50,
+       "with_companies": "9993|429|128064"
+      },
+      "id": "src-38C2B2F7"
+     },
+     {
+      "title": "Popular DC Movies",
+      "provider": "tmdb",
+      "mediaType": "MOVIE",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 200,
+       "withCompanies": "9993|429|128064",
+       "vote_count.gte": 200,
+       "with_companies": "9993|429|128064"
+      },
+      "id": "src-D80E52BB"
+     },
+     {
+      "title": "DC Series",
+      "provider": "tmdb",
+      "mediaType": "TV",
+      "tmdbSourceType": "DISCOVER",
+      "tmdbId": null,
+      "sortBy": "popularity.desc",
+      "filters": {
+       "voteCountGte": 30,
+       "withCompanies": "9993|429|128064",
+       "vote_count.gte": 30,
+       "with_companies": "9993|429|128064"
+      },
+      "id": "src-B03FD693"
+     }
+    ]
+   }
+  ]
+ }
+]

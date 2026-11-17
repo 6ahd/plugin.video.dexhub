@@ -9,6 +9,9 @@ import xbmc
 # Claim before expensive startup imports. A playback can wake the service
 # safely when Kodi did not start it; exactly one interpreter owns callbacks.
 if __name__ == '__main__':
+    # v5.10.543: before any other import (thread_registry.py: Kodi 22 import crash)
+    from resources.lib.thread_registry import install as _strong_locks
+    _strong_locks()
     from resources.lib.service_lease import claim
     if not claim():
         sys.exit(0)
@@ -17,8 +20,20 @@ lib_path = os.path.join(addon_path, 'resources', 'lib')
 if lib_path not in sys.path:
     sys.path.insert(0, lib_path)
 
+# v5.10.448: no weak set of threads (thread_registry.py: Kodi 22 crash)
+from resources.lib.thread_registry import install as _no_dangling
+_no_dangling()
+
 from resources.lib.tvos_compat import install as install_tvos_compat
 install_tvos_compat()
+
+# v5.10.499: IPv4 first where IPv6 goes nowhere (net_guard.py)
+from resources.lib.net_guard import install as _ipv4_first
+_ipv4_first()
+
+# v5.10.530: logins stay with the server they were meant for (redirect_guard.py)
+from resources.lib.redirect_guard import install as _guard_redirects
+_guard_redirects()
 
 from resources.lib.portable_restore import startup as restore_startup
 restore_startup()
@@ -40,6 +55,13 @@ except Exception:
     pass
 
 import xbmcgui
+
+# Restore an interrupted opt-in skin session after a fresh Kodi start.
+try:
+    from resources.lib.temporary_skin import recover as _recover_temporary_skin
+    _recover_temporary_skin()
+except Exception as _temporary_skin_error:
+    xbmc.log('[DexHub] temporary skin recovery: %s' % _temporary_skin_error, xbmc.LOGWARNING)
 
 
 # Trakt/Simkl and Nuvio/Stremio touch the same local playback state.  They
@@ -735,6 +757,79 @@ if __name__ == '__main__':
             xbmc.log('[DexHub] startup splash: %s' % exc, xbmc.LOGWARNING)
 
     threading.Thread(target=_startup_splash_worker, name='DexHub-startup-splash', daemon=True).start()
+
+    def _skin_watch_worker():
+        # v5.10.511: the skin in use, for the power menu's Back to your
+        # previous skin (a skin chosen in Kodi's settings went unnoticed)
+        watch = xbmc.Monitor()
+        if watch.waitForAbort(20):
+            return
+        rounds = 0
+        while not watch.abortRequested():
+            try:
+                from resources.lib.skinui import switch
+                switch.note_skin()
+            except Exception as exc:
+                xbmc.log('[DexHub] skin watch: %s' % exc, xbmc.LOGDEBUG)
+            rounds += 1
+            if rounds % 40 == 0:
+                # v5.10.524: every 10 minutes, the finished workers kept in the
+                # executors' registry (thread_registry.prune)
+                from resources.lib.thread_registry import prune
+                gone = prune()
+                if gone:
+                    xbmc.log('[DexHub] finished workers let go: %d' % gone, xbmc.LOGDEBUG)
+            if watch.waitForAbort(15):
+                return
+
+    threading.Thread(target=_skin_watch_worker, name='DexHub-skin-watch', daemon=True).start()
+
+    def _bytecode_worker():
+        # v5.10.512: Kodi never writes compiled files itself, so every plugin
+        # call compiled the add-on again (bytecode_warm.py); once per update
+        # here, after the Home is up and never over a video
+        watch = xbmc.Monitor()
+        if watch.waitForAbort(40):
+            return
+        while xbmc.getCondVisibility('Player.HasVideo'):
+            if watch.waitForAbort(30):
+                return
+        try:
+            from resources.lib import bytecode_warm
+            started = time.time()
+            root = os.path.dirname(os.path.abspath(__file__))
+            checked, compiled = bytecode_warm.warm(root, watch)
+            if compiled:
+                xbmc.log('[DexHub] compiled %d of %d files in %.1f s' % (compiled, checked, time.time() - started),
+                         xbmc.LOGINFO)
+        except Exception as exc:
+            xbmc.log('[DexHub] compile: %s' % exc, xbmc.LOGDEBUG)
+
+    threading.Thread(target=_bytecode_worker, name='DexHub-bytecode', daemon=True).start()
+
+    def _self_update_worker():
+        # v5.10.542: Kodi does not update the Android app's bundled add-ons
+        from resources.lib import self_update
+        self_update.run(xbmc.Monitor())
+
+    threading.Thread(target=_self_update_worker, name='DexHub-self-update', daemon=True).start()
+
+    def _nas_worker():
+        # v5.10.543: the NAS shares are read again twice a day
+        from resources.lib import nas_sources
+        nas_sources.service_loop(xbmc.Monitor())
+
+    threading.Thread(target=_nas_worker, name='DexHub-nas', daemon=True).start()
+
+    def _usenet_worker():
+        # v5.10.558: the service owns the Usenet engine's process (usenet_engine)
+        try:
+            from resources.lib import usenet_engine
+            if usenet_engine.binary_name():
+                usenet_engine.service_loop(xbmc.Monitor())
+        except Exception as exc:
+            xbmc.log('[DexHub] Usenet engine worker: %s' % exc, xbmc.LOGWARNING)
+    threading.Thread(target=_usenet_worker, name='DexHub-usenet', daemon=True).start()
     _retire_apple_tv_addon()
     try:
         import xbmcaddon
@@ -828,6 +923,16 @@ if __name__ == '__main__':
     except Exception as exc:
         xbmc.log('[DexHub] Home autostart not started: %s' % exc, xbmc.LOGWARNING)
 
+    # v5.10.560: a fresh install's skin look (skin_defaults), once skin.dexhub is in use
+    try:
+        from resources.lib import skin_defaults as _skin_defaults
+        if (_setting('interface_defaults_v6', 'false') or 'false') != 'true' or _skin_defaults.pending():
+            import threading as _thr_skin
+            _thr_skin.Thread(target=_skin_defaults.watch, args=(xbmc.Monitor(),),
+                             name='DexHub-skin-defaults', daemon=True).start()
+    except Exception as exc:
+        xbmc.log('[DexHub] skin defaults not started: %s' % exc, xbmc.LOGWARNING)
+
     _publish_core_props('')
     _publish_badge_props()
     # v5.10.142: a pack's or the folder's badges need skin.dexhub 3.19 (an
@@ -863,6 +968,13 @@ if __name__ == '__main__':
             xbmc.log('[DexHub] poster-proxy not started: %s' % exc, xbmc.LOGWARNING)
     else:
         xbmc.log('[DexHub] Lightweight Mode — poster proxy skipped', xbmc.LOGINFO)
+
+    # v5.10.571: whole Blu-ray discs from a Debrid account, served to Kodi's disc reader (127.0.0.1 only)
+    try:
+        from resources.lib.debrid import discserver as _discserver
+        _discserver.start()
+    except Exception as exc:
+        xbmc.log('[DexHub] disc server not started: %s' % exc, xbmc.LOGWARNING)
 
     # v3.9.27: launch the library-index sync scheduler. Runs the first
     # sync 30s after Kodi boot, then every `index_sync_interval_hours`.
@@ -1027,6 +1139,27 @@ if __name__ == '__main__':
             _thr.Thread(target=_job, name='DexHubEliteReload', daemon=True).start()
 
     monitor = _DexHubMonitor()
+
+    # v5.10.569: after a Kodi settings restore, the add-ons it belongs to are installed again
+    try:
+        import threading as _thr
+
+        def _restore_missing():
+            if monitor.waitForAbort(20):
+                return
+            from resources.lib import kodi_backup as _kb
+            _kb.install_missing()
+            # v5.10.570: the weekly look at the public torrent add-ons Dex Hub added
+            if monitor.waitForAbort(60):
+                return
+            try:
+                from resources.lib.debrid import autosources as _auto
+                _auto.refresh()
+            except Exception as _auto_exc:
+                xbmc.log('[DexHub] Debrid sources check: %s' % _auto_exc, xbmc.LOGWARNING)
+        _thr.Thread(target=_restore_missing, name='DexHub-restore-addons', daemon=True).start()
+    except Exception as exc:
+        xbmc.log('[DexHub] restore add-ons not started: %s' % exc, xbmc.LOGWARNING)
 
     if xbmc.getCondVisibility('System.Platform.TVOS'):
         from resources.lib.infuse_progress import run as _infuse_returns
@@ -1227,6 +1360,19 @@ if __name__ == '__main__':
         except Exception as exc:
             xbmc.log('[DexHub] subtitle AutoSync not started: %s' % exc, xbmc.LOGWARNING)
 
+    def _silo_subsync_worker():
+        try:
+            from resources.lib import silo_subsync as _silo_subsync
+            _silo_subsync.run(monitor)
+        except Exception as exc:
+            xbmc.log('[DexHub] silo subtitle sync not started: %s' % exc, xbmc.LOGWARNING)
+
+    try:
+        import threading as _thr
+        _thr.Thread(target=_silo_subsync_worker, name='DexHub-silo-subsync', daemon=True).start()
+    except Exception as exc:
+        xbmc.log('[DexHub] silo subtitle sync thread: %s' % exc, xbmc.LOGWARNING)
+
     try:
         import threading as _thr
         _thr.Thread(target=_subsync_worker, name='DexHub-subsync', daemon=True).start()
@@ -1254,6 +1400,13 @@ if __name__ == '__main__':
         except Exception as exc:
             xbmc.log('[DexHub] episode reminders not started: %s' % exc, xbmc.LOGWARNING)
 
+    def _sport_worker():
+        try:
+            from resources.lib import sport_feed as _sport
+            _sport.run(monitor)
+        except Exception as exc:
+            xbmc.log('[DexHub] sport reminders not started: %s' % exc, xbmc.LOGWARNING)
+
     def _collection_opener_worker():
         try:
             from resources.lib.skinui.folderpage import watch_open_requests
@@ -1272,6 +1425,27 @@ if __name__ == '__main__':
 
     threading.Thread(target=_native_playback_worker, name='DexHub-playback-assist', daemon=True).start()
 
+    # v5.10.509: DexWorld's rows on the Home for a new profile (home_seed.py)
+    def _android_files_worker():
+        # v5.10.538: once, after the start has settled
+        try:
+            if not monitor.waitForAbort(25):
+                from resources.lib import android_files
+                android_files.ask()
+        except Exception as exc:
+            xbmc.log('[DexHub] android files: %s' % type(exc).__name__, xbmc.LOGWARNING)
+
+    threading.Thread(target=_android_files_worker, name='DexHub-android-files', daemon=True).start()
+
+    def _home_seed_worker():
+        try:
+            from resources.lib.home_seed import run as _seed
+            _seed(monitor)
+        except Exception as exc:
+            xbmc.log('[DexHub] home seed not run: %s' % exc, xbmc.LOGWARNING)
+
+    threading.Thread(target=_home_seed_worker, name='DexHub-home-seed', daemon=True).start()
+
     # v5.10.217: the end-of-episode panel (the next episode at the credits)
     def _credits_worker():
         try:
@@ -1289,6 +1463,7 @@ if __name__ == '__main__':
     try:
         import threading as _thr
         _thr.Thread(target=_reminders_worker, name='DexHub-reminders', daemon=True).start()
+        _thr.Thread(target=_sport_worker, name='DexHub-sport', daemon=True).start()
     except Exception as exc:
         xbmc.log('[DexHub] episode reminders thread failed: %s' % exc, xbmc.LOGWARNING)
 

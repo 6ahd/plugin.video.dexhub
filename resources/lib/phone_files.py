@@ -9,7 +9,9 @@ from zipfile import ZipFile, ZIP_DEFLATED
 LIMIT = 256 * 1024 * 1024
 ROOTS = {'files': 'dexhub-files', 'imports': 'dexhub-imports',
          'fonts': 'media/Fonts', 'backups': 'dexhub-json-restore-backups',
-         'trash': 'dexhub-file-trash', 'addons': 'addons'}
+         'trash': 'dexhub-file-trash', 'addons': 'addons',
+         # v5.10.543: Kodi's logs, read only, so a crash can be sent from a phone
+         'logs': 'temp'}
 
 
 def kodi_home():
@@ -22,6 +24,8 @@ def resolve(home, root, relative='', write=False):
         raise ValueError('Unknown folder')
     if write and root == 'addons':
         raise ValueError('Install addon ZIPs with Kodi; installed addons are read-only here')
+    if root == 'logs' and (write or '/' in str(relative).strip('/')):
+        raise ValueError('Logs can only be downloaded')
     value = str(relative)
     path = PurePosixPath(value)
     if path.is_absolute() or '..' in path.parts or '\\' in value or '\x00' in value:
@@ -70,6 +74,8 @@ def operate(home, body):
             raise ValueError('Choose a folder')
         entries = []
         for item in path.iterdir():
+            if root == 'logs' and not (item.is_file() and item.name.endswith('.log')):
+                continue
             if item.is_symlink():
                 continue
             entries.append({'name': item.name, 'directory': item.is_dir(),
@@ -131,6 +137,8 @@ def download(home, root, relative):
     if path.is_file():
         tree_size(path)
         return path, path.name, False
+    if root == 'logs':
+        raise ValueError('Choose a log file')
     if not path.is_dir():
         raise ValueError('File not found')
     tree_size(path)

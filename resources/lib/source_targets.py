@@ -4,11 +4,26 @@ The caller supplies Kodi and compatibility adapters; Home/catalog code does not
 belong here. Relative feature imports remain lazy and retain package semantics.
 """
 
+def _name_of(meta):
+    """The item's name, never an id standing in for a missing one.
+
+    v5.10.554: a Silo row that arrived without a title carried its id as the
+    name (silo:287b...:movie-tmdb-414906) and Plex was asked to search for it.
+    """
+    from .search.native_titles import is_id_like
+    for key in ('name', 'title'):
+        value = str((meta or {}).get(key) or '').strip()
+        if value and not is_id_like(value):
+            return value
+    return ''
+
+
 def build_targets(api, media_type, canonical_id, meta=None, season=None, episode=None):
+    from .search.native_titles import is_id_like as _id_like
     targets = []
     native_targets = []
     seen = set()
-    meta = api._meta_with_seed_ids(meta or {}, api._apply_anime_id_policy(api._enrich_stream_ids(api.extract_ids(meta or {}), media_type, meta=meta or {}, canonical_id=canonical_id, title=(meta or {}).get('name') or (meta or {}).get('title') or ''), media_type))
+    meta = api._meta_with_seed_ids(meta or {}, api._apply_anime_id_policy(api._enrich_stream_ids(api.extract_ids(meta or {}), media_type, meta=meta or {}, canonical_id=canonical_id, title=_name_of(meta)), media_type))
     # Jellyfin needs the seeded identity AND the same title variants as Plex.
     # A localized name or a canonical tt... label alone cannot find an
     # English library through Jellyfin's public title-search API.
@@ -17,7 +32,7 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
         for server in api.jellyfin_client.servers():
             native_targets.append(({
                 'id': '__jellyfin__', 'name': 'Jellyfin • %s' % server.get('name', 'Jellyfin'),
-                '_server': server, '_title': (meta or {}).get('name') or (meta or {}).get('title') or '',
+                '_server': server, '_title': _name_of(meta),
                 '_titles': _jf_titles(meta or {}, media_type), '_enrich_titles': True,
                 '_year': (meta or {}).get('year') or str((meta or {}).get('first_air_date') or (meta or {}).get('release_date') or '')[:4],
                 '_ids': api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id)),
@@ -64,6 +79,19 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
             _prov = dict(provider)
             _prov['_candidate_request_ids'] = list(provider_ids[:4])
             item_id = _prov['_candidate_request_ids'][0]
+            # v5.10.482: an add-on with ids of its own is also asked by name (dexhub.title_bridge)
+            try:
+                from .dexhub.title_bridge import eligible as _bridgeable, own_prefixes as _own
+                if _bridgeable(_prov, api._stremio_provider.normalized_media_type(media_type)) and not any(
+                        str(canonical_id).lower().startswith(_p) for _p in _own(_prov)):
+                    from .search.native_titles import candidates as _names
+                    _prov['_bridge'] = {
+                        'titles': _names(meta or {}, media_type) + [_name_of(meta)],
+                        'year': (meta or {}).get('year') or str((meta or {}).get('first_air_date') or (meta or {}).get('release_date') or '')[:4],
+                        'season': season, 'episode': episode,
+                        'ids': api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id))}
+            except Exception:
+                pass
             key = (_prov.get('id') or _prov.get('base_url') or _prov.get('name') or '', '__provider__')
             if key not in seen:
                 seen.add(key)
@@ -80,7 +108,7 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
     # Connected Plex servers join the SAME parallel scan as a built-in
     try:
         if api.emby_client.is_signed_in() and api._get_bool_setting('emby_in_sources', True):
-            _em_title = (meta or {}).get('name') or (meta or {}).get('title') or ''
+            _em_title = _name_of(meta)
             _em_ids = api.extract_ids(meta or {})
             for _esrv in api.emby_client.servers():
                 native_targets.append(({
@@ -95,7 +123,7 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
     # separate source/account so it cannot overwrite or conflict with Emby.
     try:
         if api.silo_client.is_signed_in():
-            _si_title = (meta or {}).get('name') or (meta or {}).get('title') or ''
+            _si_title = _name_of(meta)
             _si_ids = api.extract_ids(meta or {})
             _si_titles = []
             for _key in ('originalTitle', 'original_title', 'tvShowTitle',
@@ -103,7 +131,7 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
                          'grandparentTitle', 'name', 'title', 'en_title',
                          'english_title', 'en_showname', 'ar_title', 'ar_showname'):
                 _value = str((meta or {}).get(_key) or '').strip()
-                if _value and _value.casefold() not in [x.casefold() for x in _si_titles]:
+                if _value and not _id_like(_value) and _value.casefold() not in [x.casefold() for x in _si_titles]:
                     _si_titles.append(_value)
             if _si_title and _si_title.casefold() not in [x.casefold() for x in _si_titles]:
                 _si_titles.insert(0, _si_title)
@@ -127,7 +155,7 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
         if not _plex_signed_in:
             api.xbmc.log('[DexHub] Plex Native skipped: no account and no usable cached servers', api.xbmc.LOGWARNING)
         if _plex_signed_in and _plex_enabled:
-            _pl_title = (meta or {}).get('name') or (meta or {}).get('title') or ''
+            _pl_title = _name_of(meta)
             # Build the native Plex identifiers BEFORE any title enrichment.
             # Older builds referenced _pl_ids inside the TMDb title helpers
             # before assigning it; the surrounding broad try/except swallowed
@@ -141,7 +169,7 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
                          'grandparentTitle', 'name', 'title', 'en_title',
                          'english_title', 'en_showname', 'ar_title', 'ar_showname'):
                 _value = str((meta or {}).get(_key) or '').strip()
-                if _value and _value.casefold() not in [x.casefold() for x in _pl_titles]:
+                if _value and not _id_like(_value) and _value.casefold() not in [x.casefold() for x in _pl_titles]:
                     _pl_titles.append(_value)
             # Remote title enrichment runs inside the native provider job.
 
@@ -251,6 +279,80 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
             for p, _rid in combined_targets[:8]), api.xbmc.LOGDEBUG)
     except Exception:
         pass
+    # v5.10.447: the Kodi add-ons the user switched on (kodi_sources) start
+    # first: they scrape for longer than any Stremio add-on answers
+    try:
+        from .kodi_sources import targets as _kodi_targets
+        _kodi = _kodi_targets(api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id)),
+                              canonical_id, media_type, meta=meta, season=season, episode=episode)
+        if _kodi:
+            combined_targets = list(_kodi) + list(combined_targets)
+            api.xbmc.log('[DexHub] Kodi add-on sources: %s' % ', '.join(p['name'] for p, _r in _kodi), api.xbmc.LOGINFO)
+    except Exception as _kodi_exc:
+        api.xbmc.log('[DexHub] Kodi add-on sources: %s' % _kodi_exc, api.xbmc.LOGWARNING)
+    # v5.10.543: the viewer's NAS (nas_sources) first: a local index, no network wait
+    try:
+        from .nas_sources import targets as _nas_targets
+        _nas = _nas_targets(meta, canonical_id, media_type,
+                            ids=api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id)),
+                            season=season, episode=episode)
+        if _nas:
+            combined_targets = list(_nas) + list(combined_targets)
+    except Exception as _nas_exc:
+        api.xbmc.log('[DexHub] NAS sources: %s' % _nas_exc, api.xbmc.LOGWARNING)
+    # v5.10.568: the viewer's own Debrid files and TorBox's own search (debrid_source)
+    try:
+        from .debrid_source import targets as _debrid_targets
+        _debrid = _debrid_targets(meta, canonical_id, media_type,
+                                  ids=api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id)),
+                                  season=season, episode=episode)
+        if _debrid:
+            combined_targets = list(_debrid) + list(combined_targets)
+        from .scraper_packs import targets as _pack_targets
+        _packs = _pack_targets(meta, canonical_id, media_type,
+                               ids=api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id)),
+                               season=season, episode=episode)
+        if _packs:
+            combined_targets = list(combined_targets) + list(_packs)
+        from .torrent_scrapers import targets as _scraper_targets
+        _own = _scraper_targets(meta, canonical_id, media_type,
+                                ids=api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id)),
+                                season=season, episode=episode)
+        if _own:
+            combined_targets = list(combined_targets) + list(_own)
+    except Exception as _debrid_exc:
+        api.xbmc.log('[DexHub] Debrid sources: %s' % _debrid_exc, api.xbmc.LOGWARNING)
+    # v5.10.557: EasyNews itself, when the viewer signed in (easynews_source)
+    try:
+        from .easynews_source import targets as _easynews_targets
+        _easynews = _easynews_targets(meta, canonical_id, media_type,
+                                      ids=api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id)),
+                                      season=season, episode=episode)
+        if _easynews:
+            combined_targets = list(combined_targets) + list(_easynews)
+    except Exception as _easynews_exc:
+        api.xbmc.log('[DexHub] EasyNews source: %s' % _easynews_exc, api.xbmc.LOGWARNING)
+    # v5.10.558: the viewer's own Usenet indexers and provider (usenet_source), played through
+    # the engine on this device
+    try:
+        from .usenet_source import targets as _usenet_targets
+        _usenet = _usenet_targets(meta, canonical_id, media_type,
+                                  ids=api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id)),
+                                  season=season, episode=episode)
+        if _usenet:
+            combined_targets = list(combined_targets) + list(_usenet)
+    except Exception as _usenet_exc:
+        api.xbmc.log('[DexHub] Usenet source: %s' % _usenet_exc, api.xbmc.LOGWARNING)
+    # v5.10.560: the IPTV provider's own file, for a title its IPTV page opened
+    try:
+        from .iptv_vod_source import targets as _iptv_targets
+        _iptv = _iptv_targets(meta, canonical_id, media_type,
+                              ids=api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id)),
+                              season=season, episode=episode)
+        if _iptv:
+            combined_targets = list(_iptv) + list(combined_targets)
+    except Exception as _iptv_exc:
+        api.xbmc.log('[DexHub] IPTV VOD source: %s' % _iptv_exc, api.xbmc.LOGWARNING)
     # v5.10.373: in a watch party whose host shares its own link, «Dex Hub+»
     # goes first (one quick call to the hub, no scan)
     try:

@@ -647,10 +647,20 @@ def _tidy(info):
 _LIBRARY_RE = re.compile(u'(?i)\U0001f4cc\ufe0f?\\s*library|\\bin[ -]library\\b|\\[library\\]')
 
 
+def _dexhub_debrid(row):
+    """v5.10.568: the mark debrid_source put on a torrent row (None when it has none)."""
+    hints = row.get('behaviorHints') if isinstance(row.get('behaviorHints'), dict) else {}
+    mark = hints.get('dexhubDebrid')
+    return mark if isinstance(mark, dict) else None
+
+
 def library_state(row):
     """v5.10.204: is the source already in the user's debrid or usenet
     library (AIOStreams' streamData.library, or its formatter's 📌 Library)?"""
     row = row or {}
+    mark = _dexhub_debrid(row)
+    if mark is not None:
+        return bool(mark.get('owned'))
     data = row.get('streamData') if isinstance(row.get('streamData'), dict) else {}
     if isinstance(data.get('library'), bool):
         return data['library']
@@ -668,6 +678,11 @@ def ready_state(row, facts=None):
     """
     row = row or {}
     facts = facts or {}
+    mark = _dexhub_debrid(row)
+    if mark is not None:
+        # v5.10.568: Dex Hub's own Debrid answer: ready, not ready, or nobody can say ([RD])
+        state = mark.get('state')
+        return True if state == 'cached' else (False if state == 'uncached' else None)
     data = row.get('streamData') if isinstance(row.get('streamData'), dict) else {}
     service = data.get('service') if isinstance(data.get('service'), dict) else {}
     if isinstance(service.get('cached'), bool):

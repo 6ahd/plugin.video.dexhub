@@ -27,13 +27,13 @@ def choose_once(xbmc, xbmcgui, xbmcaddon):
     if not xbmc.getCondVisibility('System.Platform.TVOS'):
         return False
     dialog = xbmcgui.Dialog()
-    selected = dialog.select('المشغل لهذه المشاهدة / Play using', ['Aether', 'Kodi', 'خارجي / External', 'KSPlayer (TEST)', 'MPV (TEST)'])
+    selected = dialog.select('المشغل لهذه المشاهدة' if not _i18n_en() else 'Play using', ['Aether', 'Kodi', 'خارجي' if not _i18n_en() else 'External', 'KSPlayer (TEST)', 'MPV (TEST)'])
     if selected < 0:
         return False
     value = ['Aether', 'Kodi', 'External', 'KSPlayer', 'MPV'][selected]
     _, external = preference(xbmc, xbmcaddon.Addon('plugin.video.dexhub'))
     if value == 'External':
-        selected = dialog.select('المشغل الخارجي / External player', ['Infuse', 'VidHub'])
+        selected = dialog.select('المشغل الخارجي' if not _i18n_en() else 'External player', ['Infuse', 'VidHub'])
         if selected < 0:
             return False
         external = ['Infuse', 'VidHub'][selected]
@@ -227,3 +227,19 @@ def handoff(api, stream_url, rows, selected_path, position, item, ctx=None):
     if api.xbmc.getCondVisibility('Window.IsVisible(movieinformation)'):
         api.xbmc.executebuiltin('Dialog.Close(movieinformation,true)', True)
     return False
+
+
+def _i18n_tr(text):
+    try:
+        from .i18n import tr
+        return tr(text)
+    except Exception:
+        return text
+
+
+def _i18n_en():
+    try:
+        from .i18n import is_english
+        return bool(is_english())
+    except Exception:
+        return False

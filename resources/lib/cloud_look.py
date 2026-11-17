@@ -38,7 +38,7 @@ EXTRA = ('ui_language', 'player_title_actions', 'sources_row_style', 'show_serve
 EXCLUDE = frozenset(('homeui_debug', 'homeui_autostart', 'homeui_size', 'homeui_light_mode', 'homeui_ss_preload',
                      'player_badges_folder', 'player_badges_json_url', 'player_badges_colorful_adopted',
                      'ui_lang_autodetected'))
-FILES = ('homeui/layout.json',)
+FILES = ('homeui/layout.json', 'collection_covers.json')   # v5.10.426: the chosen covers are look
 SKIN_PREFIXES = ('dh.', 'HomeSwitcher.')
 
 

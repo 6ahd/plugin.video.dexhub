@@ -337,6 +337,45 @@ def because(media):
     return _render(rows, 'tvshows' if media == 'series' else 'movies')
 
 
+def _ai_render(rows, media=''):
+    out = []
+    for item in rows or []:
+        out.append({'media_type': item.get('media_type') or 'movie', 'canonical_id': 'tmdb:%s' % item.get('tmdb_id'),
+                    'title': item.get('title') or '', 'poster': item.get('poster') or '',
+                    'background': item.get('backdrop') or '', 'plot': item.get('overview') or '',
+                    'rating': item.get('rating') or 0, 'year': int(item['year']) if str(item.get('year') or '').isdigit() else 0,
+                    'tmdb': item.get('tmdb_id')})
+    content = 'tvshows' if media == 'series' else 'movies' if media == 'movie' else 'videos'
+    return _render(out, content)
+
+
+def ai_list(description, fresh=''):
+    """v5.10.576: an AI list (a Home row made With AI): the titles the viewer's AI picks for a description."""
+    from .. import ai_search
+    if not ai_search.config():
+        return _note(_t('أضف مفتاح الذكاء الاصطناعي من مركز التحكم', 'Add an AI key in the Control Centre'))
+    rows = ai_search.list_rows(description, fresh=bool(fresh))
+    if rows is None:
+        return _note(_t('ما رد الذكاء الاصطناعي، جرّب بعد شوي', 'The AI did not answer, try again shortly'))
+    if not rows:
+        return _note(_t('ما لقى أعمال لهذا الوصف', 'Nothing found for this description'))
+    return _ai_render(rows)
+
+
+def ai_picks(media):
+    """v5.10.576: Recommended for you: the viewer's AI picks from what they watched lately."""
+    from .. import ai_search
+    media = 'series' if media == 'series' else 'movie' if media == 'movie' else 'all'
+    if not ai_search.config():
+        return _note(_t('أضف مفتاح الذكاء الاصطناعي من مركز التحكم', 'Add an AI key in the Control Centre'))
+    rows = ai_search.picks_rows(media)
+    if rows is None:
+        return _note(_t('ما رد الذكاء الاصطناعي، جرّب بعد شوي', 'The AI did not answer, try again shortly'))
+    if not rows:
+        return _note(_t('شاهد كم عمل لتطلع مقترحاتك هنا', 'Watch a few titles to get picks here'))
+    return _ai_render(rows, media)
+
+
 _DAYS_AR = ('الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد')
 _DAYS_EN = ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')
 
@@ -701,6 +740,26 @@ class _Header(object):
         self.win.setProperty(key, value)
 
 
+def _trakt_numbers():
+    """[(value, label)] of the last 30 days in the My page's history copy (my_feed)."""
+    import datetime
+    from .. import my_feed
+    buckets = my_feed.days()
+    today = datetime.date.today()
+    minutes = eps = films = 0
+    for back in range(30):
+        bucket = buckets.get(today - datetime.timedelta(days=back))
+        if bucket:
+            minutes += bucket['tv'] + bucket['film']
+            eps += bucket['eps']
+            films += bucket['films']
+    if not minutes:
+        return []
+    hours, rest = divmod(minutes, 60)
+    return [(('%dh %02dm' % (hours, rest)) if is_english() else (u'%d س %d د' % (hours, rest)), _t('آخر 30 يوم', 'last 30 days')),
+            (str(eps), _t('حلقة', 'episodes')), (str(films), _t('فيلم', 'movies'))]
+
+
 def _publish_header(linked):
     """The header of the tab (skin.dexhub 3.21.1): synced line, this month in
     Floppy (or what the Library holds without it) and the source chips."""
@@ -731,6 +790,13 @@ def _publish_header(linked):
     except Exception:
         counts, total = {}, 0
     blocks = []
+    if not numbers and not float((stats or {}).get('hours') or 0):
+        # v5.10.468: the last 30 days from Trakt's history (the My page's
+        # copy), when Floppy has nothing for this month
+        try:
+            numbers = _trakt_numbers()
+        except Exception:
+            numbers = []
     if numbers:
         blocks = list(numbers)
     elif stats:
@@ -816,6 +882,10 @@ def dispatch(action, params):
         return calendar()
     if action == 'lib_because':
         return because(params.get('media', 'movie'))
+    if action == 'lib_ai_list':
+        return ai_list(params.get('q', ''), params.get('fresh', ''))
+    if action == 'lib_ai_picks':
+        return ai_picks(params.get('media', 'all'))
     if action == 'lib_rate_mode':
         return rate_mode()
     if action == 'lib_src':
