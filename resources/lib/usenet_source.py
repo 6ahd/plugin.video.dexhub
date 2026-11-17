@@ -126,13 +126,14 @@ def _cache_path(indexer, params):
     return os.path.join(xbmcvfs.translatePath(_CACHE), hashlib.sha1(key.encode('utf-8')).hexdigest() + '.xml')
 
 
-def _cached_api(indexer, params, seconds):
+def _cached_api(indexer, params, seconds, fresh=False):
     """(answer, from the cache): v5.10.582, the same search within half an hour is not asked
     again. Most indexers allow about 100 API calls a day, and each title's sources asked every
-    indexer up to three times, every time its sources opened."""
+    indexer up to three times, every time its sources opened. fresh (a source's Retry) asks
+    the indexer and keeps its new answer."""
     path = _cache_path(indexer, params)
     try:
-        if time.time() - os.path.getmtime(path) < _CACHE_FOR:
+        if not fresh and time.time() - os.path.getmtime(path) < _CACHE_FOR:
             with open(path, 'rb') as handle:
                 return handle.read(), True
     except OSError:
@@ -253,7 +254,8 @@ def _search_one(indexer, provider, out, deadline):
             _log('%s: out of time before its %s search' % (name, params['t']), xbmc.LOGWARNING)
             return
         try:
-            raw, cached = _cached_api(indexer, dict(params, limit=100), min(20, left))
+            raw, cached = _cached_api(indexer, dict(params, limit=100), min(20, left),
+                                      fresh=bool(provider.get('_force_stream_refresh')))
         except urllib.error.HTTPError as exc:
             try:
                 why = _refusal(exc.read()) or 'HTTP %s' % exc.code
