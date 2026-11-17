@@ -1,3 +1,11 @@
+5.10.583
+Usenet مع Prowlarr: حط عنوان Prowlarr ومفتاحه مرة وحدة في «إضافة مفهرس»، وDex Hub يعرفه لحاله ويبحث في كل مفهرسات Usenet اللي فيه ببحث واحد. كل نسخة تطلع باسم مفهرسها (NZBgeek، althub…)، ونسخ التورنت اللي في Prowlarr ما تطلع. المفهرسات تشوف عنوان سيرفر Prowlarr بس، مو عنوان جهازك.
+محرك Usenet يشتغل لما تطلع نسخ Usenet في المصادر، فيكون جاهز لما تختار وحدة، ويبقى شغال 30 دقيقة بعد آخر فيلم بدل 10، فالفيلم الجاي يبدأ والاتصالات مع المزود مفتوحة.
+«إعادة محاولة» على مصدر Usenet صارت تسأل المفهرسات من جديد، ما ترجع النتائج المحفوظة.
+Usenet with Prowlarr: put Prowlarr's address and key once in "Add an indexer"; Dex Hub knows it by itself and searches all its Usenet indexers in one search. Each release shows under its indexer's name (NZBgeek, althub…), and Prowlarr's torrent results are left out. The indexers see your Prowlarr server's address, not this device's.
+The Usenet engine starts when Usenet releases show among the sources, so it is ready when you pick one, and it stays on 30 minutes after the last film instead of 10, so the next film starts with the provider's connections open.
+Retry on a Usenet source asks the indexers again instead of giving back the kept results.
+
 5.10.582
 Usenet: النسخ اللي عليها كلمة سر صارت تطلع في المصادر (مكتوب عليها «بكلمة سر»). كلمة السر غالبًا داخل ملف NZB والمحرك يقراها، وأقراص COMPLETE.BLURAY كلها كذا، فكانت ما تطلع أبد. واللي ما تنفتح يقول لك لما تختارها.
 Usenet: المفهرس ما ينسأل نفس البحث مرة ثانية خلال نص ساعة. أغلب المفهرسات حدها تقريبًا 100 طلب في اليوم، وكل فتح لمصادر عمل كان ياخذ لين 3 طلبات من كل مفهرس.

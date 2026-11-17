@@ -8,6 +8,8 @@ provider through the engine on this device (usenet_engine): no server in between
 
 - search: each indexer's Newznab API, by IMDb id (films) or IMDb/TVDB id with season and
   episode (series); by name when an indexer finds nothing by id. Indexers are asked together.
+  A Prowlarr (v5.10.583) is one entry for all its Usenet indexers: one search through its
+  own API, each release under its indexer's name; the indexers see Prowlarr's address.
 - a row's address is the release's NZB link; nothing is fetched until it is picked.
 - playing: resolve() hands the NZB link and the providers to the engine and gets the film's
   address on 127.0.0.1.
@@ -126,7 +128,7 @@ def _cache_path(indexer, params):
     return os.path.join(xbmcvfs.translatePath(_CACHE), hashlib.sha1(key.encode('utf-8')).hexdigest() + '.xml')
 
 
-def _cached_api(indexer, params, seconds, fresh=False):
+def _cached_api(indexer, params, seconds, fresh=False, fetch=None):
     """(answer, from the cache): v5.10.582, the same search within half an hour is not asked
     again. Most indexers allow about 100 API calls a day, and each title's sources asked every
     indexer up to three times, every time its sources opened. fresh (a source's Retry) asks
@@ -138,7 +140,7 @@ def _cached_api(indexer, params, seconds, fresh=False):
                 return handle.read(), True
     except OSError:
         pass
-    raw = _api(indexer, params, seconds)
+    raw = (fetch or _api)(indexer, params, seconds)
     if not _refusal(raw):                       # a refusal (a daily limit) is asked again next time
         try:
             folder = os.path.dirname(path)
@@ -154,6 +156,113 @@ def _cached_api(indexer, params, seconds, fresh=False):
         except OSError:
             pass
     return raw, False
+
+
+def _prowlarr(indexer, params, seconds=20):
+    """Prowlarr's own API (v5.10.583): params['path'] is the call, the rest its query."""
+    params = dict(params)
+    path = params.pop('path')
+    url = str(indexer.get('url') or '').rstrip('/') + path
+    if params:
+        url += '?' + urlencode(params, doseq=True)
+    request = urllib.request.Request(url, headers={'User-Agent': _AGENT, 'X-Api-Key': str(indexer.get('key') or ''),
+                                                   'Accept': 'application/json'})
+    with urllib.request.urlopen(request, timeout=seconds) as answer:
+        return answer.read()
+
+
+def _prowlarr_usenet(indexer, seconds, fresh=False):
+    """The ids and names of the Prowlarr's Usenet indexers that are switched on."""
+    raw, _cached = _cached_api(indexer, {'path': '/api/v1/indexer'}, seconds, fresh, _prowlarr)
+    return [(int(row['id']), str(row.get('name') or '')) for row in json.loads(raw.decode('utf-8', 'replace'))
+            if isinstance(row, dict) and row.get('protocol') == 'usenet' and row.get('enable', True) and 'id' in row]
+
+
+def _prowlarr_releases(raw):
+    """Prowlarr's search answer as {indexer name: [{title, link, size, age, password}]}."""
+    out = {}
+    try:
+        rows = json.loads(raw.decode('utf-8', 'replace'))
+    except ValueError:
+        return out
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict) or row.get('protocol') != 'usenet':
+            continue
+        title, link = str(row.get('title') or '').strip(), str(row.get('downloadUrl') or '').strip()
+        if not title or not link.startswith('http'):
+            continue
+        try:
+            days = int(row.get('age') or 0)
+        except (TypeError, ValueError):
+            days = 0
+        age = ('%dd' % days if days < 365 else '%dy' % (days // 365)) if row.get('publishDate') else ''
+        try:
+            size = int(row.get('size') or 0)
+        except (TypeError, ValueError):
+            size = 0
+        out.setdefault(str(row.get('indexer') or 'Prowlarr'), []).append(
+            {'title': title, 'link': link, 'size': size, 'age': age, 'password': False})
+    return out
+
+
+def _search_prowlarr(indexer, provider, out, deadline):
+    """All the Prowlarr's Usenet indexers in one search: by id, then by name."""
+    ids = provider.get('_ids') or {}
+    imdb = re.sub(r'\D', '', str(ids.get('imdb_id') or ''))
+    season, episode = provider.get('_season'), provider.get('_episode')
+    title = str(provider.get('_title') or '')
+    fresh = bool(provider.get('_force_stream_refresh'))
+    name = str(indexer.get('name') or 'Prowlarr')
+    started = time.time()
+    try:
+        usenet = _prowlarr_usenet(indexer, min(10, max(2, deadline - time.time())), fresh)
+    except Exception as exc:
+        _log('%s did not answer: %s' % (name, exc), xbmc.LOGWARNING)
+        _tell_once(name, str(exc)[:120])
+        return
+    if not usenet:
+        _log('%s has no Usenet indexer switched on' % name, xbmc.LOGWARNING)
+        return
+    calls = []
+    if season is not None:
+        tokens = '{Season:%d}{Episode:%d}' % (int(season), int(episode))
+        if imdb:
+            calls.append({'type': 'tvsearch', 'query': '{ImdbId:tt%s}%s' % (imdb, tokens), 'categories': 5000})
+        if ids.get('tvdb_id'):
+            calls.append({'type': 'tvsearch', 'query': '{TvdbId:%s}%s' % (ids.get('tvdb_id'), tokens), 'categories': 5000})
+        if title:
+            calls.append({'type': 'search', 'query': '%s S%02dE%02d' % (title, int(season), int(episode)), 'categories': 5000})
+    else:
+        if imdb:
+            calls.append({'type': 'movie', 'query': '{ImdbId:tt%s}' % imdb, 'categories': 2000})
+        if title:
+            calls.append({'type': 'search', 'query': ('%s %s' % (title, provider.get('_year') or '')).strip(),
+                          'categories': 2000})
+    for params in calls:
+        left = deadline - time.time()
+        if left < 2:
+            _log('%s: out of time before its %s search' % (name, params['type']), xbmc.LOGWARNING)
+            return
+        try:
+            raw, cached = _cached_api(indexer, dict(params, path='/api/v1/search', limit=100,
+                                                    indexerIds=[n for n, _x in usenet]),
+                                      min(20, left), fresh, _prowlarr)
+        except urllib.error.HTTPError as exc:
+            why = 'HTTP %s' % exc.code
+            _log('%s refused the search: %s' % (name, why), xbmc.LOGWARNING)
+            _tell_once(name, why)
+            return
+        except Exception as exc:
+            _log('%s did not answer: %s' % (name, exc), xbmc.LOGWARNING)
+            return
+        found = _prowlarr_releases(raw)
+        if found:
+            _log('%s: %d releases from %d indexers (%s%s), %.1fs' % (
+                name, sum(len(x) for x in found.values()), len(found), params['type'], ', kept' if cached else '',
+                time.time() - started))
+            out.extend(found.items())
+            return
+    _log('%s: nothing found, %.1fs' % (name, time.time() - started))
 
 
 def _refusal(raw):
@@ -227,6 +336,8 @@ def _size_label(size):
 
 
 def _search_one(indexer, provider, out, deadline):
+    if indexer.get('kind') == 'prowlarr':
+        return _search_prowlarr(indexer, provider, out, deadline)
     ids = provider.get('_ids') or {}
     imdb = re.sub(r'\D', '', str(ids.get('imdb_id') or ''))
     season, episode = provider.get('_season'), provider.get('_episode')
@@ -338,6 +449,12 @@ def payload(provider):
             if release['size']:
                 stream['behaviorHints']['videoSize'] = release['size']
             streams.append(stream)
+    if streams:
+        try:
+            from . import usenet_engine
+            usenet_engine.warm()                # ready by the time one is picked (v5.10.583)
+        except Exception:
+            pass
     return {'streams': streams}
 
 
@@ -439,8 +556,24 @@ def _test_provider(p, seconds=12):
         return str(exc)[:120]
 
 
+def _is_prowlarr(indexer):
+    """True when the address is a Prowlarr's and the key opens it (its own API answers)."""
+    try:
+        raw = _prowlarr(indexer, {'path': '/api/v1/system/status'}, seconds=10)
+        return str(json.loads(raw.decode('utf-8', 'replace')).get('appName') or '').lower() == 'prowlarr'
+    except Exception:
+        return False
+
+
 def _test_indexer(indexer):
     """'' when the indexer answers this key, else what went wrong."""
+    if indexer.get('kind') == 'prowlarr':
+        try:
+            if not _prowlarr_usenet(indexer, 15, fresh=True):
+                return _t('ما فيه مفهرس Usenet شغال في Prowlarr', 'Prowlarr has no Usenet indexer switched on')
+            return ''
+        except Exception as exc:
+            return str(exc)[:120]
     try:
         raw = _api(indexer, {'t': 'caps'}, seconds=15)
         if b'<error' in raw and b'<caps' not in raw:
@@ -540,7 +673,8 @@ def _edit_provider(p, new=False, others=False):
 def _edit_indexer(i, new=False):
     dialog = xbmcgui.Dialog()
     if new:
-        url = _ask(_t('عنوان المفهرس (مثل https://api.example.com)', 'The indexer\'s address (like https://api.example.com)')).strip()
+        url = _ask(_t('عنوان المفهرس أو Prowlarr (مثل https://api.example.com)',
+                      'The indexer\'s or Prowlarr\'s address (like https://api.example.com)')).strip()
         if not url:
             return False
         i['url'] = url if url.startswith('http') else 'https://' + url
@@ -548,6 +682,10 @@ def _edit_indexer(i, new=False):
         if not i['key']:
             return False
         i['name'] = _indexer_name(i['url'])
+        if _is_prowlarr(i):
+            # v5.10.583: a Prowlarr is one entry for all its Usenet indexers
+            i['kind'], i['name'] = 'prowlarr', 'Prowlarr'
+            i['url'] = i['url'].rstrip('/')
         wrong = _test_indexer(i)
         if wrong and not dialog.yesno('Usenet', _t('المفهرس ما رد صح: %s\nأحفظه على أي حال؟',
                                                    'The indexer did not answer right: %s\nKeep it anyway?') % wrong):
@@ -660,6 +798,8 @@ class SetupWindow(xbmcgui.WindowXMLDialog):
                 else:
                     name = str(row.get('name') or '')
                     facts = str(row.get('url') or '').split('://', 1)[-1]
+                    if row.get('kind') == 'prowlarr':
+                        facts = _t('كل مفهرسات Usenet فيه', 'all its Usenet indexers') + u' \u00b7 ' + facts
                 item = xbmcgui.ListItem(name, facts, offscreen=True)
                 item.setProperty('kind', 'entry')
                 item.setProperty('off', '1' if row.get('off') else '')

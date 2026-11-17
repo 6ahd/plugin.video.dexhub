@@ -52,7 +52,7 @@ WANT, PORT, TOKEN, SESSION, STATE = ('dexhub.usenet.want', 'dexhub.usenet.port',
 INAPP, APP_START, APP_STOP, APP_PORT, APP_STATE = ('dexhub.usenet.inapp', 'dexhub.usenet.app.start',
                                                    'dexhub.usenet.app.stop', 'dexhub.usenet.app.port',
                                                    'dexhub.usenet.app.state')
-_IDLE_STOP = 600            # the engine stops ten minutes after its last session ended
+_IDLE_STOP = 1800           # the engine stops 30 minutes after its last session ended (v5.10.583: 10)
 _SESSION_IDLE = 45          # a session whose film is not playing any more is closed
 
 
@@ -225,7 +225,8 @@ class _AppEngine(object):
 
 def service_loop(monitor):
     """Run by the service: starts the engine when a plugin call asks, publishes where it is,
-    closes a session whose film stopped, and stops the engine after ten idle minutes."""
+    closes a session whose film stopped, and stops the engine after 30 idle minutes (its
+    connections to the provider stay open for the next film meanwhile)."""
     home, engine, player = _home(), _Engine(), xbmc.Player()
     for key in (WANT, PORT, TOKEN, SESSION, STATE):
         home.clearProperty(key)
@@ -273,7 +274,7 @@ def service_loop(monitor):
                             not_playing_since = 0.0
                             _log('the session of a film that stopped was closed')
                 elif time.time() - engine.idle_since > _IDLE_STOP:
-                    _log('idle for ten minutes: stopped')
+                    _log('idle for %d minutes: stopped' % (_IDLE_STOP // 60))
                     engine.stop()
                     for key in (PORT, TOKEN, STATE):
                         home.clearProperty(key)
@@ -296,6 +297,14 @@ def _request(port, token, method, path, body=None, seconds=120):
             return answer.status, (json.loads(text) if text.strip().startswith('{') else text), {}
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read().decode('utf-8', 'replace')[:300].strip(), dict(exc.headers)
+
+
+def warm():
+    """v5.10.583: Usenet releases are on the sources list: the service starts the engine now,
+    so it is ready (its connections open) when one is picked. Waits for nothing."""
+    home = _home()
+    if available() and not home.getProperty(PORT) and home.getProperty(STATE) != 'starting':
+        home.setProperty(WANT, '1')
 
 
 def ensure(seconds=25):
