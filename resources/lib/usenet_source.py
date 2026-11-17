@@ -17,6 +17,7 @@ this device only. Searches and downloads go from this device with the viewer's o
 the indexer and the provider see this device's address, and every search uses API calls on
 each indexer.
 """
+import hashlib
 import json
 import os
 import re
@@ -38,6 +39,9 @@ _FILE = 'special://profile/addon_data/plugin.video.dexhub/usenet.json'
 _AGENT = 'Dex Hub (Kodi)'
 _RES = re.compile(r'(?<![a-z0-9])(2160p|4k|uhd|1080p|720p|576p|480p)(?![a-z0-9])', re.I)
 _CONFIG = {}
+_CACHE = 'special://profile/addon_data/plugin.video.dexhub/usenet/search-cache/'
+_CACHE_FOR = 1800           # an indexer's answer is used again for half an hour
+_BUDGET = 25                # every indexer's search, the name fallbacks included, ends within this
 
 
 def _log(msg, level=xbmc.LOGINFO):
@@ -116,6 +120,41 @@ def _api(indexer, params, seconds=20):
         return answer.read()
 
 
+def _cache_path(indexer, params):
+    key = json.dumps([str(indexer.get('url') or ''), str(indexer.get('key') or ''), sorted(params.items())],
+                     default=str)
+    return os.path.join(xbmcvfs.translatePath(_CACHE), hashlib.sha1(key.encode('utf-8')).hexdigest() + '.xml')
+
+
+def _cached_api(indexer, params, seconds):
+    """(answer, from the cache): v5.10.582, the same search within half an hour is not asked
+    again. Most indexers allow about 100 API calls a day, and each title's sources asked every
+    indexer up to three times, every time its sources opened."""
+    path = _cache_path(indexer, params)
+    try:
+        if time.time() - os.path.getmtime(path) < _CACHE_FOR:
+            with open(path, 'rb') as handle:
+                return handle.read(), True
+    except OSError:
+        pass
+    raw = _api(indexer, params, seconds)
+    if not _refusal(raw):                       # a refusal (a daily limit) is asked again next time
+        try:
+            folder = os.path.dirname(path)
+            if not os.path.isdir(folder):
+                os.makedirs(folder)
+            now = time.time()
+            for name in os.listdir(folder):
+                old = os.path.join(folder, name)
+                if now - os.path.getmtime(old) >= _CACHE_FOR:
+                    os.remove(old)
+            with open(path, 'wb') as handle:
+                handle.write(raw)
+        except OSError:
+            pass
+    return raw, False
+
+
 def _refusal(raw):
     """The indexer's own words when it refused (Newznab <error description=...>), else ''."""
     try:
@@ -186,7 +225,7 @@ def _size_label(size):
     return '%.2f GB' % (size / 1073741824.0) if size >= 1073741824 else '%d MB' % (size // 1048576) if size else ''
 
 
-def _search_one(indexer, provider, out):
+def _search_one(indexer, provider, out, deadline):
     ids = provider.get('_ids') or {}
     imdb = re.sub(r'\D', '', str(ids.get('imdb_id') or ''))
     season, episode = provider.get('_season'), provider.get('_episode')
@@ -207,8 +246,14 @@ def _search_one(indexer, provider, out):
     name = str(indexer.get('name') or indexer.get('url') or 'indexer')
     started = time.time()
     for params in calls:
+        left = deadline - time.time()
+        if left < 2:
+            # v5.10.582: a name search that started late was waited for no more and its
+            # releases were lost; now each call gets only the time that is left
+            _log('%s: out of time before its %s search' % (name, params['t']), xbmc.LOGWARNING)
+            return
         try:
-            raw = _api(indexer, dict(params, limit=100))
+            raw, cached = _cached_api(indexer, dict(params, limit=100), min(20, left))
         except urllib.error.HTTPError as exc:
             try:
                 why = _refusal(exc.read()) or 'HTTP %s' % exc.code
@@ -227,7 +272,8 @@ def _search_one(indexer, provider, out):
             return
         found = _releases(raw)
         if found:
-            _log('%s: %d releases (%s), %.1fs' % (name, len(found), params['t'], time.time() - started))
+            _log('%s: %d releases (%s%s), %.1fs' % (name, len(found), params['t'], ', kept' if cached else '',
+                                                   time.time() - started))
             out.append((name, found))
             return
     _log('%s: nothing found, %.1fs' % (name, time.time() - started))
@@ -260,24 +306,29 @@ def targets(meta, canonical_id, media_type, ids=None, season=None, episode=None)
 
 def payload(provider):
     found, workers = [], []
+    deadline = time.time() + _BUDGET
     for indexer in config()['indexers']:
         if indexer.get('off'):
             continue
-        worker = threading.Thread(target=_search_one, args=(indexer, provider, found), name='DexHubUsenetIndexer')
+        worker = threading.Thread(target=_search_one, args=(indexer, provider, found, deadline),
+                                  name='DexHubUsenetIndexer')
         workers.append(worker)
         worker.start()
     for worker in workers:
-        worker.join(25)
+        worker.join(max(0.0, deadline - time.time()) + 1)
     streams, seen = [], set()
-    for name, releases in found:
+    protected = _t('بكلمة سر', 'password')
+    for name, releases in list(found):          # an indexer still answering adds to found no more here
         for release in releases:
-            if release['password']:
-                continue                        # a release that needs a password cannot be opened
+            # v5.10.582: a release marked as passworded stays. Its password is often in the NZB,
+            # which the engine reads (1.3.0 opens COMPLETE.BLURAY discs that way); left out,
+            # those discs never showed. One that does not open says so when it is picked.
             key = (release['title'].lower(), release['size'] // 10485760)
             if key in seen:
                 continue
             seen.add(key)
-            facts = u' \u00b7 '.join(x for x in (_size_label(release['size']), release['age'], name) if x)
+            facts = u' \u00b7 '.join(x for x in (_size_label(release['size']), release['age'], name,
+                                                 protected if release['password'] else '') if x)
             stream = {'name': '[COLOR %s]%s[/COLOR] %s\n%s' % (COLOR, NAME, name, _quality(release['title'])),
                       'title': '%s\n%s' % (release['title'], facts),
                       'url': release['link'],
@@ -340,13 +391,25 @@ def _number(heading, default):
         return None
 
 
+def _tls():
+    """v5.10.582: the test trusts what the engine trusts, Kodi's own roots (a CoreELEC box may
+    have none of its own, so a right sign-in was reported as failed)."""
+    import ssl as _ssl
+    context = _ssl.create_default_context()
+    try:
+        context.load_verify_locations(xbmcvfs.translatePath('special://xbmc/system/certs/cacert.pem'))
+    except Exception:
+        pass
+    return context
+
+
 def _test_provider(p, seconds=12):
     """'' when the provider lets this sign-in in, else what it said."""
     import socket
-    import ssl as _ssl
+    secure = p.get('ssl', True)
     try:
-        raw = socket.create_connection((p.get('host'), int(p.get('port') or 563)), seconds)
-        sock = _ssl.create_default_context().wrap_socket(raw, server_hostname=p.get('host')) if p.get('ssl', True) else raw
+        raw = socket.create_connection((p.get('host'), int(p.get('port') or (563 if secure else 119))), seconds)
+        sock = _tls().wrap_socket(raw, server_hostname=p.get('host')) if secure else raw
         sock.settimeout(seconds)
         reader = sock.makefile('rb')
 

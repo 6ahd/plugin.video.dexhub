@@ -1,3 +1,13 @@
+5.10.582
+Usenet: النسخ اللي عليها كلمة سر صارت تطلع في المصادر (مكتوب عليها «بكلمة سر»). كلمة السر غالبًا داخل ملف NZB والمحرك يقراها، وأقراص COMPLETE.BLURAY كلها كذا، فكانت ما تطلع أبد. واللي ما تنفتح يقول لك لما تختارها.
+Usenet: المفهرس ما ينسأل نفس البحث مرة ثانية خلال نص ساعة. أغلب المفهرسات حدها تقريبًا 100 طلب في اليوم، وكل فتح لمصادر عمل كان ياخذ لين 3 طلبات من كل مفهرس.
+Usenet: البحث بالاسم اللي يبدأ متأخر ما عاد يضيع: كل مفهرس ياخذ الوقت الباقي من 25 ثانية بس، والنتائج اللي توصل في وقتها تطلع كلها.
+Usenet: «فحص الاتصال» للمزود صار يستخدم شهادات كودي نفسها مثل المحرك (على CoreELEC كان يقول إن الدخول فشل وهو صحيح)، والمنفذ الافتراضي بدون SSL صار 119.
+Usenet: releases marked as passworded now show among the sources (labelled "password"). Their password is often in the NZB, which the engine reads; every COMPLETE.BLURAY disc is one, so they never showed. One that does not open says so when it is picked.
+Usenet: an indexer is not asked the same search again for half an hour. Most indexers allow about 100 API calls a day, and each opening of a title's sources took up to three from every indexer.
+Usenet: a name search that starts late is no longer lost: each indexer gets only what is left of 25 seconds, and whatever arrives in time shows.
+Usenet: the provider's "Test the sign-in" trusts Kodi's own roots as the engine does (on CoreELEC a right sign-in was reported as failed), and its default port without SSL is 119.
+
 5.10.581
 أقراص البلوراي من الإنترنت (ISO من Emby وDexstreams وغيرها) صارت تفتح بقائمتها أسرع بكثير على CoreELEC وLibreELEC: Dex Hub يخدم القرص بنفسه، يقرأ فهرسه مرة وحدة ويحفظ ملفات القائمة، ويقرأ الفيلم بأكثر من اتصال، ويعيد المحاولة لو السيرفر مشغول (The Batman من Emby: من 93 ثانية إلى 27).
 القائمة ما عادت تقفل لحالها لما Dex Hub يضيف ترجمات بالخلفية.
