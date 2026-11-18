@@ -169,11 +169,48 @@ def _readable(name):
     """v5.10.323: a release's dotted file name with spaces, so the page can
     wrap it and show it whole (Widows.Bay.S01E02.1080p -> Widows Bay S01E02 1080p)."""
     text = re.sub(r'\.(srt|ass|ssa|vtt|sub|zip)$', '', str(name or '').strip(), flags=re.I)
+
+    def spaced(word):
+        word = re.sub(r'[._](?=\d{3,4}p\b)', ' ', word, flags=re.I)
+        return re.sub(r'(?<!\d)[._](?!\d)|(?<=\d)[._](?=\D)|(?<=\D)[._](?=\d)|_', ' ', word)
     if text.count(' ') <= 1 and (text.count('.') + text.count('_')) >= 2:
-        text = re.sub(r'[._](?=\d{3,4}p\b)', ' ', text, flags=re.I)
-        text = re.sub(r'(?<!\d)[._](?!\d)|(?<=\d)[._](?=\D)|(?<=\D)[._](?=\d)|_', ' ', text)
-        text = re.sub(r'\s+', ' ', text).strip()
-    return text
+        text = spaced(text)
+    else:
+        # v5.10.585: a dotted file name inside a longer name ("OpenSubtitles ·
+        # SRT · The.Odyssey.2026.1080p...") gets spaces too: Kodi breaks a
+        # line only at a space, so one long word was cut at the panel's edge
+        text = ' '.join(spaced(w) if (w.count('.') + w.count('_')) >= 2 else w for w in text.split(' '))
+    return re.sub(r'\s+', ' ', text).strip()
+
+
+def _text_width(text, size=24):
+    """Roughly how wide a text is in the panel's font (InterArabic at 24)."""
+    width = 0.0
+    for ch in text:
+        if ch == ' ':
+            width += 6.5
+        elif ch.isdigit() or ch.isupper():
+            width += 15.0
+        elif ch in '.,:;·•|!()[]-_/\'"':
+            width += 8.0
+        else:
+            width += 12.5
+    return width * size / 24.0
+
+
+def _lines(text, width):
+    """v5.10.585: how many lines a name takes at a width, wrapped at spaces
+    as Kodi wraps it (the focused row grows to show the whole name)."""
+    lines, used = 1, 0.0
+    space = _text_width(' ')
+    for word in str(text or '').split():
+        w = _text_width(word) * 1.12
+        if used and used + space + w > width:
+            lines += 1
+            used = w
+        else:
+            used += (space if used else 0) + w
+    return lines
 
 
 SHIFT = 'subtitle_shift_steps'
@@ -404,6 +441,10 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
                           'current': '1' if row.get('current') else '', 'busy': '1' if row.get('busy') else '',
                           'flag': row.get('flag') or '', 'count': str(row.get('count') or ''),
                           'b1': row.get('b1') or '', 'b2': row.get('b2') or ''})
+        # the name's lines: a long name shows two lines, and all of it (up to
+        # four) on the focused row (v5.10.585, dexhub_subtitles.xml)
+        width = (654 if not row.get('flag') else 592) - (110 if (row.get('b1') or row.get('b2')) else 0)
+        li.setProperty('lines', str(min(4, _lines(row.get('label') or '', width - 8))))
         SubtitleWindow._swatches(li, row)
         if row.get('pct'):
             try:

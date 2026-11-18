@@ -1,3 +1,9 @@
+5.10.585
+نافذة الترجمات في المشغّل صارت أعرض وتبيّن اسم الترجمة كامل: كل ترجمة على سطرين، والترجمة اللي واقف عليها يكبر صفها لين ٤ أسطر عشان يبان اسمها كله (المصدر، النوع، اسم الملف). أسماء الملفات اللي بنقاط (The.Odyssey.2026.1080p…) تنكسر على أكثر من سطر بدل ما تنقص.
+Usenet يشتغل على LibreELEC ولينكس في الكمبيوترات اللي معالجها Intel أو AMD، مع محرك Usenet 1.3.1. قبل كان المحرك لـ ARM بس، فـ Usenet ما يشتغل أبد على هالأجهزة.
+The player's subtitle panel is wider and shows a subtitle's whole name: every subtitle on two lines, and the one you are on grows up to four lines so all of it shows (source, type, file name). File names with dots (The.Odyssey.2026.1080p…) wrap onto more lines instead of being cut.
+Usenet plays on LibreELEC and Linux on PCs with Intel or AMD chips, with the Usenet engine 1.3.1. Before, the engine was built for ARM only, so Usenet never started on these devices.
+
 5.10.584
 إيقاف القرص ما عاد يعلّق كودي دقايق: أقراص ISO من الإنترنت صار يقدّمها Dex Hub من برنامج مستقل على الجهاز، فيرد على كودي حتى لو بايثون حق كودي مشغول، والإيقاف ينقفل في أقل من ثانية (كان يعلّق لين ٧ دقايق).
 قوائم الجافا اللي صورها في مجلد صارت تطلع (قائمة «الانتفاضة» كانت سودا): كودي كان يحفظ مسارات ملفات المجلد غلط ويرفض يفتحها.
