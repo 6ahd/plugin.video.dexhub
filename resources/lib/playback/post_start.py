@@ -383,6 +383,9 @@ def _apply_selected_subtitle(player, apply_job, kodi_monitor, valid=None):
     except Exception:
         pass
     applied = False
+    # v5.10.584: the start's own subtitle is Dex Hub's too: a disc in its menus took it for the
+    # viewer's choice and set off a switch to the film (The Batman, CoreELEC box, 17 Nov 2026)
+    _mark_attach()
     if index >= 0:
         try:
             player.setSubtitleStream(index)
@@ -414,6 +417,7 @@ def _attach_remaining_rows(player, rows, existing_paths, stream_key):
         # replay the already-attached tracks first so none are lost.
         combined = list(existing_paths) + [p for p in extras
                                            if p not in existing_paths]
+        _mark_attach()
         try:
             player.setSubtitles(combined[0])
             for extra in combined[1:]:

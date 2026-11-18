@@ -1920,7 +1920,7 @@ STRINGS = {
     'الجودة • Dolby Vision': 'Quality • Dolby Vision',
     'الجودة • REMUX': 'Quality • REMUX',
     'الجودة • قرص كامل ISO': 'Quality • Full disc ISO',
-    'الـNAS ومجلدات الشبكة': 'NAS and network folders',
+    'الـNAS وروابط SMB': 'NAS and SMB shares',
     'الترتيب \u2022 المقترح': 'Sort \u2022 Recommended',
     'الترتيب \u2022 الحجم': 'Sort \u2022 Size',
     'الترتيب \u2022 الجودة': 'Sort \u2022 Quality',
@@ -3882,7 +3882,7 @@ STRINGS.update({
     'الإضافات والديبريد وUsenet والـNAS وطريقة التشغيل': 'Add-ons, Debrid, Usenet, your NAS and how playback starts',
     'الصوت والترجمة وأزرار المشغّل والحلقات والتريلر': "Audio, subtitles, the player's buttons, episodes and trailers",
     'النسخ الاحتياطي والكاش والتشخيص وكودي والخروج': 'Backups, cache, diagnostics, Kodi and leaving',
-    'أفلامك ومسلسلاتك في الـNAS تطلع مع المصادر': 'Films and series on your NAS show with the sources',
+    'أفلامك ومسلسلاتك في الـNAS أو SMB تطلع مع المصادر': 'Films and series on your NAS or SMB share show with the sources',
 })
 
 STRINGS.update({'الشكل العام': 'Look', 'نظيف · شاشة كاملة': 'Clean · full screen',

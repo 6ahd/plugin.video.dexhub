@@ -32,6 +32,9 @@ _IDLE_STOP = 600
 # seconds, Kodi's idle clock). Opening a stream puts up Kodi's busy dialog for
 # a moment, and a key pressed then was swallowed (11 times in one log)
 _START_REST = 1
+# v5.10.584: how long a playing trailer waits for its card to come back after the card left
+# Kodi's focus with no key pressed (a row published again), before it counts as left
+_REFRESH_GRACE = 3.0
 
 
 def _immersive_after(value):
@@ -258,6 +261,33 @@ class Spotlight(threading.Thread):
     def ours(self):
         return self.director is not None and self.director.active and self.director.owner() is self
 
+    _PLAY_PENDING = 60.0
+
+    def _play_pending(self):
+        """v5.10.584: a film Dex Hub was asked to play less than a minute ago (the mark playback_engine
+        writes first): no trailer starts while it opens. Play pressed on a disc from Dexstreams took 40 s
+        to open, and the card's trailer started a second after the press, as if nothing had been
+        asked (CoreELEC box, 18 Nov 2026). A real video playing ends the wait (target() has none)."""
+        try:
+            stamp = float(C.prop('dexhub.play.handoff').rpartition('#')[2])
+        except ValueError:
+            return False
+        return 0 <= time.time() - stamp < self._PLAY_PENDING
+
+    def _sync_parked(self):
+        """v5.10.584: dhs.trailer.parked while our preview waits paused for the cursor to come back.
+        A card's video window holds Kodi's video picture where it last drew it: on CoreELEC (the
+        video a layer of its own) the paused frame stayed on the card the cursor had left, round
+        the poster, until the player closed (CoreELEC box, 18 Nov 2026). The skin hides the card's
+        video window while this is set and draws a one-point window in the corner instead."""
+        try:
+            parked = '1' if (self.director is not None and self.director.parked) else ''
+        except Exception:
+            parked = ''
+        if parked != getattr(self, '_parked_prop', None):
+            self._parked_prop = parked
+            C.set_prop('dhs.trailer.parked', parked)
+
     def tick(self):
         pending = C.prop('dhs.trailer.takeover')
         if pending:
@@ -280,6 +310,7 @@ class Spotlight(threading.Thread):
         if C.prop('dhs.trailer'):
             return
         self.director.tick()
+        self._sync_parked()
         settings = self.settings()
         from ..trailer_preferences import publish_presentation, publish_status
         publish_presentation(settings.get('mode', 'background'))
@@ -295,14 +326,33 @@ class Spotlight(threading.Thread):
                 self._pf_key, self._pf_since = target['key'], now
             self._prefetch_title(target, now, self._pf_since)
             target = None
+        # v5.10.584: a row Dex Hub publishes again (Continue Watching after a playback) takes
+        # the card from Kodi's focus for a moment: the trailer was parked (paused), waited the
+        # whole delay and carried on, twice in 3 s, a frozen trailer on a card the cursor never
+        # left (CoreELEC box, 17 Nov 2026). No key pressed means the cursor did not move: the
+        # trailer plays on while the card comes back, up to _REFRESH_GRACE.
+        mono = time.monotonic()
+        moved = target is None or target['key'] != self.key
+        if (moved and self.key is not None and self.ours() and not self.director.parked
+                and (target is not None or self.why.startswith('item ')
+                     or self.why in ('container', 'no hub', 'focus away while it opens'))
+                and xbmc.getGlobalIdleTime() >= 1):
+            if not getattr(self, '_held_at', 0.0):
+                self._held_at = mono
+                C.log('trailer: the card left the focus with no key pressed (%s): playing on' % self.why,
+                      xbmc.LOGINFO)
+            if mono - self._held_at < _REFRESH_GRACE:
+                return
+        self._held_at = 0.0
         if target is None:
             publish_status('disabled' if not settings['on'] else 'unavailable' if self.why.startswith('item ') else 'waiting')
             if self.key is not None:
                 self.director.next_token()  # cancel a lookup whose page was left
             if self.ours():
                 # v5.10.187: a trailer stopped before it showed says why (INFO)
+                # v5.10.584: every park says why (INFO), a box's log shows what took the card
                 C.log('trailer: no target (%s)' % self.why,
-                      xbmc.LOGINFO if self.director.opening else xbmc.LOGDEBUG)
+                      xbmc.LOGINFO if (self.key is not None or self.director.opening) else xbmc.LOGDEBUG)
                 if (self.why.startswith('item ') or self.why == 'container'
                         or (self.why == 'busy' and self.director.parked)):
                     # v5.10.362: Kodi's busy dialog of a trailer parked while it
@@ -340,6 +390,7 @@ class Spotlight(threading.Thread):
                 self._revealed = False
                 C.set_prop('dhs.trailer.visible', '')
                 self.director.park(max(3.0, settings['delay'] + 3.0))
+                self._sync_parked()
             return
         self.update_immersive(settings)
         self._prefetch_title(target, now, self.since)
@@ -351,6 +402,8 @@ class Spotlight(threading.Thread):
             return
         if xbmc.getGlobalIdleTime() < _START_REST:
             return              # v5.10.361: not while the keys are moving
+        if self._play_pending():
+            return              # v5.10.584: a film asked for is opening (see _play_pending)
         self.begin(target, settings)
 
     def target(self):
@@ -593,8 +646,11 @@ class Spotlight(threading.Thread):
                     publish_status('unavailable')
                 return
             # v5.10.581: a trailer that does not answer is left out quietly (no "Playback failed",
-            # the poster stays), and one that does plays through Dex Hub's own server, so Kodi
-            # looks up no name of its own (on a hotspot its lookups failed while ours answered)
+            # the poster stays).
+            # v5.10.584: Kodi plays the trailer's own link again, not through Dex Hub's server.
+            # Closing a trailer, Kodi's main thread waits for its reader, which waited for Dex Hub's
+            # Python server, which waited for the main thread: Kodi stood still 3 to 4 minutes
+            # after a trailer (CoreELEC box, 17 Nov 2026, no add-on logged a line meanwhile).
             url = str(stream.get('url') or '')
             if not test and not stream.get('live') and url.lower().startswith(('http://', 'https://')):
                 from ..debrid import discserver
@@ -605,9 +661,6 @@ class Spotlight(threading.Thread):
                     return
                 if not director.is_current(token) or self.key != target['key'] or self.halt.is_set():
                     return
-                local = discserver.offer_link(url)
-                if local:
-                    stream = dict(stream, url=local)
             self._playing_title = target['title']
             ok = director.play(self, token, stream, title=target['title'], muted=not settings['sound'], volume=settings['volume'])
             if not ok and director.is_current(token):
@@ -667,6 +720,7 @@ class Spotlight(threading.Thread):
         if self.ours():
             C.log('trailer parked (the hub left the title)', xbmc.LOGDEBUG)
             self.director.park(8.0)
+            self._sync_parked()
         self._revealed = False
         self.visible_since = 0.0
         C.set_prop('dhs.trailer.visible', '')

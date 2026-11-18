@@ -616,8 +616,8 @@ def _share_id(root):
 
 
 def _ask_address():
-    typed = xbmcgui.Dialog().input(_t('عنوان الـNAS (مثل 192.168.1.20 أو smb://nas/movies)',
-                                      'NAS address (like 192.168.1.20 or smb://nas/movies)'))
+    typed = xbmcgui.Dialog().input(_t('عنوان الـNAS أو رابط SMB (مثل 192.168.1.20 أو smb://nas/movies)',
+                                      'NAS address or SMB link (like 192.168.1.20 or smb://nas/movies)'))
     typed = (typed or '').strip()
     if not typed:
         return None
@@ -732,10 +732,10 @@ def setup():
         index = _index()
         when = time.strftime('%H:%M %d/%m', time.localtime(index.get('at'))) if index.get('at') else '—'
         labels = ['%s · %s  (%s)' % (r.get('host') or '', r.get('name') or '', r.get('count', '?')) for r in rows]
-        labels += [_t('➕ إضافة NAS أو مجلد', '➕ Add a NAS or folder'),
+        labels += [_t('➕ إضافة NAS أو رابط SMB', '➕ Add a NAS or SMB link'),
                    _t('🔄 قراءة الملفات الآن (آخر مرة %s)', '🔄 Read the files now (last %s)') % when,
                    _t('🗑 إزالة مجلد', '🗑 Remove a folder')]
-        pick = dialog.select(_t('الـNAS ومجلدات الشبكة', 'NAS and network folders'), labels)
+        pick = dialog.select(_t('الـNAS وروابط SMB', 'NAS and SMB shares'), labels)
         if pick < 0:
             return
         if pick == len(rows):

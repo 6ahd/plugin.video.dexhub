@@ -372,6 +372,63 @@ def port():
         return 0
 
 
+# v5.10.584: the disc images are served by a process of their own (discproc), which a stopped
+# disc cannot freeze; this server inside Kodi stays for the Debrid discs and as the fallback.
+PROC_PROP = 'dexhub.disc.procport'
+_PYTHONS = ('/usr/bin/python3', '/usr/bin/python')
+
+
+def start_process():
+    """Start discproc (the service, once per Kodi session); its port goes in a Window property."""
+    import subprocess
+    import xbmcgui
+    exe = next((p for p in _PYTHONS if os.access(p, os.X_OK)), '')
+    if not exe:
+        accounts.log('disc images served inside Kodi (no Python of its own on this device)')
+        return False
+    folder = os.path.dirname(accounts.path('discs.json'))
+    port_file = accounts.path('discproc.port')
+    try:
+        os.remove(port_file)
+    except OSError:
+        pass
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'discproc.py')
+    try:
+        with open(os.path.join(folder, 'discproc.err'), 'a') as errors:
+            subprocess.Popen([exe, '-I', script, folder, port_file, str(os.getpid())],
+                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=errors,
+                             close_fds=True, start_new_session=True)
+    except Exception as exc:
+        accounts.log('disc process not started: %s' % exc, True)
+        return False
+    for _ in range(50):
+        try:
+            with open(port_file) as handle:
+                number = int(handle.read().strip() or 0)
+            if number:
+                xbmcgui.Window(10000).setProperty(PROC_PROP, str(number))
+                accounts.log('disc images served by a process of their own on port %d' % number)
+                return True
+        except (OSError, ValueError):
+            pass
+        time.sleep(0.2)
+    accounts.log('disc process gave no port: disc images served inside Kodi', True)
+    return False
+
+
+def proc_port():
+    """discproc's port when it answers, else 0."""
+    try:
+        import socket
+        import xbmcgui
+        number = int(xbmcgui.Window(10000).getProperty(PROC_PROP) or 0)
+        if number:
+            socket.create_connection((HOST, number), 0.5).close()
+        return number
+    except Exception:
+        return 0
+
+
 def root_of(name):
     """The folder that holds a disc file's BDMV folder ('' when it is at the top), or None."""
     path = str(name or '').replace('\\', '/')
@@ -566,7 +623,7 @@ def offer_image(link, size=0):
     (not an image Dex Hub can read: a DVD, a damaged one, a link that gives no ranges)."""
     if not accounts.option('disc_menus'):
         return ''
-    number = port()
+    number = proc_port() or port()
     if not number:
         return ''
     size = int(size or 0) or image_size(link)
@@ -590,12 +647,22 @@ def offer_image(link, size=0):
         tree = known['files']
         _remember(key, dict(known, image=link))
     else:
-        try:
-            image.open()
-            tree = image.disc_files()
-        except Exception as exc:
-            accounts.log('disc image not read (%s): it plays as it is' % exc)
-            return ''
+        tree = None
+        for attempt in range(2):
+            try:
+                image = udf.Image(read, size)
+                image.open()
+                tree = image.disc_files()
+                break
+            except Exception as exc:
+                # v5.10.584: a link slow to answer (Dexstreams, its TLS handshake timed out after
+                # its first answer took 27 s) is asked once more before the disc goes to Kodi's
+                # own reader, whose menus wait on every file (CoreELEC box, 18 Nov 2026)
+                if attempt == 0 and 'timed out' in str(exc).lower():
+                    accounts.log('disc image read timed out (%s): asked once more' % exc)
+                    continue
+                accounts.log('disc image not read (%s): it plays as it is' % exc)
+                return ''
         _remember(key, {'image': link, 'size': size, 'files': tree})
     lower = {k.lower(): v for k, v in tree.items()}
 
@@ -693,6 +760,13 @@ def _link(key, disc, name):
         with _lock:
             _links[stamp] = (link, time.time())
     return link
+
+
+def _JAR_LINK(prefix):
+    """A Java menu's own folder (BDMV/JAR/00001/...), whose listing names its files with a leading
+    slash (see the listing below); never BDMV/PLAYLIST and the like, whose names libbluray checks."""
+    up = str(prefix or '').upper()
+    return up.startswith('BDMV/JAR/') and len(up) > len('BDMV/JAR/')
 
 
 def _handler():
@@ -836,6 +910,8 @@ def _handler():
             else:
                 disc = _disc(parts[1])
                 name = parts[2] if len(parts) > 2 else ''
+                while '//' in name:              # v5.10.584: a Java menu folder's files (_JAR_LINK)
+                    name = name.replace('//', '/')
                 files = (disc or {}).get('files') or {}
                 if name and name not in files:
                     name = {n.lower(): n for n in files}.get(name.lower(), name)
@@ -864,8 +940,22 @@ def _handler():
                     if not kids:
                         body = self._send(404)
                     else:
+                        # v5.10.584: Kodi names a listed file by the folder's own address and the
+                        # link run together (CHTTPDirectory: strBasePath + link), and libbluray asks
+                        # for a folder with no slash at its end: every file of BDMV/JAR/00001 was
+                        # kept as BDMV/JAR/00001<name>, and Kodi refused to open the real ones (not
+                        # in the folder it had just listed). A Java menu with its pictures in a folder
+                        # stayed black (The Uprising, CoreELEC box, 18 Nov 2026). Its links start
+                        # with a slash Kodi keeps (libbluray asks for name//file, read as name/file).
+                        # Each file is listed twice there: by its plain name, which libbluray copies
+                        # into its own cache folder, and by the slashed one, which puts the right
+                        # address in Kodi's listing so the plain name opens. The slashed name alone
+                        # made libbluray's cache folder name end in a slash, which it could not create.
+                        links = [(urllib.parse.quote(k), html.escape(k)) for k in kids]
+                        if _JAR_LINK(prefix):
+                            links += [('//' + q, '/' + n) for q, n in links]
                         page = ('<html><head><title>Index of /%s</title></head><body><pre>' % html.escape(prefix) +
-                                ''.join('<a href="%s">%s</a>\n' % (urllib.parse.quote(k), html.escape(k)) for k in kids) +
+                                ''.join('<a href="%s">%s</a>\n' % pair for pair in links) +
                                 '</pre></body></html>').encode('utf-8')
                         body = self._send(200, page)
             if not head and body:

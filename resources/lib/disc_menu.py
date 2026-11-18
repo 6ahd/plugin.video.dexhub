@@ -123,6 +123,24 @@ def _added_by_dexhub():
     return stamp > 0 and time.time() - stamp < _QUIET
 
 
+_FILM_LONG = 45 * 60            # a title this long is the film, not a menu's loop
+
+
+def _film_in_menus(player):
+    """The disc runs with its menus but plays the film itself (a title of a film's length,
+    past its first seconds): a subtitle file picked now stays on it (v5.10.584: on the CoreELEC
+    box it showed on The Odyssey's film played from its menu, 18 Nov 2026)."""
+    try:
+        total = float(player.getTotalTime() or 0.0)
+        at = float(player.getTime() or 0.0)
+    except Exception:
+        return False
+    film = total >= _FILM_LONG and at > 5.0
+    _log('a subtitle file was switched on with the menus on: title %.0f s long, at %.0f s: %s'
+         % (total, at, 'the film plays, it stays on (no new start)' if film else 'a menu'))
+    return film
+
+
 def _newest_subtitle(since, stem=''):
     """The subtitle file Kodi just put on the player: the one named `stem` (Kodi's name for
     the stream) when a stem is given, else the one written last since `since`, where Kodi and subtitle add-ons keep
@@ -224,6 +242,11 @@ def watch():
                             # Kodi put on a file Dex Hub just added: the menus stay
                             _log('a subtitle file Dex Hub added was switched on by Kodi: the menus stay')
                             shown, held = current, ('', 0)
+                        elif held[1] >= _HOLD and _film_in_menus(player):
+                            # v5.10.584: the film itself plays (picked in the disc's menu): the
+                            # subtitle stays on it, with no new start (it took 12 s and looked like
+                            # a closed film, The Odyssey on the CoreELEC box, 18 Nov 2026)
+                            shown, held = current, ('', 0)
                         elif held[1] >= _HOLD:
                             path = _playing_subtitle(player) or _newest_subtitle(since - 5, current[:-len(' (External)')]) \
                                 or _newest_subtitle(since - 5)
@@ -255,6 +278,11 @@ def offer(subtitle_path='', name=''):
     """After a subtitle file is put on a disc in its menus: play the disc again as
     its main movie, from the same place, with that subtitle (once per disc)."""
     if not in_menus():
+        return False
+    # v5.10.584: the film itself plays (picked in the disc's menu): the subtitle shows on it, no new
+    # start. Dex Hub's subtitle page asks here directly; it set the disc going again at 21:33 of
+    # The Uprising (CoreELEC box, 18 Nov 2026) though Kodi's own subtitle list no longer did.
+    if _film_in_menus(xbmc.Player()):
         return False
     try:
         mark = hashlib.sha1(xbmc.Player().getPlayingFile().encode('utf-8', 'replace')).hexdigest()[:16]
@@ -299,7 +327,10 @@ def replay(subtitle_path='', name=''):
         total = float(player.getTotalTime() or 0.0)
     except Exception:
         total = 0.0
-    if 0.0 < total < 45 * 60:
+    _log('the title playing in the menus: %.0f s long, at %.0f s' % (total, position))
+    # v5.10.584: a Java menu gives Kodi no length (0): its clock is the menu's too (The Odyssey's
+    # menu at 0:41 started the film at 0:41, a Usenet disc on the CoreELEC box, 17 Nov 2026)
+    if total < 45 * 60:
         # the place this playback was asked to start from (a source switch, Continue
         # watching) is kept for a disc, which opens at its start: the film goes there
         try:
@@ -348,6 +379,17 @@ def replay(subtitle_path='', name=''):
             _set_playback_setting(before)
 
 
+def _served_menu(playing):
+    """bluray://<the folder>/menu for a disc served on this device (127.0.0.1), from the
+    address it plays now (its menu or a playlist), or ''."""
+    import re
+    from urllib.parse import unquote
+    found = re.match(r'^(bluray://[^/]+)/', str(playing or ''))
+    if not found or not unquote(found.group(1)[len('bluray://'):]).startswith('http://127.0.0.1:'):
+        return ''
+    return found.group(1) + '/menu'
+
+
 def top_menu():
     """v5.10.581: the player bar's Disc menu button: the disc again from its main menu.
 
@@ -387,8 +429,19 @@ def top_menu():
     snapshot.pop('resume_percent', None)
     save_session(snapshot)
     xbmcgui.Window(10000).setProperty('dexhub.switch.inplace', str(int(time.time())))
-    _log('disc menu button: the disc again from its main menu')
-    xbmc.executebuiltin('RunPlugin(plugin://%s/?%s)' % (_addon_id(), urlencode({'action': 'play', 'stream_key': stream_key})))
+    served = _served_menu(playing)
+    if served:
+        # v5.10.584: a disc already served on this device (the Usenet engine, Dex Hub's disc
+        # server) opens on its menu from the same address: Kodi changes the file in the same
+        # player. Played again through its source, the Usenet engine opened the release anew
+        # (11 s), cut the playing stream at once, and the Home showed until the menu came
+        # (The Odyssey on the CoreELEC box, 18 Nov 2026).
+        _log('disc menu button: the disc again from its main menu, from the same address')
+        item = xbmcgui.ListItem(label=xbmc.getInfoLabel('Player.Title') or '', path=served)
+        xbmc.Player().play(served, item)
+    else:
+        _log('disc menu button: the disc again from its main menu')
+        xbmc.executebuiltin('RunPlugin(plugin://%s/?%s)' % (_addon_id(), urlencode({'action': 'play', 'stream_key': stream_key})))
     started = time.monotonic()
     try:
         seen_stop = False
@@ -397,6 +450,12 @@ def top_menu():
                 break
             if not xbmc.getCondVisibility('Player.HasVideo'):
                 seen_stop = True
+            elif served and time.monotonic() - started > 2.0 and not seen_stop:
+                # the same player took the menu's address: no stop in between
+                try:
+                    seen_stop = xbmc.Player().getPlayingFile() == served
+                except Exception:
+                    pass
             elif seen_stop and xbmc.getCondVisibility('VideoPlayer.HasMenu'):
                 _log('disc menu button: in the disc\'s menus again after %.0f s' % (time.monotonic() - started))
                 break

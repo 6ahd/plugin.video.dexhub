@@ -792,7 +792,7 @@ def playback_quality():
          _txt('اختر الإضافات اللي يسألها البحث: AIOStreams وغيرها، وإضافات كودي مثل Fen Light و Umbrella و Red Light و POV.',
               'Choose the add-ons the search asks: AIOStreams and others, and Kodi add-ons such as Fen Light, Umbrella, Red Light and POV.'),
          folder=False)
-    _add(_txt('الـNAS ومجلدات الشبكة', 'NAS and network folders'), 'nas_setup',
+    _add(_txt('الـNAS وروابط SMB', 'NAS and SMB shares'), 'nas_setup',
          'root_sources.png',
          _txt('أفلامك ومسلسلاتك في الـNAS (SMB أو NFS) تطلع مع المصادر وتشتغل مباشرة.',
               'Films and series on your NAS (SMB or NFS) show up as sources and play directly.'),

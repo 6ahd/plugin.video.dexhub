@@ -81,6 +81,21 @@ _SUB_PROPS = ('dexhub.sub.imdb_id', 'dexhub.sub.tmdb_id', 'dexhub.sub.tvdb_id',
               'dexhub.sub.mediatype')
 _START_TIMEOUT = 12.0
 _STOP_WAIT = 6.0
+# v5.10.584: a film Dex Hub hands to Kodi (playback_engine writes this property for every
+# play) has no file name for a few seconds while Kodi opens it. A parked trailer's stop took
+# that empty name for its own trailer and closed the film 5 s after it began (The Odyssey on
+# the CoreELEC box, 17 Nov 2026): within this long of a Dex Hub play, an unnamed file is the film.
+_PLAY_HANDOFF_PROP = 'dexhub.play.handoff'
+_PLAY_HANDOFF_FRESH = 30.0
+
+
+def _dexhub_play_recent():
+    """A Dex Hub playback was handed to Kodi a moment ago."""
+    try:
+        stamp = xbmcgui.Window(HOME).getProperty(_PLAY_HANDOFF_PROP).rpartition('#')[2]
+        return time.time() - float(stamp) < _PLAY_HANDOFF_FRESH
+    except Exception:
+        return False
 
 
 def _rpc(method, params=None):
@@ -707,8 +722,8 @@ class TrailerDirector(object):
                     current = ''
                 with self._lock:
                     replaced = self._state != 'idle' and self._matches(self._url, url)
-                mine = (not current or self._matches(current, url) or _same_alias(current, alias)
-                        or (channel and _playing_channel() == channel))
+                mine = ((not current and not _dexhub_play_recent()) or self._matches(current, url)
+                        or _same_alias(current, alias) or (channel and _playing_channel() == channel))
                 if mine and not replaced:
                     player.stop()
                     deadline = time.monotonic() + 3.0
@@ -735,7 +750,7 @@ class TrailerDirector(object):
                 except Exception:
                     current = ''
                 # never stop playback that is not this preview
-                if not current or self._is_ours():
+                if (not current and not _dexhub_play_recent()) or self._is_ours():
                     player.stop()
                     deadline = time.monotonic() + 2.5
                     while time.monotonic() < deadline and player.isPlaying():

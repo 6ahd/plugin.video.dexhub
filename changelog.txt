@@ -1,3 +1,43 @@
+5.10.584
+إيقاف القرص ما عاد يعلّق كودي دقايق: أقراص ISO من الإنترنت صار يقدّمها Dex Hub من برنامج مستقل على الجهاز، فيرد على كودي حتى لو بايثون حق كودي مشغول، والإيقاف ينقفل في أقل من ثانية (كان يعلّق لين ٧ دقايق).
+قوائم الجافا اللي صورها في مجلد صارت تطلع (قائمة «الانتفاضة» كانت سودا): كودي كان يحفظ مسارات ملفات المجلد غلط ويرفض يفتحها.
+إذا اخترت ترجمة وأنت داخل فيلم القرص من قائمته، الترجمة تنطبق على الفيلم وهو شغال، من قائمة كودي أو من صفحة ترجمات Dex Hub، بدون ما يطلع القرص ويرجع.
+الترجمة اللي يحطها Dex Hub بنفسه ما عادت تقفل قائمة القرص، واختيار ترجمة من القائمة يبدأ الفيلم من أوله مو من وقت القائمة.
+زر «قائمة القرص» يرجعك للقائمة من نفس القرص المفتوح، بدون ما تبان الرئيسية وبدون ما يفتح محرك Usenet النسخة من جديد.
+التريلر ما عاد يعلّق كودي لما ينقفل، ويكمل لما تتحدث الصفوف بالخلفية، وما يبدأ وأنت تنتظر فيلم طلبته، ولما تتحرك عن البطاقة تختفي صورته الواقفة (مع سكين 3.28.230).
+لما تضغط تشغيل والتريلر يبدأ بنفس اللحظة، فيلمك ما عاد ينقفل بعد ثواني.
+نسخ Usenet من Prowlarr تترتب بالجودة وبعدين بالحجم، مو مجمّعة حسب المفهرس.
+شاشات الإضافة صار اسمها «الـNAS وروابط SMB»، وتقبل رابط smb كامل.
+قراءة فهرس القرص تنعاد مرة ثانية إذا تأخر خادم الرابط.
+A stopped disc no longer freezes Kodi for minutes: disc images from the internet are served by a separate program on the device, which answers Kodi even when Kodi's Python is busy, and a stop closes in under a second (it froze up to 7 minutes).
+Java disc menus with their pictures in a folder show (The Uprising's menu stayed black): Kodi kept the folder's file addresses wrong and refused to open them.
+A subtitle picked inside a disc's film played from its menu goes on the film as it plays, from Kodi's list or Dex Hub's subtitle page, without the disc starting again.
+A subtitle Dex Hub puts on by itself no longer closes the disc menu, and a subtitle picked in the menu starts the film at its beginning, not at the menu's time.
+The Disc menu button goes back to the menu from the same open disc, with no Home in between and no new Usenet download.
+Trailers no longer freeze Kodi when they close, play on through a row refresh, do not start while a film you asked for opens, and a paused trailer's picture goes the moment you leave its card (with skin 3.28.230).
+Pressing Play just as a trailer starts no longer closes your film a few seconds in.
+Usenet releases from Prowlarr are sorted by quality, then size, not grouped by indexer.
+The setup screens are called "NAS and SMB shares" and take a whole smb:// link.
+A disc's index is read once more when its link's server is slow.
+
+5.10.583
+Usenet مع Prowlarr: حط عنوان Prowlarr ومفتاحه مرة وحدة في «إضافة مفهرس»، وDex Hub يعرفه لحاله ويبحث في كل مفهرسات Usenet اللي فيه ببحث واحد. كل نسخة تطلع باسم مفهرسها (NZBgeek، althub…)، ونسخ التورنت اللي في Prowlarr ما تطلع. المفهرسات تشوف عنوان سيرفر Prowlarr بس، مو عنوان جهازك.
+محرك Usenet يشتغل لما تطلع نسخ Usenet في المصادر، فيكون جاهز لما تختار وحدة، ويبقى شغال 30 دقيقة بعد آخر فيلم بدل 10، فالفيلم الجاي يبدأ والاتصالات مع المزود مفتوحة.
+«إعادة محاولة» على مصدر Usenet صارت تسأل المفهرسات من جديد، ما ترجع النتائج المحفوظة.
+Usenet with Prowlarr: put Prowlarr's address and key once in "Add an indexer"; Dex Hub knows it by itself and searches all its Usenet indexers in one search. Each release shows under its indexer's name (NZBgeek, althub…), and Prowlarr's torrent results are left out. The indexers see your Prowlarr server's address, not this device's.
+The Usenet engine starts when Usenet releases show among the sources, so it is ready when you pick one, and it stays on 30 minutes after the last film instead of 10, so the next film starts with the provider's connections open.
+Retry on a Usenet source asks the indexers again instead of giving back the kept results.
+
+5.10.582
+Usenet: النسخ اللي عليها كلمة سر صارت تطلع في المصادر (مكتوب عليها «بكلمة سر»). كلمة السر غالبًا داخل ملف NZB والمحرك يقراها، وأقراص COMPLETE.BLURAY كلها كذا، فكانت ما تطلع أبد. واللي ما تنفتح يقول لك لما تختارها.
+Usenet: المفهرس ما ينسأل نفس البحث مرة ثانية خلال نص ساعة. أغلب المفهرسات حدها تقريبًا 100 طلب في اليوم، وكل فتح لمصادر عمل كان ياخذ لين 3 طلبات من كل مفهرس.
+Usenet: البحث بالاسم اللي يبدأ متأخر ما عاد يضيع: كل مفهرس ياخذ الوقت الباقي من 25 ثانية بس، والنتائج اللي توصل في وقتها تطلع كلها.
+Usenet: «فحص الاتصال» للمزود صار يستخدم شهادات كودي نفسها مثل المحرك (على CoreELEC كان يقول إن الدخول فشل وهو صحيح)، والمنفذ الافتراضي بدون SSL صار 119.
+Usenet: releases marked as passworded now show among the sources (labelled "password"). Their password is often in the NZB, which the engine reads; every COMPLETE.BLURAY disc is one, so they never showed. One that does not open says so when it is picked.
+Usenet: an indexer is not asked the same search again for half an hour. Most indexers allow about 100 API calls a day, and each opening of a title's sources took up to three from every indexer.
+Usenet: a name search that starts late is no longer lost: each indexer gets only what is left of 25 seconds, and whatever arrives in time shows.
+Usenet: the provider's "Test the sign-in" trusts Kodi's own roots as the engine does (on CoreELEC a right sign-in was reported as failed), and its default port without SSL is 119.
+
 5.10.581
 أقراص البلوراي من الإنترنت (ISO من Emby وDexstreams وغيرها) صارت تفتح بقائمتها أسرع بكثير على CoreELEC وLibreELEC: Dex Hub يخدم القرص بنفسه، يقرأ فهرسه مرة وحدة ويحفظ ملفات القائمة، ويقرأ الفيلم بأكثر من اتصال، ويعيد المحاولة لو السيرفر مشغول (The Batman من Emby: من 93 ثانية إلى 27).
 القائمة ما عادت تقفل لحالها لما Dex Hub يضيف ترجمات بالخلفية.

@@ -973,6 +973,8 @@ if __name__ == '__main__':
     try:
         from resources.lib.debrid import discserver as _discserver
         _discserver.start()
+        # v5.10.584: disc images from a process of their own, which a stopped disc cannot freeze
+        threading.Thread(target=_discserver.start_process, name='DexHub-disc-process', daemon=True).start()
     except Exception as exc:
         xbmc.log('[DexHub] disc server not started: %s' % exc, xbmc.LOGWARNING)
 

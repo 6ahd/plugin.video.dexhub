@@ -93,7 +93,7 @@ SERVICES = (
     ('jellyfin', 'Jellyfin', 'server', 'jellyfin_login', 'jellyfin_logout'),
     ('silo', 'Silo', 'silo', 'silo_qr_login', 'silo_logout'),
     ('iptv', 'IPTV', 'tv', 'iptv_menu', ''),
-    ('nas', 'NAS', 'server', 'nas_setup', ''),
+    ('nas', 'NAS / SMB', 'server', 'nas_setup', ''),
     ('debrid', 'Debrid', 'tv', 'debrid_setup', ''),
 )
 _BY_KEY = dict((row[0], row) for row in SERVICES)

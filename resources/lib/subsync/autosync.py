@@ -424,6 +424,13 @@ def _describe(res, starts):
 
 
 def _apply(player, path):
+    # v5.10.584: a synced copy Dex Hub puts on is not the viewer's choice (disc_menu.watch)
+    try:
+        import time
+        import xbmcgui
+        xbmcgui.Window(10000).setProperty('dexhub.subs.attached_at', '%.1f' % time.time())
+    except Exception:
+        pass
     player.setSubtitles(path)
     player.showSubtitles(True)
 

@@ -1020,7 +1020,7 @@ class BarEditor(xbmcgui.WindowXMLDialog):
     def add_above(self, spec):
         """'+ Above': where the new rows come from; they go above this row."""
         sources = [('dexhub', _t('صفوف Dex Hub', 'Dex Hub rows')), ('dexworld', 'DexWorld'), ('youtube', 'YouTube'),
-                   ('nas', 'NAS'), ('addon', _t('من إضافة', 'From an add-on'))]
+                   ('nas', 'NAS / SMB'), ('addon', _t('من إضافة', 'From an add-on'))]
         pick = xbmcgui.Dialog().select(_t('أضف فوق «%s»', 'Add above "%s"') % (spec.get('title') or ''),
                                        [label for _k, label in sources])
         if pick < 0:
@@ -1179,7 +1179,7 @@ class BarEditor(xbmcgui.WindowXMLDialog):
                ('dexworld', 'DexWorld', 'DexWorld', 'صفوف وكوليكشنات جاهزة', 'Ready rows and collections', 'globe.png'),
                ('youtube', 'YouTube', 'YouTube', 'قنواتك والرائج والمواضيع، أو أي بحث', 'Your channels, trending, topics or any search',
                 'circle-play.png'),
-               ('nas', 'NAS ومجلدات الشبكة', 'NAS and network folders', 'أفلام ومسلسلات وجديد مجلداتك (SMB و NFS)',
+               ('nas', 'NAS وروابط SMB', 'NAS and SMB shares', 'أفلام ومسلسلات وجديد مجلداتك (SMB و NFS)',
                 'Films, series and the newest of your folders (SMB, NFS)', 'server.png'),
                ('addon', 'من إضافة', 'From an add-on', 'مجلد أو كم مجلد من أي إضافة فيديو', 'A folder or several from any video add-on',
                 'layer-group.png'),
@@ -1285,7 +1285,7 @@ class BarEditor(xbmcgui.WindowXMLDialog):
                 found = N.row_choices()
             if not found:
                 return
-        self.pick_list(found, _t('NAS ومجلدات الشبكة', 'NAS and network folders'),
+        self.pick_list(found, _t('NAS وروابط SMB', 'NAS and SMB shares'),
                        _t('الأفلام والمسلسلات وأضيف مؤخراً لكل مجلد · حدد كم واحد تبي',
                           'Films, series and recently added for each folder · tick as many as you like'))
 
