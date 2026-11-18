@@ -1,3 +1,17 @@
+5.10.586
+LibreELEC: فهرس المكتبة صار يشتغل. بايثون LibreELEC ما فيه FTS5، فكان الفهرس كله يفشل ("no such module: fts5"). الحين يشتغل بدونه، والبحث فيه بالطريقة العادية.
+Usenet: الأفلام الجديدة (هالسنة واللي قبلها) يدوّر لها برقم IMDb وبالاسم مع بعض، ونتايج الاسم يخلّي منها بس اللي هي نفس الفيلم (اسمه وبعده سنته): The Odyssey على althub صار 89 نسخة بدل 77. إذا المفهرس رجّع 100 نسخة يجيب الصفحة الثانية: The Batman صار 132 بدل 100.
+Usenet: الرد الفاضي ما عاد ينحفظ نص ساعة، فلما يرجع Prowlarr تطلع النتايج على طول. وإذا Prowlarr وقّف مفهرساته يقول لك أي واحد ولين متى.
+Usenet: لو اخترت نسخة والنسخة اللي قبلها لسا تفتح، صار ينتظر لين 25 ثانية بدل ما يطلع "playback session busy".
+إغلاق Kodi: خدمة Dex Hub صارت توقف على طول. قبل كان خادم الأقراص ومؤقت عند التشغيل يأخرونها، والخدمة اللي تبدأ متأخرة ما تنتبه إن Kodi يتسكّر، فيقفلها Kodi غصب ويعلّق. (على صندوق CoreELEC يعلّق بعد مع أي إضافة ثانية ينقفل عليها غصب، مثل AB Tools.)
+رابط الإضافة بـ http يبقى مثل ما كتبته: Dex Hub كان يحطه https لحاله، وبعض السيرفرات ما تشتغل إلا على http.
+LibreELEC: the library index works. LibreELEC's Python has no FTS5, and the whole index failed ("no such module: fts5"); it now works without it and searches the plain way.
+Usenet: a new film (this year or last) is looked for by IMDb id and by name together, and a name search keeps only the film itself (its name, then its year): The Odyssey on althub, 89 releases instead of 77. An indexer's answer of 100 is followed by its second page: The Batman, 132 instead of 100.
+Usenet: an empty answer is not kept for half an hour, so the releases come as soon as Prowlarr answers again; a Prowlarr that paused its indexers says which, and until when.
+Usenet: a release picked while the one before is still opening waits up to 25 s instead of failing with "playback session busy".
+Closing Kodi: Dex Hub's service stops at once. Its disc server and a start-up timer held it, and a service started late missed the stop, so Kodi killed it and hung. (A CoreELEC box still hangs when Kodi has to kill another add-on, such as AB Tools.)
+An add-on link with http stays as typed: Dex Hub put https in its place, and some servers work over http only.
+
 5.10.585
 نافذة الترجمات في المشغّل صارت أعرض وتبيّن اسم الترجمة كامل: كل ترجمة على سطرين، والترجمة اللي واقف عليها يكبر صفها لين ٤ أسطر عشان يبان اسمها كله (المصدر، النوع، اسم الملف). أسماء الملفات اللي بنقاط (The.Odyssey.2026.1080p…) تنكسر على أكثر من سطر بدل ما تنقص.
 Usenet يشتغل على LibreELEC ولينكس في الكمبيوترات اللي معالجها Intel أو AMD، مع محرك Usenet 1.3.1. قبل كان المحرك لـ ARM بس، فـ Usenet ما يشتغل أبد على هالأجهزة.

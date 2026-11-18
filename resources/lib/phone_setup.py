@@ -814,19 +814,8 @@ class Session(object):
             url = manifest_link(body.get('url'))
             if not url:
                 raise ValueError('no url')
-            if url.lower().startswith('http://'):
-                # the TV's own add flow upgrades the same way, and asks before
-                # plain http; v5.10.402: the person on the phone answers that
-                # question there (an add-on on the home network has no https)
-                try:
-                    row = api.add_provider_from_url('https://' + url[7:])
-                except Exception as exc:
-                    if not body.get('allow_http'):
-                        _log('add-on over https failed (%s); asking the phone about http' % exc)
-                        return {'ok': True, 'need_http': True, 'addons': _addons()}
-                    row = api.add_provider_from_url(url)
-            else:
-                row = api.add_provider_from_url(url)
+            # v5.10.586: the link as typed, http too (it was tried over https first)
+            row = api.add_provider_from_url(url)
             _log('add-on added: %s' % ((row or {}).get('name') or '?'))
         _republish('sources')
         return {'ok': True, 'addons': _addons()}

@@ -12,6 +12,12 @@ if __name__ == '__main__':
     # v5.10.543: before any other import (thread_registry.py: Kodi 22 import crash)
     from resources.lib.thread_registry import install as _strong_locks
     _strong_locks()
+    # v5.10.586: next, so a stop while the service starts is heard (abort_guard.py)
+    try:
+        from resources.lib.abort_guard import install as _abort_guard
+        _abort_guard()
+    except Exception:
+        pass
     from resources.lib.service_lease import claim
     if not claim():
         sys.exit(0)
@@ -683,6 +689,14 @@ def _stop_threads(budget=2.0):
                 pass
     except Exception:
         pass
+    # v5.10.586: a timer still waiting (the old-skin check waits 25 s from the start) kept the
+    # service for its whole wait when Kodi closed soon after starting ("still running: Thread-2")
+    for thread in threading.enumerate():
+        if isinstance(thread, threading.Timer):
+            try:
+                thread.cancel()
+            except Exception:
+                pass
     deadline = started + budget
     me = threading.current_thread()
     # Kodi's own threads: the process main thread (Python names it
@@ -1488,6 +1502,12 @@ if __name__ == '__main__':
         try:
             from resources.lib import poster_proxy as _poster_proxy
             _poster_proxy.stop()
+        except Exception:
+            pass
+        # v5.10.586: the disc server's thread outlived the service and Kodi hung as it closed
+        try:
+            from resources.lib.debrid import discserver as _discserver
+            _discserver.stop()
         except Exception:
             pass
         _stop_threads()

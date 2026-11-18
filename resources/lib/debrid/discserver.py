@@ -973,9 +973,19 @@ def start():
         from http.server import ThreadingHTTPServer
         import xbmcgui
         class _Server(ThreadingHTTPServer):
+            # v5.10.586: the open connections, so stop() can end the threads that wait on them
+            def process_request(self, request, client_address):
+                self.open_requests.add(request)
+                ThreadingHTTPServer.process_request(self, request, client_address)
+
+            def shutdown_request(self, request):
+                self.open_requests.discard(request)
+                ThreadingHTTPServer.shutdown_request(self, request)
+
             def handle_error(self, request, client_address):
                 pass                    # Kodi dropping a connection is not an error here
         _server = _Server((HOST, 0), _handler())
+        _server.open_requests = set()
         _server.daemon_threads = True
         threading.Thread(target=_server.serve_forever, name='DexHub-disc-server', daemon=True).start()
         xbmcgui.Window(10000).setProperty(PORT_PROP, str(_server.server_address[1]))
@@ -987,11 +997,33 @@ def start():
 
 
 def stop():
+    """v5.10.586: called by the service as Kodi closes. Nothing stopped this server before: its
+    thread outlived the service ("still running: DexHub-disc-server"), Kodi killed the service
+    after 5 s and then hung after unloading the skin, for 8 minutes, until the box restarted
+    (CoreELEC box, every exit since 16 Nov 2026). The connections Kodi keeps open are closed
+    too, so their threads leave, and the disc process is told to go."""
     global _server
-    if _server is not None:
+    server, _server = _server, None
+    if server is not None:
         try:
-            _server.shutdown()
-            _server.server_close()
+            server.shutdown()           # serve_forever leaves within half a second
         except Exception:
             pass
-        _server = None
+        import socket
+        for request in list(getattr(server, 'open_requests', ())):
+            try:
+                request.shutdown(socket.SHUT_RDWR)
+            except Exception:
+                pass
+            try:
+                request.close()
+            except Exception:
+                pass
+        try:
+            server.server_close()
+        except Exception:
+            pass
+    try:
+        os.remove(accounts.path('discproc.port'))   # discproc leaves within 2 s once it is gone
+    except Exception:
+        pass

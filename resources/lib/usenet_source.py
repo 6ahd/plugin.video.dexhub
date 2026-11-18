@@ -128,11 +128,21 @@ def _cache_path(indexer, params):
     return os.path.join(xbmcvfs.translatePath(_CACHE), hashlib.sha1(key.encode('utf-8')).hexdigest() + '.xml')
 
 
+def _empty(raw):
+    """v5.10.586: an answer with nothing in it (Newznab with no <item>, Prowlarr's [])."""
+    text = (raw or b'').strip()
+    return not text or text == b'[]' or (text[:1] == b'<' and b'<item' not in text)
+
+
 def _cached_api(indexer, params, seconds, fresh=False, fetch=None):
     """(answer, from the cache): v5.10.582, the same search within half an hour is not asked
     again. Most indexers allow about 100 API calls a day, and each title's sources asked every
     indexer up to three times, every time its sources opened. fresh (a source's Retry) asks
-    the indexer and keeps its new answer."""
+    the indexer and keeps its new answer.
+
+    v5.10.586: an empty answer is not kept. A Prowlarr whose indexers were paused (an indexer's
+    429) answered every search with [] for a while, and each title then stayed empty for half
+    an hour after they came back (Intel PC, 18 Nov 2026). AIOStreams keeps no empty answer."""
     path = _cache_path(indexer, params)
     try:
         if not fresh and time.time() - os.path.getmtime(path) < _CACHE_FOR:
@@ -141,7 +151,7 @@ def _cached_api(indexer, params, seconds, fresh=False, fetch=None):
     except OSError:
         pass
     raw = (fetch or _api)(indexer, params, seconds)
-    if not _refusal(raw):                       # a refusal (a daily limit) is asked again next time
+    if not _refusal(raw) and not _empty(raw):   # a refusal or nothing is asked again next time
         try:
             folder = os.path.dirname(path)
             if not os.path.isdir(folder):
@@ -205,8 +215,99 @@ def _prowlarr_releases(raw):
     return out
 
 
+class _Refused(Exception):
+    pass
+
+
+def _norm_release(text):
+    text = re.sub(r'[^a-z0-9]+', ' ', str(text or '').lower()).strip()
+    return re.sub(r'^the ', '', text)
+
+
+def _film_check(provider):
+    """v5.10.586: a name search's release is kept when it is the film: its name, then its year
+    ("The.Batman.2022.2160p…"). Without it a name search brought other films and extras
+    ("Batman.and.Superman…2022", "The.Odyssey.Special.Features.2026", althub, 18 Nov 2026)."""
+    year = str(provider.get('_year') or '')[:4]
+    names = [_norm_release(n) for n in (provider.get('_titles') or []) + [provider.get('_title') or '']]
+    names = [n for n in dict.fromkeys(names) if n]
+    if not year.isdigit() or not names:
+        return None
+    pattern = re.compile(r'^(?:%s) %s\b' % ('|'.join(re.escape(n) for n in names), year))
+    return lambda title: bool(pattern.match(_norm_release(title)))
+
+
+def _recent(provider):
+    """A film of this year or the last: its new releases are often not tied to its IMDb id yet
+    (The Odyssey on althub: 78 by id, 14 more by name, 18 Nov 2026)."""
+    try:
+        return int(str(provider.get('_year') or '')[:4]) >= time.localtime().tm_year - 1
+    except ValueError:
+        return False
+
+
+def _merge(into, found, keep=None):
+    added = 0
+    for indexer_name, rows in found.items():
+        have = into.setdefault(indexer_name, [])
+        seen = set((r['title'], r['size']) for r in have)
+        for row in rows:
+            if keep is not None and not keep(row['title']):
+                continue
+            key = (row['title'], row['size'])
+            if key not in seen:
+                seen.add(key)
+                have.append(row)
+                added += 1
+    return added
+
+
+def _run_plan(name, plan, ask, parse, deadline):
+    """v5.10.586: an indexer's (or a Prowlarr's) searches in turn. plan: [(params, keep, always)];
+    a step that is not 'always' runs only when nothing was found yet. An answer of 100 releases
+    for an indexer (the most one page holds) is followed by its second page: The Batman has 136
+    on althub, and 36 were left out. Returns {indexer name: releases}; None when it refused or
+    did not answer before anything was found."""
+    got = {}
+    started = time.time()
+    for params, keep, always in plan:
+        if not always and any(got.values()):
+            continue
+        kind = params.get('t') or params.get('type') or 'search'
+        left = deadline - time.time()
+        if left < 2:
+            _log('%s: out of time before its %s search' % (name, kind), xbmc.LOGWARNING)
+            break
+        try:
+            raw, cached = ask(params, min(20, left))
+        except _Refused as exc:
+            _log('%s refused the search: %s' % (name, exc), xbmc.LOGWARNING)
+            _tell_once(name, str(exc))
+            return got if any(got.values()) else None
+        except Exception as exc:
+            _log('%s did not answer: %s' % (name, exc), xbmc.LOGWARNING)
+            return got if any(got.values()) else None
+        found = parse(raw)
+        added = _merge(got, found, keep)
+        pages = ''
+        if any(len(rows) >= 100 for rows in found.values()) and deadline - time.time() > 2:
+            try:
+                more, _more_cached = ask(dict(params, offset=100), min(20, deadline - time.time()))
+                extra = _merge(got, parse(more), keep)
+                added += extra
+                pages = ', +%d on page 2' % extra
+            except Exception as exc:
+                pages = ', page 2: %s' % exc
+        if found:
+            _log('%s: %d releases%s (%s%s%s), %.1fs' % (
+                name, added, ' from %d indexers' % len(found) if len(found) > 1 else '', kind,
+                ', kept' if cached else '', pages, time.time() - started))
+    return got
+
+
 def _search_prowlarr(indexer, provider, out, deadline):
-    """All the Prowlarr's Usenet indexers in one search: by id, then by name."""
+    """All the Prowlarr's Usenet indexers in one search: by id, then by name (both for a recent
+    film, v5.10.586)."""
     ids = provider.get('_ids') or {}
     imdb = re.sub(r'\D', '', str(ids.get('imdb_id') or ''))
     season, episode = provider.get('_season'), provider.get('_episode')
@@ -223,46 +324,64 @@ def _search_prowlarr(indexer, provider, out, deadline):
     if not usenet:
         _log('%s has no Usenet indexer switched on' % name, xbmc.LOGWARNING)
         return
-    calls = []
+    plan = []
     if season is not None:
         tokens = '{Season:%d}{Episode:%d}' % (int(season), int(episode))
         if imdb:
-            calls.append({'type': 'tvsearch', 'query': '{ImdbId:tt%s}%s' % (imdb, tokens), 'categories': 5000})
+            plan.append(({'type': 'tvsearch', 'query': '{ImdbId:tt%s}%s' % (imdb, tokens), 'categories': 5000}, None, True))
         if ids.get('tvdb_id'):
-            calls.append({'type': 'tvsearch', 'query': '{TvdbId:%s}%s' % (ids.get('tvdb_id'), tokens), 'categories': 5000})
+            plan.append(({'type': 'tvsearch', 'query': '{TvdbId:%s}%s' % (ids.get('tvdb_id'), tokens),
+                          'categories': 5000}, None, False))
         if title:
-            calls.append({'type': 'search', 'query': '%s S%02dE%02d' % (title, int(season), int(episode)), 'categories': 5000})
+            plan.append(({'type': 'search', 'query': '%s S%02dE%02d' % (title, int(season), int(episode)),
+                          'categories': 5000}, None, False))
     else:
         if imdb:
-            calls.append({'type': 'movie', 'query': '{ImdbId:tt%s}' % imdb, 'categories': 2000})
+            plan.append(({'type': 'movie', 'query': '{ImdbId:tt%s}' % imdb, 'categories': 2000}, None, True))
         if title:
-            calls.append({'type': 'search', 'query': ('%s %s' % (title, provider.get('_year') or '')).strip(),
-                          'categories': 2000})
-    for params in calls:
-        left = deadline - time.time()
-        if left < 2:
-            _log('%s: out of time before its %s search' % (name, params['type']), xbmc.LOGWARNING)
-            return
+            plan.append(({'type': 'search', 'query': ('%s %s' % (title, provider.get('_year') or '')).strip(),
+                          'categories': 2000}, _film_check(provider), _recent(provider)))
+
+    def ask(params, seconds):
         try:
-            raw, cached = _cached_api(indexer, dict(params, path='/api/v1/search', limit=100,
-                                                    indexerIds=[n for n, _x in usenet]),
-                                      min(20, left), fresh, _prowlarr)
+            return _cached_api(indexer, dict(params, path='/api/v1/search', limit=100,
+                                             indexerIds=[n for n, _x in usenet]), seconds, fresh, _prowlarr)
         except urllib.error.HTTPError as exc:
-            why = 'HTTP %s' % exc.code
-            _log('%s refused the search: %s' % (name, why), xbmc.LOGWARNING)
-            _tell_once(name, why)
-            return
-        except Exception as exc:
-            _log('%s did not answer: %s' % (name, exc), xbmc.LOGWARNING)
-            return
-        found = _prowlarr_releases(raw)
-        if found:
-            _log('%s: %d releases from %d indexers (%s%s), %.1fs' % (
-                name, sum(len(x) for x in found.values()), len(found), params['type'], ', kept' if cached else '',
-                time.time() - started))
-            out.extend(found.items())
-            return
-    _log('%s: nothing found, %.1fs' % (name, time.time() - started))
+            raise _Refused('HTTP %s' % exc.code)
+
+    got = _run_plan(name, plan, ask, _prowlarr_releases, deadline)
+    if got and any(got.values()):
+        out.extend((k, v) for k, v in got.items() if v)
+        return
+    if got is not None:
+        _log('%s: nothing found, %.1fs' % (name, time.time() - started))
+        _prowlarr_paused(indexer, usenet, name)
+
+
+def _prowlarr_paused(indexer, usenet, name):
+    """v5.10.586: Prowlarr answers [] when it has paused its indexers (after a failure or an
+    indexer's 429), and says nothing more: Dex Hub asks which ones, and until when."""
+    try:
+        raw = _prowlarr(indexer, {'path': '/api/v1/indexerstatus'}, 5)
+        rows = json.loads(raw.decode('utf-8', 'replace'))
+    except Exception:
+        return
+    names = dict(usenet)
+    paused = []
+    for row in rows if isinstance(rows, list) else []:
+        until = str((row or {}).get('disabledTill') or '')
+        if row.get('indexerId') in names and until:
+            try:
+                from datetime import datetime
+                stamp = datetime.fromisoformat(until.replace('Z', '+00:00')).timestamp()
+            except Exception:
+                continue
+            if stamp > time.time():
+                paused.append('%s %s' % (names[row['indexerId']], time.strftime('%H:%M', time.localtime(stamp))))
+    if paused:
+        why = _t('موقّفة مؤقتاً لين: %s', 'paused until: %s') % ', '.join(paused[:6])
+        _log('%s: its Usenet indexers are paused: %s' % (name, ', '.join(paused)), xbmc.LOGWARNING)
+        _tell_once(name, why)
 
 
 def _refusal(raw):
@@ -345,54 +464,44 @@ def _search_one(indexer, provider, out, deadline):
     imdb = re.sub(r'\D', '', str(ids.get('imdb_id') or ''))
     season, episode = provider.get('_season'), provider.get('_episode')
     title = str(provider.get('_title') or '')
-    calls = []
+    plan = []
     if season is not None:
         if ids.get('tvdb_id'):
-            calls.append({'t': 'tvsearch', 'tvdbid': str(ids.get('tvdb_id')), 'season': season, 'ep': episode})
+            plan.append(({'t': 'tvsearch', 'tvdbid': str(ids.get('tvdb_id')), 'season': season, 'ep': episode}, None, True))
         if imdb:
-            calls.append({'t': 'tvsearch', 'imdbid': imdb, 'season': season, 'ep': episode})
+            plan.append(({'t': 'tvsearch', 'imdbid': imdb, 'season': season, 'ep': episode}, None, not plan))
         if title:
-            calls.append({'t': 'search', 'cat': '5000', 'q': '%s S%02dE%02d' % (title, int(season), int(episode))})
+            plan.append(({'t': 'search', 'cat': '5000', 'q': '%s S%02dE%02d' % (title, int(season), int(episode))},
+                         None, False))
     else:
         if imdb:
-            calls.append({'t': 'movie', 'imdbid': imdb})
+            plan.append(({'t': 'movie', 'imdbid': imdb}, None, True))
         if title:
-            calls.append({'t': 'search', 'cat': '2000', 'q': ('%s %s' % (title, provider.get('_year') or '')).strip()})
+            plan.append(({'t': 'search', 'cat': '2000', 'q': ('%s %s' % (title, provider.get('_year') or '')).strip()},
+                         _film_check(provider), _recent(provider) or not plan))
     name = str(indexer.get('name') or indexer.get('url') or 'indexer')
     started = time.time()
-    for params in calls:
-        left = deadline - time.time()
-        if left < 2:
-            # v5.10.582: a name search that started late was waited for no more and its
-            # releases were lost; now each call gets only the time that is left
-            _log('%s: out of time before its %s search' % (name, params['t']), xbmc.LOGWARNING)
-            return
+    fresh = bool(provider.get('_force_stream_refresh'))
+
+    def ask(params, seconds):
         try:
-            raw, cached = _cached_api(indexer, dict(params, limit=100), min(20, left),
-                                      fresh=bool(provider.get('_force_stream_refresh')))
+            raw, cached = _cached_api(indexer, dict(params, limit=100), seconds, fresh=fresh)
         except urllib.error.HTTPError as exc:
             try:
                 why = _refusal(exc.read()) or 'HTTP %s' % exc.code
             except Exception:
                 why = 'HTTP %s' % exc.code
-            _log('%s refused the search: %s' % (name, why), xbmc.LOGWARNING)
-            _tell_once(name, why)
-            return
-        except Exception as exc:
-            _log('%s did not answer: %s' % (name, exc), xbmc.LOGWARNING)
-            return
+            raise _Refused(why)
         why = _refusal(raw)               # some indexers refuse with a 200 and an <error>
         if why:
-            _log('%s refused the search: %s' % (name, why), xbmc.LOGWARNING)
-            _tell_once(name, why)
-            return
-        found = _releases(raw)
-        if found:
-            _log('%s: %d releases (%s%s), %.1fs' % (name, len(found), params['t'], ', kept' if cached else '',
-                                                   time.time() - started))
-            out.append((name, found))
-            return
-    _log('%s: nothing found, %.1fs' % (name, time.time() - started))
+            raise _Refused(why)
+        return raw, cached
+
+    got = _run_plan(name, plan, ask, lambda raw: {name: _releases(raw)} if _releases(raw) else {}, deadline)
+    if got and got.get(name):
+        out.append((name, got[name]))
+    elif got is not None:
+        _log('%s: nothing found, %.1fs' % (name, time.time() - started))
 
 
 def targets(meta, canonical_id, media_type, ids=None, season=None, episode=None):

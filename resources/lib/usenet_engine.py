@@ -351,9 +351,13 @@ def open_release(nzb_url, servers, season=None, episode=None, headers=None, priv
         body['season'], body['episode'] = int(season), int(episode)
     started = time.time()
     status, answer, got = 0, '', {}
-    for _try in range(8):                       # 409: another release is still opening
+    # 409: another release is still opening. v5.10.586: waited for up to 25 s, not 4: a release
+    # picked while the one before was still being read from the provider failed with "playback
+    # session busy" (Intel PC, 18 Nov 2026); that open ends by itself within the engine's time.
+    waited_until = time.time() + 25
+    while True:
         status, answer, got = _request(port, token, 'POST', '/sessions', body)
-        if status != 409:
+        if status != 409 or time.time() >= waited_until or xbmc.Monitor().abortRequested():
             break
         xbmc.sleep(500)
     if status != 200 or not isinstance(answer, dict):

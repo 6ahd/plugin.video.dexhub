@@ -11183,45 +11183,15 @@ def _upgrade_or_warn_http_url(manifest_url, silent=False):
 
     Returns the (possibly upgraded) manifest URL, or ``None`` if the user
     declined to proceed with plaintext HTTP.
+
+    Since v5.10.586 neither step runs: the link stays as typed (below).
     """
-    if not manifest_url or not manifest_url.lower().startswith('http://'):
-        return manifest_url
-
-    https_candidate = 'https://' + manifest_url[len('http://'):]
-    try:
-        # Cheap probe with explicit short timeout — we're only confirming
-        # the manifest reachably parses; full validation runs again later
-        # in the normal flow.
-        validate_manifest(https_candidate)
-        xbmc.log('[DexHub] HTTPS upgrade succeeded for %s -> %s' %
-                 (manifest_url, https_candidate), xbmc.LOGINFO)
-        notify(tr('تم ترقية الرابط إلى HTTPS تلقائياً'))
-        return https_candidate
-    except Exception as exc:
-        xbmc.log('[DexHub] HTTPS upgrade not possible for %s: %s' %
-                 (manifest_url, exc), xbmc.LOGINFO)
-
-    # HTTPS not reachable — explicit consent required for plaintext.
-    #
-    # v3.9.236: a headless caller (phone / JSON-RPC) has nobody at the TV to
-    # answer this dialog. Do NOT silently accept plaintext on their behalf —
-    # that would be consenting to a downgrade the user never saw. Refuse, and
-    # say why. The user can still add an http-only source from the TV, where
-    # the warning is actually shown and answered.
-    if silent:
-        xbmc.log('[DexHub] refusing http-only manifest for a headless caller: %s'
-                 % manifest_url, xbmc.LOGWARNING)
-        error(tr('هذا المصدر يستخدم HTTP غير مشفّر. أضِفه من التلفاز للموافقة على التحذير.'))
-        return None
-
-    proceed = xbmcgui.Dialog().yesno(
-        'Dex Hub',
-        tr('هذا المصدر يستخدم HTTP غير المشفّر. أي شخص على نفس الشبكة يستطيع اعتراض البيانات أو تبديلها. هل تريد المتابعة على مسؤوليتك؟'),
-        nolabel=tr('إلغاء'),
-        yeslabel=tr('متابعة على HTTP'),
-        defaultbutton=xbmcgui.DLG_YESNO_NO_BTN,
-    )
-    return manifest_url if proceed else None
+    # v5.10.586: an http link is kept as it was typed. Dex Hub put https in its place whenever
+    # the https address answered, without asking, and refused http from the phone; some
+    # servers answer the manifest over https but serve their add-on over http only.
+    if manifest_url and manifest_url.lower().startswith('http://'):
+        xbmc.log('[DexHub] add-on link kept as typed (http)', xbmc.LOGINFO)
+    return manifest_url
 
 
 def add_provider(manifest_url=''):

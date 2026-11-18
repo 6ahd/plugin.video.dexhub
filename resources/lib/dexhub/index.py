@@ -158,8 +158,23 @@ class IndexDB:
         # Initialize schema once at construction; subsequent connections
         # are no-ops because of `IF NOT EXISTS`.
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        # v5.10.586: LibreELEC's SQLite has no FTS5 ("index scheduler not started: no such
+        # module: fts5", Intel PC, 18 Nov 2026): the whole schema failed with it. The tables go
+        # in first; the search table only where SQLite has FTS5. Without it the FTS triggers
+        # (kept by an index copied from another device) are dropped, or every write to items
+        # fails ("purge_provider failed: no such module: fts5"); search() then uses LIKE.
+        base, _marker, fts = _SCHEMA.partition('-- ─── FTS5 virtual table')
+        self.has_fts = False
         with self._connect_internal() as conn:
-            conn.executescript(_SCHEMA)
+            conn.executescript(base)
+            try:
+                conn.executescript(_marker + fts)
+                self.has_fts = True
+            except sqlite3.OperationalError as exc:
+                if 'fts5' not in str(exc).lower():
+                    raise
+                for trigger in ('items_fts_ai', 'items_fts_ad', 'items_fts_au'):
+                    conn.execute('DROP TRIGGER IF EXISTS %s' % trigger)
             conn.commit()
 
     def _connect_internal(self):
@@ -397,6 +412,8 @@ class IndexDB:
         """
         if not query or not query.strip():
             return []
+        if not getattr(self, 'has_fts', True):      # v5.10.586: SQLite without FTS5
+            return self._search_like(query, media_type, limit)
         # FTS5 accepts column filters with `column:term`. We pass user
         # text raw but escape double-quotes so a stray `"` doesn't break
         # parsing.

@@ -188,8 +188,7 @@ def add_or_update_aiometadata(prefill=''):
     manifest_url = manifest_link(keyboard.getText() or '')
     if not manifest_url:
         return None
-    if manifest_url.lower().startswith('http://'):
-        manifest_url = 'https://' + manifest_url[7:]
+    # v5.10.586: kept as typed; an http link was made https, and an http-only server failed
     if not manifest_url.endswith('/manifest.json'):
         manifest_url = manifest_url.rstrip('/') + '/manifest.json'
     try:
