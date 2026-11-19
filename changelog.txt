@@ -1,3 +1,11 @@
+5.10.587
+Usenet: لو النسخة ما انفتحت أو المحرك ما رد في الوقت، يروح للمصدر اللي بعده. قبل كان يعطي المشغّل رابط NZB نفسه، فيطلع "error probing input format" ويبان رابط Prowlarr بمفتاحه في السجل.
+Usenet: لما نسخة ما تنفتح، يقول لك السبب بكلام واضح: ما قدر يوصل للمزود (ويدلك على «فحص الاتصال» في الإعدادات)، اتصالات المزود مكتملة (يمكن جهاز ثاني يستخدم الحساب)، المفهرس ما عطى ملف NZB، أو المفهرس وصل حده. والسبب اللي قاله المحرك ينكتب في السجل (مع محرك Usenet 1.3.2). قبل كان يقول بس "ناقصة أو محمية"، وعلى كمبيوتر LibreELEC ولا نسخة انفتحت والسجل ما قال ليش.
+Usenet: الفيلم الجديد اللي ما معه سنته، Dex Hub يجيب سنته من TMDb عشان يصير البحث بالاسم.
+Usenet: a release that does not open, or an engine that does not answer in time, goes to the next source. Before, the player was handed the NZB link itself ("error probing input format"), and the Prowlarr link with its key showed in the log.
+Usenet: a release that does not open says why in plain words: the provider could not be reached (pointing to Test the sign-in in the settings), its connections are all in use (maybe another device on the account), the indexer gave no NZB, or the indexer's limit is reached. The engine's own reason goes to the log (with the Usenet engine 1.3.2). Before, it said only "incomplete or protected", and on the LibreELEC PC not one release opened with nothing in the log saying why.
+Usenet: a new film that comes without its year gets it from TMDb, so it is also searched by name.
+
 5.10.586
 LibreELEC: فهرس المكتبة صار يشتغل. بايثون LibreELEC ما فيه FTS5، فكان الفهرس كله يفشل ("no such module: fts5"). الحين يشتغل بدونه، والبحث فيه بالطريقة العادية.
 Usenet: الأفلام الجديدة (هالسنة واللي قبلها) يدوّر لها برقم IMDb وبالاسم مع بعض، ونتايج الاسم يخلّي منها بس اللي هي نفس الفيلم (اسمه وبعده سنته): The Odyssey على althub صار 89 نسخة بدل 77. إذا المفهرس رجّع 100 نسخة يجيب الصفحة الثانية: The Batman صار 132 بدل 100.

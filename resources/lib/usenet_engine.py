@@ -112,6 +112,25 @@ def state_note():
     return _home().getProperty(APP_STATE)
 
 
+def engine_log_path():
+    return os.path.join(xbmcvfs.translatePath(FOLDER), 'engine.log')
+
+
+def engine_said(since=0.0):
+    """The engine's last line about a release that did not open, written after `since` ('' when
+    none: an engine before script.dexhub.usenet 1.3.2 writes nothing)."""
+    try:
+        path = engine_log_path()
+        if since and os.path.getmtime(path) < since - 1:
+            return ''
+        with open(path, 'rb') as handle:
+            handle.seek(max(0, os.path.getsize(path) - 4096))
+            lines = [x.strip() for x in handle.read().decode('utf-8', 'replace').splitlines() if x.strip()]
+        return lines[-1][:400] if lines else ''
+    except Exception:
+        return ''
+
+
 # ------------------------------------------------------------ the service's side
 
 class _Engine(object):
@@ -143,9 +162,21 @@ class _Engine(object):
         cache = os.path.join(xbmcvfs.translatePath(FOLDER), 'nzb-cache')
         self.token = secrets.token_hex(32)
         env = dict(os.environ, GODEBUG='madvdontneed=1')
+        # v5.10.587: what the engine writes about a release that did not open goes to a file the
+        # log quotes; it said only "could not be opened" (Intel PC, 19 Nov 2026: not one opened).
+        errors_to = subprocess.DEVNULL
         try:
-            self.proc = subprocess.Popen([path], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                         stderr=subprocess.DEVNULL, env=env)
+            os.makedirs(xbmcvfs.translatePath(FOLDER), exist_ok=True)
+            errors_to = open(engine_log_path(), 'wb')
+        except Exception:
+            pass
+        try:
+            try:
+                self.proc = subprocess.Popen([path], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                             stderr=errors_to, env=env)
+            finally:
+                if errors_to is not subprocess.DEVNULL:
+                    errors_to.close()           # the engine has its own copy
             self.proc.stdin.write(json.dumps({'token': self.token, 'certificates': roots, 'memoryMiB': 256,
                                               'nzbCacheDir': cache}).encode('utf-8') + b'\n')
             self.proc.stdin.flush()             # the pipe stays open: its closing stops the engine
@@ -356,7 +387,12 @@ def open_release(nzb_url, servers, season=None, episode=None, headers=None, priv
     # session busy" (Intel PC, 18 Nov 2026); that open ends by itself within the engine's time.
     waited_until = time.time() + 25
     while True:
-        status, answer, got = _request(port, token, 'POST', '/sessions', body)
+        try:
+            status, answer, got = _request(port, token, 'POST', '/sessions', body)
+        except Exception as exc:
+            # v5.10.587: a timeout here went past the caller, and the player was handed the NZB link
+            raise UsenetError('the engine did not answer in time (%s)' % (str(exc)[:80] or type(exc).__name__),
+                              'timeout')
         if status != 409 or time.time() >= waited_until or xbmc.Monitor().abortRequested():
             break
         xbmc.sleep(500)

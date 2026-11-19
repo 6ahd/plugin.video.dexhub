@@ -1113,6 +1113,32 @@ def titles_for_imdb(imdb_id, media_type='movie'):
     return list(titles)
 
 
+def year_for_imdb(imdb_id, media_type='movie'):
+    """v5.10.587: a title's year from its IMDb id ('' when unknown), one /find call, cached.
+    The Usenet search gets a seed meta with no date in it (id, name, type: CoreELEC box,
+    18 Nov 2026), and needs the year to search a recent film by name too."""
+    imdb_id = str(imdb_id or '').strip()
+    if not imdb_id.startswith('tt') or not _api_key():
+        return ''
+    mt = _normalize_media_type(media_type)
+    cache_key = 'find_year:%s:%s' % (mt, imdb_id)
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return str(cached or '')
+    year = ''
+    try:
+        data = _request('/find/%s' % imdb_id, params={'external_source': 'imdb_id'},
+                        timeout=4, max_attempts=1, rate_wait=1.0) or {}
+        rows = list(data.get('tv_results' if mt == 'tv' else 'movie_results') or [])
+        for row in rows[:1]:
+            year = str(row.get('release_date') or row.get('first_air_date') or '')[:4]
+    except Exception:
+        year = ''
+    year = year if year.isdigit() else ''
+    _cache_set(cache_key, year, ttl=POSITIVE_TTL if year else NEGATIVE_TTL)
+    return year
+
+
 def art_cached_only(tmdb_id='', imdb_id='', media_type='movie', title='', year=''):
     """Return TMDb art ONLY if it is already cached — never touches the network.
 

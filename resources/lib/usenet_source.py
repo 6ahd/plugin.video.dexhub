@@ -298,10 +298,14 @@ def _run_plan(name, plan, ask, parse, deadline):
                 pages = ', +%d on page 2' % extra
             except Exception as exc:
                 pages = ', page 2: %s' % exc
+        query = params.get('q') or params.get('query') or ''
+        what = '%s%s' % (kind, (' "%s"' % query) if kind == 'search' and query else '')
         if found:
             _log('%s: %d releases%s (%s%s%s), %.1fs' % (
-                name, added, ' from %d indexers' % len(found) if len(found) > 1 else '', kind,
+                name, added, ' from %d indexers' % len(found) if len(found) > 1 else '', what,
                 ', kept' if cached else '', pages, time.time() - started))
+        else:
+            _log('%s: nothing for its %s search, %.1fs' % (name, what, time.time() - started))
     return got
 
 
@@ -519,8 +523,13 @@ def targets(meta, canonical_id, media_type, ids=None, season=None, episode=None)
         return []
     from .search.native_titles import candidates
     meta = meta or {}
-    year = str(meta.get('year') or meta.get('releaseInfo') or meta.get('release_date')
-               or meta.get('first_air_date') or '')[:4]
+    # v5.10.587: the year from any of a film's date fields (a Stremio meta has "released")
+    year = ''
+    for key in ('year', 'releaseInfo', 'release_date', 'released', 'first_air_date', 'premiered', 'aired'):
+        found_year = re.search(r'\b(19|20)\d\d\b', str(meta.get(key) or ''))
+        if found_year:
+            year = found_year.group(0)
+            break
     episodic = season not in (None, '', 0, '0') and episode not in (None, '', 0, '0')
     names = [n for n in candidates(meta, media_type) if re.search(r'[A-Za-z0-9]', str(n))]
     return [({'id': PROVIDER_ID, 'name': NAME, '_title': (names[0] if names else meta.get('name') or meta.get('title') or ''),
@@ -532,6 +541,15 @@ def targets(meta, canonical_id, media_type, ids=None, season=None, episode=None)
 def payload(provider):
     found, workers = [], []
     deadline = time.time() + _BUDGET
+    # v5.10.587: the meta a source scan starts with has no date in it, so a recent film was never
+    # searched by name: its year from TMDb (one cached call)
+    if not provider.get('_year') and provider.get('_season') is None:
+        try:
+            from . import tmdb_direct
+            provider['_year'] = tmdb_direct.year_for_imdb((provider.get('_ids') or {}).get('imdb_id'), 'movie')
+        except Exception:
+            pass
+    _log('searching for %r, year %s' % (provider.get('_title') or '', provider.get('_year') or '-'))
     for indexer in config()['indexers']:
         if indexer.get('off'):
             continue
@@ -597,20 +615,60 @@ def resolve(ctx):
         episode = int(episode) if episode not in (None, '') else None
     except (TypeError, ValueError):
         season = episode = None
+    asked = time.time()
     try:
         opened = usenet_engine.open_release(link, servers(), season, episode, private=config().get('private'))
-    except usenet_engine.UsenetError as exc:
-        _log('the release did not open (%s): %s' % (exc.kind or '-', exc), xbmc.LOGWARNING)
+    except Exception as exc:
+        kind = getattr(exc, 'kind', '') or ''
+        _log('the release did not open (%s): %s' % (kind or '-', exc), xbmc.LOGWARNING)
         reason = {'provider': _t('المزود رفض الدخول أو خلصت الحصة', 'The provider refused the sign-in or its quota is used up'),
-                  'engine': _t('محرك Usenet مو مركّب على هذا الجهاز', 'The Usenet engine is not on this device')
-                  }.get(exc.kind) or _t('هذي النسخة ما انفتحت (ناقصة أو محمية)', 'This release did not open (incomplete or protected)')
+                  'engine': _t('محرك Usenet مو مركّب على هذا الجهاز', 'The Usenet engine is not on this device'),
+                  'timeout': _t('محرك Usenet ما رد في الوقت', 'The Usenet engine did not answer in time'),
+                  }.get(kind) or _t('هذي النسخة ما انفتحت (ناقصة أو محمية)', 'This release did not open (incomplete or protected)')
+        if kind not in ('provider', 'engine', 'missing-article', 'invalid-article', 'hole-limit', 'blank-content'):
+            # v5.10.587: the engine's own words, in the log and as a plain reason (not one release
+            # opened on the Intel PC and nothing said why)
+            said = usenet_engine.engine_said(asked)
+            if said:
+                _log('the engine said: %s' % said, xbmc.LOGWARNING)
+            reason = _plain_reason('%s %s' % (exc, said)) or reason
         try:
-            xbmcgui.Dialog().notification('Usenet', reason, xbmcgui.NOTIFICATION_WARNING, 5000)
+            xbmcgui.Dialog().notification('Usenet', reason, xbmcgui.NOTIFICATION_WARNING, 6000)
         except Exception:
             pass
         return ''
     # v5.10.572: a whole Blu-ray release plays in its menus (or its main title when its menu is Java)
     return usenet_engine.disc_menu(opened['url']) or opened['url']
+
+
+_TEST_HINT = ('الإعدادات ← Usenet ← المزود ← فحص الاتصال', 'Settings › Usenet › provider › Test the sign-in')
+
+
+def _plain_reason(text):
+    """What went wrong, in words a viewer can act on, from the engine's answer and its log line
+    ('' when it names nothing known)."""
+    low = str(text or '').lower()
+    hint = _t(*_TEST_HINT)
+    if any(k in low for k in ('too many connections', ' 481', ' 502 ', 'connection limit', 'max connections')):
+        return _t('اتصالات المزود مكتملة، يمكن جهاز ثاني يستخدم الحساب', 'The provider\'s connections are all in use, maybe by another device')
+    if any(k in low for k in ('authentication', ' 452', 'sign-in', 'password rejected', 'authinfo')):
+        return _t('المزود رفض الدخول، تأكد من الاسم وكلمة السر', 'The provider refused the sign-in: check the user name and password')
+    if any(k in low for k in ('providers exhausted', 'awaiting dispatch', 'dial tcp', 'tls', 'certificate',
+                              'connection refused', 'no route', 'i/o timeout', 'nntp')):
+        return _t('ما قدر يوصل لمزود Usenet من هذا الجهاز (%s)' % hint,
+                  'Could not reach the Usenet provider from this device (%s)' % hint)
+    if 'local usenet addresses' in low:
+        return _t('رابط المفهرس على الشبكة المحلية: فعّل «السيرفرات الذاتية» في إعدادات Usenet',
+                  'The indexer\'s link is on the local network: turn on self-hosted servers in Usenet settings')
+    if 'http 429' in low:
+        return _t('المفهرس وصل حد التحميل، جرّب بعدين', 'The indexer\'s download limit is reached, try later')
+    if 'could not download nzb' in low or 'nzb download returned' in low:
+        return _t('المفهرس ما عطى ملف النسخة (NZB)', 'The indexer did not give the release\'s NZB file')
+    if 'did not answer in time' in low:
+        return _t('محرك Usenet ما رد في الوقت', 'The Usenet engine did not answer in time')
+    if 'session busy' in low:
+        return _t('نسخة ثانية لسا تنفتح، جرّب بعد شوي', 'Another release is still opening, try again shortly')
+    return ''
 
 
 # ------------------------------------------------------------ setting up

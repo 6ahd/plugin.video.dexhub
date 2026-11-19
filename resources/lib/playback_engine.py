@@ -203,17 +203,24 @@ def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta
     except Exception as _debrid_exc:
         api.xbmc.log('[DexHub] Debrid playback: %s' % _debrid_exc, api.xbmc.LOGWARNING)
     # v5.10.558: a Usenet row: its NZB link becomes the film's address on this device
+    # v5.10.587: a release that failed in any way goes to the next source; an error here once let
+    # the player open the NZB link itself (Intel PC, 19 Nov 2026: "error probing input format")
     try:
         from . import usenet_source as _usenet
-        if _usenet.is_row(ctx):
+        _is_usenet = _usenet.is_row(ctx)
+    except Exception:
+        _is_usenet = False
+    if _is_usenet:
+        try:
             link = _usenet.resolve(ctx)
-            if link:
-                ctx['stream_url'] = link
-            else:
-                _next_source(ctx, stream_key, 'no link')
-                return
-    except Exception as _usenet_exc:
-        api.xbmc.log('[DexHub] Usenet playback: %s' % _usenet_exc, api.xbmc.LOGWARNING)
+        except Exception as _usenet_exc:
+            api.xbmc.log('[DexHub] Usenet playback: %s' % _usenet_exc, api.xbmc.LOGWARNING)
+            link = ''
+        if link:
+            ctx['stream_url'] = link
+        else:
+            _next_source(ctx, stream_key, 'no link')
+            return
     # v5.10.557: an EasyNews row: its members link is turned into the file's own address
     try:
         from . import easynews_source as _easynews
