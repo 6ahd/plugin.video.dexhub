@@ -2326,7 +2326,11 @@ def dispatch():
     if action == 'ui_option':
         from resources.lib import ui_preferences
         return ui_preferences.edit(str(params.get('key') or ''), _txt)
-    if action in ('subtitle_sync', 'subtitle_next', 'subtitle_pick'):
+    if action == 'subtitle_trans_service':
+        # v5.10.588: Control Centre › Subtitles › Translate subtitle: its service
+        from resources.lib.subsync import transflow
+        return transflow.pick_service()
+    if action in ('subtitle_sync', 'subtitle_next', 'subtitle_pick', 'subtitle_translate'):
         # v5.10.290: the player's subtitle buttons, with or without DexSubtitles
         from resources.lib.subsync import buttons
         return buttons.run(action)

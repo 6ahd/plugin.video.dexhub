@@ -589,6 +589,32 @@ class HeadlessTitle(object):
         # the id last: the page takes the labels together, once they are all this title's
         C.set_prop('dhs.tp.id', self.title_id)
         self._warm_on_open()
+        self._ai_plot()
+
+    def _ai_plot(self):
+        """v5.10.588: AI metadata translation: a story TMDb has only in another language is put
+        in the metadata language (meta_ai), from the kept translation at once or a moment later."""
+        try:
+            from .. import meta_ai
+            plot = self.hero.get('plot') or ''
+            code = meta_ai.target()
+            if not meta_ai.needs(plot, code) or not meta_ai.enabled():
+                return
+            hit = meta_ai.cached(plot, code)
+            if hit:
+                C.set_prop('dhs.tp.plot', hit)
+                return
+            title_id, title, year = self.title_id, self.hero.get('title') or '', str(self.hero.get('year') or '')
+
+            def later():
+                text = meta_ai.translate(plot, title, year, 'plot', code)
+                if text and C.home().getProperty('dhs.tp.id') == title_id:
+                    C.set_prop('dhs.tp.plot', text)
+            import threading
+            # not a daemon: a listing call that ends first still lets it finish (one request, 40 s at most)
+            threading.Thread(target=later, name='DexHubAIPlot').start()
+        except Exception as exc:
+            xbmc.log('[DexHub] AI metadata: %s' % exc, xbmc.LOGWARNING)
 
     def _warm_on_open(self):
         """v5.10.448: the sources search as the page opens ("Available on").

@@ -119,6 +119,7 @@ class FileSource(object):
     kind = 'file'
 
     def __init__(self, path, budget):
+        self.path = path
         self.budget = budget
         try:
             self.f = open(path, 'rb')
@@ -139,6 +140,9 @@ class FileSource(object):
         data = self.f.read(length)
         self.budget.add(len(data))
         return data
+
+    def clone(self):
+        return FileSource(self.path, self.budget)
 
     def close(self):
         try:
@@ -261,6 +265,13 @@ class HttpSource(object):
         data = bytes(out[:length])
         self.budget.add(len(data))
         return data
+
+    def clone(self):
+        """5.10.588: one more reader of the same address and budget, with its own session
+        (dextext reads a subtitle's lines several at a time)."""
+        twin = HttpSource(self.url, self.budget, self.session.__class__(), headers=self.headers, verify=self.verify)
+        twin.size = self.size
+        return twin
 
     def close(self):
         pass

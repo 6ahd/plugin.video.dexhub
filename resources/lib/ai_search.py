@@ -43,6 +43,13 @@ PROVIDERS = (
     ('openrouter', 'OpenRouter', 'https://openrouter.ai/api/v1', 'openrouter.ai/keys',
      ('x-ai/grok-4-fast', 'google/gemini-2.5-flash', 'openai/gpt-4o-mini')),
     ('deepseek', 'DeepSeek', 'https://api.deepseek.com/v1', 'platform.deepseek.com/api_keys', ('deepseek-chat',)),
+    # v5.10.588: Claude and Mistral through their OpenAI-compatible addresses, as Flix offers them
+    ('anthropic', 'Claude', 'https://api.anthropic.com/v1', 'console.anthropic.com/settings/keys',
+     ('claude-haiku-5-5', 'claude-sonnet-5-5')),
+    ('mistral', 'Mistral', 'https://api.mistral.ai/v1', 'console.mistral.ai/api-keys', ('mistral-small-latest',)),
+    # v5.10.588: DexWorld's own OpenAI-compatible address, its key the DexWorld code
+    ('dexworld', 'DexWorld', 'https://dexworld.cc/subtitles/api/openai/v1', 'dexworld.cc', ()),
+    # any OpenAI-compatible address, http or https; a local one (Ollama, LM Studio) needs no key
     ('custom', 'OpenAI-compatible', '', '', ()),
 )
 SEARCH_MODES = ('auto', 'always', 'off')
@@ -93,20 +100,111 @@ def _provider(pid):
     return next((p for p in PROVIDERS if p[0] == pid), None)
 
 
-def config():
-    """{provider, key, base, model, search} or None when no key is set."""
+# v5.10.588: the services and their keys once, then for each feature its own service and model
+# (ai.json {"v": 2, "services": {pid: {key, base}}, "features": {fid: {on, service, model, free}}}).
+# Subtitle translation also has Google Translate (no key) and DexWorld's own translation.
+FEATURES = (
+    ('search', ('البحث بالذكاء الاصطناعي', 'AI search'),
+     ('تكتب وصف في البحث وتطلع لك أعمال تناسبه', 'Describe what you want in Search and get titles that fit')),
+    ('lists', ('المقترحات وقوائم AI', 'AI recommendations and lists'),
+     ('«مقترحات لك» من اللي شفته، وصفوف من وصف تكتبه', '"Recommended for you" from what you watched, and rows from a description')),
+    ('subtitles', ('ترجمة الترجمة', 'Subtitle translation'),
+     ('زر «ترجمة آلية» في المشغّل', 'The player\'s Translate subtitle button')),
+    ('metadata', ('ترجمة الميتاداتا', 'AI metadata translation'),
+     ('قصة العمل بلغتك لما TMDb ما عنده ترجمتها', 'A title\'s story in your language when TMDb has none in it')),
+)
+SENT = {
+    'search': ('الوصف اللي تكتبه في البحث.', 'The description you type in Search.'),
+    'lists': ('أسماء وسنوات اللي شفته مؤخراً، وهل هو فيلم أو مسلسل، والوصف اللي تكتبه للقائمة.',
+              'The titles and years of what you watched lately, whether each is a film or a series, and the '
+              'description you type for a list.'),
+    'metadata': ('قصة العمل اللي فتحت صفحته، واسمه وسنته، واللغة اللي تترجم لها.',
+                 'The story of the title whose page you opened, its name and year, and the language to translate into.'),
+    'subtitles': ('سطور الترجمة اللي تترجمها، ولغة الترجمة، ومع DexWorld اسم العمل والموسم والحلقة.',
+                  'The subtitle lines to translate and the language to translate into; with DexWorld also the '
+                  'title with its season and episode.'),
+}
+SUBTITLE_SERVICES = ('google', 'dexworld_tr')     # besides the chat services
+
+
+def _data():
+    """ai.json as version 2 (an older one, a single service for everything, is read into it)."""
     data = _load()
-    if not data.get('key') or not data.get('base') or not data.get('model'):
+    if data.get('v') == 2:
+        data.setdefault('services', {})
+        data.setdefault('features', {})
+        return data
+    out = {'v': 2, 'services': {}, 'features': {}, 'search_mode': 'auto'}
+    pid = data.get('provider')
+    if pid and data.get('base'):
+        out['services'][pid] = {'key': data.get('key') or '', 'base': data['base']}
+        mode = data.get('search') or 'auto'
+        out['search_mode'] = mode if mode != 'off' else 'auto'
+        for fid in ('search', 'lists'):
+            out['features'][fid] = {'on': not (fid == 'search' and mode == 'off'), 'service': pid,
+                                    'model': data.get('model') or '', 'free': bool(data.get('free'))}
+    return out
+
+
+def _usable(pid, svc):
+    return bool(svc and svc.get('base') and (svc.get('key') or pid == 'custom'))
+
+
+def services():
+    """{pid: {key, base}} of the services set up with their key."""
+    return dict((pid, svc) for pid, svc in _data()['services'].items() if _usable(pid, svc))
+
+
+def feature(fid):
+    """{on, service, model, free} of a feature (subtitles: Google Translate unless chosen)."""
+    f = dict(_data()['features'].get(fid) or {})
+    if fid == 'subtitles':
+        f.setdefault('service', 'google')
+        f['on'] = True
+    return f
+
+
+def config(fid='search'):
+    """{provider, key, base, model} the feature asks, or None when it is off or has no service set."""
+    f = feature(fid)
+    pid = f.get('service')
+    if not f.get('on') or pid in SUBTITLE_SERVICES or pid == 'google':
         return None
-    return data
+    svc = services().get(pid)
+    if not svc or not f.get('model'):
+        return None
+    return {'provider': pid, 'key': svc.get('key') or '', 'base': svc['base'], 'model': f['model'],
+            'free': bool(f.get('free')), 'search': _data().get('search_mode') or 'auto'}
+
+
+def _no_chat(pid):
+    return pid in SUBTITLE_SERVICES or pid == 'google'
+
+
+def service_name(pid):
+    if pid == 'google':
+        return 'Google Translate'
+    if pid == 'dexworld_tr':
+        return _t('ترجمة DexWorld', 'DexWorld translation')
+    p = _provider(pid)
+    return p[1] if p else str(pid or 'AI')
+
+
+def feature_label(fid):
+    f = feature(fid)
+    if not f.get('on'):
+        return _t('مطفي', 'Off')
+    pid = f.get('service')
+    if _no_chat(pid):
+        return service_name(pid)
+    if not pid or not f.get('model'):
+        return _t('اختر الخدمة', 'Choose the service')
+    return '%s · %s' % (service_name(pid), f.get('model'))
 
 
 def label():
-    cfg = config()
-    if not cfg:
-        return _t('غير مضاف', 'Not set')
-    p = _provider(cfg.get('provider'))
-    return '%s ✓' % (p[1] if p else 'AI')
+    n = len(services())
+    return _t('%d خدمة' % n, '%d service(s)' % n) if n else _t('غير مضاف', 'Not set')
 
 
 # ---------------------------------------------------------------- the AI
@@ -114,7 +212,9 @@ def _post(cfg, path, body=None, timeout=30):
     import urllib.request
     import urllib.error
     url = cfg['base'].rstrip('/') + path
-    headers = {'Authorization': 'Bearer ' + cfg['key'], 'Content-Type': 'application/json', 'User-Agent': 'DexHub'}
+    headers = {'Content-Type': 'application/json', 'User-Agent': 'DexHub'}
+    if cfg.get('key'):              # v5.10.588: a local service (Ollama, LM Studio) takes none
+        headers['Authorization'] = 'Bearer ' + cfg['key']
     if 'openrouter.ai' in url:
         headers['X-Title'] = 'Dex Hub'
     data = json.dumps(body).encode('utf-8') if body is not None else None
@@ -179,7 +279,7 @@ PICKS_SYSTEM = ('You recommend what a person should watch next, from the titles 
 
 def _ask(system, text, kind):
     """[{title, year, type}] from the AI, or None when it could not be asked."""
-    cfg = config()
+    cfg = config('search' if kind == 'search' else 'lists')
     if not cfg:
         return None
     started = time.monotonic()
@@ -272,7 +372,7 @@ def _cached(key, ttl, make):
 # ---------------------------------------------------------------- the three uses
 def wants(query):
     """Whether a search also asks the AI: a key, and a query that reads like a description."""
-    cfg = config()
+    cfg = config('search')
     if not cfg:
         return False
     mode = cfg.get('search') or 'auto'
@@ -365,61 +465,266 @@ def _forget(key):
 
 # ---------------------------------------------------------------- setting it up
 def setup():
-    """Control Centre's AI entry: the service and its key, the search mode, or removal."""
+    """Control Centre › AI: each feature with its service and model, the services and keys, and
+    what each sends. Any change saves at once."""
     dialog = xbmcgui.Dialog()
-    cfg = config()
-    title = _t('الذكاء الاصطناعي', 'AI')
-    if cfg:
-        p = _provider(cfg.get('provider'))
-        modes = {'auto': _t('للأوصاف فقط', 'Descriptions only'), 'always': _t('كل بحث', 'Every search'),
-                 'off': _t('مطفي', 'Off')}
-        choice = dialog.select('%s · %s' % (title, p[1] if p else 'AI'), [
-            _t('تغيير الخدمة أو المفتاح', 'Change the service or key'),
-            '%s: %s' % (_t('البحث الذكي', 'Smart search'), modes.get(cfg.get('search') or 'auto')),
-            _t('تجربة المفتاح', 'Test the key'),
-            _t('حذف المفتاح', 'Remove the key')])
-        if choice < 0:
-            return False
-        if choice == 1:
-            pick = dialog.select(_t('البحث الذكي', 'Smart search'), [modes[m] for m in SEARCH_MODES],
-                                 preselect=SEARCH_MODES.index(cfg.get('search') or 'auto'))
-            if pick >= 0:
-                cfg['search'] = SEARCH_MODES[pick]
-                _save(cfg)
-            return pick >= 0
-        if choice == 2:
-            _test(cfg, quiet=False)
-            return False
-        if choice == 3:
-            if dialog.yesno(title, _t('أحذف مفتاح الذكاء الاصطناعي من هذا الجهاز؟', 'Remove the AI key from this device?')):
-                _save({})
-                return True
-            return False
-    names = [p[1] for p in PROVIDERS]
-    pick = dialog.select(_t('اختر خدمة الذكاء الاصطناعي', 'Pick the AI service'), names)
+    changed = False
+    while True:
+        rows = ['%s:  [B]%s[/B]' % (_t(*names), feature_label(fid)) for fid, names, _d in FEATURES]
+        rows.append('%s:  [B]%s[/B]' % (_t('الخدمات والمفاتيح', 'Services and keys'), label()))
+        rows.append(_t('وش ينرسل لكل خدمة', 'What each sends'))
+        pick = dialog.select(_t('الذكاء الاصطناعي', 'AI'), rows)
+        if pick < 0:
+            return changed
+        if pick < len(FEATURES):
+            changed = edit_feature(FEATURES[pick][0]) or changed
+        elif pick == len(FEATURES):
+            changed = edit_services() or changed
+        else:
+            show_sent()
+
+
+def show_sent():
+    lines = [_t('هذي الميزات ترسل البيانات اللي تحت من جهازك للخدمة اللي اخترتها لها، بمفتاحك. تطلع من جهازك '
+                'والخدمة تتعامل معها حسب شروطها.',
+                'These features send the data below from this device to the service you chose for each, with '
+                'your own key. It leaves your device, and the service handles it under its own terms.'), '']
+    for fid, names, _d in FEATURES:
+        lines.append('[B]%s[/B] (%s)' % (_t(*names), feature_label(fid)))
+        lines.append(_t(*SENT[fid]))
+        lines.append('')
+    lines.append('[B]%s[/B]' % _t('ما ينرسل أبداً', 'Never sent'))
+    lines.append(_t('ملفاتك والصوت والفيديو، ومفاتيحك لأي خدمة غير خدمتها.',
+                    'Your media files, any audio or video, and a key to any service but its own.'))
+    xbmcgui.Dialog().textviewer(_t('وش ينرسل', 'What is sent'), '\n'.join(lines))
+
+
+def edit_feature(fid):
+    """A feature: on or off, its service, then that service's model (from its list, or typed)."""
+    dialog = xbmcgui.Dialog()
+    names = next(n for f, n, _d in FEATURES if f == fid)
+    data = _data()
+    f = dict(data['features'].get(fid) or {})
+    if fid == 'subtitles':
+        f.setdefault('service', 'google')
+    rows, keys = [], []
+    if fid != 'subtitles':
+        rows.append('%s:  [B]%s[/B]' % (_t('الحالة', 'State'), _t('شغّال', 'On') if f.get('on') else _t('مطفي', 'Off')))
+        keys.append('on')
+    rows.append('%s:  [B]%s[/B]' % (_t('الخدمة', 'Service'), service_name(f.get('service')) if f.get('service') else '-'))
+    keys.append('service')
+    if f.get('service') and not _no_chat(f.get('service')):
+        rows.append('%s:  [B]%s[/B]' % (_t('النموذج', 'Model'), f.get('model') or '-'))
+        keys.append('model')
+    if fid == 'search':
+        modes = {'auto': _t('للأوصاف فقط', 'Descriptions only'), 'always': _t('كل بحث', 'Every search')}
+        rows.append('%s:  [B]%s[/B]' % (_t('متى', 'When'), modes.get(data.get('search_mode') or 'auto', modes['auto'])))
+        keys.append('mode')
+    if f.get('service') and not _no_chat(f.get('service')):
+        rows.append(_t('جرّب', 'Test'))
+        keys.append('test')
+    pick = dialog.select(_t(*names), rows)
     if pick < 0:
         return False
-    pid, name, base, where, prefer = PROVIDERS[pick]
-    if pid == 'custom':
-        base = (dialog.input(_t('العنوان (ينتهي بـ /v1)', 'Address (ends in /v1)'), 'https://') or '').strip().rstrip('/')
-        if not base.startswith('https://'):
+    what = keys[pick]
+    if what == 'on':
+        f['on'] = not f.get('on')
+        if f['on'] and not (f.get('service') and f.get('model')):
+            if not _choose_service(fid, f):
+                return False
+    elif what == 'service':
+        if not _choose_service(fid, f):
             return False
-    key = (dialog.input('%s  (%s)' % (_t('مفتاح %s', '%s key') % name, where) if where else _t('المفتاح', 'Key'),
-                        option=xbmcgui.ALPHANUM_HIDE_INPUT) or '').strip()
-    if not key:
-        return False
-    new = {'provider': pid, 'key': key, 'base': base, 'model': prefer[0] if prefer else '',
-           'search': (cfg or {}).get('search') or 'auto'}
-    model = _pick_model(new, prefer)
-    if not model:
-        model = (dialog.input(_t('اسم النموذج', 'Model name')) or '').strip()
+        f['on'] = True
+    elif what == 'model':
+        svc = services().get(f.get('service'))
+        if not svc:
+            return False
+        prov = _provider(f.get('service'))
+        model = _choose_model(dict(svc, provider=f['service'], model=f.get('model') or ''), prov[4] if prov else ())
         if not model:
             return False
-    new['model'] = model
-    if not _test(new, quiet=False):
+        f['model'], f['free'] = model, bool(_LISTED.get(model))
+    elif what == 'test':
+        cfg = config(fid) if f.get('on') else None
+        if cfg:
+            _test(cfg, quiet=False)
         return False
-    _save(new)
+    fresh = _data()                    # read again: a service added on the way is in it
+    if what == 'mode':
+        fresh['search_mode'] = 'always' if (fresh.get('search_mode') or 'auto') == 'auto' else 'auto'
+    fresh['features'][fid] = f
+    _save(fresh)
     return True
+
+
+def _choose_service(fid, f):
+    """The service for a feature (and then its model). A service with no key yet is set up here."""
+    dialog = xbmcgui.Dialog()
+    have = services()
+    rows = []
+    if fid in ('subtitles', 'metadata'):
+        rows.append(('google', 'Google Translate'))
+    for pid, name, _b, _w, _p in PROVIDERS:
+        if pid in have:
+            rows.append((pid, name))
+    if fid == 'subtitles' and 'dexworld' in have:
+        rows.append(('dexworld_tr', service_name('dexworld_tr')))
+    rows.append(('add', _t('خدمة ثانية…', 'Another service…')))
+    now = f.get('service')
+    pick = dialog.select(_t('اختر الخدمة', 'Choose the service'), [r[1] for r in rows],
+                         preselect=next((n for n, r in enumerate(rows) if r[0] == now), 0))
+    if pick < 0:
+        return False
+    pid = rows[pick][0]
+    if pid == 'add':
+        pid = add_service()
+        if not pid:
+            return False
+        if pid == 'dexworld' and fid == 'subtitles':
+            pid = 'dexworld_tr'               # DexWorld's own subtitle translation, its code just added
+    f['service'] = pid
+    if _no_chat(pid):
+        f['model'] = ''
+        return True
+    svc = services().get(pid)
+    prov = _provider(pid)
+    model = _choose_model(dict(svc, provider=pid, model=f.get('model') or ''), prov[4] if prov else ())
+    if not model:
+        return False
+    f['model'], f['free'] = model, bool(_LISTED.get(model))
+    return True
+
+
+def edit_services():
+    """The services set up: add one, change a key, or remove one."""
+    dialog = xbmcgui.Dialog()
+    have = services()
+    rows = [(pid, '%s  ✓' % name) for pid, name, _b, _w, _p in PROVIDERS if pid in have]
+    rows.append(('add', _t('إضافة خدمة…', 'Add a service…')))
+    pick = dialog.select(_t('الخدمات والمفاتيح', 'Services and keys'), [r[1] for r in rows])
+    if pick < 0:
+        return False
+    pid = rows[pick][0]
+    if pid == 'add':
+        return bool(add_service())
+    act = dialog.select(service_name(pid), [_t('تغيير المفتاح', 'Change the key'), _t('حذف الخدمة', 'Remove the service')])
+    if act == 0:
+        return bool(add_service(pid))
+    if act == 1 and dialog.yesno(service_name(pid), _t('أحذف هذي الخدمة ومفتاحها من الجهاز؟', 'Remove this service and its key from this device?')):
+        data = _data()
+        data['services'].pop(pid, None)
+        for fid, f in data['features'].items():
+            if f.get('service') == pid or (pid == 'dexworld' and f.get('service') == 'dexworld_tr'):
+                data['features'][fid] = {'on': False} if fid != 'subtitles' else {'service': 'google'}
+        _save(data)
+        return True
+    return False
+
+
+def add_service(pid=None):
+    """A service and its key (DexWorld: its code; any address: the address, the key if it asks
+    one), checked with its model list. Returns its pid, or None."""
+    dialog = xbmcgui.Dialog()
+    if pid is None:
+        names = [p[1] for p in PROVIDERS]
+        pick = dialog.select(_t('اختر الخدمة', 'Choose the service'), names)
+        if pick < 0:
+            return None
+        pid = PROVIDERS[pick][0]
+    prov = _provider(pid)
+    name, base, where = prov[1], prov[2], prov[3]
+    old = _data()['services'].get(pid) or {}
+    if pid == 'custom':
+        # any address, http too (a service on the home network)
+        base = (dialog.input(_t('العنوان (ينتهي غالباً بـ /v1)', 'Address (usually ends in /v1)'),
+                             old.get('base') or 'https://') or '').strip().rstrip('/')
+        if not base.startswith(('https://', 'http://')) or len(base) < 12:
+            return None
+        if base.endswith('/chat/completions'):
+            base = base[:-len('/chat/completions')]
+    if pid == 'dexworld':
+        ask = _t('كود DexWorld', 'DexWorld code')
+    elif where:
+        ask = '%s  (%s)' % (_t('مفتاح %s', '%s key') % name, where)
+    else:
+        ask = _t('المفتاح (اتركه فاضي لو الخدمة ما تطلبه)', 'Key (leave it empty if the service needs none)')
+    key = (dialog.input(ask, option=xbmcgui.ALPHANUM_HIDE_INPUT) or '').strip() or (old.get('key') or '')
+    if not key and pid != 'custom':
+        return None
+    status, _answer = _post({'base': base, 'key': key, 'provider': pid}, '/models', None, timeout=15)
+    if status == 0:
+        dialog.ok(name, _t('ما وصلت للخدمة، تأكد من العنوان', "Couldn't reach the service; check the address"))
+        return None
+    if status not in (200, 404, 405):      # a service without a model list still answers 404 / 405
+        dialog.ok(name, _t('المفتاح مرفوض', 'The key was refused') + ' (%s)' % status)
+        return None
+    data = _data()
+    data['services'][pid] = {'key': key, 'base': base}
+    _save(data)
+    xbmcgui.Dialog().notification('Dex Hub', _t('انضافت %s ✓', '%s added ✓') % name, xbmcgui.NOTIFICATION_INFO, 3000)
+    return pid
+
+
+def _models(cfg):
+    """{model id: free} the key can use (the service's /models), or {} when it does not list them.
+    free: True when the service says the model costs nothing (OpenRouter's zero price or ":free")."""
+    status, answer = _post(cfg, '/models', None, timeout=15)
+    if status != 200 or not isinstance(answer, dict):
+        return {}
+    out = {}
+    for m in answer.get('data') or []:
+        if not isinstance(m, dict):
+            continue
+        mid = str(m.get('id') or '')
+        if cfg.get('provider') == 'gemini':
+            mid = mid.split('/')[-1]
+        if not mid or mid in out:
+            continue
+        price = m.get('pricing') if isinstance(m.get('pricing'), dict) else {}
+        zero = bool(price) and all(str(price.get(k, '0')).strip() in ('0', '0.0', '') for k in ('prompt', 'completion'))
+        out[mid] = zero or mid.endswith(':free') or bool(m.get('free'))
+    return out
+
+
+_LISTED = {}      # the last model list read: {id: free}
+
+
+def free_note(provider, model, listed_free=False):
+    """v5.10.588: what a model costs, in a word for the lists: free, free up to a daily limit, or ''."""
+    model = str(model or '').lower()
+    if listed_free or model.endswith(':free'):
+        return _t('مجاني', 'free')
+    if provider == 'groq' or (provider == 'gemini' and 'flash' in model):
+        return _t('مجاني بحد يومي', 'free up to a daily limit')
+    return ''
+
+
+def _choose_model(cfg, prefer):
+    """v5.10.588: the viewer picks the model from the service's list (the suggested ones first,
+    then the free ones), each marked free when it is, or types one; a service that lists none
+    asks for its name."""
+    dialog = xbmcgui.Dialog()
+    have = _models(cfg)
+    _LISTED.clear()
+    _LISTED.update(have)
+    rest = sorted((m for m in have if m not in prefer), key=lambda m: (not have[m], m))
+    ordered = [m for m in prefer if not have or m in have] + rest
+    if not ordered:
+        return (dialog.input(_t('اسم النموذج', 'Model name'), cfg.get('model') or '') or '').strip()
+    rows = []
+    for m in ordered:
+        bits = [x for x in (free_note(cfg.get('provider'), m, have.get(m)), _t('مقترح', 'suggested') if m in prefer else '') if x]
+        rows.append('%s%s' % (m, ('   · ' + ' · '.join(bits)) if bits else ''))
+    rows.append(_t('اكتب اسم نموذج ثاني…', 'Type another model…'))
+    now = cfg.get('model') or ''
+    pick = dialog.select(_t('اختر النموذج', 'Choose the model'), rows,
+                         preselect=ordered.index(now) if now in ordered else 0)
+    if pick < 0:
+        return ''
+    if pick == len(ordered):
+        return (dialog.input(_t('اسم النموذج', 'Model name'), now) or '').strip()
+    return ordered[pick]
 
 
 def _pick_model(cfg, prefer):

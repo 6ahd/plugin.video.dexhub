@@ -23,7 +23,9 @@ SETTING = 'osd_buttons'
 SLOTS = 10     # skin.dexhub draws 9 slots, skin.dexhub.tvos 10 (with External)
 # bar order, left to right; "-" = hidden by default
 # v5.10.566: '-intro' (Mark intro) hidden at first: the bar's nine slots are full and PPI would drop off
-DEFAULT = ('sources', 'episodes', 'info', 'party', 'audio', 'subtitles', 'subsync', '-nextsub', '-intro', 'external', 'video', 'ppi')
+# v5.10.588: '-subtrans' (Translate subtitle) hidden at first for the same reason; Player buttons turns it on
+DEFAULT = ('sources', 'episodes', 'info', 'party', 'audio', 'subtitles', 'subsync', '-nextsub', '-subtrans', '-intro',
+           'external', 'video', 'ppi')
 KEYS = tuple(k.lstrip('-') for k in DEFAULT)
 NAMES = {
     'sources': ('المصادر', 'Sources'),
@@ -33,6 +35,7 @@ NAMES = {
     'subtitles': ('الترجمة', 'Subtitles'),
     'subsync': ('مزامنة الترجمة', 'Sync subtitle'),
     'nextsub': ('الترجمة التالية', 'Next subtitle'),
+    'subtrans': ('ترجمة آلية', 'Translate subtitle'),   # v5.10.588
     'external': ('المشغل الخارجي', 'External player'),
     'video': ('إعدادات المشغل', 'Player settings'),
     'ppi': ('معلومات التشغيل PPI', 'PPI playback info'),
@@ -46,6 +49,7 @@ NOTES = {
     # v5.10.290: Dex Hub runs both itself; DexSubtitles only takes over the sync when installed
     'subsync': ('يستخدم DexSubtitles لو كانت مثبتة', 'Uses DexSubtitles when installed'),
     'nextsub': ('وبعد آخر ترجمة: بدون ترجمة', 'After the last one: subtitles off'),
+    'subtrans': ('يحتاج سكن Dex Hub 3.28.231 أو أحدث', 'Needs skin.dexhub 3.28.231 or later'),
     'external': ('على Apple TV فقط', 'Apple TV only'),
 }
 # v5.10.289: what each button does, one line in the editor
@@ -57,6 +61,8 @@ DOES = {
     'subtitles': ('اختيار الترجمة وإعداداتها', 'Choose the subtitle and its settings'),
     'subsync': ('يزامن الترجمة الشغالة أو يختار الأنسب', 'Syncs the playing subtitle or picks the best one'),
     'nextsub': ('ينتقل للترجمة التالية بضغطة', 'Moves to the next subtitle in one press'),
+    'subtrans': ('يترجم الترجمة الشغالة، مدمجة أو خارجية، بـ Google Translate أو خدمة AI حقك أو DexWorld',
+                 'Translates the playing subtitle, embedded or external, with Google Translate, your AI service or DexWorld'),
     'external': ('يفتح الفيديو في مشغل خارجي', 'Opens the video in an external player'),
     'video': ('إعدادات الصورة والتشغيل', 'Picture and playback settings'),
     'ppi': ('معلومات التشغيل وأوضاع Dolby Vision', 'Playback info and Dolby Vision modes'),
@@ -66,8 +72,8 @@ DOES = {
 # the bar's icons, copies of the OSD's own (resources/media/osdbar)
 ICONS = {
     'sources': 'layers', 'episodes': 'list-video', 'info': 'info', 'audio': 'audio-lines', 'subtitles': 'captions',
-    'subsync': 'subsync', 'nextsub': 'subnext', 'external': 'external', 'video': 'ratio', 'ppi': 'ppi',
-    'party': 'party', 'intro': 'intro',
+    'subsync': 'subsync', 'nextsub': 'subnext', 'subtrans': 'subtrans', 'external': 'external', 'video': 'ratio',
+    'ppi': 'ppi', 'party': 'party', 'intro': 'intro',
 }
 LEFT_ICONS = ('pause-f', 'skip-back', 'skip-forward', 'stop-f')
 

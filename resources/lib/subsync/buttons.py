@@ -18,7 +18,8 @@ import os
 import xbmc
 
 OTHER = 'service.subtitles.dexworld'
-_COMMANDS = {'subtitle_sync': 'best', 'subtitle_next': 'next', 'subtitle_pick': 'pick'}
+_COMMANDS = {'subtitle_sync': 'best', 'subtitle_next': 'next', 'subtitle_pick': 'pick',
+             'subtitle_translate': 'translate'}     # 5.10.588: Dex Hub's own, never DexSubtitles'
 
 
 def dexsubtitles_script():
@@ -30,6 +31,14 @@ def dexsubtitles_script():
         import xbmcvfs
         path = xbmcvfs.translatePath(xbmcaddon.Addon(OTHER).getAddonInfo('path'))
         return os.path.isfile(os.path.join(path, 'osd.py'))
+    except Exception:
+        return False
+
+
+def _disc_playing():
+    try:
+        from .runner import disc_playing
+        return disc_playing()
     except Exception:
         return False
 
@@ -46,7 +55,9 @@ def run(action):
                 return True
         except Exception as exc:
             xbmc.log('[DexHub] silo subtitles: %s' % exc, xbmc.LOGWARNING)
-    if command in ('best', 'pick') and dexsubtitles_script():
+    # v5.10.588: a disc stays with Dex Hub: DexSubtitles cannot time it (no MKV index), Dex Hub
+    # times it from a REMUX of the same disc in the sources list
+    if command in ('best', 'pick') and dexsubtitles_script() and not _disc_playing():
         xbmc.log('[DexHub] subtitle buttons: %s handed to DexSubtitles' % command, xbmc.LOGINFO)
         xbmc.executebuiltin('RunScript(%s,%s)' % (OTHER, command))
         return True

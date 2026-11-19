@@ -43,25 +43,41 @@ def enabled():
         return True
 
 
+def disc_playing():
+    """v5.10.588: a Blu-ray disc plays (bluray://, an image): DexSubtitles cannot time those
+    ("no readable MKV index"), Dex Hub can (discref, from a REMUX of the same disc)."""
+    try:
+        player = xbmc.Player()
+        if not player.isPlayingVideo():
+            return False
+        from .discref import is_disc
+        return is_disc(player.getPlayingFile())
+    except Exception:
+        return False
+
+
 def run(monitor):
     player = None
     watcher = None
     autosync = None
     mine = None
     checked = 0.0
+    other = on = False
     import time
     while not monitor.abortRequested():
         now = time.time()
         if mine is None or now - checked > 10.0:
             checked = now
-            turn = enabled() and not other_enabled()
-            if turn != mine:
-                mine = turn
-                xbmc.log('[DexHub] subtitle AutoSync: %s' % (
-                    'runs in Dex Hub' if mine else
-                    ('left to DexSubtitles' if other_enabled() else 'off')), xbmc.LOGINFO)
+            on, other = enabled(), other_enabled()
+        # with DexSubtitles enabled Dex Hub still syncs a disc's subtitles (5.10.588)
+        turn = on and (not other or disc_playing())
+        if turn != mine:
+            mine = turn
+            xbmc.log('[DexHub] subtitle AutoSync: %s' % (
+                ('runs in Dex Hub (a disc plays; DexSubtitles cannot time discs)' if other else 'runs in Dex Hub')
+                if mine else ('left to DexSubtitles' if other else 'off')), xbmc.LOGINFO)
         if not mine:
-            if monitor.waitForAbort(10):
+            if monitor.waitForAbort(2 if other and on else 10):
                 break
             continue
         try:

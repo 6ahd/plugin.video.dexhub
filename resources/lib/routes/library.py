@@ -352,8 +352,9 @@ def _ai_render(rows, media=''):
 def ai_list(description, fresh=''):
     """v5.10.576: an AI list (a Home row made With AI): the titles the viewer's AI picks for a description."""
     from .. import ai_search
-    if not ai_search.config():
-        return _note(_t('أضف مفتاح الذكاء الاصطناعي من مركز التحكم', 'Add an AI key in the Control Centre'))
+    if not ai_search.config('lists'):
+        return _note(_t('اختر خدمة «المقترحات وقوائم AI» من مركز التحكم › الذكاء الاصطناعي',
+                        'Choose the service for AI recommendations and lists in Control Centre › AI'))
     rows = ai_search.list_rows(description, fresh=bool(fresh))
     if rows is None:
         return _note(_t('ما رد الذكاء الاصطناعي، جرّب بعد شوي', 'The AI did not answer, try again shortly'))
@@ -366,8 +367,9 @@ def ai_picks(media):
     """v5.10.576: Recommended for you: the viewer's AI picks from what they watched lately."""
     from .. import ai_search
     media = 'series' if media == 'series' else 'movie' if media == 'movie' else 'all'
-    if not ai_search.config():
-        return _note(_t('أضف مفتاح الذكاء الاصطناعي من مركز التحكم', 'Add an AI key in the Control Centre'))
+    if not ai_search.config('lists'):
+        return _note(_t('اختر خدمة «المقترحات وقوائم AI» من مركز التحكم › الذكاء الاصطناعي',
+                        'Choose the service for AI recommendations and lists in Control Centre › AI'))
     rows = ai_search.picks_rows(media)
     if rows is None:
         return _note(_t('ما رد الذكاء الاصطناعي، جرّب بعد شوي', 'The AI did not answer, try again shortly'))

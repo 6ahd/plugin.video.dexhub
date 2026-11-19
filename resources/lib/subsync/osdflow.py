@@ -824,6 +824,15 @@ def cmd_pick():
             pre = len(rows)
         rows.append(('off', None))
         labels.append(T('بدون ترجمة', 'Subtitles off'))
+        # 5.10.588: the playing subtitle (or one picked) translated, with its service
+        try:
+            from . import transflow
+            rows.append(('translate', None))
+            labels.append('🌐 ' + T('ترجم الترجمة الشغالة · %s', 'Translate the playing subtitle · %s') % transflow.service_label())
+            rows.append(('trans_service', None))
+            labels.append('    ' + T('غيّر خدمة الترجمة', 'Change the translation service'))
+        except Exception as e:
+            _log('translate rows: %s' % e, xbmc.LOGWARNING)
     for c in provs[:40]:
         rows.append(('prov', c))
         labels.append('%s  (%s)%s' % (_short(c['name'], 70), c['provider'], ' [AI]' if c['is_ai'] else ''))
@@ -843,6 +852,10 @@ def cmd_pick():
         _set_stream(pid, val[0], val[1])
     elif kind == 'off':
         _set_off(pid)
+    elif kind == 'translate':
+        cmd_translate()
+    elif kind == 'trans_service':
+        cmd_trans_service()
     elif kind == 'prov':
         _apply_chosen(val, media, include_ai, _want_episode(search.req))
 
@@ -895,13 +908,25 @@ def _menu():
     opts = [('best', T('أفضل ترجمة متزامنة', 'Best synced subtitle')),
             ('sync', T('زامن الترجمة الشغالة', 'Sync the playing subtitle')),
             ('pick', T('اختر ترجمة', 'Choose a subtitle')),
+            ('translate', T('ترجم الترجمة الشغالة', 'Translate the playing subtitle')),
             ('next', T('الترجمة التالية', 'Next subtitle'))]
     idx = xbmcgui.Dialog().select('Dex Hub', [o[1] for o in opts])
     return opts[idx][0] if idx >= 0 else ''
 
 
+def cmd_translate():
+    from . import transflow
+    transflow.run()
+
+
+def cmd_trans_service():
+    from . import transflow
+    transflow.pick_service()
+
+
 _COMMANDS = {'best': cmd_best, 'auto': cmd_best, 'sync': cmd_sync, 'next': cmd_next, 'cycle': cmd_next,
-             'pick': cmd_pick, 'choose': cmd_pick, 'change': cmd_pick}
+             'pick': cmd_pick, 'choose': cmd_pick, 'change': cmd_pick,
+             'translate': cmd_translate, 'trans_service': cmd_trans_service}
 
 
 def run(argv):

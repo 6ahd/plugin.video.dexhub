@@ -1303,12 +1303,13 @@ class BarEditor(xbmcgui.WindowXMLDialog):
     def pick_ai(self):
         """v5.10.576: a Home row from a description, by the viewer's AI (ai_search, action lib_ai_list)."""
         from .. import ai_search
-        if not ai_search.config():
+        if not ai_search.config('lists'):
             if not xbmcgui.Dialog().yesno(_t('بالذكاء الاصطناعي', 'With AI'), _t(
-                    'يحتاج مفتاح خدمة ذكاء اصطناعي (Grok أو Groq أو OpenAI أو Gemini أو OpenRouter أو DeepSeek). تضيفه الحين؟',
-                    'This needs the key of an AI service (Grok, Groq, OpenAI, Gemini, OpenRouter or DeepSeek). Add it now?')):
+                    'يحتاج خدمة ذكاء اصطناعي لـ«المقترحات وقوائم AI». تختارها الحين؟',
+                    'This needs an AI service for "AI recommendations and lists". Choose it now?')):
                 return
-            if not ai_search.setup():
+            # v5.10.588: the feature's own service and model
+            if not ai_search.edit_feature('lists') or not ai_search.config('lists'):
                 return
         words = (xbmcgui.Dialog().input(_t('وش تبي القائمة؟', 'What should the list be?')) or '').strip()
         if not words:
