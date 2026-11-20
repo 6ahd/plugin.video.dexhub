@@ -1,3 +1,7 @@
+5.10.594
+فهرس المكتبة (library.sqlite3) لو تلف يتصلح لحاله: Dex Hub يحط الملف التالف على جنب (library.sqlite3.corrupt) ويبدأ فهرس جديد، والمزامنة تعبيه من الكتالوجات مرة ثانية. في سجل كمبيوتر LibreELEC كان الملف تالف («database disk image is malformed») فكل مزامنة كتالوج تفشل معه، 320 مرة مع كل تشغيل، وتبقى الصفوف على القديم.
+The library index (library.sqlite3) repairs itself when its file is damaged: Dex Hub sets the damaged file aside (library.sqlite3.corrupt) and starts a new index, which the sync fills again from the catalogs. In the LibreELEC PC's log the file was damaged ("database disk image is malformed"), so every catalog sync failed with it, 320 times at each start, and the rows stayed as they were.
+
 5.10.593
 شاشة نهاية الحلقة (الحلقة التالية مع التترات) صارت لتشغيل Dex Hub بس. قبل كانت تطلع حتى لو الحلقة شغالة من Red Light أو Fen Light أو أي إضافة ثانية، وهذي الإضافات لها حلقتها التالية الخاصة، فتطلع الاثنتين فوق بعض. في سجل بوكس CoreELEC مع Arctic Fuse 3 خلصت الحلقة والشاشة لسه مفتوحة، ففتح Red Light نوافذه تحتها وما قدرت تاخذ التحكم، وبان البوكس كأنه علّق قرابة دقيقتين لين انعاد تشغيل Kodi.
 والشاشة صارت تتسكر لحالها لما الفيديو يوقف أو يتغير. ولو الحلقة خلصت للآخر والعداد شغال، تشتغل الحلقة التالية مثل ما كان العداد بيسوي، ولو أنت وقفت التشغيل تتسكر بس.

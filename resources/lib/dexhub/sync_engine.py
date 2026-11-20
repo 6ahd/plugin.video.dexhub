@@ -161,7 +161,7 @@ class SyncEngine:
         return {'total': len(entries), 'ok': ok, 'errors': errors,
                 'duration': duration}
 
-    def _sync_one(self, entry, idx, total):
+    def _sync_one(self, entry, idx, total, _retried=False):
         """Fetch one catalog and upsert into the index."""
         # v3.9.28: defensive about entry shape. _hub_catalog_entries
         # returns 3-tuples (provider, catalog, bucket); other callers
@@ -211,6 +211,15 @@ class SyncEngine:
                     'inserted': inserted, 'updated': updated,
                     'duration': duration}
         except Exception as exc:
+            # v5.10.594: a damaged index file is replaced and the catalog
+            # tried once more, instead of every sync failing with it
+            recover = getattr(self._db, 'recover', None)
+            if not _retried and recover is not None:
+                try:
+                    if recover(exc):
+                        return self._sync_one(entry, idx, total, _retried=True)
+                except Exception:
+                    pass
             duration = time.time() - t0
             err = str(exc)[:300]
             try:

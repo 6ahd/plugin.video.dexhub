@@ -66,6 +66,10 @@ def query_bucket_metas(bucket, sort='release_date', media_type=None,
         )
     except Exception as exc:
         xbmc.log('[DexHub] index query failed: %s' % exc, xbmc.LOGWARNING)
+        try:
+            _get_db().recover(exc)      # v5.10.594: a damaged file starts again
+        except Exception:
+            pass
         return None
 
     if not rows:

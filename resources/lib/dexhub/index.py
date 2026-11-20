@@ -38,6 +38,14 @@ import threading
 import time
 from contextlib import contextmanager
 
+
+def _log_warning(msg):
+    try:
+        import xbmc
+        xbmc.log('[DexHub] %s' % msg, xbmc.LOGWARNING)
+    except Exception:
+        pass
+
 # ─── Schema ───────────────────────────────────────────────────────────
 _SCHEMA = """
 PRAGMA journal_mode = WAL;
@@ -144,6 +152,12 @@ END;
 
 
 # ─── Connection management ────────────────────────────────────────────
+def is_corrupt(exc):
+    """v5.10.594: SQLite's own words for a damaged file."""
+    text = str(exc).lower()
+    return isinstance(exc, sqlite3.DatabaseError) and ('malformed' in text or 'not a database' in text)
+
+
 class IndexDB:
     """Thread-safe SQLite wrapper for the library index.
 
@@ -155,9 +169,19 @@ class IndexDB:
         self._path = db_path
         self._local = threading.local()
         self._write_lock = threading.Lock()
+        self._recover_lock = threading.Lock()
+        self._gen = 0
+        self._recovered_at = 0.0
         # Initialize schema once at construction; subsequent connections
         # are no-ops because of `IF NOT EXISTS`.
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        try:
+            self._init_schema()
+        except sqlite3.DatabaseError as exc:
+            if not self.recover(exc):
+                raise
+
+    def _init_schema(self):
         # v5.10.586: LibreELEC's SQLite has no FTS5 ("index scheduler not started: no such
         # module: fts5", Intel PC, 18 Nov 2026): the whole schema failed with it. The tables go
         # in first; the search table only where SQLite has FTS5. Without it the FTS triggers
@@ -185,13 +209,54 @@ class IndexDB:
 
     @property
     def conn(self):
-        """Per-thread cached connection."""
+        """Per-thread cached connection (a new one after recover())."""
         c = getattr(self._local, 'conn', None)
+        if c is not None and getattr(self._local, 'gen', 0) != self._gen:
+            try:
+                c.close()
+            except Exception:
+                pass
+            c = None
         if c is None:
             c = sqlite3.connect(self._path, timeout=10.0, isolation_level=None)
             c.row_factory = sqlite3.Row
             self._local.conn = c
+            self._local.gen = self._gen
         return c
+
+    def recover(self, exc):
+        """v5.10.594: a damaged index file starts again empty.
+
+        The index only holds what the catalogs gave, so nothing is lost
+        that the next sync does not bring back. A LibreELEC PC's file was
+        damaged ("database disk image is malformed") and every catalog
+        sync failed with it at each start, 320 times, for good. The damaged
+        file is kept beside it as library.sqlite3.corrupt (one copy).
+        True when the file was (or was just) replaced."""
+        if not is_corrupt(exc):
+            return False
+        with self._recover_lock:
+            if time.time() - self._recovered_at < 60:
+                return True             # another thread did it a moment ago
+            try:
+                c = getattr(self._local, 'conn', None)
+                if c is not None:
+                    c.close()
+                    self._local.conn = None
+            except Exception:
+                pass
+            try:
+                for suffix in ('', '-wal', '-shm', '-journal'):
+                    if os.path.exists(self._path + suffix):
+                        os.replace(self._path + suffix, self._path + '.corrupt' + suffix)
+                self._gen += 1
+                self._init_schema()
+            except Exception as err:
+                _log_warning('index file damaged, could not start a new one: %s' % err)
+                return False
+            self._recovered_at = time.time()
+        _log_warning('index file was damaged (%s): started a new one, the next sync fills it' % exc)
+        return True
 
     @contextmanager
     def write(self):
