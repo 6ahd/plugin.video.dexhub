@@ -1,3 +1,9 @@
+5.10.589
+أقراص البلوراي (ISO) من الديبريد أو Usenet صارت تفتح أسرع شوي: حجم القرص يجي مع أول فحص، فما يحتاج طلب ثاني. والقرص اللي شغلته قبل يفتح بدون ما يعيد قراءة ملفاته (13 طلب)، حتى لو جا برابط جديد، لأن Dex Hub صار يعرفه من محتواه مو من رابطه. في سجل كمبيوتر LibreELEC كان فتح القرص ياخذ 5 إلى 8 ثواني: فحص الرابط (2 إلى 4.5 ثانية) وقراءة ملفات القرص (2.6 إلى 3.7 ثانية).
+ترجمة الميتاداتا: لما TMDb ما يعطي قصة بلغتك وصفحة العمل تعرض القصة اللي جات مع الكتالوج، صارت هذي اللي تنترجم. قبل كانت ما تنترجم أبد في هالحالة. والسجل صار يقول ليش ما انترجمت القصة: ما فيه لغة تترجم لها، أو ما فيه قصة، أو القصة أصلاً بلغتك.
+A Blu-ray disc image from Debrid or Usenet opens a little sooner: its size comes with the first check, so it is not asked again. A disc played before opens without reading its file system again (13 reads), even by a new link, since Dex Hub knows it by its contents, not its link. In the LibreELEC PC's log a disc took 5 to 8 seconds to open: the link check (2 to 4.5 s) and reading the disc's files (2.6 to 3.7 s).
+Metadata translation: when TMDb gives no story in your language and the title page shows the catalog's own story, that one is translated now; before, nothing was translated in that case. The log now says why a story was not translated: no language to translate into, no story, or the story is in your language already.
+
 5.10.588
 ترجمة آلية للترجمة: تختار الترجمة في المشغّل وتضغط «ترجمة آلية»، فيترجمها Dex Hub للغة الترجمة المفضلة عندك (العربي) ويشغّلها، والتوقيت نفسه ما يتغير. تنفع للترجمة المدمجة (ترجمات النص داخل ملفات MKV: يقرأ سطورها من فهرس الملف، كل سطر بطلب صغير، بدون ما ينزّل الفيديو) وللخارجية.
 تطلع على طول: يترجم أول الدقايق اللي حولك (من نص دقيقة قبل لين 5 دقايق قدام) ويشغّلها خلال ثواني، والباقي يكمل بالخلفية ويحل محلها لما يخلص. لو ما جهز شي خلال 25 ثانية يلغي الترجمة ويقولك، ولو الباقي طوّل أكثر من 10 دقايق يوقفه ويخلي الجزء اللي جهز. والترجمة تنحفظ، فالمرة الجاية تطلع على طول.

@@ -618,7 +618,7 @@ def link_answers(link, seconds=6):
         return False
 
 
-def offer_image(link, size=0):
+def offer_image(link, size=0, ident=''):
     """The bluray:// path that opens the Blu-ray image behind `link` in its menus, or ''
     (not an image Dex Hub can read: a DVD, a damaged one, a link that gives no ranges)."""
     if not accounts.option('disc_menus'):
@@ -630,7 +630,9 @@ def offer_image(link, size=0):
     if size <= 0:
         return ''
     from . import udf
-    key = hashlib.sha1(('image:%s' % str(link).split('|', 1)[0]).encode('utf-8')).hexdigest()[:12]
+    # v5.10.589: ident (the image's size and volume descriptor, disc_play) keeps one key for one
+    # image whatever link it came by, so its file list read once serves every later play
+    key = ident or hashlib.sha1(('image:%s' % str(link).split('|', 1)[0]).encode('utf-8')).hexdigest()[:12]
 
     def read(offset, length):
         with _ranged(link, offset, length) as answer:

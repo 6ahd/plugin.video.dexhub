@@ -23,6 +23,7 @@ import xbmc
 
 _DISC_TEXT = re.compile(r'(?<![a-z0-9])(?:iso|bdmv|br[ ._-]?disk|full[ ._-]?disc|bd(?:25|50|66|100)|'
                         r'complete[ ._-]?(?:uhd[ ._-]?)?blu[ ._-]?ray)(?![a-z0-9])', re.I)
+_LAST = {}               # final address -> (size, volume descriptor) of the last probe
 _PLAIN_VIDEO = ('.mkv', '.mp4', '.m4v', '.avi', '.m2ts', '.mts', '.ts', '.mov', '.webm', '.wmv', '.mpg')
 
 
@@ -50,12 +51,15 @@ def _probe(url):
     # wait gave up, so the disc went to FFmpeg without its Blu-ray menu.
     # Asking again after a timeout reaches the same, by then warmer, file.
     started = time.time()
-    named, head, final = '', b'', ''
+    named, head, final, total = '', b'', '', 0
     for timeout in (45, 30):
         request = urllib.request.Request(url, headers={'Range': 'bytes=32768-34815', 'User-Agent': 'Kodi'})
         try:
             with urllib.request.urlopen(request, timeout=timeout) as answer:
                 named = answer.headers.get('Content-Disposition') or ''
+                # v5.10.589: its size, so the disc server asks no second time (image_size)
+                whole = str(answer.headers.get('Content-Range') or '').rsplit('/', 1)[-1]
+                total = int(whole) if whole.isdigit() else 0
                 head = answer.read(2048)
                 final = answer.geturl() or url
             break
@@ -66,6 +70,7 @@ def _probe(url):
     if not final:
         return ''
     _log('probe answered in %.1f s' % (time.time() - started))
+    _LAST[final] = (total, head)
     # a file named .iso, or ISO 9660 "CD001" / UDF "BEA01", "NSR0x" descriptors
     if re.search(r'\.(?:iso|img)\b', named, re.I) or any(
             mark in head[:16] for mark in (b'CD001', b'BEA01', b'NSR02', b'NSR03')):
@@ -101,6 +106,11 @@ def wrap(url, ctx=None):
     final = _probe(link)
     if not final:
         return raw
+    total, head = _LAST.pop(final, (0, b''))
+    # v5.10.589: the image known by its size and volume descriptor, not by its link: a debrid
+    # link changes at every resolve, so a replay read the whole file system again (13 reads)
+    import hashlib
+    ident = hashlib.sha1(b'%d|' % total + head).hexdigest()[:12] if total and head else ''
     # v5.10.581: CoreELEC and LibreELEC too. Kodi's udf:// reader walked the image's file
     # system over the link again for every file: a 4K disc from Emby took 93 s to its menu and
     # the Java menu then waited minutes on its small files (CoreELEC box, 16 Nov 2026). Dex Hub
@@ -108,7 +118,7 @@ def wrap(url, ctx=None):
     # udf:// stays the way when Dex Hub cannot read the image.
     from .debrid import discserver
     headers = raw.split('|', 1)[1] if '|' in raw else ''
-    served = discserver.offer_image(final + ('|' + headers if headers else ''))
+    served = discserver.offer_image(final + ('|' + headers if headers else ''), size=total, ident=ident)
     if served:
         _log('opening a Blu-ray image as a folder served by Dex Hub')
         return served

@@ -103,6 +103,7 @@ def cached(text, code=None):
         f = ai_search.feature('metadata')
     except Exception:
         return ''
+    text = re.sub(r'\s+', ' ', str(text or '')).strip()      # the same key translate() keeps it by
     return _load().get(_key(text, code, f.get('service'), f.get('model') or '')) or ''
 
 

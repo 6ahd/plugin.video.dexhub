@@ -596,9 +596,17 @@ class HeadlessTitle(object):
         in the metadata language (meta_ai), from the kept translation at once or a moment later."""
         try:
             from .. import meta_ai
-            plot = self.hero.get('plot') or ''
+            if not meta_ai.enabled():
+                return
+            # the page shows the item's own story when TMDb gave none in the language (Nuvio's
+            # way keeps the catalog's text): that one is translated then
+            plot = self.hero.get('plot') or xbmc.getInfoLabel('ListItem.Plot') or ''
             code = meta_ai.target()
-            if not meta_ai.needs(plot, code) or not meta_ai.enabled():
+            if not meta_ai.needs(plot, code):
+                xbmc.log('[DexHub] AI metadata: %s: %s' % (
+                    self.hero.get('title') or self.title_id,
+                    'no language to translate into' if not code else
+                    ('no story' if not plot.strip() else 'its story is in the language already')), xbmc.LOGINFO)
                 return
             hit = meta_ai.cached(plot, code)
             if hit:
