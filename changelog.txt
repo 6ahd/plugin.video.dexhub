@@ -1,3 +1,9 @@
+5.10.593
+شاشة نهاية الحلقة (الحلقة التالية مع التترات) صارت لتشغيل Dex Hub بس. قبل كانت تطلع حتى لو الحلقة شغالة من Red Light أو Fen Light أو أي إضافة ثانية، وهذي الإضافات لها حلقتها التالية الخاصة، فتطلع الاثنتين فوق بعض. في سجل بوكس CoreELEC مع Arctic Fuse 3 خلصت الحلقة والشاشة لسه مفتوحة، ففتح Red Light نوافذه تحتها وما قدرت تاخذ التحكم، وبان البوكس كأنه علّق قرابة دقيقتين لين انعاد تشغيل Kodi.
+والشاشة صارت تتسكر لحالها لما الفيديو يوقف أو يتغير. ولو الحلقة خلصت للآخر والعداد شغال، تشتغل الحلقة التالية مثل ما كان العداد بيسوي، ولو أنت وقفت التشغيل تتسكر بس.
+The end-of-episode panel (the next episode beside the credits) is now for Dex Hub's own playback only. Before, it opened over an episode played by Red Light, Fen Light or any other add-on, which run their own next episode, so both came up together. In a CoreELEC box's log with Arctic Fuse 3, the episode ended with the panel still open, Red Light opened its windows under it and they could not take the focus, and the box looked frozen for about two minutes until Kodi was restarted.
+The panel now closes by itself when the video stops or changes. If the episode runs to its end with the countdown on, the next episode plays, as the countdown would have; if you stop playback, the panel only closes.
+
 5.10.592
 Google Translate «مشغول»: عنوان Google المجاني يرد بـ 429 لما يكثر الطلب من نفس الإنترنت (أكثر من جهاز في البيت يترجمون)، فكانت الترجمة تفشل. الحين لو رد بـ 429 ينتقل Dex Hub لعنوان Google الثاني (له حده الخاص، وكل سطر يتترجم لحاله) لمدة 10 دقايق، وطلبات Google صارت اثنين مع بعض بدل ثلاثة. ونفس الشي لترجمة الميتاداتا.
 اختيار خدمة الترجمة من قائمة الزر: لو ما قدر Dex Hub يحفظ اختيارك (مثلاً القرص ممتلي)، تترجم بالخدمة اللي اخترتها هالمرة بدل ما يفشل الطلب ويبقى على Google.

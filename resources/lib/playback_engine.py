@@ -496,6 +496,9 @@ def _play_with_context(api, ctx, stream_key='', fallback_keys=None, entries_meta
             item.setProperty('tvdb_id', str(_wids.get('tvdb_id')))
             item.setProperty('tvshow.tvdb_id', str(_wids.get('tvdb_id')))
         item.setProperty('tmdb_type', api._tmdb_type_from_ctx(ctx))
+        # v5.10.593: Dex Hub's own playback (the end-of-episode panel is
+        # only for these; another add-on's video keeps its own next episode)
+        item.setProperty('dexhub_item', '1')
         if ctx.get('season') not in (None, ''):
             item.setProperty('season', str(ctx.get('season')))
         if ctx.get('episode') not in (None, ''):

@@ -91,6 +91,17 @@ def owns_end():
     return mode() != 'off'
 
 
+def _ours(player):
+    """v5.10.593: the panel is for Dex Hub's own playback only. Red Light,
+    Fen Light and the like run their own next episode at the end; with both,
+    Dex Hub's panel stayed over Red Light's next-episode windows, which then
+    could not take the focus and the box looked frozen."""
+    try:
+        return player.getPlayingItem().getProperty('dexhub_item') == '1'
+    except Exception:
+        return False
+
+
 def _lead(duration, series):
     """Seconds before the end at which the credits are taken to start."""
     if series:
@@ -322,6 +333,10 @@ class CreditsPanel(xbmcgui.WindowXML):
         self.result = ''
         self.closed = False
         self._stop = threading.Event()
+        try:
+            self._file = xbmc.Player().getPlayingFile() or ''
+        except Exception:
+            self._file = ''
 
     def onInit(self):
         _seen['shown'] = True
@@ -344,6 +359,8 @@ class CreditsPanel(xbmcgui.WindowXML):
             self.setFocusId(BUTTONS)
             if self.seconds > 0:
                 threading.Thread(target=self._countdown, name='DexHub-credits', daemon=True).start()
+            # v5.10.593: an episode's panel also goes when its video does
+            threading.Thread(target=self._watch_end, name='DexHub-credits-end', daemon=True).start()
         else:
             self.setProperty('cp.kicker', _tr('شاهد بعدها'))
             self.setProperty('cp.title', _tr('أعمال تشبه %s') % (d.get('show') or ''))
@@ -382,11 +399,30 @@ class CreditsPanel(xbmcgui.WindowXML):
                 return
 
     def _watch_end(self):
-        """After a film: the panel goes when the video does."""
+        """The panel goes when the video does (v5.10.593: episodes too, and
+        when another video takes its place). It stayed after an episode
+        ended and covered the next add-on's windows."""
+        player = xbmc.Player()
+        pos = total = 0.0
         while not self._stop.is_set():
-            if not _cond('Player.HasVideo'):
-                self._finish('closed')
+            ended = not _cond('Player.HasVideo')
+            if not ended and self._file:
+                try:
+                    ended = (player.getPlayingFile() or '') != self._file
+                except Exception:
+                    ended = True
+            if ended:
+                # an episode that ran to its end with the countdown on goes
+                # on to the next one, as the countdown would have; a stop
+                # (or another video) only closes the panel
+                natural = total > 0 and total - pos <= 3.0
+                self._finish('next' if (self.kind == 'episode' and self.seconds > 0 and natural
+                                        and not _cond('Player.HasVideo')) else 'closed')
                 return
+            try:
+                pos, total = float(player.getTime() or 0), float(player.getTotalTime() or 0)
+            except Exception:
+                pass
             if self._stop.wait(0.5):
                 return
 
@@ -578,6 +614,11 @@ def watch(monitor):
                 continue
             if playing is None:
                 if left > 600:
+                    continue
+                if not _ours(player):
+                    # v5.10.593: another add-on's video, its own next episode
+                    _log('another add-on plays this video: its end is left to it')
+                    done = True
                     continue
                 playing = _playing()        # once per video, near its end
                 if not playing:
