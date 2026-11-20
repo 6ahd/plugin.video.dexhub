@@ -8,6 +8,9 @@
 يقرأ رأس الملف و SeekHead و Info و Tracks و Cues فقط، ولا يقرأ الكلسترات أبداً،
 فالقراءة كلها غالباً أقل من 2 ميغا بطلبين أو ثلاثة حتى لو الملف عشرات الجيجات.
 """
+import hashlib
+import marshal
+import os
 import time
 
 ID_EBML = 0x1A45DFA3
@@ -156,6 +159,7 @@ class VfsSource(object):
     kind = 'vfs'
 
     def __init__(self, path, budget, opener):
+        self.path = path
         self.budget = budget
         try:
             self.f = opener(path)
@@ -448,11 +452,64 @@ def track_lang(t):
 
 
 # ── قراءة البنية ──
+# v5.10.590: the index pieces of an http file (its start and the elements read from it: SeekHead,
+# Info, Tracks, Cues) kept on disk for some hours, so the service's auto-sync, which reads them when
+# playback starts, and the add-on's Translate subtitle, read them once between them (565 KB of
+# Cues took about 4 s on box .54's Emby stream). Only the file's own bytes are kept, under a hash.
+KEEP_HOURS = 12
+KEEP_FILES = 120
+
+
+def _keep_dir():
+    try:
+        import xbmcvfs
+        return xbmcvfs.translatePath('special://temp/dexhub-index/')
+    except Exception:
+        import tempfile
+        return os.path.join(tempfile.gettempdir(), 'dexhub-index')
+
+
+def _kept(src, tag, make):
+    url = getattr(src, 'url', None) if getattr(src, 'kind', '') == 'http' else None
+    if not url:
+        return make()
+    folder = _keep_dir()
+    path = os.path.join(folder, hashlib.sha1(('%s|%s' % (url, tag)).encode('utf-8')).hexdigest()[:32] + '.bin')
+    try:
+        if time.time() - os.path.getmtime(path) < KEEP_HOURS * 3600:
+            with open(path, 'rb') as fh:
+                return marshal.loads(fh.read())
+    except Exception:
+        pass
+    value = make()
+    if value is None:
+        return value
+    try:
+        os.makedirs(folder, exist_ok=True)
+        tmp = '%s.%d.tmp' % (path, os.getpid())
+        with open(tmp, 'wb') as fh:
+            fh.write(marshal.dumps(value))
+        os.replace(tmp, path)
+        names = sorted((os.path.join(folder, n) for n in os.listdir(folder) if n.endswith('.bin')),
+                       key=os.path.getmtime)
+        for old in names:
+            if len(names) > KEEP_FILES or time.time() - os.path.getmtime(old) > KEEP_HOURS * 3600:
+                os.remove(old)
+                names = [n for n in names if n != old]
+    except Exception:
+        pass
+    return value
+
+
 def _get_element(src, head, at, expect, cap, o):
     if at + 12 <= len(head):
         h = read_header(head, at, len(head))
         if h and h[0] == expect and h[2] is not None and h[2] <= len(head):
             return head, (h[0], h[1], h[2], h[3])
+    return _kept(src, 'el %x %d %d' % (expect, at, cap), lambda: _fetch_element(src, at, expect, cap, o))
+
+
+def _fetch_element(src, at, expect, cap, o):
     if src.size is not None and at >= src.size:
         return None
     first = src.read(at, min(o['element_chunk'], cap + 16), True)
@@ -473,7 +530,7 @@ def _get_element(src, head, at, expect, cap, o):
 
 
 def read_meta(src, o):
-    head = src.read(0, o['head_bytes'], True)
+    head = _kept(src, 'head %d' % o['head_bytes'], lambda: src.read(0, o['head_bytes'], True))
     if len(head) < 32:
         raise CuesError('short_file')
     ebml = read_header(head, 0, len(head))
@@ -559,6 +616,8 @@ def read_cues(src, meta, o, want):
         if el:
             return _parse_cues(el[0], el[1], want), 'seekhead'
     # احتياط: Cues بدون مؤشر في SeekHead، ندوّره في آخر الملف
+    if src.size is None and getattr(src, 'kind', '') == 'http':
+        src.read(0, 16, True)          # v5.10.590: the start came from disk, so the size is not known yet
     if not src.size or src.size <= len(meta['head']):
         raise CuesError('no_cues')
     start = max(0, src.size - o['tail_bytes'])

@@ -39,7 +39,10 @@ from . import dexalign
 ADDON = xbmcaddon.Addon('plugin.video.dexhub')
 BASE_TEMP = xbmcvfs.translatePath("special://temp/")
 TEMP_DIR = os.path.join(BASE_TEMP, "dexworld_subs")
-QUEUE_DIR = os.path.join(TEMP_DIR, "autosync_queue")
+# v5.10.590: Dex Hub's own queue, not DexSubtitles' autosync_queue: with both installed, DexSubtitles'
+# service took a disc's job from the shared folder and dropped it ("no readable MKV index"), and its
+# "handled" marks kept Dex Hub off the subtitles it had picked (LibreELEC PC, 20 Nov)
+QUEUE_DIR = os.path.join(TEMP_DIR, "dexhub_queue")
 CACHE_DIR = os.path.join(TEMP_DIR, "autosync_cache")
 WATCH_DIR = os.path.join(TEMP_DIR, "autosync_watch")   # AUTOSYNC_V573: نسخ الترجمات اللي لقاها مراقب الترجمات
 for _d in (TEMP_DIR, QUEUE_DIR, CACHE_DIR, WATCH_DIR):

@@ -559,6 +559,15 @@ class Watcher(object):
             return
         self._spawn(self.handle, cur, now, self.media)
 
+    def _disc_pick(self, pick):
+        """v5.10.590: on a disc, a subtitle DexSubtitles downloaded (its folder is Dex Hub's too) is
+        the viewer's pick for Dex Hub to time: DexSubtitles cannot time a disc. Dex Hub's own synced
+        copies and snapshots (autosync_cache, autosync_watch) stay its own."""
+        if self.kind != 'disc' or not self.own_dir:
+            return False
+        folder = os.path.normcase(os.path.abspath(os.path.dirname(pick['path'])))
+        return folder == os.path.normcase(os.path.abspath(self.own_dir))
+
     def _check_remote(self, w, media):
         if media == self.media and self.watch is w and _stat(w['path']) != w['stat']:
             self.due = time.time() + DEBOUNCE_S
@@ -573,7 +582,7 @@ class Watcher(object):
             self.watch = None
             _log('%s (%s)' % (why, cur['name'] or cur['language'] or '?'))
             return
-        if pick['where'] == 'self':
+        if pick['where'] == 'self' and not self._disc_pick(pick):
             self.watch = None
             return  # ترجمة من DexSubtitles نفسه أو نسخة متزامنة: لها طريقها
         self.watch = {'path': pick['path'], 'stat': _stat(pick['path']), 'local': _is_local(pick['path']),
@@ -603,7 +612,8 @@ class Watcher(object):
             return
         # watch: اخترتها أنت من نافذة الترجمات (نسخة جديدة بعد بداية التشغيل)، فتنبيه بأي نتيجة.
         # startup: جنب الفيديو أو أرفقتها إضافة لحالها، فتنبيه بس لو انضبطت.
-        if pick['where'] == 'temp' or (pick['where'] in ('video', 'custom') and pick['mtime'] > self.start + 1):
+        if pick['where'] == 'temp' or self._disc_pick(pick) or \
+                (pick['where'] in ('video', 'custom') and pick['mtime'] > self.start + 1):
             origin = 'watch'
         else:
             origin = 'startup'

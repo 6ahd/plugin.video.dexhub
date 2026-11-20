@@ -2326,10 +2326,22 @@ def dispatch():
     if action == 'ui_option':
         from resources.lib import ui_preferences
         return ui_preferences.edit(str(params.get('key') or ''), _txt)
+    if action in ('subtitle_translate', 'subtitle_trans_service'):
+        xbmc.executebuiltin('Dialog.Close(1155,true)')      # v5.10.590: the button's list (skin 3.28.232)
     if action == 'subtitle_trans_service':
         # v5.10.588: Control Centre › Subtitles › Translate subtitle: its service
         from resources.lib.subsync import transflow
         return transflow.pick_service()
+    if action == 'subtitle_translate' and params.get('service'):
+        # v5.10.590: the Translate subtitle button's list: that service from now on, then translate
+        sid = str(params.get('service'))
+        if sid == 'more':
+            from resources.lib.subsync import transflow
+            if not transflow.pick_service():
+                return None
+        else:
+            from resources.lib import ai_search
+            ai_search.use_subtitle(sid)
     if action in ('subtitle_sync', 'subtitle_next', 'subtitle_pick', 'subtitle_translate'):
         # v5.10.290: the player's subtitle buttons, with or without DexSubtitles
         from resources.lib.subsync import buttons

@@ -553,8 +553,57 @@ def edit_feature(fid):
     fresh = _data()                    # read again: a service added on the way is in it
     if what == 'mode':
         fresh['search_mode'] = 'always' if (fresh.get('search_mode') or 'auto') == 'auto' else 'auto'
+    if fid == 'subtitles' and f.get('service') and f.get('model'):
+        f.setdefault('models', {})[f['service']] = f['model']     # the player's list offers it again
     fresh['features'][fid] = f
     _save(fresh)
+    return True
+
+
+def subtitle_choices():
+    """v5.10.590: the subtitle translation's services ready to use, for the player's list:
+    Google Translate, DexWorld's translation with its code, and each AI service set up with
+    its model (the one last used for subtitles, else for another feature, else its first
+    suggested one). [(sid, name, model, note)]"""
+    have = services()
+    data = _data()
+    f = feature('subtitles')
+    used = {}
+    for fid in ('search', 'lists', 'metadata'):
+        g = data['features'].get(fid) or {}
+        if g.get('service') and g.get('model'):
+            used.setdefault(g['service'], g['model'])
+    used.update(f.get('models') or {})
+    if f.get('service') and f.get('model'):
+        used[f['service']] = f['model']
+    rows = [('google', 'Google Translate', '', _t('مجاني', 'free'))]
+    if 'dexworld' in have:
+        rows.append(('dexworld_tr', service_name('dexworld_tr'), '', ''))
+    for pid, name, _b, _w, prefer in PROVIDERS:
+        if pid not in have or (pid == 'dexworld' and pid not in used):
+            continue
+        model = used.get(pid) or (prefer[0] if prefer else '')
+        if model:
+            same = f.get('service') == pid and f.get('model') == model
+            rows.append((pid, name, model, free_note(pid, model, bool(f.get('free')) and same)))
+    return rows
+
+
+def use_subtitle(sid):
+    """v5.10.590: the player's list chose a service: subtitle translation uses it from now on."""
+    row = next((r for r in subtitle_choices() if r[0] == sid), None)
+    if not row:
+        return False
+    data = _data()
+    f = dict(data['features'].get('subtitles') or {})
+    models = dict(f.get('models') or {})
+    if f.get('service') and f.get('model'):
+        models[f['service']] = f['model']
+    was_free = bool(f.get('free')) and f.get('service') == sid and f.get('model') == row[2]
+    f.update(on=True, service=sid, model=row[2], free=was_free or row[2].endswith(':free'), models=models)
+    data['features']['subtitles'] = f
+    _save(data)
+    _log('subtitle translation now uses %s%s' % (service_name(sid), (' · ' + row[2]) if row[2] else ''))
     return True
 
 

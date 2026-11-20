@@ -43,6 +43,8 @@ _WHY = {
     'service': ('خدمة الترجمة ما ردت', "The translation service didn't answer"),
     'empty': ('الترجمة فاضية', 'The subtitle is empty'),
     'refused': ('خدمة الترجمة رفضت المفتاح أو الكود', 'The translation service refused the key or code'),
+    'http_io': ('خادم الفيديو ما رد على قراءة الترجمة، جرّب بعد شوي', 'The video server did not answer the subtitle reads; try again shortly'),
+    'timeout': ('خادم الفيديو بطيء وما خلصت قراءة الترجمة، جرّب بعد شوي', 'The video server was too slow to read the subtitle; try again shortly'),
 }
 
 
@@ -249,13 +251,58 @@ def _embedded_lines(media, track, bar, stop, want=None, label=''):
         _keep_lock()
     # 12 readers at a time: a CDN answers each small read in about 0.8 s (an Emby stream on box .54,
     # 19 Nov: 971 lines took 126 s with 6)
-    r = dextext.read_track(_source(media, dexcues.Budget(dexcues.DEFAULTS)), track['number'], workers=12,
+    r = dextext.read_track(_source(media, dexcues.Budget(dexcues.DEFAULTS)), track['number'], workers=READERS,
                            progress=step, cancelled=stop, want=want)
     if not r.get('ok'):
+        _log('translate: embedded track %s not read: %s %s' % (track['number'], r.get('reason'),
+                                                                dexcues.fmt_stats(r.get('stats'))), xbmc.LOGWARNING)
         raise _Stop(r.get('reason') or 'error', r.get('detail') or '')
-    _log('translate: embedded track %s (%s, %s) %d lines %s' % (
-        track['number'], track['codec'], track['lang'], len(r['lines']), dexcues.fmt_stats(r.get('stats'))))
+    _log('translate: embedded track %s (%s, %s) %d lines %s%s' % (
+        track['number'], track['codec'], track['lang'], len(r['lines']), dexcues.fmt_stats(r.get('stats')),
+        (', %d not given by the server' % r['missed']) if r.get('missed') else ''))
     return r['lines']
+
+
+# v5.10.590: a new Translate subtitle while one still runs (its rest in the background, often) stops
+# that one and starts at once; before, it said "still working on the previous request" and did
+# nothing, which read as "it cannot translate" (box .54, 20 Nov)
+_RUN_PROP = 'dexhub.subtrans.run'
+_STOP_PROP = 'dexhub.subtrans.stop'
+TAKEOVER_S = 10
+
+
+def _claim():
+    token = '%.6f' % time.time()
+    try:
+        xbmcgui.Window(10000).setProperty(_RUN_PROP, token)
+    except Exception:
+        pass
+    return token
+
+
+def _replaced(token):
+    try:
+        return xbmcgui.Window(10000).getProperty(_STOP_PROP) == token
+    except Exception:
+        return False
+
+
+def take_over():
+    """A translation runs: ask it to stop and wait for its lock (osdflow), at most TAKEOVER_S.
+    True once the lock is free."""
+    w = xbmcgui.Window(10000)
+    running = w.getProperty(_RUN_PROP)
+    if not running:
+        return False
+    w.setProperty(_STOP_PROP, running)
+    monitor = xbmc.Monitor()
+    end = time.time() + TAKEOVER_S
+    while time.time() < end:
+        if not w.getProperty(osdflow._BUSY_PROP):
+            return True
+        if monitor.waitForAbort(0.2):
+            return False
+    return False
 
 
 def _keep_lock():
@@ -289,8 +336,13 @@ def _silo_first():
         return False
 
 
-FIRST_BACK_MS = 30 * 1000          # the part shown first: from half a minute back...
-FIRST_AHEAD_MS = 5 * 60 * 1000     # ...to five minutes ahead of the viewer
+# v5.10.590: a smaller first part, then the next part, then the rest, counted in lines so a quiet
+# scene still has words in the first part (an embedded line is one request; box .54's Emby stream
+# answered each in about a second, so 5.10.588's first five minutes, 138 lines, took 14 s to show)
+FIRST_BACK_MS = 10 * 1000          # the part shown first: from ten seconds back...
+FIRST_LINES = 48                   # ...the next 48 lines
+NEXT_LINES = 320                   # embedded: the 320 lines after them, then the rest
+READERS = 12                       # embedded lines read at a time (16 made box .54's Emby stream refuse reads)
 FIRST_DEADLINE = 25                # seconds: nothing on the screen by then, the translation is cancelled
 TOTAL_DEADLINE = 10 * 60           # seconds for the rest of the subtitle
 
@@ -339,8 +391,21 @@ def _reload(path, data, base, away_index):
     return True
 
 
+def _span(starts, at_ms):
+    """{lo, one, two}: the first part from ``lo`` to ``one`` (FIRST_LINES lines), the next to ``two``."""
+    lo = at_ms - FIRST_BACK_MS
+    after = [t for t in starts if t >= lo]
+    if not after:                      # past the last line: the last lines first
+        return {'lo': starts[max(0, len(starts) - FIRST_LINES)] if starts else 0, 'one': float('inf'), 'two': float('inf')}
+
+    def upto(n):
+        return after[min(n, len(after)) - 1]
+    return {'lo': lo, 'one': upto(FIRST_LINES), 'two': upto(FIRST_LINES + NEXT_LINES)}
+
+
 def run():
     from . import subtrans
+    from . import dextext
     media = _media()
     if not media:
         _note('شغّل الفيديو أول', 'Play a video first', False)
@@ -372,6 +437,7 @@ def run():
         at_ms = 0
     t0 = time.time()
     state = {'shown': False}
+    token = _claim()
 
     def gone():
         return _media() != media or xbmc.Monitor().abortRequested()
@@ -379,10 +445,18 @@ def run():
     def late():
         return time.time() > t0 + (TOTAL_DEADLINE if state['shown'] else FIRST_DEADLINE)
 
-    stop = lambda: gone() or late()
+    stop = lambda: gone() or late() or _replaced(token)
+
+    span = {'lo': at_ms - FIRST_BACK_MS, 'one': at_ms, 'two': at_ms}
 
     def window(ms):
-        return at_ms - FIRST_BACK_MS <= ms <= at_ms + FIRST_AHEAD_MS
+        return span['lo'] <= ms <= span['one']
+
+    def ahead(ms):
+        return span['one'] < ms <= span['two']
+
+    def later(ms):
+        return not (span['lo'] <= ms <= span['two'])
 
     if which == 'google':
         call = _http_post
@@ -424,7 +498,10 @@ def run():
                       'Translated into %s with %s (%d lines)' % (tname_en, label, total))
                 return
 
-            # 1. the minutes around the viewer, on the screen as soon as they are translated
+            # 1. the lines around the viewer, on the screen as soon as they are translated
+            span.update(_span(sorted(x[0] for x in all_lines) if all_lines is not None else
+                              dextext.line_starts(_source(media, dexcues.Budget(dexcues.DEFAULTS)), track['number']),
+                              at_ms))
             reading = T('أقرأ الترجمة…', 'Reading the subtitle…')
             if all_lines is not None:
                 first = [x for x in all_lines if window(x[0])]
@@ -443,12 +520,30 @@ def run():
                 _log('translate: first part (%d lines) on in %.1fs' % (len(out1), time.time() - t0))
                 _note('الترجمة شغالة، والباقي يكمل بالخلفية', 'The translation is on; the rest follows in the background', True, 3000)
 
-            # 2. the rest of the subtitle, then the whole file in place of the first part
+            # 2. embedded: the next minutes (on in place of the first part), then the rest; the
+            # lines of an external file are all known already, so the rest goes in one part
+            out2, rest = [], []
             if all_lines is not None:
-                rest = [x for x in all_lines if not window(x[0])]
+                parts = [lambda ms: not window(ms)]
             else:
-                rest = _embedded_lines(media, track, bar, stop, want=lambda ms: not window(ms), label=reading)
-            out2 = subtrans.translate_lines(rest, which, target, call, tname_en, step, stop, 0) if rest else []
+                parts = [ahead, later]
+            for n, inside in enumerate(parts):
+                if all_lines is not None:
+                    part = [x for x in all_lines if inside(x[0])]
+                else:
+                    part = _embedded_lines(media, track, bar, stop, want=inside, label=reading)
+                out = subtrans.translate_lines(part, which, target, call, tname_en, step, stop, 0) if part else []
+                rest += part
+                out2 += out
+                if out and n < len(parts) - 1:
+                    data = b'\xef\xbb\xbf' + subtrans.render_srt(sorted(out1 + out2, key=lambda x: x[0])).encode('utf-8')
+                    if state['shown']:
+                        _reload(path, data, base, s.get('index'))
+                    else:
+                        _put_on(path, data, media)
+                        state['shown'] = True
+                    _log('translate: the next minutes on too (%d lines) in %.1fs' % (len(out1) + len(out2),
+                                                                                    time.time() - t0))
             full = sorted(out1 + out2, key=lambda x: x[0])
             if len(full) < 2:
                 raise _Stop('empty')
@@ -465,6 +560,9 @@ def run():
         except (_Stop, dexcues.CuesError, subtrans.TranslateError) as e:
             if gone():
                 return
+            if _replaced(token):
+                _log('translate: stopped for a new request')
+                return
             if e.reason == 'cancelled' or late():
                 if state['shown']:
                     _log('translate: the rest took longer than %d min, stopped' % (TOTAL_DEADLINE // 60), xbmc.LOGWARNING)
@@ -476,10 +574,24 @@ def run():
                           'The translation was not ready within %d seconds, so it was cancelled' % FIRST_DEADLINE, False, 6000)
                 return
             _log('translate: %s %s' % (e.reason, getattr(e, 'detail', '')), xbmc.LOGWARNING)
+            if state['shown']:
+                # v5.10.590: the part on the screen stays; say plainly why the rest is missing
+                _note('ترجمت جزء منها بس: خادم الفيديو ما رد على الباقي، جرّب بعد شوي',
+                      'Only part of it is translated: the video server did not answer for the rest; try again shortly',
+                      False, 6000)
+                return
             _note(_why(e.reason), _why(e.reason), False, 6000)
             return
     finally:
         bar.close()
+        try:
+            w = xbmcgui.Window(10000)
+            if w.getProperty(_RUN_PROP) == token:
+                w.clearProperty(_RUN_PROP)
+            if w.getProperty(_STOP_PROP) == token:
+                w.clearProperty(_STOP_PROP)
+        except Exception:
+            pass
     _log('translate: %d lines with %s in %.1fs' % (total, which, time.time() - t0))
     _note('ترجمتها كاملة %s بـ %s (%d سطر)' % (_to(tname_ar), label, total),
           'All of it translated into %s with %s (%d lines)' % (tname_en, label, total))

@@ -1989,6 +1989,8 @@ STRINGS = {
     'الخط والحجم واللون والتأخير': 'Font, size, colour and delay',
     'خيارات المكتبة': 'Library options',
     'شكل الترجمة وإعداداتها': 'Subtitle look and settings',
+    'خدمة أو نموذج ثاني…': 'Another service or model…',
+    'من خدمات الذكاء الاصطناعي ونماذجها': 'From the AI services and their models',
     'الخلفيات': 'Backdrops',
     'الشعارات': 'Logos',
     'بدون نص': 'No text',

@@ -947,8 +947,15 @@ def run(argv):
         return
     locked = cmd not in ('next', 'cycle')
     if locked and not _acquire():
-        _note('شغّال على طلب قبله، لحظة', 'Still working on the previous request', False, 2500)
-        return
+        # v5.10.590: Translate subtitle again stops the translation still running and starts at once
+        taken = False
+        if cmd in ('translate',):
+            from . import transflow
+            taken = transflow.take_over() and _acquire()
+        if not taken:
+            _log('%s: refused, the previous request still runs' % cmd, xbmc.LOGWARNING)
+            _note('شغّال على طلب قبله، لحظة', 'Still working on the previous request', False, 2500)
+            return
     try:
         fn()
     except Exception as e:

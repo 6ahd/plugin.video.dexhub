@@ -28,7 +28,7 @@ STREAMS = {'audio': ('audiostreams', 'currentaudiostream'),
            'subtitle': ('subtitles', 'currentsubtitle')}
 # the OSD and its panels (AF3's closeosd list)
 OSD_WINDOWS = ('videoosd', 'musicosd', '1140', '1141', '1142', '1143', '1144', '1145', '1146',
-               '1147', '1148', '1149')
+               '1147', '1148', '1149', '1155')
 NEXT_PROPERTY = 'dexhub.tidb.next_episode.v1'
 
 
@@ -95,6 +95,30 @@ def streams(params, handle):
             path = C.url('skin_osd_stream', method='set_player_%s' % ('audiostream' if kind == 'audio' else 'subtitle'),
                          index=str(index))
             entries.append((path, li, False))
+    _end(handle, entries)
+
+
+# ------------------------------------------------------------ translation services
+def trans_services(params, handle):
+    """v5.10.590: the Translate subtitle button's list (skin.dexhub Custom_1155): the services
+    ready to use, the one in use checked; a click translates with it and keeps it."""
+    from .. import ai_search
+    from ..i18n import tr
+    now = ai_search.feature('subtitles').get('service') or 'google'
+    entries = []
+    for sid, name, model, note in ai_search.subtitle_choices():
+        li = xbmcgui.ListItem(label=name, label2=' · '.join(x for x in (model, note) if x), offscreen=True)
+        props = {'index': sid, 'dh_service': sid, 'isfolder': 'false', 'language': '', 'name': '',
+                 'dh_icon': 'dexhub/osd/legacy/subtrans.png', 'dh_note': note}
+        if sid == now:
+            props['iscurrent'] = 'true'
+        li.setProperties(props)
+        entries.append((C.url('subtitle_translate', service=sid), li, False))
+    li = xbmcgui.ListItem(label=tr('خدمة أو نموذج ثاني…'), label2=tr('من خدمات الذكاء الاصطناعي ونماذجها'),
+                          offscreen=True)
+    li.setProperties({'index': 'more', 'dh_service': 'more', 'isfolder': 'false', 'language': '', 'name': '',
+                      'dh_icon': 'dexhub/osd/legacy/style.png'})
+    entries.append((C.url('subtitle_translate', service='more'), li, False))
     _end(handle, entries)
 
 

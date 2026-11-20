@@ -169,6 +169,53 @@ def _line_text(payload, codec):
     return text.strip()
 
 
+# v5.10.590: the file's index once per translation, not once per part (565 KB of Cues took about 5 s
+# on box .54's Emby stream, read three times before the first line showed)
+_MEMO = {}
+
+
+def _key(src):
+    return getattr(src, 'url', None) or getattr(src, 'path', None)
+
+
+def _meta(src, o):
+    k = (_key(src), 'meta')
+    if k[0] and k in _MEMO:
+        return _MEMO[k]
+    meta = dexcues.read_meta(src, o)
+    if k[0]:
+        if len(_MEMO) > 12:
+            _MEMO.clear()
+        _MEMO[k] = meta
+    return meta
+
+
+def _index(src, meta, number, o):
+    """(encodings, cue points) of one track, kept for the next part."""
+    k = (_key(src), 'track', number)
+    if k[0] and k in _MEMO:
+        return _MEMO[k]
+    encodings, _private = _track_extras(src, meta, number, o)
+    buf, h = _cues_element(src, meta, o)
+    got = (encodings, _cue_points(buf, h, number))
+    if k[0]:
+        _MEMO[k] = got
+    return got
+
+
+RETRY_WAIT = (0.5, 1.5, 3.0)        # v5.10.590: seconds before asking a refused line again
+RETRY_REASONS = ('http_io', 'timeout', 'http_429', 'http_500', 'http_502', 'http_503', 'http_504')
+
+
+def line_starts(src, number, options=None):
+    """v5.10.590: when each line of a track starts (ms), from the index alone."""
+    o = dict(dexcues.DEFAULTS)
+    o.update(options or {})
+    meta = _meta(src, o)
+    _encodings, points = _index(src, meta, number, o)
+    return sorted(int(round(p[0] * meta['scale'] / 1e6)) for p in points)
+
+
 def read_track(src, number, options=None, workers=6, progress=None, cancelled=None, want=None):
     """{'ok', 'lines': [(start ms, end ms, text)], 'codec', 'lang', 'name'} of one embedded text track.
 
@@ -179,15 +226,13 @@ def read_track(src, number, options=None, workers=6, progress=None, cancelled=No
     o = dict(dexcues.DEFAULTS)
     o.update(options or {})
     try:
-        meta = dexcues.read_meta(src, o)
+        meta = _meta(src, o)
         track = next((t for t in meta['tracks'] if t['number'] == number), None)
         if not track or track['type'] != dexcues.TYPE_SUBTITLE:
             raise CuesError('no_such_track', str(number))
         if not dexcues.is_text_codec(track['codec']):
             raise CuesError('image_track', track['codec'])
-        encodings, _private = _track_extras(src, meta, number, o)
-        buf, h = _cues_element(src, meta, o)
-        points = _cue_points(buf, h, number)
+        encodings, points = _index(src, meta, number, o)
         if not points:
             raise CuesError('no_cues_for_track')
         if any(rel is None or cl is None for _t, cl, rel, _d in points):
@@ -199,21 +244,43 @@ def read_track(src, number, options=None, workers=6, progress=None, cancelled=No
             if not points:
                 return {'ok': True, 'lines': [], 'codec': track['codec'], 'lang': dexcues.track_lang(track),
                         'name': track['name'], 'stats': src.budget.stats()}
-        b = src.budget             # one small read per line, on top of the index
-        b.max_requests = b.requests + len(points) + 16
+        b = src.budget             # one small read per line, on top of the index, and room for retries
+        b.max_requests = b.requests + len(points) + len(points) // 3 + 16
         b.max_bytes = b.bytes + len(points) * (WINDOW + 16) + dexcues.MB
         b.deadline = time.time() + max(90.0, len(points) * 0.25)
         seg_start = _segment_start(meta['head'])
         scale = meta['scale']
         lines = [None] * len(points)
-        state = {'done': 0, 'error': None}
+        state = {'done': 0, 'error': None, 'missed': 0}
+        allowed = max(3, len(points) // 20)       # lines a server refuses to give, skipped, at most 5 %
         lock = threading.Lock()
         order = list(range(len(points)))
+
+        def fetch(source, at):
+            # v5.10.590: a server that drops a read now and then (box .54's Emby stream refused one
+            # of a few hundred, which stopped the whole translation) gets it asked again
+            for attempt in range(len(RETRY_WAIT) + 1):
+                try:
+                    return source.read(at, WINDOW + 8, True)
+                except CuesError as e:
+                    if e.reason not in RETRY_REASONS or attempt == len(RETRY_WAIT) or \
+                            (cancelled and cancelled()) or b.left() <= RETRY_WAIT[attempt]:
+                        raise
+                    time.sleep(RETRY_WAIT[attempt])
 
         def one(source, i):
             t, cl, rel, d = points[i]
             at = seg_start + cl + rel + 4      # past the cluster's ID; the size field is 1 to 8 bytes
-            data = source.read(at, WINDOW + 8, True)
+            try:
+                data = fetch(source, at)
+            except CuesError as e:
+                if e.reason not in RETRY_REASONS:
+                    raise
+                with lock:
+                    state['missed'] += 1
+                    if state['missed'] > allowed:
+                        raise
+                return
             got = None
             for size_len in range(1, 9):
                 got = _block_payload(data, size_len, len(data), number)
@@ -274,11 +341,12 @@ def read_track(src, number, options=None, workers=6, progress=None, cancelled=No
                 nxt = out[i + 1][0] if i + 1 < len(out) else s + 4000
                 out[i] = (s, max(s + 800, min(nxt, s + 6000)), text)
         return {'ok': True, 'lines': out, 'codec': track['codec'], 'lang': dexcues.track_lang(track),
-                'name': track['name'], 'stats': src.budget.stats()}
+                'name': track['name'], 'stats': src.budget.stats(), 'missed': state['missed']}
     except CuesError as e:
-        return {'ok': False, 'reason': e.reason, 'detail': e.detail}
+        return {'ok': False, 'reason': e.reason, 'detail': e.detail, 'stats': src.budget.stats()}
     except Exception as e:
-        return {'ok': False, 'reason': 'error', 'detail': '%s: %s' % (e.__class__.__name__, e)}
+        return {'ok': False, 'reason': 'error', 'detail': '%s: %s' % (e.__class__.__name__, e),
+                'stats': src.budget.stats()}
 
 
 def _segment_start(head):
@@ -301,7 +369,7 @@ def text_tracks(src, options=None):
     o = dict(dexcues.DEFAULTS)
     o.update(options or {})
     try:
-        meta = dexcues.read_meta(src, o)
+        meta = _meta(src, o)
     except CuesError as e:
         return {'ok': False, 'reason': e.reason, 'detail': e.detail}
     except Exception as e:

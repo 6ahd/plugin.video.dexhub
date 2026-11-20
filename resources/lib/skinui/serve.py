@@ -203,7 +203,7 @@ def _title_page():
 
 
 _OSD_LISTS = ('skin_osd_streams', 'skin_osd_next', 'skin_osd_episodes', 'skin_osd_seasons', 'skin_osd_sources',
-              'skin_osd_substyle')
+              'skin_osd_substyle', 'skin_osd_trans_services')
 
 
 def osd(action, params, handle):
@@ -220,6 +220,7 @@ def osd(action, params, handle):
                 substyle.listing(params, handle)
             else:
                 {'skin_osd_streams': O.streams, 'skin_osd_next': O.next_listing,
+                 'skin_osd_trans_services': O.trans_services,
                  'skin_osd_episodes': O.episodes, 'skin_osd_seasons': O.seasons}[action](params, handle)
         except Exception:
             import traceback

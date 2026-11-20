@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """The player bar's buttons in skin.dexhub (v5.10.288, skin.dexhub 3.28.40).
 
-The right side of skin.dexhub's player bar is nine slots (ten on Apple TV). Slot n shows the
+The right side of skin.dexhub's player bar is ten slots (nine before skin 3.28.232). Slot n shows the
 button this module publishes as dhs.pref.osd_slot_<n>, in the order and with
 the buttons the user keeps in "Player buttons"; dhs.pref.osd_order holds the
 whole order (never empty once published), and while it is empty the skin
@@ -20,12 +20,15 @@ import xbmc
 import xbmcgui
 
 SETTING = 'osd_buttons'
-SLOTS = 10     # skin.dexhub draws 9 slots, skin.dexhub.tvos 10 (with External)
+SLOTS = 10     # skin.dexhub draws 10 slots since 3.28.232 (9 before), skin.dexhub.tvos 10 (with External)
 # bar order, left to right; "-" = hidden by default
 # v5.10.566: '-intro' (Mark intro) hidden at first: the bar's nine slots are full and PPI would drop off
 # v5.10.588: '-subtrans' (Translate subtitle) hidden at first for the same reason; Player buttons turns it on
-DEFAULT = ('sources', 'episodes', 'info', 'party', 'audio', 'subtitles', 'subsync', '-nextsub', '-subtrans', '-intro',
+# v5.10.590: Translate subtitle shown for everyone: skin 3.28.232 has a tenth slot, so PPI stays
+DEFAULT = ('sources', 'episodes', 'info', 'party', 'audio', 'subtitles', 'subsync', '-nextsub', 'subtrans', '-intro',
            'external', 'video', 'ppi')
+# v5.10.590: a saved order without this mark gets Translate subtitle shown, once; hidden again later, it stays so
+REV = '@590'
 KEYS = tuple(k.lstrip('-') for k in DEFAULT)
 NAMES = {
     'sources': ('المصادر', 'Sources'),
@@ -49,7 +52,7 @@ NOTES = {
     # v5.10.290: Dex Hub runs both itself; DexSubtitles only takes over the sync when installed
     'subsync': ('يستخدم DexSubtitles لو كانت مثبتة', 'Uses DexSubtitles when installed'),
     'nextsub': ('وبعد آخر ترجمة: بدون ترجمة', 'After the last one: subtitles off'),
-    'subtrans': ('يحتاج سكن Dex Hub 3.28.231 أو أحدث', 'Needs skin.dexhub 3.28.231 or later'),
+    'subtrans': ('يحتاج سكن Dex Hub 3.28.232 أو أحدث', 'Needs skin.dexhub 3.28.232 or later'),
     'external': ('على Apple TV فقط', 'Apple TV only'),
 }
 # v5.10.289: what each button does, one line in the editor
@@ -132,7 +135,7 @@ def _parse(raw):
 
 
 def _format(entries):
-    return ','.join(key if shown else '-' + key for key, shown in entries)
+    return ','.join([key if shown else '-' + key for key, shown in entries] + [REV])
 
 
 def load():
@@ -140,7 +143,18 @@ def load():
         raw = _addon().getSetting(SETTING)
     except Exception:
         raw = ''
-    return _parse(raw)
+    entries = _parse(raw)
+    if raw.strip() and REV not in raw.replace(' ', '').split(','):
+        # v5.10.590: Translate subtitle on for everyone with this update, the rest of the order as it was
+        entries = [(key, shown or key == 'subtrans') for key, shown in entries]
+        try:
+            _addon().setSetting(SETTING, _format(entries))
+            from .settings_cache import invalidate
+            invalidate()
+            xbmc.log('[DexHub] player buttons: Translate subtitle shown (5.10.590)', xbmc.LOGINFO)
+        except Exception:
+            pass
+    return entries
 
 
 def save(entries):
@@ -154,7 +168,7 @@ def save(entries):
 
 
 def publish(entries=None):
-    """dhs.pref.osd_order and dhs.pref.osd_slot_1..9 for the skin's slots."""
+    """dhs.pref.osd_order and dhs.pref.osd_slot_1..10 for the skin's slots."""
     entries = load() if entries is None else entries
     shown = [key for key, on in entries if on and _offered(key)][:SLOTS]
     win = xbmcgui.Window(10000)
