@@ -166,20 +166,93 @@ def season_votes(tmdb, season):
     return out
 
 
-def with_votes(tmdb, season, rows):
-    """The episode rows with their TMDb rating ('rating')."""
+def season_imdb(imdb, season):
+    """{episode number: IMDb rating} for one season, from OMDb (TMDb
+    Helper's OMDb key: one request a season, kept a day). {} without a key."""
+    imdb = str(imdb or '').strip()
+    if not imdb.startswith('tt'):
+        return {}
+    from .homeui.ratings import _helper_key
+    key_value = _helper_key('omdb_apikey')
+    if not key_value:
+        return {}
+    from . import tmdb_direct as T
+    key = 'dh-season-imdb:%s:%s' % (imdb, season)
+    data = T._cache_get(key)
+    if data is None:
+        data = {}
+        try:
+            import json
+            import urllib.parse
+            import urllib.request
+            url = 'https://www.omdbapi.com/?' + urllib.parse.urlencode({'i': imdb, 'Season': season, 'apikey': key_value})
+            with urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': 'DexHub'}), timeout=6) as handle:
+                raw = json.loads(handle.read().decode('utf-8', 'replace'))
+            for ep in raw.get('Episodes') or []:
+                value = str(ep.get('imdbRating') or '')
+                if value and value != 'N/A':
+                    data[str(int(ep.get('Episode') or 0))] = float(value)
+        except Exception as exc:
+            _log('season imdb: %s' % exc)
+            data = {}
+        T._cache_set(key, data, VOTES_TTL if data else 3600)
+    out = {}
+    for k, v in (data or {}).items():
+        try:
+            out[int(k)] = float(v)
+        except (TypeError, ValueError):
+            pass
+    return out
+
+
+def episode_source():
+    """v5.10.595: the episodes' rating follows the ratings the user shows
+    (Control Centre's ratings choice): IMDb when it is shown, else TMDb when
+    it is, else none."""
+    try:
+        from .homeui.ratings import chosen
+        keys = chosen()
+    except Exception:
+        keys = ['imdb', 'tmdb']
+    if 'imdb' in keys:
+        return 'imdb'
+    if 'tmdb' in keys:
+        return 'tmdb'
+    return ''
+
+
+def with_votes(tmdb, season, rows, imdb=''):
+    """The episode rows with their rating ('rating') and its source
+    ('rating_src': imdb or tmdb). IMDb (OMDb) when it is the chosen one and
+    known for the episode, TMDb otherwise when TMDb is shown too."""
     if not rows:
         return rows
+    source = episode_source()
+    if not source:
+        return rows
+    imdb_votes = {}
+    if source == 'imdb':
+        try:
+            imdb_votes = season_imdb(imdb, season)
+        except Exception:
+            imdb_votes = {}
+    # TMDb's for the episodes IMDb has no rating for, when TMDb is shown too
     try:
-        votes = season_votes(tmdb, season)
+        from .homeui.ratings import chosen
+        tmdb_ok = source == 'tmdb' or 'tmdb' in chosen()
+    except Exception:
+        tmdb_ok = True
+    try:
+        votes = season_votes(tmdb, season) if tmdb_ok else {}
     except Exception:
         votes = {}
-    if votes:
-        for row in rows:
-            try:
-                vote = votes.get(int(row.get('episode') or 0))
-            except (TypeError, ValueError):
-                vote = None
-            if vote:
-                row['rating'] = vote
+    for row in rows:
+        try:
+            number = int(row.get('episode') or 0)
+        except (TypeError, ValueError):
+            continue
+        if imdb_votes.get(number):
+            row['rating'], row['rating_src'] = imdb_votes[number], 'imdb'
+        elif votes.get(number) and tmdb_ok:
+            row['rating'], row['rating_src'] = votes[number], 'tmdb'
     return rows

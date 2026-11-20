@@ -48,6 +48,19 @@ def put(canonical_id, season, episode, entries, meta=None, ttl=_DEFAULT_TTL_SECO
         return False
     key = _make_key(canonical_id, season, episode)
     expires_at = _now() + ttl
+    # v5.10.595: signed links that die before the episode ends (ToastFlix:
+    # three minutes) are not kept; the next episode searches again.
+    try:
+        from . import link_expiry
+        links_until = link_expiry.earliest(entries) - 45.0
+    except Exception:
+        links_until = 0.0
+    if links_until > 0:
+        expires_at = min(expires_at, links_until)
+        if expires_at <= _now():
+            with _lock:
+                _inflight.discard(key)
+            return False
     with _lock:
         _store[key] = (expires_at, list(entries), dict(meta or {}))
         _inflight.discard(key)

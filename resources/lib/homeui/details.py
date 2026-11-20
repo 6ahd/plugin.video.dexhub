@@ -181,6 +181,15 @@ def server_episodes(route, api):
     return found
 
 
+def _imdb_of(page):
+    """The show's IMDb id for the episodes' IMDb ratings; '' when unknown
+    (also for a page that borrows these methods, skinui/title.py)."""
+    try:
+        return page._imdb_for_votes()
+    except Exception:
+        return ''
+
+
 class DetailsWindow(W._BaseWindow):
     def trailer_wanted(self, tile):
         # v5.10.364: the title page plays a title's trailer only from its
@@ -816,6 +825,14 @@ class DetailsWindow(W._BaseWindow):
         except Exception:
             return ''
 
+    def _imdb_for_votes(self):
+        """The show's IMDb id, for the episodes' IMDb ratings (v5.10.595)."""
+        imdb = str((self.hero or {}).get('imdb_id') or '')
+        if not imdb.startswith('tt'):
+            found = re.search(r'tt\d{5,12}', str(getattr(self, 'canonical', '') or ''))
+            imdb = found.group(0) if found else ''
+        return imdb
+
     def _episode_row(self, api, season, number, video_id, title, plot, thumb, aired, ids):
         source = self.source_provider_id
         path = self._server_path(season, number)
@@ -921,13 +938,13 @@ class DetailsWindow(W._BaseWindow):
             self.episodes[number] = rows
         try:
             from ..title_reviews import with_votes      # v5.10.365: TMDb's episode ratings
-            with_votes(self.tmdb_id or (self.hero or {}).get('tmdb_id') or '', number, rows)
+            with_votes(self.tmdb_id or (self.hero or {}).get('tmdb_id') or '', number, rows, imdb=_imdb_of(self))
         except Exception:
             pass
             return rows
         try:
             from ..title_reviews import with_votes      # v5.10.365: TMDb's episode ratings
-            with_votes(self.tmdb_id or (self.hero or {}).get('tmdb_id') or '', number, rows)
+            with_votes(self.tmdb_id or (self.hero or {}).get('tmdb_id') or '', number, rows, imdb=_imdb_of(self))
         except Exception:
             pass
         for row in rows:

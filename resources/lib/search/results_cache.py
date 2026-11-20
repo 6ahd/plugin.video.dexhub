@@ -77,12 +77,38 @@ def key(provider, media_type, request_id):
     return hashlib.sha1(json.dumps(ident, sort_keys=True, default=str).encode('utf-8')).hexdigest()
 
 
+# v5.10.595: a signed link has to outlive the open, not only the cache entry.
+_LINK_MARGIN = 45.0
+
+
+def _stale(entry, ttl):
+    now = time.time()
+    if now - float(entry.get('at') or 0) > ttl:
+        return True
+    until = float(entry.get('until') or 0)
+    return bool(until) and now >= until
+
+
+def _links_until(payload):
+    """v5.10.595: when this answer's links stop working, or 0.
+
+    ToastFlix signs its HLS link for three minutes; the five-minute cache
+    replayed it dead (403). An answer whose links expire is kept only until
+    _LINK_MARGIN before the first of them goes."""
+    try:
+        from .. import link_expiry
+        stamp = link_expiry.earliest(payload.get('streams') or [])
+    except Exception:
+        return 0.0
+    return stamp - _LINK_MARGIN if stamp else 0.0
+
+
 def _mem_get(cache_key, ttl):
     with _MEM_LOCK:
         entry = _MEM.get(cache_key)
         if not entry:
             return None
-        if time.time() - float(entry.get('at') or 0) > ttl:
+        if _stale(entry, ttl):
             _MEM.pop(cache_key, None)
             return None
         _MEM.move_to_end(cache_key)
@@ -109,7 +135,7 @@ def get(cache_key):
             entry = json.load(fh)
     except Exception:
         return None
-    if time.time() - float(entry.get('at') or 0) > ttl:
+    if _stale(entry, ttl):
         return None
     _mem_put(cache_key, entry)
     return entry
@@ -159,6 +185,12 @@ def put(cache_key, payload, resolved_request_id=''):
         'payload': payload,
         'resolved_request_id': resolved_request_id or '',
     }
+    until = _links_until(payload)
+    if until:
+        if until <= entry['at']:
+            # links too short-lived to replay: the next search asks again
+            return
+        entry['until'] = until
     _mem_put(cache_key, entry)
     try:
         from ..runtime_tasks import submit_optional

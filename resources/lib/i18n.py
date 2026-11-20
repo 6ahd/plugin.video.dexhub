@@ -3920,3 +3920,47 @@ STRINGS.update({'صفحة العمل بتبويبات': 'Title page with tabs',
 # v5.10.556: the title page's look menu
 for _ar, _en in (('تخطيط الصفحة', 'Page layout'), ('مفعّل', 'On'), ('مطفأ', 'Off'), ('سينمائي', 'Cinematic'), ('كلاسيكي', 'Classic')):
     STRINGS.setdefault(_ar, _en)
+
+STRINGS.update({  # v5.10.595: the search page
+    'اكتب اسم فيلم أو مسلسل أو قناة أو شخص': 'Type a movie, show, channel or person',
+    'عمليات بحث سابقة': 'Recent searches',
+    'IPTV · أفلام ومسلسلات': 'IPTV · Movies and series',
+    'IPTV · قنوات': 'IPTV · Channels',
+    'سيرفراتك': 'Your servers',
+    'على سيرفرك': 'On your server',
+    'TMDb وإضافاتك وسيرفراتك واشتراك IPTV وقنواته معاً، والنتائج تطلع وأنت تكتب.':
+        'TMDb, your add-ons, your servers and your IPTV with its channels together; results show as you type.',
+    'جرّب كلمة أخرى، أو اسم العمل بالإنجليزية.': 'Try another word, or the title in English.',
+})
+STRINGS.update({  # v5.10.595: artwork rotation
+    'تبديل البوسترات والخلفيات': 'Artwork rotation',
+    'صور مختلفة من TMDb لكل عمل كل فترة، مثل Apple TV ونتفلكس': "Other TMDb posters and backdrops for each title from time to time, as Apple TV and Netflix do",
+    'يومياً': 'Daily',
+    'كل 6 ساعات': 'Every 6 hours',
+    'كل ما يشتغل كودي': 'Each time Kodi starts',
+    'ثابتة · صور المصدر': 'Fixed · the source\'s pictures',
+})
+
+STRINGS.update({  # v5.10.595: search sort and collections
+    'الصلة': 'Relevance',
+    'العنوان': 'Title',
+    'ترتيب النتائج': 'Sort results',
+    'سلاسل أفلام': 'Collections',
+    'سلاسل': 'Collections',
+    'سلسلة أفلام': 'Film series',
+})
+
+STRINGS.update({  # v5.10.595: the actor page (homeui/person_page.py)
+    'معروف بـ': 'Known For',
+    'أعمال من إخراجه': 'Directed',
+    'الخط الزمني': 'Timeline',
+    'بدور %s': 'As %s',
+    'تمثيل': 'Acting',
+    'مخرج': 'Director',
+    'كتابة': 'Writing',
+    'إنتاج': 'Production',
+    '%d مشاركة': '%d credits',
+    'وُلد %s': 'Born %s',
+    'توفي %s': 'Died %s',
+    'ما لقينا صفحة هذا الشخص': 'This person\'s page could not be read',
+})

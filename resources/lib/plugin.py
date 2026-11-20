@@ -5131,7 +5131,7 @@ def hub_search_menu(query=''):
     return _hub_search_unified_render(query, rows, include_tmdb=True)
 
 
-def hub_search_collect(query, progress=None, should_stop=None, partial=None):
+def hub_search_collect(query, progress=None, should_stop=None, partial=None, record=True):
     """The unified search for the Dex Hub Home's search page (v5.10.102).
 
     The same engine as hub_search_menu (TMDb, the Stremio add-ons and the
@@ -5148,11 +5148,14 @@ def hub_search_collect(query, progress=None, should_stop=None, partial=None):
         xbmcgui.Window(WINDOW_ID).setProperty('dexhub.last_search.unified', query)
     except Exception:
         pass
-    try:
-        from . import search_history as _sh
-        _sh.add(query, media_type='all')
-    except Exception:
-        pass
+    # v5.10.595: the search page searches as the user types; it keeps a
+    # query in the history only once a result is opened (record=False)
+    if record:
+        try:
+            from . import search_history as _sh
+            _sh.add(query, media_type='all')
+        except Exception:
+            pass
     # v5.10.576: a search that reads like a description also asks the
     # viewer's AI (ai_search), alongside the usual sources; its picks come back
     # flagged 'ai' and the search page shows them as a row of their own

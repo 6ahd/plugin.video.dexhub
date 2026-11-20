@@ -178,15 +178,7 @@ class HeroFocus(threading.Thread):
         # variable table during a skin switch (native GetValue crash).
         if xbmc.getSkinDir() not in ('skin.dexhub', 'skin.dexhub.tvos'):
             return
-        layout = C.layout()
-        if C.prop('dhs.tab') == 'addons':
-            container = 5102 if C.prop('dhs.afr') == '2' else 5101
-        else:
-            row = _count(C.prop('dhs.fr'))
-            if row == 0 and _count(xbmc.getInfoLabel('Container(%d).NumItems' % layout.spotlight)) > 0:
-                container = layout.spotlight
-            else:
-                container = layout.row_list(max(1, min(row, 20)))
+        container = self._home_container()
         value = xbmc.getInfoLabel('Container(%d).ListItem.Art(fanart)' % container)
         if value != getattr(self, '_bg_seen', None):
             self._bg_seen, self._bg_since = value, now
@@ -197,6 +189,16 @@ class HeroFocus(threading.Thread):
             if not getattr(self, '_bg_on', False):
                 C.set_prop('dhs.bg.on', '1')
                 self._bg_on = True
+
+    def _home_container(self):
+        """The Home list whose focused title the backdrop shows."""
+        layout = C.layout()
+        if C.prop('dhs.tab') == 'addons':
+            return 5102 if C.prop('dhs.afr') == '2' else 5101
+        row = _count(C.prop('dhs.fr'))
+        if row == 0 and _count(xbmc.getInfoLabel('Container(%d).NumItems' % layout.spotlight)) > 0:
+            return layout.spotlight
+        return layout.row_list(max(1, min(row, 20)))
 
     def _page_colour(self):
         """v5.10.448: with the page colour "follows the title" the title page
@@ -223,6 +225,11 @@ class HeroFocus(threading.Thread):
             else:
                 prefix = 'Container(%d).ListItem.' % (_FOLD_BASE + max(1, _count(C.prop('dhs.ffr'))))
             extra = C.prop('dhs.fold.bg')
+        elif (self.home and guistate.active() == guistate.HOME
+              and xbmc.getSkinDir() in ('skin.dexhub', 'skin.dexhub.tvos')):
+            # v5.10.595: the Home takes the colour of the title on show too
+            # (skin.dexhub 3.28.233's glow under the rows)
+            prefix, extra = 'Container(%d).ListItem.' % self._home_container(), ''
         else:
             return                          # other pages keep the last colour
         # its backdrop, its poster, then the collection's own picture

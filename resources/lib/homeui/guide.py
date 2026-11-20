@@ -1743,84 +1743,7 @@ class GuideWindow(_BaseWindow):
 
     def _search_tiles(self, query):
         """Channels of the source whose name holds ``query``."""
-        from . import live, live_sources as LS
-        source = self.source or {}
-        key = source.get('key') or ''
-        wanted = fold(query)
-        card = self.app.media_path('channel_card.jpg')
-        found = []
-        seen = set()
-
-        def take(tiles):
-            for tile in tiles:
-                path = tile.get('path')
-                if path in seen or wanted not in fold(tile.get('title')):
-                    continue
-                seen.add(path)
-                found.append(tile)
-                if len(found) >= SEARCH_LIMIT:
-                    return True
-            return False
-        if key.startswith('xt:'):
-            from . import live_iptv
-            conf = live_iptv._conf(self.app, key)
-            for cat in live_iptv.categories(self.app.profile, conf):
-                rows = live_iptv.streams(self.app.profile, conf, cat['id'], whole_first=True)
-                hits = [r for r in rows if wanted in fold(r[0] if r else '')]
-                tiles = []
-                for item in hits:
-                    name, icon, sid, number, _epg = (list(item) + [''] * 5)[:5]
-                    tiles.append(LS.channel_tile(key, sid, name, card, logo=icon, group=cat.get('name') or '',
-                                                 number=number, stream={'id': sid}, epg={'xt': sid}))
-                if take(tiles):
-                    break
-            return found
-        if key.startswith('m3u:'):
-            from . import live_iptv
-            params = {'live_src': key, 'group': -1, 'start': 0, 'label': ''}
-            tiles, _more = live_iptv.m3u_tiles(self.app, params, card, count=100000)
-            take(tiles)
-            return found
-        if key == 'pvr':
-            for group in live.groups():
-                if group['all']:
-                    start = 0
-                    while True:
-                        tiles, more, _total = live.group_tiles(group['id'], '', card, start=start,
-                                                               count=live.PAGE_SIZE)
-                        if take(tiles) or not more:
-                            break
-                        start = more['start']
-                    break
-            return found
-        # a Stremio source: its own channel search when it has one, then the
-        # categories already opened in this guide
-        from . import live_stremio, stremio_catalogs as SC
-        provider = live_stremio.provider_for(key) or {}
-        for cat in (provider.get('manifest') or {}).get('catalogs') or []:
-            if not isinstance(cat, dict) or not SC.is_live(cat) or not SC.supports(cat, 'search'):
-                continue
-            try:
-                data = live_stremio._client().fetch_catalog(provider, cat.get('type'), cat.get('id'),
-                                                            extra={'search': query}, timeout_override=12,
-                                                            retry=False) or {}
-            except Exception:
-                continue
-            dw = bool(live_stremio._dexworld_of(key))
-            sources = live_stremio._guide_sources(provider) if dw else set()
-            metas = [m for m in data.get('metas') or [] if isinstance(m, dict) and m.get('id')]
-            tiles = [live_stremio.meta_tile(key, m, card, '', dw, sources) for m in metas]
-            for tile in tiles:
-                if tile.get('path') not in seen:
-                    seen.add(tile.get('path'))
-                    found.append(tile)
-            if found:
-                return found
-        # the channels of the categories already opened in this guide
-        for key_, tiles in list(self._loaded.items()):
-            if take(tiles):
-                break
-        return found
+        return search_source_channels(self.app, self.source, query, loaded=self._loaded)
 
     # -------------------------------------------------------- live actions
     def live_refresh(self, force=False):
@@ -1982,3 +1905,87 @@ class GuideWindow(_BaseWindow):
             self.leave()
             return
         self.focus(self.default_focus())
+
+
+def search_source_channels(app, source, query, limit=SEARCH_LIMIT, loaded=None):
+    """v5.10.595: the channels of one Live TV source whose name holds
+    ``query``, shared by the Live TV page and the search page; ``loaded``:
+    the categories a guide already opened, searched last."""
+    from . import live, live_sources as LS
+    source = source or {}
+    key = source.get('key') or ''
+    wanted = fold(query)
+    card = app.media_path('channel_card.jpg')
+    found = []
+    seen = set()
+
+    def take(tiles):
+        for tile in tiles:
+            path = tile.get('path')
+            if path in seen or wanted not in fold(tile.get('title')):
+                continue
+            seen.add(path)
+            found.append(tile)
+            if len(found) >= limit:
+                return True
+        return False
+    if key.startswith('xt:'):
+        from . import live_iptv
+        conf = live_iptv._conf(app, key)
+        for cat in live_iptv.categories(app.profile, conf):
+            rows = live_iptv.streams(app.profile, conf, cat['id'], whole_first=True)
+            hits = [r for r in rows if wanted in fold(r[0] if r else '')]
+            tiles = []
+            for item in hits:
+                name, icon, sid, number, _epg = (list(item) + [''] * 5)[:5]
+                tiles.append(LS.channel_tile(key, sid, name, card, logo=icon, group=cat.get('name') or '',
+                                             number=number, stream={'id': sid}, epg={'xt': sid}))
+            if take(tiles):
+                break
+        return found
+    if key.startswith('m3u:'):
+        from . import live_iptv
+        params = {'live_src': key, 'group': -1, 'start': 0, 'label': ''}
+        tiles, _more = live_iptv.m3u_tiles(app, params, card, count=100000)
+        take(tiles)
+        return found
+    if key == 'pvr':
+        for group in live.groups():
+            if group['all']:
+                start = 0
+                while True:
+                    tiles, more, _total = live.group_tiles(group['id'], '', card, start=start,
+                                                           count=live.PAGE_SIZE)
+                    if take(tiles) or not more:
+                        break
+                    start = more['start']
+                break
+        return found
+    # a Stremio source: its own channel search when it has one, then the
+    # categories already opened in this guide
+    from . import live_stremio, stremio_catalogs as SC
+    provider = live_stremio.provider_for(key) or {}
+    for cat in (provider.get('manifest') or {}).get('catalogs') or []:
+        if not isinstance(cat, dict) or not SC.is_live(cat) or not SC.supports(cat, 'search'):
+            continue
+        try:
+            data = live_stremio._client().fetch_catalog(provider, cat.get('type'), cat.get('id'),
+                                                        extra={'search': query}, timeout_override=12,
+                                                        retry=False) or {}
+        except Exception:
+            continue
+        dw = bool(live_stremio._dexworld_of(key))
+        sources = live_stremio._guide_sources(provider) if dw else set()
+        metas = [m for m in data.get('metas') or [] if isinstance(m, dict) and m.get('id')]
+        tiles = [live_stremio.meta_tile(key, m, card, '', dw, sources) for m in metas]
+        for tile in tiles:
+            if tile.get('path') not in seen:
+                seen.add(tile.get('path'))
+                found.append(tile)
+        if found:
+            return found
+    # the channels of the categories already opened in this guide
+    for key_, tiles in list((loaded or {}).items()):
+        if take(tiles):
+            break
+    return found

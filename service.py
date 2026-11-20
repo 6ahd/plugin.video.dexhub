@@ -940,7 +940,7 @@ if __name__ == '__main__':
     # v5.10.560: a fresh install's skin look (skin_defaults), once skin.dexhub is in use
     try:
         from resources.lib import skin_defaults as _skin_defaults
-        if (_setting('interface_defaults_v6', 'false') or 'false') != 'true' or _skin_defaults.pending():
+        if (_setting('interface_defaults_v6', 'false') or 'false') != 'true' or _skin_defaults.needed():
             import threading as _thr_skin
             _thr_skin.Thread(target=_skin_defaults.watch, args=(xbmc.Monitor(),),
                              name='DexHub-skin-defaults', daemon=True).start()

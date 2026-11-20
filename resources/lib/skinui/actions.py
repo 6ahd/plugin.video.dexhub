@@ -848,6 +848,9 @@ def more(params, handle):
     key = (int(row['season']), int(row['episode'])) if row else (0, 0)
     watched = t._watched(t.progress.get(key))
     entries = []
+    # v5.10.595: the page shows fewer round buttons (as the Apple TV app):
+    # Sources moved into this menu (a long press on Play still lists them)
+    entries.append((_tr('عرض الروابط'), 'sources'))
     if t.series and row:
         code = 'S%dE%d' % key
         entries.append((_tr('تعليم %s كغير مشاهدة') % code if watched else _tr('تعليم %s كمشاهدة') % code,
@@ -874,6 +877,10 @@ def more(params, handle):
         if choice < 0:
             return None
         what = entries[choice][1]
+    if what == 'sources':
+        return sources(params, handle)
+    if what == 'look':
+        return title_look(params, handle)
     if what in ('watch', 'unwatch'):
         _set_watched(t, row, what == 'watch')
     elif what == 'synopsis':

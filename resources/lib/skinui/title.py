@@ -242,7 +242,7 @@ class HeadlessTitle(object):
                      '_load_tmdb', '_apply_tmdb', '_tmdb_tile', '_addon_meta', '_load_episodes',
                      '_remember_series', '_ids', '_episode', '_episode_row', '_server_path', '_tmdb_season', '_helper_season',
                      '_load_progress', '_load_favorite', '_percent', '_watched',
-                     '_next_episode', '_left_line'):
+                     '_next_episode', '_left_line', '_imdb_for_votes'):
             setattr(cls, name, D.DetailsWindow.__dict__[name])
         for name in ('tmdb_settings', '_tmdb_language', '_supplement_badges', '_studio_badge', '_rating_badges'):
             setattr(cls, name, W._BaseWindow.__dict__[name])
@@ -578,6 +578,15 @@ class HeadlessTitle(object):
                           'series' if self.series else 'movie')
         except Exception:
             mine = {}
+        if not mine.get('fanart'):
+            # v5.10.595: the backdrop of this period when artwork rotates,
+            # the same one as the title's card
+            try:
+                from ..art_rotate import pick as rotation
+                mine = dict(mine, fanart=rotation(self.tmdb_id or self.hero.get('tmdb_id') or '',
+                                                  'series' if self.series else 'movie').get('fanart') or '')
+            except Exception:
+                pass
         props['dhs.tp.art.fanart'] = mine.get('fanart') or ''
         props['dhs.tp.art.clearlogo'] = mine.get('clearlogo') or ''
         if C.prop('dhs.tp.id') != self.title_id:
@@ -764,6 +773,18 @@ class HeadlessTitle(object):
             from ..homeui import vod
             iptv = vod.episode_routes(self.q['vs'], number, hero.get('title') or '', self.tmdb_id)
         nas = self.q.get('nas') == '1'
+        # v5.10.595: a source that names its episodes "Episode 3" (and gives
+        # no story) takes TMDb's names and stories, as the setting says
+        # (Episode names: all); one request per season, kept a month
+        tmdb_rows = {}
+        if ET.mode() != 'off' and any(ET.generic(r.get('title')) or not r.get('plot') for r in rows):
+            try:
+                from .. import tmdb_direct
+                tmdb_rows = tmdb_direct.season_episodes(
+                    self.tmdb_id, str(hero.get('imdb_id') or self.q.get('imdb') or ''), number, False,
+                    tmdb_direct._card_language()) or {}
+            except Exception:
+                tmdb_rows = {}
         for row in rows:
             if iptv:
                 row = dict(row, path=iptv.get(_int(row.get('episode'))) or row.get('path') or '')
@@ -773,15 +794,27 @@ class HeadlessTitle(object):
                 row = dict(row, path=_nas_route(self, number, row.get('episode'), row.get('video_id') or ''))
             progress = self.progress.get((number, _int(row.get('episode'))))
             started = bool(progress and (self._watched(progress) or self._percent(progress) > 0))
-            label = ET.list_label(self.tr, _int(row.get('episode')), row.get('title'), started=started)
+            known = tmdb_rows.get(str(_int(row.get('episode')))) or {}
+            name = row.get('title')
+            if ET.generic(name) and known.get('name') and not ET.generic(known.get('name')):
+                name = known['name']
+            if not row.get('plot') and known.get('overview') and ET.wanted(started):
+                row = dict(row, plot=known['overview'])
+            label = ET.list_label(self.tr, _int(row.get('episode')), name, started=started)
             thumb = row.get('thumb') or backdrop
             sub = []
             if row.get('aired'):
                 sub.append(row['aired'])
             if row.get('runtime'):
                 sub.append(self.tr('%d دقيقة') % _int(row['runtime']))
-            if row.get('rating'):
-                sub.append('★ %.1f' % float(row['rating']))     # v5.10.365: TMDb's episode rating
+            # v5.10.595: TMDb's episode rating is a chip with the TMDB mark on
+            # the picture (skin 3.28.233), no longer a star in this line
+            rating = ''
+            try:
+                if row.get('rating') and float(row['rating']) > 0:
+                    rating = '%.1f' % float(row['rating'])
+            except (TypeError, ValueError):
+                rating = ''
             progress = self.progress.get((number, _int(row.get('episode'))))
             watched = self._watched(progress)
             percent = 0 if watched else int(self._percent(progress)) if progress else 0
@@ -836,7 +869,9 @@ class HeadlessTitle(object):
                           'dhs.click': 'run' if target else '', 'dhs.target': target,
                           # v5.10.448: an episode rated 9.2 or more (TMDb) stands out (Nuvio)
                           'dhs.top': '1' if _top_rated(row.get('rating')) else '',
-                          'dhs.rating': ('%.1f' % float(row['rating'])) if _top_rated(row.get('rating')) else ''},
+                          'dhs.rating': ('%.1f' % float(row['rating'])) if _top_rated(row.get('rating')) else '',
+                          'dhs.ep_rating': rating,
+                          'dhs.ep_rating_src': (row.get('rating_src') or 'tmdb') if rating else ''},
                 'menu': menu,
             })
         return items
@@ -873,9 +908,11 @@ def listing(action, params, handle):
             person_id = person.get('id') or ''
             target = RW.list_url({'action': 'people_filmography', 'person_id': person_id,
                                   'name': person.get('name') or ''}, title=person.get('name') or '') if person_id else ''
+            # v5.10.595: the actor's own page over this one (person_page.py)
+            page = C.url('home_person', person_id=person_id, name=person.get('name') or '') if person_id else ''
             out.append({'label': person.get('name') or '', 'label2': person.get('role') or '', 'path': target,
                         'folder': bool(target), 'art': {'thumb': person.get('thumb') or '', 'icon': 'DefaultActor.png'},
-                        'props': {'dhs.click': 'grid' if target else '', 'dhs.target': target}})
+                        'props': {'dhs.click': 'run' if page else '', 'dhs.target': page}})
         if not title.series:
             title.publish()
     elif action == 'skin_related':

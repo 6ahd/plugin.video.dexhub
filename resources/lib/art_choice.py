@@ -92,17 +92,20 @@ def chosen(tmdb='', imdb='', media=''):
 
 
 def apply_item(item, art):
-    """A card's art with the title's choice (items.listitem)."""
-    if not _load():
-        return art
+    """A card's art with the title's choice (items.listitem); without one,
+    this period's pictures when artwork rotates (art_rotate, v5.10.595)."""
     ids = item.get('ids') or {}
     info = item.get('info') or {}
     media = info.get('mediatype') or ''
     if media == 'episode':
         return art          # an episode keeps its still
-    choice = chosen(ids.get('tmdb') or '', ids.get('imdb') or '', media)
+    choice = chosen(ids.get('tmdb') or '', ids.get('imdb') or '', media) if _load() else {}
     if not choice:
-        return art
+        try:
+            from .art_rotate import apply as rotate
+            return rotate(art, ids.get('tmdb') or '', media)
+        except Exception:
+            return art
     art = dict(art)
     if choice.get('fanart'):
         art['fanart'] = choice['fanart']

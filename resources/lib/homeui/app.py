@@ -629,7 +629,15 @@ class App(object):
         self._show(window)
 
     def open_search(self, query=''):
-        """The search page (v5.10.102): results as rows, in the Home's own design."""
+        """The search page (v5.10.595, search_window.py): a glass keyboard and
+        results as you type, over Arctic Fuse 3's. The rows page of v5.10.102
+        stays for a device where the new page cannot open."""
+        try:
+            from .search_window import open_search as _open_search
+            _open_search(self, str(query or ''))
+            return
+        except Exception:
+            _log('search page failed, the rows page instead:\n%s' % traceback.format_exc(), xbmc.LOGERROR)
         from .window import BrowseWindow
         window = BrowseWindow(ui_size.xml('dexhub_browse.xml'), self.addon_path, 'Default', '1080i',
                               app=self, mode='folder', search=str(query or ''),
@@ -878,6 +886,9 @@ def run(params):
     if action == 'home_collection':
         # v5.10.459: a collection as one page of sections (collection_page.py)
         return _run_page('collection', params)
+    if action == 'home_person':
+        # v5.10.595: an actor's page (person_page.py), from a title page's cast
+        return _run_page('person', params)
     if action == 'home_details':
         # v5.10.114: a title's page on its own, over any skin's Home (a Dex
         # Hub title clicked in Arctic Fuse 3's widgets, the player's Info)
@@ -1139,6 +1150,9 @@ def _run_page(page, params):
         elif page == 'collection':
             from .collection_page import open_collection
             open_collection(app, params)
+        elif page == 'person':
+            from .person_page import open_person
+            open_person(app, params)
         elif page == 'vod':
             grid = dict((k, v) for k, v in params.items() if k != 'action')
             grid['action'] = 'home_vod_list'
