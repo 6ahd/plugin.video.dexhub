@@ -124,7 +124,7 @@ SENT = {
                   'The subtitle lines to translate and the language to translate into; with DexWorld also the '
                   'title with its season and episode.'),
 }
-SUBTITLE_SERVICES = ('google', 'dexworld_tr')     # besides the chat services
+SUBTITLE_SERVICES = ('google', 'dexworld_tr', 'silo')     # besides the chat services (silo: v5.10.590)
 
 
 def _data():
@@ -186,6 +186,8 @@ def service_name(pid):
         return 'Google Translate'
     if pid == 'dexworld_tr':
         return _t('ترجمة DexWorld', 'DexWorld translation')
+    if pid == 'silo':
+        return 'Silo'
     p = _provider(pid)
     return p[1] if p else str(pid or 'AI')
 
@@ -586,6 +588,14 @@ def subtitle_choices():
         if model:
             same = f.get('service') == pid and f.get('model') == model
             rows.append((pid, name, model, free_note(pid, model, bool(f.get('free')) and same)))
+    # v5.10.590: while a Silo title plays, the server's own AI translation, under Google and AI
+    try:
+        from . import silo_subsync
+        silo = silo_subsync.playing()
+    except Exception:
+        silo = False
+    if silo or f.get('service') == 'silo':
+        rows.append(('silo', 'Silo', '', _t('ترجمة AI على سيرفر Silo', "AI translation on Silo's server")))
     return rows
 
 

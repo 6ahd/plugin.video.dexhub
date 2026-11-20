@@ -790,6 +790,60 @@ def handle_button():
     return True
 
 
+def playing():
+    """v5.10.590: a Silo source plays (the Translate subtitle list offers Silo's AI then)."""
+    try:
+        return _state() is not None
+    except Exception:
+        return False
+
+
+def translate():
+    """v5.10.590: Translate subtitle with Silo chosen in its list: the server's AI translation of
+    a subtitle of this video into the subtitle language (the sync button's "AI from a subtitle").
+    The subtitle on screen is the one translated when it is one of the file's; otherwise the
+    viewer picks one. False when no Silo source plays."""
+    state = _state()
+    if state is None:
+        return False
+    try:
+        ai = _api('subtitles/ai/status') or {}
+    except Exception as exc:
+        _log('ai status: %s' % exc, xbmc.LOGWARNING)
+        _note('سيرفر Silo ما رد، جرّب بعد شوي', "The Silo server didn't answer; try again shortly", False)
+        return True
+    if not (ai.get('allowed') and ai.get('state') == 'available' and ai.get('enabled')):
+        _note('ترجمة Silo بالذكاء الاصطناعي مو متاحة لحسابك الحين', "Silo's AI translation isn't available to your account now",
+              False, 6000)
+        return True
+    job = _active_ai(state['file_id'])
+    if job:
+        _follow_ai(state, job)
+        return True
+    target = _pref_lang()
+    sources = _ai_sources(state, target)
+    if not sources:
+        if ai.get('transcribe_enabled') and xbmcgui.Dialog().yesno(
+                'Silo', T('ما فيه ترجمة أترجم منها. أترجم من صوت الفيديو؟ (أبطأ، ويحسب من الحصة)',
+                          'There is no subtitle to translate from. Translate from the audio? (slower, uses the quota)')):
+            request_ai(state, 'transcribe_translate', None)
+        elif not ai.get('transcribe_enabled'):
+            _note('ما فيه ترجمة أترجم منها', 'There is no subtitle to translate from', False)
+        return True
+    shown = current_track(state)
+    source = next((t for t in sources if shown and t.get('key') and t.get('key') == shown.get('key')), None)
+    source = source or _pick_source(sources)
+    if not source:
+        return True
+    if _source_fits(state, source):
+        _log('translate with Silo AI: %s %s' % (source.get('lang'), source.get('source')))
+        request_ai(state, 'translate', source)
+    else:
+        _note('الترجمة هذي ما تطابق صوت الفيديو، فما ترجمتها. جرّب غيرها',
+              "That subtitle doesn't match this video's audio, so it wasn't translated. Try another.", False, 8000)
+    return True
+
+
 # ---------------------------------------------------------------- automatic
 def _follow_auto(monitor, state, track):
     """A Silo subtitle put on screen is synced to the audio without a word: the

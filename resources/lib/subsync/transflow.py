@@ -326,11 +326,18 @@ def _http_post(url, body, headers):
         return 0, b''
 
 
+def _chosen():
+    try:
+        return _ai().feature('subtitles').get('service') or 'google'
+    except Exception:
+        return 'google'
+
+
 def _silo_first():
-    """A Silo source: the server's own subtitle menu (its AI translation among them)."""
+    """Silo chosen: the server's AI translation of this video's subtitle (v5.10.590)."""
     try:
         from .. import silo_subsync
-        return silo_subsync.handle_button()
+        return silo_subsync.translate()
     except Exception as exc:
         _log('silo subtitles: %s' % exc, xbmc.LOGWARNING)
         return False
@@ -410,8 +417,12 @@ def run():
     if not media:
         _note('شغّل الفيديو أول', 'Play a video first', False)
         return
-    if _silo_first():
-        return
+    # v5.10.590: Silo is a choice in the list (under Google and AI), no longer taken first on a
+    # Silo title; with another service chosen, the subtitle on screen is translated here
+    if _chosen() == 'silo':
+        if _silo_first():
+            return
+        _log('translate: Silo chosen, but no Silo source plays: Google Translate')
     pid, subs, cur, enabled = _streams()
     target, target3 = _pref()
     tname_ar, tname_en = NAMES.get(target, (target, dexwatch.lang_name(target3)))
