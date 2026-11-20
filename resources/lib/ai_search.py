@@ -155,9 +155,12 @@ def services():
     return dict((pid, svc) for pid, svc in _data()['services'].items() if _usable(pid, svc))
 
 
+_UNSAVED = {}      # v5.10.592: a choice that could not be written (a full disk), for this run
+
+
 def feature(fid):
     """{on, service, model, free} of a feature (subtitles: Google Translate unless chosen)."""
-    f = dict(_data()['features'].get(fid) or {})
+    f = dict(_UNSAVED.get(fid) or _data()['features'].get(fid) or {})
     if fid == 'subtitles':
         f.setdefault('service', 'google')
         f['on'] = True
@@ -612,7 +615,14 @@ def use_subtitle(sid):
     was_free = bool(f.get('free')) and f.get('service') == sid and f.get('model') == row[2]
     f.update(on=True, service=sid, model=row[2], free=was_free or row[2].endswith(':free'), models=models)
     data['features']['subtitles'] = f
-    _save(data)
+    try:
+        _save(data)
+    except Exception as exc:
+        # not kept (a full disk on the Mac, 20 Nov): the translation asked for now still uses it
+        _UNSAVED['subtitles'] = f
+        _log('subtitle translation choice not saved (%s): %s used this time' % (exc, service_name(sid)),
+             xbmc.LOGWARNING)
+        return True
     _log('subtitle translation now uses %s%s' % (service_name(sid), (' · ' + row[2]) if row[2] else ''))
     return True
 

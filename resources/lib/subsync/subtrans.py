@@ -29,7 +29,7 @@ GOOGLE_URL = 'https://translate.googleapis.com/translate_a/single?'
 GOOGLE_CHARS = 4200        # one request (form body), well under the address's limit
 AI_LINES = 60
 DEXWORLD_LINES = 30        # its contract: up to 30 lines a batch, two at a time
-WORKERS = {'google': 3, 'ai': 2, 'dexworld': 2}
+WORKERS = {'google': 2, 'ai': 2, 'dexworld': 2}     # Google 2 (3 in 5.10.588): kinder to its limit
 LINE_WIDTH = 42
 SERVICES = ('google', 'ai', 'dexworld')
 
@@ -153,13 +153,44 @@ def render_srt(lines):
 
 
 # ---------------------------------------------------------------- the services
+# v5.10.592: Google's free address answers 429 when an internet address asked it a lot (three
+# devices and the tests on one home connection, 20 Nov); its second address (the browser
+# extension's) has its own limit and takes each line as its own "q", so it is used for ten
+# minutes after a 429
+GOOGLE_ALT_URL = 'https://clients5.google.com/translate_a/t?'
+GOOGLE_ALT_S = 600
+_GOOGLE = {'alt_until': 0.0}
+_FORM = {'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8', 'User-Agent': 'Mozilla/5.0'}
+
+
+def _google_alt(texts, target, http_post):
+    body = urlencode([('q', t) for t in texts]).encode('utf-8')
+    url = GOOGLE_ALT_URL + urlencode({'client': 'dict-chrome-ex', 'sl': 'auto', 'tl': target})
+    status, raw = http_post(url, body, _FORM)
+    if status == 429:
+        raise TranslateError('busy', 'google 429 (both addresses)')
+    if status != 200:
+        raise TranslateError('service', 'google alt %s' % status)
+    try:
+        data = json.loads(raw.decode('utf-8'))
+        got = [(item[0] if isinstance(item, list) else item) for item in data]
+        got = [str(g or '') for g in got]
+    except Exception:
+        raise TranslateError('service', 'google alt answer')
+    if len(got) != len(texts):
+        return None
+    return [g.strip() for g in got]
+
+
 def _google_batch(texts, target, http_post):
+    if time.time() < _GOOGLE['alt_until']:
+        return _google_alt(texts, target, http_post)
     body = urlencode({'q': '\n'.join(texts)}).encode('utf-8')
     url = GOOGLE_URL + urlencode({'client': 'gtx', 'sl': 'auto', 'tl': target, 'dt': 't'})
-    status, raw = http_post(url, body, {'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
-                                        'User-Agent': 'Mozilla/5.0'})
+    status, raw = http_post(url, body, _FORM)
     if status == 429:
-        raise TranslateError('busy', 'google 429')
+        _GOOGLE['alt_until'] = time.time() + GOOGLE_ALT_S
+        return _google_alt(texts, target, http_post)
     if status != 200:
         raise TranslateError('service', 'google %s' % status)
     try:
