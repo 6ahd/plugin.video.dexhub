@@ -12,7 +12,7 @@
   </extension>
   <extension point="xbmc.subtitle.module" library="default.py" />
   <extension point="xbmc.service" library="service.py" start="startup" />
-  <!-- ABK dexhub-ss-off: <extension point="xbmc.ui.screensaver" library="default.py" /> -->
+  <extension point="xbmc.ui.screensaver" library="default.py" />
   <extension point="kodi.context.item">
     <menu id="kodi.core.main">
       <item library="context_search.py">
