@@ -231,9 +231,11 @@ def _probe(path, src, extra):
         raise SoundError('sound_unread', 'timeout')
     err = done.stderr or b''
     m = re.search(rb'Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)', err)
-    if not m:
+    # v5.10.598: a stream whose header gives no length (Duration: N/A, some Usenet and CDN
+    # links) is still read when the player knows the length; reference() decides
+    length = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3)) if m else 0.0
+    if not m and not re.search(rb'Stream #0:\d+[^\n]*Audio:', err):
         raise SoundError('sound_unread', 'no duration')
-    length = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3))
     audio = re.search(rb'Stream #0:\d+[^\n]*Audio:[^\n]*', err)
     line = audio.group(0).lower() if audio else b''
     if re.search(rb'5\.1|7\.1|6 channels|8 channels|6\.1', line):
@@ -369,6 +371,8 @@ def reference(media, duration_s=0.0, abort=None):
         length_probe, layout = _probe(path, src, extra)
         if not duration_s or duration_s < 60:
             duration_s = length_probe
+        if not duration_s:
+            raise SoundError('sound_unread', 'no duration')
         if duration_s < 300:
             raise SoundError('sound_short')
         count = PIECES if duration_s >= 1500 else SHORT_PIECES

@@ -134,12 +134,36 @@ def align(intervals, sref, max_offset_ms=MAX_OFFSET_MS):
     return res
 
 
-def decide(res, min_lift=0.12, min_margin=0.06, min_gain=0.05):
+FPS_STEPS = (23.976, 24.0, 25.0)
+
+
+def fps_expected(scale, video_fps):
+    """v5.10.598: the speed change is exactly the one between the video's frame rate and another
+    usual one (a PAL 25 fps video and a subtitle made for 23.976, the common case on British
+    shows): the video itself says so, which a sound match alone cannot."""
+    try:
+        v = float(video_fps or 0)
+    except (TypeError, ValueError):
+        return False
+    if v < 20 or v > 31 or abs(scale - 1.0) < 1e-6:
+        return False
+    v = min(FPS_STEPS, key=lambda f: abs(f - v)) if min(abs(f - v) for f in FPS_STEPS) < 0.05 else 0
+    return bool(v) and any(abs(scale - src / v) < 2e-4 for src in FPS_STEPS if src != v)
+
+
+def decide(res, min_lift=0.12, min_margin=0.06, min_gain=0.05, video_fps=0):
     """sync | in_sync | unsure, as dexalign.decide, for a sound reference. The shares are
     of speech beyond chance: 0 is what a random timing gets."""
     if res.get('reason'):
         return 'unsure'
     clear = res['matched'] >= min_lift and (res['matched'] - res['rival']) >= min_margin
+    if not clear and fps_expected(res.get('scale', 1.0), video_fps):
+        # v5.10.598: the video's own frame rate backs the speed change: a smaller margin over the
+        # rival is enough, when the change clearly beats the subtitle's own timing
+        clear = (res['matched'] >= min_lift and (res['matched'] - res['rival']) >= 0.02
+                 and (res['matched'] - res['identity']) >= 0.10)
+        if clear:
+            res['fps_prior'] = True
     if not clear:
         return 'unsure'
     if res['max_move_ms'] < NOOP_MS or (res['matched'] - res['identity']) < min_gain:

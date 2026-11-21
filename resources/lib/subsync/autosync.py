@@ -471,7 +471,15 @@ def _by_sound(raw, name, sref):
     """(res, decision) of a subtitle against the film's sound (speechalign)."""
     from . import speechalign
     res = speechalign.align(dexalign.parse_intervals(raw, name), sref)
-    return res, speechalign.decide(res)
+    return res, speechalign.decide(res, video_fps=_video_fps())
+
+
+def _video_fps():
+    """v5.10.598: the playing video's frame rate as Kodi reads it (0 when unknown)."""
+    try:
+        return float(xbmc.getInfoLabel('Player.Process(VideoFPS)') or 0)
+    except Exception:
+        return 0.0
 
 
 _FPS_NAMES = ((25.0 / 23.976, '23.976 و25'), (25.0 / 24.0, '24 و25'), (24.0 / 23.976, '23.976 و24'))
@@ -684,7 +692,7 @@ def _analyze_sound(raw, name, key, ext, cached, marker, sref):
     _log('%s: sound ref (%d pieces, speech %d%%) | match %d%% rival %d%% own %d%% offset %dms scale %.6f '
          'align %.2fs -> %s' % (key[:8], len(sref['pieces']), round(sref['speech'] * 100), round(res['matched'] * 100),
                                 round(res['rival'] * 100), round(res['identity'] * 100), res['offset_ms'],
-                                res['scale'], time.time() - t1, decision))
+                                res['scale'], time.time() - t1, decision + (' (fps)' if res.get('fps_prior') else '')))
     if decision == 'in_sync':
         return {'status': 'in_sync', 'path': None, 'msg': _t('الترجمة مضبوطة على كلام الفيلم')}
     if decision != 'sync':
