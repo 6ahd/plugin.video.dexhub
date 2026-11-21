@@ -12,6 +12,12 @@ v5.10.557: when that ends with nothing playing (the tries are used up, the list
 has no other source, or the setting is off), the title's sources come back by
 themselves, with the ones that failed moved to the end and marked, instead of a
 notification over the title page. Setting: sources_back_on_fail (on by default).
+
+v5.10.596: before the next source starts, a small window counts three seconds
+with a Cancel button (the user, 21 Nov 2026: a disc image that did not open
+went on to the next ones and nothing could stop it). Cancel stops the tries for
+this title and brings its sources back; the setting is in Control Centre ›
+Playback sources › Try the next source.
 """
 import json
 import time
@@ -20,6 +26,7 @@ import xbmc
 import xbmcgui
 
 TRIES = 3
+WAIT = 3.0              # the countdown before the next source, with Cancel
 _STATE = 'dexhub.autonext'
 _FRESH = 600            # a title's tries count for ten minutes
 _TWICE = 20             # the same failure reported twice (error, then stop)
@@ -117,6 +124,8 @@ def try_next(ctx, reason=''):
     state = _state(home, item)
     if state.get('last') == current and time.time() - float(state.get('last_t') or 0) < _TWICE:
         return False
+    if state.get('stopped'):
+        return False            # the user stopped the tries for this title
     tried = list(state.get('tried') or [])
     if current not in tried:
         tried.append(current)
@@ -135,9 +144,13 @@ def try_next(ctx, reason=''):
         return False
     key = str(following['k'])
     home.setProperty(_STATE, json.dumps(state))
+    if not _countdown(len(tried), str(following.get('l') or '')):
+        state['stopped'] = True
+        xbmc.log('[DexHub] auto next source: stopped by the user after %d tried' % len(tried), xbmc.LOGINFO)
+        _give_up(home, item, ctx, state, 'وقّفنا تجربة المصادر')
+        return False
     xbmc.log('[DexHub] auto next source (%s): %s -> %s, try %d of %d' % (reason, current, key, len(tried), TRIES),
              xbmc.LOGINFO)
-    _notify('الرابط ما اشتغل، نجرب المصدر اللي بعده (%d/%d)', (len(tried), TRIES))
     from urllib.parse import urlencode
     query = {'action': 'play', 'stream_key': key}
     try:
@@ -149,6 +162,38 @@ def try_next(ctx, reason=''):
         pass
     xbmc.executebuiltin('RunPlugin(plugin://plugin.video.dexhub/?%s)' % urlencode(query))
     return True
+
+
+def _countdown(number, name):
+    """The next source in WAIT seconds, with Cancel: False when cancelled."""
+    try:
+        from .i18n import tr
+    except Exception:
+        tr = lambda text: text
+    head = tr('الرابط ما اشتغل')
+    line = tr('نجرب المصدر اللي بعده (%d/%d)') % (number, TRIES)
+    if name:
+        line += '\n[COLOR FF9A9AA8]%s[/COLOR]' % name[:90]
+    dialog = xbmcgui.DialogProgress()
+    try:
+        dialog.create(head, line)
+        start = time.time()
+        while True:
+            left = WAIT - (time.time() - start)
+            if left <= 0:
+                return True
+            if dialog.iscanceled():
+                return False
+            dialog.update(int(100 * (WAIT - left) / WAIT), line + '\n' + tr('يبدأ خلال %d ثواني، أو إلغاء للإيقاف') % (int(left) + 1))
+            xbmc.sleep(100)
+    except Exception as exc:
+        xbmc.log('[DexHub] auto next countdown: %s' % exc, xbmc.LOGWARNING)
+        return True
+    finally:
+        try:
+            dialog.close()
+        except Exception:
+            pass
 
 
 def _notify(text, args=None):

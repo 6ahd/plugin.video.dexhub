@@ -3964,3 +3964,12 @@ STRINGS.update({  # v5.10.595: the actor page (homeui/person_page.py)
     'توفي %s': 'Died %s',
     'ما لقينا صفحة هذا الشخص': 'This person\'s page could not be read',
 })
+
+
+STRINGS.update({  # v5.10.596: the next source, with Cancel (auto_next.py)
+    'نجرب المصدر اللي بعده (%d/%d)': 'Trying the next source (%d/%d)',
+    'يبدأ خلال %d ثواني، أو إلغاء للإيقاف': 'Starts in %d s, or Cancel to stop',
+    'وقّفنا تجربة المصادر': 'Stopped trying sources',
+    'جرّب المصدر اللي بعده': 'Try the next source',
+    'لو الرابط ما اشتغل يجرب لين 3 مصادر، مع نافذة إلغاء': 'When a link does not play, up to 3 more sources, with a Cancel window',
+})
