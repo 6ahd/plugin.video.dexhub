@@ -3973,3 +3973,19 @@ STRINGS.update({  # v5.10.596: the next source, with Cancel (auto_next.py)
     'جرّب المصدر اللي بعده': 'Try the next source',
     'لو الرابط ما اشتغل يجرب لين 3 مصادر، مع نافذة إلغاء': 'When a link does not play, up to 3 more sources, with a Cancel window',
 })
+
+STRINGS.update({  # v5.10.597: AutoSync on the film's sound (subsync/soundref.py)
+    'الترجمة مضبوطة على كلام الفيلم': "The subtitle is in time with the film's speech",
+    'ما قدرت أطابق الترجمة على كلام الفيلم بثقة، خليت الأصل': "Could not match the subtitle to the film's speech with confidence; kept the original",
+    '%s على كلام الفيلم': "%s, by the film's speech",
+    ' على كلام الفيلم': ", by the film's speech",
+    'ما فيه ترجمة داخل الفيديو، وصوته ما يفرّق الكلام عن غيره': "No subtitle inside the video, and its sound does not set speech apart",
+    'ما فيه ترجمة داخل الفيديو، وما قدرت أسمع صوته الحين': "No subtitle inside the video, and its sound could not be read now",
+    'الفيديو قصير وما فيه ترجمة داخله نأخذ منها التوقيت': 'The video is short and has no subtitle inside to time by',
+})
+
+
+STRINGS.update({  # v5.10.597: Control Centre
+    'المزامنة على كلام الفيلم': "Sync to the film's speech",
+    'لما ما فيه ترجمة داخل الفيديو نطابق على صوته': 'When the video has no subtitle inside, match to its sound',
+})

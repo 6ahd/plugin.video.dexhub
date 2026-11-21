@@ -304,6 +304,23 @@ def _http(url, payload=None, headers=None, method='GET', timeout=10):
 NO_PROFILE = 'Select a Nuvio profile before synchronizing'
 
 
+def _jwt_exp(access):
+    """v5.10.597: when the access token itself expires (its exp claim), 0 when unknown."""
+    try:
+        part = str(access or '').split('.')[1]
+        part += '=' * (-len(part) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(part.encode('ascii')).decode('utf-8'))
+        return int(claims.get('exp') or 0)
+    except Exception:
+        return 0
+
+
+def _expired_answer(exc):
+    """Nuvio said the access token is no good (expired, or signed for another session)."""
+    low = str(exc or '').lower()
+    return any(x in low for x in ('jwt expired', 'invalid jwt', 'token is expired', 'jwt', 'http 401', 'unauthorized'))
+
+
 def _jwt_sub(access):
     """v5.10.291: the Supabase account id (sub) carried inside the access token."""
     try:
@@ -670,13 +687,17 @@ class Nuvio:
         return True
 
     @staticmethod
-    def _ensure_token():
+    def _ensure_token(force=False):
         data = Nuvio.token()
         if not data.get('access_token'):
             raise RuntimeError('not linked to Nuvio')
         created = int(data.get('created_at') or 0)
         exp = int(data.get('expires_in') or 3600)
-        if (created + exp - 60) > int(time.time()):
+        # v5.10.597: the token's own exp claim decides, when it has one: a token kept
+        # from before (a restored copy, a profile switch) could look fresh by its
+        # saved created_at while Nuvio answered "JWT expired"
+        ends = _jwt_exp(data.get('access_token')) or (created + exp)
+        if not force and (ends - 60) > int(time.time()):
             return data
         # refresh
         if data.get('via_hub'):
@@ -725,12 +746,26 @@ class Nuvio:
         _scope.require_current()
         data = Nuvio._ensure_token()
         _scope.require_current()
-        result = _http(
-            NUVIO_URL + '/rest/v1/rpc/' + fn,
-            payload=params or {},
-            headers={'apikey': NUVIO_ANON,
-                     'Authorization': 'Bearer %s' % data.get('access_token')},
-            method='POST', timeout=timeout)
+
+        def ask(token):
+            return _http(
+                NUVIO_URL + '/rest/v1/rpc/' + fn,
+                payload=params or {},
+                headers={'apikey': NUVIO_ANON,
+                         'Authorization': 'Bearer %s' % token.get('access_token')},
+                method='POST', timeout=timeout)
+        try:
+            result = ask(data)
+        except RuntimeError as exc:
+            if not _expired_answer(exc):
+                raise
+            # v5.10.597: Nuvio says the token expired: renew it and ask once more
+            _log('nuvio %s: %s; the token is renewed and the request asked again' % (fn, exc))
+            fresh = Nuvio._ensure_token(force=True)
+            if fresh.get('access_token') == data.get('access_token'):
+                raise
+            _scope.require_current()
+            result = ask(fresh)
         _scope.require_current()
         return result
 
@@ -884,11 +919,22 @@ class Nuvio:
     def _rest_get(path, timeout=8):
         """Direct PostgREST table read — same access path Nuvio's own client uses."""
         data = Nuvio._ensure_token()
-        return _http(
-            NUVIO_URL + path,
-            headers={'apikey': NUVIO_ANON,
-                     'Authorization': 'Bearer %s' % data.get('access_token')},
-            method='GET', timeout=timeout)
+
+        def ask(token):
+            return _http(
+                NUVIO_URL + path,
+                headers={'apikey': NUVIO_ANON,
+                         'Authorization': 'Bearer %s' % token.get('access_token')},
+                method='GET', timeout=timeout)
+        try:
+            return ask(data)
+        except RuntimeError as exc:
+            if not _expired_answer(exc):
+                raise
+            fresh = Nuvio._ensure_token(force=True)       # v5.10.597
+            if fresh.get('access_token') == data.get('access_token'):
+                raise
+            return ask(fresh)
 
     @staticmethod
     def pull_addons_exact():

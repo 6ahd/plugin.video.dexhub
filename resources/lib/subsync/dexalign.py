@@ -95,6 +95,24 @@ def parse_starts(raw, name=''):
     return out
 
 
+def parse_intervals(raw, name=''):
+    """(start, end) of every line in ms, sorted (v5.10.597, for the sound reference)."""
+    kind = detect_kind(raw, name)
+    text, _enc, mode = _open(raw)
+    out = []
+    for m in _RX[(kind, mode)].finditer(text):
+        if kind == 'ass' and _as_str(m.group('kind')) != 'Dialogue':
+            continue
+        try:
+            a, b = _ts_ms(m.group('a')), _ts_ms(m.group('b'))
+        except Exception:
+            continue
+        if b > a:
+            out.append((a, min(b, a + 12000)))
+    out.sort()
+    return out
+
+
 def apply_transform(raw, scale, offset_ms, name=''):
     """يعيد كتابة التوقيتات فقط: جديد = قديم × scale + offset. كل شي ثاني يبقى كما هو."""
     kind = detect_kind(raw, name)

@@ -61,7 +61,9 @@ for _k, _v in _NAME2C.items():
 
 
 def _log(msg, level=None):
-    xbmc.log('[DexHub] subtitle watch: %s' % msg, xbmc.LOGINFO if level is None else level)
+    from . import host
+    xbmc.log(host.log_prefix('subtitle watch' if host.IS_DEXHUB else 'watch') + msg,
+             xbmc.LOGINFO if level is None else level)
 
 
 def kodi_lang(token):

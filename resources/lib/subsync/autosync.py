@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
-# Vendored from DexSubtitles 5.7.3 (service.subtitles.dexworld, AUTOSYNC_V573) for
-# Dex Hub 5.10.117: Dex Hub runs this AutoSync itself only while DexSubtitles
-# is not enabled (subsync/runner.py), so the two never sync the same subtitle.
+# One engine for Dex Hub and DexSubtitles (v5.10.597): these files are Dex Hub's
+# resources/lib/subsync, copied as they are into DexSubtitles by
+# tools/sync_dexsubtitles.py; host.py tells which add-on runs them. Dex Hub runs
+# AutoSync itself only while DexSubtitles is not enabled (subsync/runner.py), so
+# the two never sync the same subtitle.
 """DexSubtitles AutoSync (AUTOSYNC_V570 + V572 + V573): المزامنة على نفس الجهاز.
 
 الترجمة الأصلية تشتغل فوراً. خدمة الخلفية تقرأ فهرس Cues من نفس ملف التشغيل
@@ -35,14 +37,15 @@ except Exception:
 
 from . import dexcues
 from . import dexalign
+from . import host
 
-ADDON = xbmcaddon.Addon('plugin.video.dexhub')
+ADDON = host.addon()
 BASE_TEMP = xbmcvfs.translatePath("special://temp/")
 TEMP_DIR = os.path.join(BASE_TEMP, "dexworld_subs")
 # v5.10.590: Dex Hub's own queue, not DexSubtitles' autosync_queue: with both installed, DexSubtitles'
 # service took a disc's job from the shared folder and dropped it ("no readable MKV index"), and its
 # "handled" marks kept Dex Hub off the subtitles it had picked (LibreELEC PC, 20 Nov)
-QUEUE_DIR = os.path.join(TEMP_DIR, "dexhub_queue")
+QUEUE_DIR = os.path.join(TEMP_DIR, host.QUEUE_NAME)
 CACHE_DIR = os.path.join(TEMP_DIR, "autosync_cache")
 WATCH_DIR = os.path.join(TEMP_DIR, "autosync_watch")   # AUTOSYNC_V573: نسخ الترجمات اللي لقاها مراقب الترجمات
 for _d in (TEMP_DIR, QUEUE_DIR, CACHE_DIR, WATCH_DIR):
@@ -64,22 +67,18 @@ _REF_LOCK = threading.Lock()
 _REF_CACHE = {}
 _LAST_CLEAN = [0]
 _SESSION = requests.Session()
-_SESSION.headers.update({'User-Agent': 'DexHub-AutoSync/2 (Kodi)'})
+_SESSION.headers.update({'User-Agent': host.AGENT})
 _SUB_EXTS = ('.srt', '.ass', '.ssa', '.vtt')
 _VFS_PREFIXES = ('smb://', 'nfs://', 'special://', 'dav://', 'davs://', 'ftp://', 'sftp://', 'upnp://', 'file://')
 
 
 def _t(text):
     """Dex Hub's language (the messages are DexSubtitles' Arabic)."""
-    try:
-        from ..i18n import tr
-        return tr(text)
-    except Exception:
-        return text
+    return host.tr(text)
 
 
 def _log(msg, level=xbmc.LOGINFO):
-    xbmc.log('[DexHub] autosync: %s' % msg, level)
+    xbmc.log(host.log_prefix('autosync') + msg, level)
 
 
 def _setting_bool(key, default=False):
@@ -119,6 +118,9 @@ _REASONS = {
     # v5.10.581: a disc is timed from a REMUX of it in the sources list
     'disc_no_remux': 'القرص ما فيه فهرس توقيت، وما لقيت نسخة REMUX منه في المصادر نأخذ منها التوقيت',
     'disc_remux_unread': 'ما قدرت أقرأ توقيت نسخة REMUX من القرص في المصادر',
+    'sound_quiet': 'ما فيه ترجمة داخل الفيديو، وصوته ما يفرّق الكلام عن غيره',
+    'sound_unread': 'ما فيه ترجمة داخل الفيديو، وما قدرت أسمع صوته الحين',
+    'sound_short': 'الفيديو قصير وما فيه ترجمة داخله نأخذ منها التوقيت',
 }
 
 
@@ -136,7 +138,7 @@ def _notify(msg, ok):
     if not _setting_bool('autosync_notify' if ok else 'autosync_notify_skip', True):
         return
     try:
-        xbmcgui.Dialog().notification('Dex Hub AutoSync', msg,
+        xbmcgui.Dialog().notification('%s AutoSync' % host.NAME, msg,
                                       xbmcgui.NOTIFICATION_INFO if ok else xbmcgui.NOTIFICATION_WARNING, 3500)
     except Exception:
         pass
@@ -194,10 +196,15 @@ def _media_kind(url):
     low = (base or '').strip().lower()
     if not low:
         return ''
-    # v5.10.581: a Blu-ray disc is timed from a REMUX of it in the sources list (discref)
-    from . import discref
-    if discref.is_disc(base):
-        return 'disc'
+    # v5.10.581: a Blu-ray disc is timed from a REMUX of it in the sources list (discref,
+    # Dex Hub only: DexSubtitles leaves discs to Dex Hub)
+    try:
+        from . import discref
+        if discref.is_disc(base):
+            return 'disc' if host.IS_DEXHUB else ''
+    except ImportError:
+        if base.lower().startswith(('bluray://', 'udf://')):
+            return ''
     path = low.split('?', 1)[0]
     if path.endswith(('.m3u8', '.mpd', '.iso', '.strm')) or '/master.m3u8' in low:
         return ''
@@ -386,6 +393,87 @@ def _disc_reference(media_url):
     return out
 
 
+_SOUND_OK_TTL = 45 * 60
+_SOUND_FAIL_TTL = 15 * 60
+
+
+def _sound_media(media_url):
+    """What the sound reader can open: a link (HLS too), a local file, or a file Kodi reads
+    (SMB, NFS...). A disc image is timed from its REMUX instead (discref)."""
+    base, headers = _split_kodi_media_url(media_url)
+    low = (base or '').strip().lower()
+    if not low or low.split('?', 1)[0].endswith(('.iso', '.strm')):
+        return None
+    try:
+        from . import discref
+        if discref.is_disc(base):
+            return None
+    except Exception:
+        pass
+    if low.startswith(('http://', 'https://')):
+        return {'kind': 'http', 'path': base, 'headers': headers}
+    if low.startswith('file://'):
+        base = base[7:]
+        low = low[7:]
+    if low.startswith('/') or (len(low) > 2 and low[1] == ':' and low[2] in '\\/'):
+        return {'kind': 'file', 'path': base}
+    if low.startswith(_VFS_PREFIXES):
+        return {'kind': 'vfs', 'path': base}
+    return None
+
+
+def _sound_reference(media_url):
+    """v5.10.597: the film's own sound (soundref), when its index gave nothing to time by:
+    where people speak is where the lines should show. Kept per video, as the index is."""
+    if not _setting_bool('autosync_sound', True):
+        return {'ok': False, 'reason': 'sound_off'}
+    key = 'sound|' + media_url
+    now = time.time()
+    with _REF_LOCK:
+        hit = _REF_CACHE.get(key)
+        if hit and now < hit[0]:
+            return hit[1]
+    media = _sound_media(media_url)
+    if not media:
+        return {'ok': False, 'reason': 'sound_unsupported'}
+    from . import soundref
+    duration = 0.0
+    try:
+        player = xbmc.Player()
+        if player.isPlayingVideo() and player.getPlayingFile() == media_url:
+            duration = float(player.getTotalTime() or 0)
+    except Exception:
+        pass
+    try:
+        def moved_on():
+            playing = _current_media_url()
+            return bool(playing) and playing != media_url      # another video started
+        out = soundref.reference(media, duration, abort=moved_on)
+        _log('sound: %d pieces read in %.1fs (%s), speech %d%%' % (
+            len(out['pieces']), out['seconds'], out.get('layout', '?'), round(out['speech'] * 100)))
+    except soundref.SoundError as e:
+        out = {'ok': False, 'reason': e.reason, 'detail': e.detail}
+        _log('sound: %s %s' % (e.reason, e.detail or ''))
+    except Exception as e:
+        out = {'ok': False, 'reason': 'sound_unread', 'detail': str(e)[:120]}
+        _log('sound failed: %s' % e, xbmc.LOGWARNING)
+    if out.get('reason') == 'sound_cancelled':
+        return out
+    ttl = _SOUND_OK_TTL if out['ok'] else (24 * 3600 if out.get('reason') == 'sound_no_tool' else _SOUND_FAIL_TTL)
+    with _REF_LOCK:
+        _REF_CACHE[key] = (time.time() + ttl, out)
+        while len(_REF_CACHE) > 8:
+            _REF_CACHE.pop(min(_REF_CACHE, key=lambda k: _REF_CACHE[k][0]))
+    return out
+
+
+def _by_sound(raw, name, sref):
+    """(res, decision) of a subtitle against the film's sound (speechalign)."""
+    from . import speechalign
+    res = speechalign.align(dexalign.parse_intervals(raw, name), sref)
+    return res, speechalign.decide(res)
+
+
 _FPS_NAMES = ((25.0 / 23.976, '23.976 و25'), (25.0 / 24.0, '24 و25'), (24.0 / 23.976, '23.976 و24'))
 
 
@@ -547,9 +635,13 @@ def _analyze(raw, name, media_url, key, ext, use_marker=True):
         return {'status': 'few', 'path': None, 'msg': _t('الترجمة سطورها قليلة (%d) وما تكفي للمطابقة') % len(starts)}
     ref, from_mem = _reference(media_url)
     if not ref['ok']:
-        _log('%s: no reference (%s %s) %s, original kept' % (key[:8], ref.get('reason'), ref.get('detail') or '',
-                                                              '' if from_mem else dexcues.fmt_stats(ref.get('stats'))))
-        return {'status': 'noref', 'path': None, 'msg': _reason_text(ref.get('reason')) + _t('، خليت الترجمة كما هي')}
+        _log('%s: no reference (%s %s) %s' % (key[:8], ref.get('reason'), ref.get('detail') or '',
+                                              '' if from_mem else dexcues.fmt_stats(ref.get('stats'))))
+        sref = _sound_reference(media_url)
+        if sref.get('ok'):
+            return _analyze_sound(raw, name, key, ext, cached, marker, sref)
+        reason = sref.get('reason') if sref.get('reason') in _REASONS else ref.get('reason')
+        return {'status': 'noref', 'path': None, 'msg': _reason_text(reason) + _t('، خليت الترجمة كما هي')}
     tr = ref['track']
     t1 = time.time()
     res = dexalign.align(ref['starts'], starts)
@@ -583,6 +675,29 @@ def _analyze(raw, name, media_url, key, ext, use_marker=True):
     _write_bytes(cached, out)
     return {'status': 'synced', 'path': cached,
             'msg': _t('%s (تطابق %d%%)') % (_describe(res, starts), round(res['matched'] * 100))}
+
+
+def _analyze_sound(raw, name, key, ext, cached, marker, sref):
+    """v5.10.597: _analyze's end with the film's sound as the reference."""
+    t1 = time.time()
+    res, decision = _by_sound(raw, name, sref)
+    _log('%s: sound ref (%d pieces, speech %d%%) | match %d%% rival %d%% own %d%% offset %dms scale %.6f '
+         'align %.2fs -> %s' % (key[:8], len(sref['pieces']), round(sref['speech'] * 100), round(res['matched'] * 100),
+                                round(res['rival'] * 100), round(res['identity'] * 100), res['offset_ms'],
+                                res['scale'], time.time() - t1, decision))
+    if decision == 'in_sync':
+        return {'status': 'in_sync', 'path': None, 'msg': _t('الترجمة مضبوطة على كلام الفيلم')}
+    if decision != 'sync':
+        why = _t('ما قدرت أطابق الترجمة على كلام الفيلم بثقة، خليت الأصل')
+        try:
+            with io.open(marker, 'w', encoding='utf-8') as f:
+                f.write(why)
+        except Exception:
+            pass
+        return {'status': 'unsure', 'path': None, 'msg': why}
+    out = dexalign.apply_transform(raw, res['scale'], res['offset_ms'], name)
+    _write_bytes(cached, out)
+    return {'status': 'synced', 'path': cached, 'msg': _t('%s على كلام الفيلم') % _describe(res, None)}
 
 
 def _process_job(job, player):
@@ -661,7 +776,11 @@ def reference(media_url):
     if not _media_kind(media_url):
         return {'ok': False, 'reason': 'nomedia'}
     try:
-        return _reference(media_url)[0]
+        ref = _reference(media_url)[0]
+        if ref.get('ok'):
+            return ref
+        sref = _sound_reference(media_url)       # v5.10.597: the film's sound
+        return sref if sref.get('ok') else ref
     except Exception as e:
         _log('reference failed: %s' % e, xbmc.LOGWARNING)
         return {'ok': False, 'reason': 'error'}
@@ -694,15 +813,18 @@ def score(raw, name, media_url, ref=None):
         out['reason'] = ref.get('reason') or ''
         return out
     t1 = time.time()
-    res = dexalign.align(ref['starts'], starts)
-    decision = dexalign.decide(res, min_match=min_match())
-    res, decision = _segmented(res, ref['starts'], starts, decision, min_match())
+    if ref.get('via') == 'sound':
+        res, decision = _by_sound(raw, name, ref)
+    else:
+        res = dexalign.align(ref['starts'], starts)
+        decision = dexalign.decide(res, min_match=min_match())
+        res, decision = _segmented(res, ref['starts'], starts, decision, min_match())
     out.update({'matched': res['matched'], 'rival': res['rival'], 'hits': res['hits'],
                 'scale': res['scale'], 'offset_ms': res['offset_ms']})
     if decision == 'sync':
         out['status'] = 'synced'
         out['data'] = _transform(raw, res, name)
-        out['desc'] = _describe(res, starts)
+        out['desc'] = _describe(res, starts) + (_t(' على كلام الفيلم') if ref.get('via') == 'sound' else '')
     elif decision == 'in_sync':
         out['status'] = 'in_sync'
         out['data'] = raw
@@ -792,7 +914,7 @@ def last_live_pick_at():
 def notify_always(msg, ok):
     """تنبيه زر المزامنة: يطلع دايماً (المستخدم ضغط الزر بنفسه)، بغض النظر عن إعدادات التنبيه."""
     try:
-        xbmcgui.Dialog().notification('Dex Hub AutoSync', msg,
+        xbmcgui.Dialog().notification('%s AutoSync' % host.NAME, msg,
                                       xbmcgui.NOTIFICATION_INFO if ok else xbmcgui.NOTIFICATION_WARNING, 4000)
     except Exception:
         pass
