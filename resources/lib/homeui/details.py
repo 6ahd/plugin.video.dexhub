@@ -33,6 +33,7 @@ from . import rows as R
 from . import window as W
 
 BUTTONS, SEASONS, EPISODES, CAST, RELATED = 100, 300, 310, 400, 500
+STORY = 9095        # 5.10.600: the story, focusable over the buttons (tools/dexhub_plot_expand.py)
 ZONES = {BUTTONS: 'buttons', SEASONS: 'seasons', EPISODES: 'episodes', CAST: 'cast', RELATED: 'related'}
 SERIES_TYPES = ('series', 'episode', 'tv', 'show', 'anime', 'tvshow')
 TMDB_IMG = 'https://image.tmdb.org/t/p/'
@@ -1578,6 +1579,10 @@ class DetailsWindow(W._BaseWindow):
             if key:
                 self.player_action(key)
 
+    def reading(self):
+        """The story is open (Up from the buttons): the trailer leaves the text alone."""
+        return self.focus_id() == STORY
+
     def onAction(self, action):
         aid = action.getId()
         if aid in W.A_IGNORE:
@@ -1592,7 +1597,7 @@ class DetailsWindow(W._BaseWindow):
             return
         focus = self.focus_id()
         if aid in W.A_BACK:
-            if focus in (CAST, RELATED, EPISODES, SEASONS):
+            if focus in (CAST, RELATED, EPISODES, SEASONS, STORY):
                 self.focus(BUTTONS)
                 return
             self.close_window()

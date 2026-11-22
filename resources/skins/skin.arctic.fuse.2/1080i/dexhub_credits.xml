@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- End-of-episode panel (Dex Hub 5.10.217): written by gen_credits_xml.py -->
-<window>
+<window><!-- dh.plotexpand v1 -->
 	<defaultcontrol always="false">100</defaultcontrol>
 	<animation effect="fade" start="0" end="100" time="320" tween="sine">WindowOpen</animation>
 	<animation effect="fade" start="100" end="0" time="200">WindowClose</animation>
@@ -211,7 +211,7 @@
 				<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
 				<align>left</align>
 				<label>$INFO[Window.Property(cp.plot)]</label>
-			</control>
+			<autoscroll delay="2200" time="2600" repeat="6000">System.IdleTime(1)</autoscroll></control>
 		</control>
 		<control type="group">
 			<visible>String.IsEqual(Window.Property(cp.kind),movie)</visible>

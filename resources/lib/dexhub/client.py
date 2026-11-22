@@ -1231,9 +1231,14 @@ def _provider_health_record_failure(pid):
 
 
 
-def fetch_subtitles(provider, media_type, item_id, timeout_seconds=None):
+def fetch_subtitles(provider, media_type, item_id, timeout_seconds=None, release=''):
+    url = build_resource_url(provider, 'subtitles', media_type, item_id)
+    if release:
+        # RELEASE_HINT_V1 (5.10.600): DexWorld puts the subtitles of this release first; the
+        # file's name only (release_hint.py), never its link
+        url += ('&' if '?' in url else '?') + 'filename=' + quote(str(release), safe='')
     return get_json(
-        build_resource_url(provider, 'subtitles', media_type, item_id),
+        url,
         ttl_seconds=300,
         timeout_override=timeout_seconds,
         retry=False,

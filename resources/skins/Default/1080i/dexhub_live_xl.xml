@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!-- Dex Hub Live TV guide (5.10.133), 1477x831 canvas: written by gen_guide_xml.py --><window>
+<!-- Dex Hub Live TV guide (5.10.133), 1477x831 canvas: written by gen_guide_xml.py --><window><!-- dh.plotexpand v1 -->
 	<!-- dexhub 5.10.193: drawn anew by patch193.py --><defaultcontrol always="false">320</defaultcontrol>
 	<animation effect="fade" start="0" end="100" time="240">WindowOpen</animation>
 	<animation effect="fade" start="100" end="0" time="180">WindowClose</animation>
@@ -142,7 +142,7 @@
 							<font>font12</font>
 							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
 							<label>$INFO[Window.Property(g.p.plot)]</label>
-						</control>
+						<autoscroll delay="2200" time="2600" repeat="6000">System.IdleTime(1)</autoscroll></control>
 						<control type="label">
 							<left>483</left>
 							<top>245</top>
@@ -198,7 +198,7 @@
 							<font>font12</font>
 							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
 							<label>$INFO[Window.Property(g.p.plot)]</label>
-						</control>
+						<autoscroll delay="2200" time="2600" repeat="6000">System.IdleTime(1)</autoscroll></control>
 						<control type="label">
 							<left>483</left>
 							<top>245</top>
@@ -4121,7 +4121,7 @@
 							<font>font12</font>
 							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
 							<label>$INFO[Container(450).ListItem.Property(v.plot)]</label>
-						</control>
+						<autoscroll delay="2200" time="2600" repeat="6000">System.IdleTime(1)</autoscroll></control>
 					</control>
 					<control type="group">
 						<visible>!String.IsEmpty(Window.Property(g.panel))</visible>
@@ -4166,7 +4166,7 @@
 							<font>font12</font>
 							<textcolor>$INFO[Window(Home).Property(dexhub.tvos.theme.muted)]</textcolor>
 							<label>$INFO[Container(450).ListItem.Property(v.plot)]</label>
-						</control>
+						<autoscroll delay="2200" time="2600" repeat="6000">System.IdleTime(1)</autoscroll></control>
 					</control>
 					<control type="panel" id="450">
 						<left>0</left>

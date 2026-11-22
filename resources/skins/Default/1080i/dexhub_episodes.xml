@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The player's Episodes picker (Dex Hub 5.10.219): written by gen_episodes_xml.py -->
-<window>
+<window><!-- dh.plotexpand v1 -->
 	<defaultcontrol always="false">300</defaultcontrol>
 	<animation effect="fade" start="0" end="100" time="240">WindowOpen</animation>
 	<animation effect="fade" start="100" end="0" time="180">WindowClose</animation>
@@ -400,7 +400,7 @@
 				<align>left</align>
 				<label>$INFO[Container(300).ListItem.Property(plot)]</label>
 				<visible>Control.HasFocus(300)</visible>
-			</control>
+			<autoscroll delay="2200" time="2600" repeat="6000">System.IdleTime(1)</autoscroll></control>
 		</control>
 	</controls>
 </window>

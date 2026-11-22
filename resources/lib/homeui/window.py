@@ -1628,12 +1628,13 @@ class _BaseWindow(xbmcgui.WindowXML):
         self.prop('dh.trailer.cardactive', '1' if card_preview and showing else '')
         # v5.10.176: Apple TV's way: the trailer first takes most of the
         # screen (the hero's text and the rows slide down), then full screen
-        stage = (showing and not card_preview and not self._immersive and _now() - self._last_input > 2.5
+        stage = (showing and not card_preview and not self._immersive and not self.reading()
+                 and _now() - self._last_input > 2.5
                  and _now() - self._trailer_visible_at > 1.5)
         if stage != getattr(self, '_stage', False):
             self._stage = stage
             self.prop('dh.stage', '1' if stage else '')
-        if (showing and not card_preview and not self._immersive
+        if (showing and not card_preview and not self._immersive and not self.reading()
                 and self.immersive_on and _now() - self._last_input > self.immersive_after
                 and _now() - self._trailer_visible_at > self.immersive_after - 1):
             self.enter_immersive()
@@ -1641,6 +1642,10 @@ class _BaseWindow(xbmcgui.WindowXML):
 
     def tick_extra(self):
         pass
+
+    def reading(self):
+        """A page's story is open (the title page's, 5.10.600): the trailer keeps off the stage."""
+        return False
 
     def on_playback_returned(self):
         pass

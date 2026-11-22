@@ -413,11 +413,18 @@ def search_subtitles(ctx, initial_subtitles=None, max_results=12):
     ctx = _as_episode_ctx(ctx)
     media_type = 'series' if ctx.get('media_type') == 'series' else 'movie'
 
+    # RELEASE_HINT_V1 (5.10.600): the release playing, for DexWorld's order (release_hint.py)
+    try:
+        from .release_hint import hint as _release_hint, is_dexworld as _is_dexworld
+        release = _release_hint(ctx)
+    except Exception:
+        release, _is_dexworld = '', (lambda provider: False)
     cache_key = (
         media_type,
         str(ctx.get('canonical_id') or ''),
         str(ctx.get('season') or ''),
         str(ctx.get('episode') or ''),
+        release,
     )
     if cache_key[1]:
         cached = _result_cache_get(cache_key)
@@ -501,6 +508,7 @@ def search_subtitles(ctx, initial_subtitles=None, max_results=12):
                 data = fetch_subtitles(
                     provider, media_type, item_id,
                     timeout_seconds=max(1, min(remain, timeout)),
+                    release=release if _is_dexworld(provider) else '',
                 )
                 subs = data.get('subtitles') or data.get('subs') or [] if isinstance(data, dict) else (data if isinstance(data, list) else [])
                 if not subs:
