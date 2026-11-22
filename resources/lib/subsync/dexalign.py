@@ -452,3 +452,106 @@ def apply_segments(raw, scale, segments, name=''):
             return g('kind') + g('sep') + g('layer') + (b',' if mode == 'b' else ',') + fa + (b',' if mode == 'b' else ',') + fb + (b',' if mode == 'b' else ',')
         return fa + m.group('arrow') + fb
     return enc(rx.sub(rep, text))
+
+
+# ── per-line refinement (Dex Hub 5.10.601): after the main fit, each part of the film keeps its own
+# small correction, as a subtitle made by hand drifts a little here and there. Kept only when the
+# lines clearly land closer to the reference (more of them within 150 ms), never more than 1.2 s.
+_LINE_NEAR = 900        # a line's own match must be this close after the main fit
+_LINE_SPAN = 20         # neighbours on each side that decide a line's correction
+_LINE_MIN = 8           # matched neighbours needed for a local correction
+_LINE_MAX = 1200        # never move a line more than this beyond the main fit
+_LINE_TIGHT = 150
+_LINE_GAIN = 0.05       # share of lines that must move within 150 ms
+
+
+def _file_starts(raw, name=''):
+    """Every line's start in FILE order (the writer walks the file in that order)."""
+    kind = detect_kind(raw, name)
+    text, _enc, mode = _open(raw)
+    out = []
+    for m in _RX[(kind, mode)].finditer(text):
+        try:
+            out.append(_ts_ms(m.group('a')))
+        except Exception:
+            out.append(None)
+    return out
+
+
+def _mapper(scale, offset_ms=0, segments=None):
+    if segments:
+        firsts = [s[0] for s in segments]
+        offs = [s[1] for s in segments]
+        return lambda a: a * scale + offs[max(0, bisect.bisect_right(firsts, a) - 1)]
+    return lambda a: a * scale + offset_ms
+
+
+def refine_lines(ref_starts, raw, scale, offset_ms=0, segments=None, name=''):
+    """{'lines': [ms per line, file order], 'tight_before', 'tight_after'} or None."""
+    ref = _dedupe(ref_starts)
+    starts = _file_starts(raw, name)
+    if len(ref) < 30 or len(starts) < 30:
+        return None
+    fmap = _mapper(scale, offset_ms, segments)
+    mapped = [fmap(a) if a is not None else None for a in starts]
+
+    def near(x):
+        if x is None:
+            return None
+        k = bisect.bisect_left(ref, x)
+        best = None
+        for j in (k - 1, k):
+            if 0 <= j < len(ref):
+                d = ref[j] - x
+                if best is None or abs(d) < abs(best):
+                    best = d
+        return best
+    raw_d = [near(x) for x in mapped]
+    own = [d if d is not None and abs(d) <= _LINE_NEAR else None for d in raw_d]
+    local = []
+    for i in range(len(own)):
+        win = [d for d in own[max(0, i - _LINE_SPAN):i + _LINE_SPAN + 1] if d is not None]
+        m = _median(win) if len(win) >= _LINE_MIN else 0.0
+        local.append(int(round(max(-_LINE_MAX, min(_LINE_MAX, m)))))
+    n = float(sum(1 for x in mapped if x is not None))
+    before = sum(1 for d in raw_d if d is not None and abs(d) <= _LINE_TIGHT) / n
+    after = sum(1 for x, l in zip(mapped, local) if x is not None and
+                (lambda d: d is not None and abs(d) <= _LINE_TIGHT)(near(x + l))) / n
+    if after - before < _LINE_GAIN or not any(local):
+        return None
+    return {'lines': local, 'tight_before': before, 'tight_after': after}
+
+
+def apply_lines(raw, scale, local, offset_ms=0, segments=None, name=''):
+    """The main fit (offset or parts), then each line's own correction; lines keep their order."""
+    kind = detect_kind(raw, name)
+    text, enc, mode = _open(raw)
+    fmap = _mapper(scale, offset_ms, segments)
+    rx = _RX[(kind, mode)]
+    times = []
+    for i, m in enumerate(rx.finditer(text)):
+        a, b = _ts_ms(m.group('a')), _ts_ms(m.group('b'))
+        extra = local[i] if i < len(local) else 0
+        shift = fmap(a) - a + extra
+        na = max(0, int(round(a + shift)))
+        times.append([na, max(na + 1, int(round(b * scale + (shift - a * (scale - 1.0)) + 0)))])
+    if kind != 'ass':
+        for i in range(1, len(times)):
+            if times[i][0] <= times[i - 1][0]:
+                times[i][0] = times[i - 1][0] + 1
+                times[i][1] = max(times[i][1], times[i][0] + 1)
+            if times[i - 1][1] > times[i][0]:
+                times[i - 1][1] = max(times[i - 1][0] + 1, times[i][0] - 1)
+    it = iter(times)
+
+    def rep(m):
+        na, nb = next(it)
+        a0, b0 = m.group('a'), m.group('b')
+        fa, fb = _fmt_like(na, a0, kind), _fmt_like(nb, b0, kind)
+        if mode == 'b':
+            fa, fb = fa.encode('ascii'), fb.encode('ascii')
+        if kind == 'ass':
+            g = m.group
+            return g('kind') + g('sep') + g('layer') + (b',' if mode == 'b' else ',') + fa + (b',' if mode == 'b' else ',') + fb + (b',' if mode == 'b' else ',')
+        return fa + m.group('arrow') + fb
+    return enc(rx.sub(rep, text))

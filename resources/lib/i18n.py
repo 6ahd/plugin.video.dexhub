@@ -3996,5 +3996,7 @@ STRINGS.update({  # v5.10.597: AutoSync on the film's sound (subsync/soundref.py
 
 STRINGS.update({  # v5.10.597: Control Centre
     'المزامنة على كلام الفيلم': "Sync to the film's speech",
+    'المزامنة المشتركة': 'Shared sync',
+    'ترجمة انضبطت عند غيرك لنفس النسخة تنضبط عندك، وتشارك تصحيحاتك (التوقيت بس)': 'A subtitle timed on someone else\'s device for the same release is timed on yours, and yours are shared (timing only)',
     'لما ما فيه ترجمة داخل الفيديو نطابق على صوته': 'When the video has no subtitle inside, match to its sound',
 })

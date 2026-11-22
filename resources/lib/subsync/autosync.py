@@ -518,7 +518,27 @@ def _segmented(res, ref_starts, starts, decision, min_match):
     return res, 'sync'
 
 
+def _lines(res, ref_starts, raw, name):
+    """5.10.601: after the main fit, each part of the film its own small correction (per line),
+    kept only when the lines clearly land closer to the reference."""
+    try:
+        got = dexalign.refine_lines(ref_starts, raw, res['scale'], res.get('offset_ms', 0),
+                                    res.get('segments'), name)
+    except Exception as e:
+        _log('lines failed: %s' % e, xbmc.LOGWARNING)
+        return res
+    if not got:
+        return res
+    res = dict(res)
+    res['lines'] = got['lines']
+    _log('lines: within 150 ms %d%% -> %d%%' % (round(got['tight_before'] * 100), round(got['tight_after'] * 100)))
+    return res
+
+
 def _transform(raw, res, name):
+    if res.get('lines'):
+        return dexalign.apply_lines(raw, res['scale'], res['lines'], res.get('offset_ms', 0),
+                                    res.get('segments'), name)
     if res.get('segments'):
         return dexalign.apply_segments(raw, res['scale'], res['segments'], name)
     return dexalign.apply_transform(raw, res['scale'], res['offset_ms'], name)
@@ -636,6 +656,114 @@ def _job_notify(job, msg, kind):
     _notify(msg, kind != 'skip')
 
 
+_SHARE_VIDEO = {}
+
+
+def _share_video(media_url, ref_starts=None):
+    """SYNC_SHARE_V1 (5.10.601): this release's keys for DexWorld's shared sync (no link, no path)."""
+    try:
+        from . import syncshare
+        if not syncshare.enabled():
+            return None
+        hit = _SHARE_VIDEO.get(media_url)
+        if hit is None:
+            src = None
+            kind = _media_kind(media_url)
+            base, headers = _split_kodi_media_url(media_url)
+            if kind in ('http', 'vfs'):
+                budget = dexcues.Budget(dict(dexcues.DEFAULTS, timeout=8, max_requests=4))
+                try:
+                    src = (dexcues.HttpSource(base, budget, _SESSION, headers=headers, verify=False)
+                           if kind == 'http' else dexcues.VfsSource(base, budget, _vfs_open))
+                except Exception:
+                    src = None
+            info = xbmc.getInfoLabel
+            ids = {'imdb': info('VideoPlayer.IMDBNumber') or info('Window(Home).Property(dexhub.sub.imdb_id)'),
+                   's': info('VideoPlayer.Season') or info('Window(Home).Property(dexhub.sub.season)'),
+                   'e': info('VideoPlayer.Episode') or info('Window(Home).Property(dexhub.sub.episode)')}
+            if not str(ids['imdb']).startswith('tt'):
+                ids['imdb'] = ''
+            hit = syncshare.video_keys(src, None, info('Player.Filename') or base, ids)
+            try:
+                if src is not None:
+                    src.close()
+            except Exception:
+                pass
+            _SHARE_VIDEO.clear()
+            _SHARE_VIDEO[media_url] = hit
+        video = dict(hit)
+        cf = syncshare.cues_key(ref_starts) if ref_starts else ''
+        if cf:
+            video['cf'] = cf
+        return video if video else None
+    except Exception as e:
+        _log('sync share keys failed: %s' % e, xbmc.LOGWARNING)
+        return None
+
+
+def _share_report(media_url, raw, name, res, method, ref_starts=None):
+    try:
+        from . import syncshare
+        video = _share_video(media_url, ref_starts)
+        if not syncshare.is_arabic(raw):
+            return                                  # DexWorld shares Arabic fixes only
+        sh, tf = syncshare.sub_keys(raw, name)
+        if video and sh and tf:
+            syncshare.report(video, sh, tf, 'ar', syncshare.fix_of(res, method), name)
+        if video and ref_starts and method == 'embedded':
+            syncshare.send_timeline(video, ref_starts)
+    except Exception as e:
+        _log('sync share report failed: %s' % e, xbmc.LOGWARNING)
+
+
+def _english_reference(media_url):
+    """5.10.601: an English subtitle of this very release as the reference (engref), or None."""
+    try:
+        if not _setting_bool('autosync_english', True):
+            return None
+        from . import engref
+        video = _share_video(media_url) or {}
+        info = xbmc.getInfoLabel
+        ids = {'imdb': video.get('imdb') or info('VideoPlayer.IMDBNumber') or info('Window(Home).Property(dexhub.sub.imdb_id)'),
+               's': video.get('s') or info('VideoPlayer.Season') or info('Window(Home).Property(dexhub.sub.season)'),
+               'e': video.get('e') or info('VideoPlayer.Episode') or info('Window(Home).Property(dexhub.sub.episode)')}
+        got = engref.reference(media_url, ids, xbmc.getInfoLabel('Player.Filename'),
+                               video.get('oh') or '', video.get('size'), _video_fps())
+        if not got.get('ok'):
+            return None
+        return {'ok': True, 'starts': got['starts'], 'stats': None, 'via': 'english',
+                'track': {'number': '-', 'lang': 'en', 'codec': 'OpenSubtitles', 'cues': len(got['starts']),
+                          'estimated': 0, 'name': got['name'], 'kind': 'text'}}
+    except Exception as e:
+        _log('english reference failed: %s' % e, xbmc.LOGWARNING)
+        return None
+
+
+def _share_lookup(media_url, raw, name):
+    """What DexWorld knows of this Arabic subtitle on this release: (a fix it trusts, as AutoSync's
+    result, or None; the release's shared reference times, or [])."""
+    try:
+        from . import syncshare
+        if not syncshare.is_arabic(raw):
+            return None, []
+        video = _share_video(media_url)
+        sh, tf = syncshare.sub_keys(raw, name)
+        if not (video and sh and tf):
+            _log('sync share: not asked (release keys %s, subtitle keys %s)' % (
+                ','.join(sorted(video or {})) or 'none', 'yes' if sh and tf else 'no'))
+            return None, []
+        got = syncshare.lookup(video, [(sh, tf)])
+        fix = got['fixes'].get((sh, tf))
+        if fix:
+            return syncshare.res_of(fix), []
+        if got['timeline'] and got['release']:
+            return None, syncshare.get_timeline(got['release'])
+        return None, []
+    except Exception as e:
+        _log('sync share lookup failed: %s' % e, xbmc.LOGWARNING)
+        return None, []
+
+
 def _analyze(raw, name, media_url, key, ext, use_marker=True):
     """AUTOSYNC_V573: قلب المزامنة، مشترك بين الطابور والزر اليدوي.
     يرجّع dict: status = cached | known | few | noref | in_sync | unsure | synced، و path للنسخة المتزامنة، و msg."""
@@ -661,11 +789,29 @@ def _analyze(raw, name, media_url, key, ext, use_marker=True):
     if not ref['ok']:
         _log('%s: no reference (%s %s) %s' % (key[:8], ref.get('reason'), ref.get('detail') or '',
                                               '' if from_mem else dexcues.fmt_stats(ref.get('stats'))))
-        sref = _sound_reference(media_url)
-        if sref.get('ok'):
-            return _analyze_sound(raw, name, key, ext, cached, marker, sref)
-        reason = sref.get('reason') if sref.get('reason') in _REASONS else ref.get('reason')
-        return {'status': 'noref', 'path': None, 'msg': _reason_text(reason) + _t('، خليت الترجمة كما هي')}
+        shared, timeline = _share_lookup(media_url, raw, name)
+        if shared:
+            out = _transform(raw, shared, name)
+            _write_bytes(cached, out)
+            _log('%s: shared fix applied (%s)' % (key[:8], 'parts' if shared.get('segments') else '%+dms' % shared['offset_ms']))
+            return {'status': 'synced', 'path': cached,
+                    'msg': _t('طبّقت مزامنة مشتركة لنفس النسخة من DexWorld')}
+        if len(timeline) >= 30:
+            # the release's reference from another device that read the file: aligned as our own
+            ref = {'ok': True, 'starts': sorted(timeline), 'stats': None, 'via': 'shared',
+                   'track': {'number': '-', 'lang': 'shared', 'codec': 'DexWorld', 'cues': len(timeline),
+                             'estimated': 0, 'name': '', 'kind': 'text'}}
+            from_mem = True
+        else:
+            eng = _english_reference(media_url)
+            if eng:
+                ref, from_mem = eng, True
+        if not ref.get('ok'):
+            sref = _sound_reference(media_url)
+            if sref.get('ok'):
+                return _analyze_sound(raw, name, key, ext, cached, marker, sref, media_url)
+            reason = sref.get('reason') if sref.get('reason') in _REASONS else ref.get('reason')
+            return {'status': 'noref', 'path': None, 'msg': _reason_text(reason) + _t('، خليت الترجمة كما هي')}
     tr = ref['track']
     t1 = time.time()
     res = dexalign.align(ref['starts'], starts)
@@ -695,13 +841,17 @@ def _analyze(raw, name, media_url, key, ext, use_marker=True):
         except Exception:
             pass
         return {'status': 'in_sync' if decision == 'in_sync' else 'unsure', 'path': None, 'msg': why}
+    res = _lines(res, ref['starts'], raw, name)
     out = _transform(raw, res, name)
     _write_bytes(cached, out)
+    via = ref.get('via')
+    _share_report(media_url, raw, name, res, {'shared': 'server', 'english': 'english'}.get(via, 'embedded'),
+                  None if via in ('shared', 'english') else ref['starts'])
     return {'status': 'synced', 'path': cached,
             'msg': _t('%s (تطابق %d%%)') % (_describe(res, starts), round(res['matched'] * 100))}
 
 
-def _analyze_sound(raw, name, key, ext, cached, marker, sref):
+def _analyze_sound(raw, name, key, ext, cached, marker, sref, media_url=''):
     """v5.10.597: _analyze's end with the film's sound as the reference."""
     t1 = time.time()
     res, decision = _by_sound(raw, name, sref)
@@ -721,6 +871,8 @@ def _analyze_sound(raw, name, key, ext, cached, marker, sref):
         return {'status': 'unsure', 'path': None, 'msg': why}
     out = dexalign.apply_transform(raw, res['scale'], res['offset_ms'], name)
     _write_bytes(cached, out)
+    if media_url:
+        _share_report(media_url, raw, name, res, 'speech')
     return {'status': 'synced', 'path': cached, 'msg': _t('%s على كلام الفيلم') % _describe(res, None)}
 
 
@@ -803,6 +955,9 @@ def reference(media_url):
         ref = _reference(media_url)[0]
         if ref.get('ok'):
             return ref
+        eng = _english_reference(media_url)      # 5.10.601: an English subtitle of this release
+        if eng:
+            return eng
         sref = _sound_reference(media_url)       # v5.10.597: the film's sound
         return sref if sref.get('ok') else ref
     except Exception as e:
@@ -847,7 +1002,13 @@ def score(raw, name, media_url, ref=None):
                 'scale': res['scale'], 'offset_ms': res['offset_ms']})
     if decision == 'sync':
         out['status'] = 'synced'
+        if ref.get('via') != 'sound':
+            res = _lines(res, ref['starts'], raw, name)
         out['data'] = _transform(raw, res, name)
+        if media_url:
+            _share_report(media_url, raw, name, res,
+                          {'sound': 'speech', 'english': 'english', 'shared': 'server'}.get(ref.get('via'), 'embedded'),
+                          None if ref.get('via') in ('sound', 'english', 'shared') else ref.get('starts'))
         out['desc'] = _describe(res, starts) + (_t(' على كلام الفيلم') if ref.get('via') == 'sound' else '')
     elif decision == 'in_sync':
         out['status'] = 'in_sync'
