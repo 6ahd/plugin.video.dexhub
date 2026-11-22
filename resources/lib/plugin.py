@@ -13561,6 +13561,38 @@ def _home_owns_click():
         return False
 
 
+def _series_title_page(params):
+    """5.10.602: a series opened from a listing of Kodi's own (the add-on's menus in Estuary,
+    Arctic Fuse's folders, a Kodi widget) opens Dex Hub's title page, as it does from the Home,
+    instead of Kodi's plain season list and its information page (the user, 22 Nov 2026: people
+    still saw them). The classic path (dh_home=1, "Classic" title page) keeps the season list."""
+    try:
+        media = str(params.get('media_type') or '').strip().lower()
+        if not _is_series_media(media) or params.get('dh_home') == '1' or _default_click_mode() != 'dexhub':
+            return False
+        from .skinui.title_route import mode as _title_mode
+        if _title_mode() != 'dexhub':
+            return False
+        canonical = params.get('canonical_id') or ''
+        tmdb, imdb = params.get('tmdb_id') or '', params.get('imdb_id') or ''
+        if not (canonical or tmdb or imdb):
+            return False
+        q = [('action', 'skin_title'), ('m', 'series'), ('id', canonical or imdb or ('tmdb:%s' % tmdb)),
+             ('title', params.get('title') or '')]
+        q += [(k, v) for k, v in (('tmdb', tmdb), ('imdb', imdb), ('src', params.get('source_provider_id') or '')) if v]
+        try:
+            if HANDLE >= 0:
+                xbmcplugin.endOfDirectory(HANDLE, succeeded=False, updateListing=False, cacheToDisc=False)
+        except Exception:
+            pass
+        xbmc.executebuiltin('RunPlugin("plugin://%s/?%s")' % (ADDON_ID, urlencode(q)))
+        xbmc.log('[DexHub] series %s: its title page instead of the season list' % canonical, xbmc.LOGINFO)
+        return True
+    except Exception as exc:
+        xbmc.log('[DexHub] series title page failed: %s' % exc, xbmc.LOGWARNING)
+        return False
+
+
 def _default_click_mode():
     if _home_owns_click():
         return 'dexhub'
@@ -28577,6 +28609,8 @@ def _dispatch(params=None):
     if action == 'series_meta':
         return series_meta(params.get('media_type', 'series'), params.get('canonical_id', ''), params.get('title', ''), source_provider_id=params.get('source_provider_id', ''))
     if action == 'item_open':
+        if _series_title_page(params):
+            return None
         return item_open(params.get('media_type', 'movie'), params.get('canonical_id', ''), params.get('title', ''), tmdb_id=params.get('tmdb_id', ''), imdb_id=params.get('imdb_id', ''), tvdb_id=params.get('tvdb_id', ''), source_provider_id=params.get('source_provider_id', ''))
     if action == 'play_item':
         return play_item(media_type=params.get('media_type', 'movie'), canonical_id=params.get('canonical_id', ''), title=params.get('title', ''), video_id=params.get('video_id', ''), season=params.get('season', ''), episode=params.get('episode', ''), resume_seconds=params.get('resume_seconds', '0'), resume_percent=params.get('resume_percent', ''), preferred_provider_name=params.get('preferred_provider_name', ''), tmdb_id=params.get('tmdb_id', ''), imdb_id=params.get('imdb_id', ''), tvdb_id=params.get('tvdb_id', ''), source_provider_id=params.get('source_provider_id', ''), source_mode=params.get('source_mode', ''), ui_poster=params.get('ui_poster', ''), ui_fanart=params.get('ui_fanart', ''), ui_clearlogo=params.get('ui_clearlogo', ''), ui_seed_key=params.get('ui_seed_key', ''))
