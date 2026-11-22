@@ -216,6 +216,15 @@ class HeroFocus(threading.Thread):
             art_colour.stop_following()
             return
         info = xbmc.getInfoLabel
+        if xbmc.getCondVisibility('Window.IsVisible(1195)'):
+            # v5.10.598: the alerts panel is open over the page: "the item under the cursor" is
+            # one of the panel's now (a match, a notice), and the page lost its colour to grey;
+            # the page keeps its own colour until the panel closes
+            return
+        if xbmc.getCondVisibility('Window.IsVisible(movieinformation)') and not guistate.video_info_up():
+            # v5.10.598: another dialog sits over the title page for a moment (Kodi's loading
+            # dialog when the theme music starts, a notice): the page keeps its colour
+            return
         if guistate.video_info_up():
             prefix, extra = 'ListItem.', ''
         elif guistate.active() == guistate.window_id(self.fold_window):

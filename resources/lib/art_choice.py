@@ -113,6 +113,11 @@ def apply_item(item, art):
             art['landscape'] = choice['fanart']
     if choice.get('clearlogo'):
         art['clearlogo'] = choice['clearlogo']
+    try:
+        from .art_rotate import with_clean_poster
+        art = with_clean_poster(art, ids.get('tmdb') or '', media)
+    except Exception:
+        pass
     return art
 
 

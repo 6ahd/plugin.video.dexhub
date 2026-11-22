@@ -134,6 +134,102 @@ def align(intervals, sref, max_offset_ms=MAX_OFFSET_MS):
     return res
 
 
+# ── v5.10.598: a subtitle made for a version with other cuts (an ad break out, a scene more) ──
+# One offset fits no such film. Each piece of sound is asked alone where the subtitle fits it;
+# when the pieces fall into a few runs, each run agreeing with itself and the runs together
+# clearly beating the one offset, the subtitle moves run by run. The cut itself lies somewhere
+# between two pieces that were not listened to: it is put in the longest silence between lines
+# there, where an ad break or a scene change most likely was.
+PIECE_MIN_FRAMES = 240             # 12 s of subtitle in a piece before it has a say
+PIECE_MIN_LIFT = 0.15
+PIECE_MIN_MARGIN = 0.06
+RUN_TOL_MS = 500
+SEG_MIN_GAIN = 0.04                # a single piece after a cut is a sixth of what was heard
+
+
+def align_pieces(intervals, sref, single=None, max_offset_ms=MAX_OFFSET_MS):
+    """{'segments': [(first line ms, offset ms)...], 'scale', 'matched', 'rival', 'identity', 'via'}
+    or None when the pieces do not tell of cuts clearly (the single result stands)."""
+    single = single or {}
+    fm = sref['frame_ms']
+    pieces = sref['pieces']
+    if len(pieces) < 3 or len(intervals) < 30:
+        return None
+    scale = single.get('scale', 1.0) if abs(single.get('scale', 1.0) - 1.0) > 0.0005 else 1.0
+    R = int(max_offset_ms // fm)
+    mask = _mask(intervals, scale, fm)
+    wins = _windows(mask, pieces, R)
+    votes = []                                   # (piece index, offset frames, excess, frames) of the sure ones
+    for n, win in enumerate(wins):
+        one = [win]
+        scored = sorted(((_score(one, R, off)[0], off) for off in range(-R, R + 1, 2)), reverse=True)
+        ex, off = scored[0]
+        for o in (off - 1, off + 1):
+            if abs(o) <= R:
+                e2 = _score(one, R, o)[0]
+                if e2 > ex:
+                    ex, off = e2, o
+        tot = _score(one, R, off)[2]
+        if tot < PIECE_MIN_FRAMES:
+            continue
+        rival = next((e for e, o in scored if abs(o - off) > RIVAL_MS // fm), 0.0)
+        if ex / tot >= PIECE_MIN_LIFT and (ex - rival) / tot >= PIECE_MIN_MARGIN:
+            votes.append((n, off, ex, tot, (ex - rival) / tot))
+    if len(votes) < 3:
+        return None
+    runs = []                                    # [[votes of one offset]...] in the film's order
+    for v in votes:
+        if runs and abs(v[1] - runs[-1][-1][1]) * fm <= RUN_TOL_MS:
+            runs[-1].append(v)
+        else:
+            runs.append([v])
+    if not 2 <= len(runs) <= 4:
+        return None
+    for run in runs:
+        # a run of one piece must be very sure of itself
+        if len(run) < 2 and (run[0][2] / run[0][3] < PIECE_MIN_LIFT * 2 or run[0][4] < PIECE_MIN_MARGIN * 2.5):
+            return None
+    offs = [sorted(v[1] for v in run)[len(run) // 2] for run in runs]
+    if any(abs(offs[k + 1] - offs[k]) * fm < 1500 for k in range(len(offs) - 1)):
+        return None
+    # every piece scored with its run's offset (a piece with no say goes with the run before it)
+    owner, k = [], 0
+    for n in range(len(pieces)):
+        while k + 1 < len(runs) and n >= runs[k + 1][0][0]:
+            k += 1
+        owner.append(k)
+    excess = tot = 0.0
+    for n, win in enumerate(wins):
+        ex, _h, t = _score([win], R, offs[owner[n]])
+        excess += ex
+        tot += t
+    _e, _h, own_tot = _score(wins, R, 0)
+    norm = float(max(own_tot, tot, 1))
+    matched = excess / norm
+    if matched < single.get('matched', 0.0) + SEG_MIN_GAIN or matched < PIECE_MIN_LIFT:
+        return None
+    # where each run starts in the subtitle's own time: the longest silence between the last
+    # piece of one run and the first piece of the next
+    starts = sorted(a * scale for a, _b in intervals)
+    segments = [(int(round(starts[0] / scale)), int(offs[0] * fm))]
+    for k in range(1, len(runs)):
+        last_piece = pieces[runs[k - 1][-1][0]]
+        next_piece = pieces[runs[k][0][0]]
+        lo = (last_piece[0] + last_piece[1]) * fm - offs[k - 1] * fm      # film time -> subtitle time
+        hi = next_piece[0] * fm - offs[k] * fm
+        inside = [x for x in starts if lo <= x <= hi]
+        if len(inside) >= 2:
+            gap, at = max((inside[i + 1] - inside[i], inside[i + 1]) for i in range(len(inside) - 1))
+        elif inside:
+            at = inside[0]
+        else:
+            at = (lo + hi) / 2.0
+        segments.append((int(round(at / scale)), int(offs[k] * fm)))
+    return {'segments': segments, 'scale': scale, 'matched': matched, 'rival': single.get('matched', 0.0),
+            'identity': single.get('identity', 0.0), 'offset_ms': int(offs[0] * fm), 'via': 'sound',
+            'pieces_sure': len(votes), 'total': len(intervals)}
+
+
 FPS_STEPS = (23.976, 24.0, 25.0)
 
 

@@ -264,6 +264,15 @@ class _BaseWindow(xbmcgui.WindowXML):
 
     def prop(self, key, value):
         value = '' if value is None else str(value)
+        if key == 'dh.empty':
+            # v5.10.598: an empty page has a picture; its reason (below) may change which one
+            self.prop('dh.empty.art', 'empty_none.png' if value else '')
+        elif key == 'dh.empty.reason' and value:
+            low = value.lower()
+            if re.search(r'401|403|حساب|اربط|سجّل|sign|account|link', low):
+                self.prop('dh.empty.art', 'empty_signin.png')
+            elif re.search(r'بطيء|اتصال|الشبكة|ما رد|timeout|slow|network|connect|offline|unreachable', low):
+                self.prop('dh.empty.art', 'empty_offline.png')
         with self._lock:
             if self._props.get(key) == value:
                 return

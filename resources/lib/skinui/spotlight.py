@@ -636,7 +636,8 @@ class Spotlight(threading.Thread):
             if not stream and director.is_current(token) and self.key == target['key'] and not self.halt.is_set():
                 # v5.10.374: said in a normal log (it was DEBUG only and an
                 # error was swallowed): no trailer, and why (no network, none found)
-                C.log('trailer: none for "%s" (%s)' % (target['title'], why or 'no trailer found'), xbmc.LOGINFO)
+                why = why or getattr(self._resolver_for(settings), 'last_error', '') or 'no trailer found'
+                C.log('trailer: none for "%s" (%s)' % (target['title'], why), xbmc.LOGINFO)
             if (not stream or self.halt.is_set() or self.monitor.abortRequested()
                     or not director.is_current(token) or self.key != target['key']):
                 C.log('trailer for "%s" dropped (stream %s, current %s, key %s)' % (

@@ -256,6 +256,7 @@ class TrailerResolver(object):
                 self._mem[mkey] = (time.monotonic() + 600, None)
             return None
         result = None
+        self.last_error = ''
         try:
             for attempt in range(2):
                 try:
@@ -273,6 +274,8 @@ class TrailerResolver(object):
                     time.sleep(_RETRY_WAIT)
         except Exception as exc:
             self._log('trailer lookup failed for %s: %s' % (imdb_id, exc))
+            # v5.10.598: why, for the log line of the page (a refusal is not "no trailer")
+            self.last_error = 'IMDb refused this network (403)' if '403' in str(exc) else str(exc)[:80]
             # Network trouble is not "no trailer": keep no negative entry.
             with self._lock:
                 self._mem[mkey] = (time.monotonic() + 60, None)

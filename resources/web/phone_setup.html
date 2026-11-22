@@ -1036,9 +1036,10 @@ const SVC_META={
  silo:{sub:'مكتبة السيرفر',ph:'silo.example.com'},
  iptv:{sub:'قنوات وVOD',ph:'http://server:8080'},
  nas:{sub:'أفلامك ومسلسلاتك في الشبكة',ph:'192.168.1.20'},
- debrid:{sub:'Real-Debrid وAllDebrid وTorBox وPremiumize',note:'يطلع باركود على التلفزيون، تمسحه وتوافق، والتورنت يشتغل من حسابك.'}
+ debrid:{sub:'Real-Debrid وAllDebrid وTorBox وPremiumize',note:'يطلع باركود على التلفزيون، تمسحه وتوافق، والتورنت يشتغل من حسابك.'},
+ dexworld:{sub:'الترجمة وترجمة الذكاء الاصطناعي',note:'الكود من صفحة اشتراكك في DexWorld. يوصل لترجمة Dex Hub ولـ DexSubtitles بعد.'}
 };
-const ORDER=['nuvio','trakt','stremio','plex','emby','jellyfin','silo','iptv','nas','debrid'];
+const ORDER=['nuvio','trakt','stremio','dexworld','plex','emby','jellyfin','silo','iptv','nas','debrid'];
 let chosen=new Set();
 function loadChosen(){try{const v=JSON.parse(localStorage.getItem('dexhub.phone.chosen')||'null');if(Array.isArray(v))return new Set(v)}catch(e){}return null}
 function saveChosen(){try{localStorage.setItem('dexhub.phone.chosen',JSON.stringify([...chosen]))}catch(e){}}
@@ -1140,6 +1141,8 @@ function cardBody(id){
       ${m.note?`<p class="hint">${m.note}</p>`:''}
       <button class="btn g s" data-act="tv" data-id="${id}" type="button">أو اربطه من التلفزيون</button>`;
   }
+  if(s.kind==='key') return `<div class="field"><label for="k-${id}">كود الاشتراك</label><input class="inp ltr" id="k-${id}" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+    <div class="row"><button class="btn p" data-act="key" data-id="${id}" type="button">احفظ</button></div>${m.note?`<p class="hint">${m.note}</p>`:''}`;
   if(s.kind==='silo') return siloBody(id,s,m);
   if(s.kind==='tv') return `<div class="row"><button class="btn p" data-act="tv" data-id="${id}" type="button">افتحه على التلفزيون</button></div>`;
   const server=(s.kind==='server'||id==='iptv');
@@ -1263,6 +1266,12 @@ document.addEventListener('click',async e=>{
     const j=await post('login',{service:id,server:ad?ad.value.trim():'',user:u.value.trim(),password:pw.value},true);
     if(j.ok&&id==='silo'){siloProfiles(j);return}
     if(j.ok){toast(svc(id).name+' انربط ✓');await refresh()}else{a.disabled=false;a.textContent='اربط'}
+    return}
+  if(a.dataset.act==='key'){
+    const k=$('#k-'+id);k.value=cleanText(k.value);if(!k.value){k.focus();toast('اكتب الكود أول');return}
+    a.disabled=true;a.textContent='يتحقق…';
+    const j=await post('login',{service:id,password:k.value},true);
+    if(j.ok){toast(svc(id).name+' انحفظ ✓');await refresh()}else{a.disabled=false;a.textContent='احفظ'}
     return}
   if(a.dataset.act==='unlink'){const j=await post('logout',{service:id},true);if(j.ok){toast('انفك الربط');await refresh()}}
 });

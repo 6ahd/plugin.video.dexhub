@@ -95,6 +95,8 @@ SERVICES = (
     ('iptv', 'IPTV', 'tv', 'iptv_menu', ''),
     ('nas', 'NAS / SMB', 'server', 'nas_setup', ''),
     ('debrid', 'Debrid', 'tv', 'debrid_setup', ''),
+    # v5.10.598: the DexWorld subscription code, one field (translation, AI and DexSubtitles)
+    ('dexworld', 'DexWorld', 'key', '', ''),
 )
 _BY_KEY = dict((row[0], row) for row in SERVICES)
 
@@ -182,6 +184,12 @@ def _ui_options():
 
 
 def _linked(key):
+    if key == 'dexworld':
+        try:
+            from . import ai_search
+            return bool((ai_search.services().get('dexworld') or {}).get('key'))
+        except Exception:
+            return False
     if key == 'debrid':
         try:
             from .debrid import accounts
@@ -843,6 +851,8 @@ class Session(object):
             return self._silo_profiles(pending)
         elif service == 'iptv':
             self._iptv(server, user, password)
+        elif service == 'dexworld':
+            self._dexworld(password)
         elif service == 'nas':
             # v5.10.543: a NAS or one of its folders; its files are read on the TV
             from . import nas_sources
@@ -853,6 +863,28 @@ class Session(object):
             raise ValueError('unknown service')
         _log('%s linked from the phone' % service)
         return {'ok': True}
+
+    def _dexworld(self, code):
+        """v5.10.598: the code checked with DexWorld's status, then kept everywhere it is used."""
+        import urllib.request
+        import urllib.error
+        code = ''.join(str(code or '').split())
+        if not code or len(code) > 200:
+            raise ValueError(_tr('اكتب كود الاشتراك'))
+        url = 'https://dexworld.cc/subtitles/stremio/status/%s' % code
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': 'DexHub'}), timeout=15) as r:
+                answer = json.loads(r.read().decode('utf-8', 'replace') or '{}')
+        except urllib.error.HTTPError as exc:
+            answer = {'code': 'bad_code' if exc.code in (401, 403, 404) else 'offline'}
+        except Exception:
+            answer = {'code': 'offline'}            # kept anyway: DexWorld out of reach for now
+        if answer.get('code') in ('bad_code',):
+            raise ValueError(_tr('الكود مو صحيح'))
+        from . import ai_search
+        ai_search.set_dexworld_code(code)
+        if answer.get('code') == 'expired':
+            raise ValueError(_tr('انحفظ، بس الاشتراك منتهي'))
 
     def _iptv(self, server, user, password):
         """An Xtream account (or an M3U playlist when no account is given)."""
@@ -964,6 +996,9 @@ class Session(object):
         elif service in ('nuvio', 'stremio'):
             from .routes import accounts
             accounts.logout(service, _tr)
+        elif service == 'dexworld':
+            from . import ai_search
+            ai_search.forget_dexworld()
         else:
             raise ValueError('unknown service')
         _republish('accounts')

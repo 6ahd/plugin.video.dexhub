@@ -470,8 +470,24 @@ def _sound_reference(media_url):
 def _by_sound(raw, name, sref):
     """(res, decision) of a subtitle against the film's sound (speechalign)."""
     from . import speechalign
-    res = speechalign.align(dexalign.parse_intervals(raw, name), sref)
-    return res, speechalign.decide(res, video_fps=_video_fps())
+    intervals = dexalign.parse_intervals(raw, name)
+    res = speechalign.align(intervals, sref)
+    decision = speechalign.decide(res, video_fps=_video_fps())
+    if not res.get('reason'):
+        # v5.10.598: a subtitle for a version with other cuts? Asked whatever the one offset says:
+        # with a single cut the larger part wins "clearly" and the rest of the film stays wrong
+        # (the pieces must beat the one offset by a margin, or it stands)
+        try:
+            seg = speechalign.align_pieces(intervals, sref, res)
+        except Exception as e:
+            _log('sound segments failed: %s' % e, xbmc.LOGWARNING)
+            seg = None
+        if seg:
+            res = dict(res)
+            res.update(seg)
+            _log('sound segments: %s' % ', '.join('%ds %+dms' % (a // 1000, off) for a, off in seg['segments']))
+            decision = 'sync'
+    return res, decision
 
 
 def _video_fps():

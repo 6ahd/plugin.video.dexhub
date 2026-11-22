@@ -835,6 +835,13 @@ if __name__ == '__main__':
 
     threading.Thread(target=_nas_worker, name='DexHub-nas', daemon=True).start()
 
+    try:
+        # v5.10.598: a title's theme music on its page (off by default)
+        from resources.lib import theme_music
+        theme_music.start_service()
+    except Exception as exc:
+        xbmc.log('[DexHub] theme music worker: %s' % exc, xbmc.LOGWARNING)
+
     def _usenet_worker():
         # v5.10.558: the service owns the Usenet engine's process (usenet_engine)
         try:

@@ -216,13 +216,18 @@ def line_starts(src, number, options=None):
     return sorted(int(round(p[0] * meta['scale'] / 1e6)) for p in points)
 
 
-def read_track(src, number, options=None, workers=6, progress=None, cancelled=None, want=None):
+def read_track(src, number, options=None, workers=6, progress=None, cancelled=None, want=None, raw=False,
+               window=None):
     """{'ok', 'lines': [(start ms, end ms, text)], 'codec', 'lang', 'name'} of one embedded text track.
 
     ``src`` is a dexcues source; HTTP sources are read by ``workers`` threads, each with its
     own source from ``src.clone()`` when it has one. ``progress(done, total)`` and
     ``cancelled()`` are optional; ``want(start ms)`` reads only the lines it says yes to
-    (5.10.588: the minutes around the viewer first)."""
+    (5.10.588: the minutes around the viewer first).
+
+    v5.10.598: ``raw`` gives each block's bytes instead of its text (an image track too: PGS,
+    read by pgsocr.py), ``window`` the bytes first read for a block (bigger for images); a block
+    longer than that is read again whole."""
     o = dict(dexcues.DEFAULTS)
     o.update(options or {})
     try:
@@ -230,8 +235,9 @@ def read_track(src, number, options=None, workers=6, progress=None, cancelled=No
         track = next((t for t in meta['tracks'] if t['number'] == number), None)
         if not track or track['type'] != dexcues.TYPE_SUBTITLE:
             raise CuesError('no_such_track', str(number))
-        if not dexcues.is_text_codec(track['codec']):
+        if not raw and not dexcues.is_text_codec(track['codec']):
             raise CuesError('image_track', track['codec'])
+        win = int(window or WINDOW)
         encodings, points = _index(src, meta, number, o)
         if not points:
             raise CuesError('no_cues_for_track')
@@ -245,9 +251,10 @@ def read_track(src, number, options=None, workers=6, progress=None, cancelled=No
                 return {'ok': True, 'lines': [], 'codec': track['codec'], 'lang': dexcues.track_lang(track),
                         'name': track['name'], 'stats': src.budget.stats()}
         b = src.budget             # one small read per line, on top of the index, and room for retries
-        b.max_requests = b.requests + len(points) + len(points) // 3 + 16
-        b.max_bytes = b.bytes + len(points) * (WINDOW + 16) + dexcues.MB
-        b.deadline = time.time() + max(90.0, len(points) * 0.25)
+        # an image's block may need a second, whole read
+        b.max_requests = b.requests + len(points) * (2 if raw else 1) + len(points) // 3 + 16
+        b.max_bytes = b.bytes + len(points) * (win + 16 + (64 * 1024 if raw else 0)) + dexcues.MB
+        b.deadline = time.time() + (max(120.0, len(points) * 0.6) if raw else max(90.0, len(points) * 0.25))
         seg_start = _segment_start(meta['head'])
         scale = meta['scale']
         lines = [None] * len(points)
@@ -256,12 +263,12 @@ def read_track(src, number, options=None, workers=6, progress=None, cancelled=No
         lock = threading.Lock()
         order = list(range(len(points)))
 
-        def fetch(source, at):
+        def fetch(source, at, size=None):
             # v5.10.590: a server that drops a read now and then (box .54's Emby stream refused one
             # of a few hundred, which stopped the whole translation) gets it asked again
             for attempt in range(len(RETRY_WAIT) + 1):
                 try:
-                    return source.read(at, WINDOW + 8, True)
+                    return source.read(at, (size or win) + 8, True)
                 except CuesError as e:
                     if e.reason not in RETRY_REASONS or attempt == len(RETRY_WAIT) or \
                             (cancelled and cancelled()) or b.left() <= RETRY_WAIT[attempt]:
@@ -286,10 +293,19 @@ def read_track(src, number, options=None, workers=6, progress=None, cancelled=No
                 got = _block_payload(data, size_len, len(data), number)
                 if got:
                     break
+            if not got and raw:
+                # an image's block can be longer than the first read: its size, then the whole of it
+                size = _block_size(data, number)
+                if size and size + 64 > len(data):
+                    data = fetch(source, at, min(size + 64, 4 * dexcues.MB))
+                    for size_len in range(1, 9):
+                        got = _block_payload(data, size_len, len(data), number)
+                        if got:
+                            break
             if not got:
                 raise CuesError('block_not_found', str(t))
             payload, dur = got
-            text = _line_text(_decode(payload, encodings), track['codec'])
+            text = _decode(payload, encodings) if raw else _line_text(_decode(payload, encodings), track['codec'])
             ticks = dur if dur else d
             start = int(round(t * scale / 1e6))
             end = start + (int(round(ticks * scale / 1e6)) if ticks else 0)
@@ -347,6 +363,29 @@ def read_track(src, number, options=None, workers=6, progress=None, cancelled=No
     except Exception as e:
         return {'ok': False, 'reason': 'error', 'detail': '%s: %s' % (e.__class__.__name__, e),
                 'stats': src.budget.stats()}
+
+
+def _block_size(data, number):
+    """Where the track's block (group) that starts ``data`` past the cluster ID ends, when it
+    ends past the bytes read: 0 when there is none. Each offset for the cluster's size field is
+    tried; a SimpleBlock must be the track's own (a stray byte can look like one)."""
+    for size_len in range(1, 9):
+        h = read_header(data, size_len, len(data) + 64 * dexcues.MB)
+        if not h or h[2] is None or h[2] <= len(data) or h[2] > 16 * dexcues.MB:
+            continue
+        if h[0] == ID_SIMPLEBLOCK:
+            s = h[1]
+            tl = dexcues._vint_len(data[s]) if s < len(data) else 0
+            if not tl or s + tl > len(data):
+                continue
+            track = data[s] & (0xFF >> tl)
+            for i in range(1, tl):
+                track = (track << 8) | data[s + i]
+            if track == number:
+                return h[2]
+        elif h[0] == ID_BLOCKGROUP:
+            return h[2]
+    return 0
 
 
 def _segment_start(head):

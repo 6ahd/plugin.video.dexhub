@@ -25,6 +25,8 @@ import xbmc
 import xbmcgui
 
 KEYS, MODES, RECENT, FILTERS, SORT, TOP, GRID, ROWS = 100, 101, 110, 200, 210, 300, 400, 9000
+FIELD = 150         # v5.10.598: a real text field over the box: a computer's keyboard types in it
+BOARD_KEYS, BOARD_GO, BOARD_MODES = 120, 121, 122     # v5.10.598: the glass keyboard (OK on the box)
 MEDIA = 'special://home/addons/plugin.video.dexhub/resources/media/'
 PAGE_TONE = 'FF07080D'      # the page before a title gives it its colour
 SERVER_LOGOS = {'plex': 'provider_plex.png', 'emby': 'provider_emby.png', 'jellyfin': 'provider_jellyfin.png',
@@ -64,7 +66,36 @@ PAUSE = 0.7             # seconds without a key before the search starts
 MIN_CHARS = 2
 ROW_LIMIT = 40
 A_LEFT, A_RIGHT, A_UP, A_DOWN = 1, 2, 3, 4
+A_SELECT = 7
 A_BACK = {9, 10, 92, 216, 247, 257, 275, 61448, 61467}
+# v5.10.598: a keyboard's key, as Kodi names it to a page whose text field has not the focus
+# (KEY_VKEY | its key; Ctrl, Alt, Cmd, Meta held = a shortcut, not typing)
+_KEY_VKEY, _SHORTCUT, _SHIFT = 0xF000, 0x00010000 | 0x00040000 | 0x00080000 | 0x00100000 | 0x00200000, 0x00020000
+
+
+def _typed(action):
+    """The letter or digit a computer keyboard's key types, '' for anything else (a remote's
+    button, an arrow, a shortcut)."""
+    try:
+        code = action.getButtonCode()
+    except Exception:
+        return ''
+    if not code or code & _SHORTCUT or (code & 0xFF00) != _KEY_VKEY:
+        return ''
+    vk = code & 0xFF
+    if 0x41 <= vk <= 0x5A:
+        return chr(vk) if code & _SHIFT else chr(vk + 32)
+    if 0x30 <= vk <= 0x39 and not code & _SHIFT:
+        return chr(vk)
+    return ''
+
+
+def _computer():
+    """A Mac or a Windows PC: a keyboard is at hand, so the text field is where the page starts."""
+    try:
+        return bool(xbmc.getCondVisibility('System.Platform.OSX | System.Platform.Windows'))
+    except Exception:
+        return False
 
 
 def _arabic(text):
@@ -89,6 +120,11 @@ class SearchWindow(xbmcgui.WindowXMLDialog):
         self._inited = False
         self._closing = False
         self._spot_tile = None
+        self._field_watch = False
+        self._field_last = False
+        self._home = KEYS
+        self._last_action = (0, 0.0)       # (action id, when): what opened Kodi's keyboard window
+        self._board = False                 # the glass keyboard is open
 
     # ------------------------------------------------------------ helpers
     def tr(self, text):
@@ -115,9 +151,11 @@ class SearchWindow(xbmcgui.WindowXMLDialog):
         if self._inited:
             return
         self._inited = True
+        self._keyboard_guard()
         self.setProperty('tone', PAGE_TONE)
         self.setProperty('t.search', self.tr('البحث'))
         self.setProperty('t.hint', self.tr('اكتب اسم فيلم أو مسلسل أو قناة أو شخص'))
+        self.setProperty('t.go', self.tr('بحث'))
         self.setProperty('t.recent', self.tr('عمليات بحث سابقة'))
         for key, title in ROW_TITLES:
             self.setProperty('row.%s' % key, self.tr(title))
@@ -128,7 +166,10 @@ class SearchWindow(xbmcgui.WindowXMLDialog):
         self._fill_recent()
         self._fill_filters()
         self._show_query()
-        self.setFocusId(KEYS)
+        # v5.10.598: on a computer the page starts in the text field: type at once, in any
+        # language (down goes to the keys); a TV box starts on the keys, for the remote
+        self._home = FIELD if _computer() else KEYS
+        self.setFocusId(self._home)
         if len(self.query.strip()) >= MIN_CHARS:
             self._search_now()
         else:
@@ -146,27 +187,52 @@ class SearchWindow(xbmcgui.WindowXMLDialog):
         ctrl = self._ctrl(MODES)
         if ctrl is None:
             return
-        items = []
-        for key, text in MODE_LABELS:
-            li = xbmcgui.ListItem(text)
-            li.setProperty('key', key)
-            li.setProperty('on', '1' if key == self.mode else '')
-            items.append(li)
-        ctrl.reset()
-        ctrl.addItems(items)
-        ctrl.selectItem([k for k, _t in MODE_LABELS].index(self.mode))
+        for cid in (MODES, BOARD_MODES):
+            ctrl = self._ctrl(cid)
+            if ctrl is None:
+                continue
+            items = []
+            for key, text in MODE_LABELS:
+                li = xbmcgui.ListItem(text)
+                li.setProperty('key', key)
+                li.setProperty('on', '1' if key == self.mode else '')
+                items.append(li)
+            ctrl.reset()
+            ctrl.addItems(items)
+            ctrl.selectItem([k for k, _t in MODE_LABELS].index(self.mode))
 
     def _fill_keys(self):
-        ctrl = self._ctrl(KEYS)
-        if ctrl is None:
-            return
-        items = []
-        for key in LAYOUTS[self.mode]:
-            li = xbmcgui.ListItem(key)
-            li.setProperty('key', key)
-            items.append(li)
-        ctrl.reset()
-        ctrl.addItems(items)
+        for cid in (KEYS, BOARD_KEYS):
+            ctrl = self._ctrl(cid)
+            if ctrl is None:
+                continue
+            items = []
+            for key in LAYOUTS[self.mode]:
+                li = xbmcgui.ListItem(key)
+                li.setProperty('key', key)
+                items.append(li)
+            ctrl.reset()
+            ctrl.addItems(items)
+
+    # ------------------------------------------------- the glass keyboard (v5.10.598)
+    def _open_board(self):
+        """OK on the search box: a glass keyboard over the search's first page. What is typed
+        shows at its top; the search runs when it closes (Search or Back)."""
+        if self._timer is not None:
+            self._timer.cancel()
+        self._board = True
+        self._empty_state()
+        self.setProperty('kbd', '1')
+        xbmc.sleep(60)
+        self.setFocusId(BOARD_KEYS)
+
+    def _close_board(self, search=True):
+        self._board = False
+        self.clearProperty('kbd')
+        xbmc.sleep(60)
+        self.setFocusId(self._home)
+        if search and len(self.query.strip()) >= MIN_CHARS:
+            self._search_now()
 
     def _press(self, key):
         if key == SPACE:
@@ -179,10 +245,46 @@ class SearchWindow(xbmcgui.WindowXMLDialog):
         else:
             self.query += key
         self._show_query()
-        self._schedule()
+        if not self._board:                 # the glass keyboard searches when it closes
+            self._schedule()
 
     def _show_query(self):
         self.setProperty('q', self.query)
+        if self.getFocusId() != FIELD:          # the field follows the keys (not while it is typed in)
+            field = self._ctrl(FIELD)
+            if field is not None:
+                try:
+                    if field.getText() != self.query:
+                        field.setText(self.query)
+                except Exception:
+                    pass
+
+    def _watch_field(self):
+        """v5.10.598: while the text field has the focus, what is typed in it (a computer's
+        keyboard, or Kodi's keyboard window after a click) is the query, searched after the same
+        short pause as the keys."""
+        if self._field_watch:
+            return
+        self._field_watch = True
+
+        def run():
+            monitor = xbmc.Monitor()
+            try:
+                while not self._closing and self.getFocusId() == FIELD and not monitor.abortRequested():
+                    field = self._ctrl(FIELD)
+                    try:
+                        text = field.getText() if field is not None else self.query
+                    except Exception:
+                        text = self.query
+                    if text != self.query:
+                        self.query = text
+                        self.setProperty('q', self.query)
+                        self._schedule()
+                    monitor.waitForAbort(0.05)
+            finally:
+                self._field_watch = False
+
+        threading.Thread(target=run, name='DexHubSearchField', daemon=True).start()
 
     def _schedule(self):
         if self._timer is not None:
@@ -232,6 +334,20 @@ class SearchWindow(xbmcgui.WindowXMLDialog):
             li.setProperty('key', key)
             li.setProperty('on', '1' if key == self.filter else '')
             items.append(li)
+        keys = [li.getProperty('key') for li in items]
+        if getattr(self, '_filter_keys', None) == keys and ctrl.size() == len(items):
+            # the same filters: their numbers and the lit one change in place (no rebuild, the
+            # cursor stays where it is)
+            for n, li in enumerate(items):
+                try:
+                    have = ctrl.getListItem(n)
+                    have.setLabel2(li.getLabel2())
+                    have.setProperty('on', li.getProperty('on'))
+                except Exception:
+                    break
+            else:
+                return
+        self._filter_keys = keys
         pos = ctrl.getSelectedPosition() if ctrl.size() else 0
         self.setProperty('fw', str(len(items) * 204 + 4))     # the bar's glass track
         ctrl.reset()
@@ -326,7 +442,9 @@ class SearchWindow(xbmcgui.WindowXMLDialog):
         self._gen += 1
         self.groups = {}
         self.setProperty('has', '')
+        self.setProperty('loading', '')
         self.setProperty('status', '')
+        self.setProperty('art', 'empty_search.png')
         self.setProperty('msg', self.tr('ابحث في كل مصادرك'))
         self.setProperty('msg2', self.tr('TMDb وإضافاتك وسيرفراتك واشتراك IPTV وقنواته معاً، والنتائج تطلع وأنت تكتب.'))
         self._fill_filters()
@@ -339,6 +457,10 @@ class SearchWindow(xbmcgui.WindowXMLDialog):
             self._gen += 1
             gen = self._gen
         self.setProperty('status', self.tr('جاري البحث…'))
+        if not self.getProperty('has'):
+            # v5.10.598: placeholder cards while the first results are on their way
+            self.setProperty('msg', '')
+            self.setProperty('loading', '1')
         self.groups = {}
         found = {'rows': [], 'channels': [], 'collections': []}
 
@@ -401,8 +523,10 @@ class SearchWindow(xbmcgui.WindowXMLDialog):
             publish()
             total = sum(len(t) for k, t in self.groups.items() if k != 'top')
             self.setProperty('status', self.tr('%d نتيجة') % total if total else '')
+            self.setProperty('loading', '')
             self._log('"%s": %s, %d result(s), %.0f ms' % (query, status, total, (time.monotonic() - started) * 1000))
             if not total:
+                self.setProperty('art', 'empty_none.png')
                 self.setProperty('msg', self.tr('لا توجد نتائج لـ "%s"') % query)
                 self.setProperty('msg2', self.tr('جرّب كلمة أخرى، أو اسم العمل بالإنجليزية.'))
 
@@ -485,6 +609,8 @@ class SearchWindow(xbmcgui.WindowXMLDialog):
         has = any(groups.get(k) for k in groups)
         self.setProperty('has', '1' if has else '')
         if has:
+            self.setProperty('loading', '')
+        if has:
             self.setProperty('msg', '')
         self._fill_filters(self._counts())
         if self.filter != 'all':
@@ -531,6 +657,17 @@ class SearchWindow(xbmcgui.WindowXMLDialog):
         ctrl = self._ctrl(cid)
         if ctrl is None:
             return
+        # v5.10.598: results arrive source by source, and every arrival filled every row, the top
+        # results, the filters and the grid again from nothing (the cursor jumped, pictures blinked,
+        # and a filter chosen meanwhile lagged); a list whose tiles are the same is left alone
+        sign = (shape,) + tuple((t.get('path') or t.get('title') or '', t.get('poster') or '', t.get('badge') or '',
+                                 t.get('clearlogo') or t.get('logo') or '', t.get('fanart') or '', t.get('srv') or '')
+                                for t in tiles)
+        signs = self.__dict__.setdefault('_signs', {})
+        if signs.get(cid) == sign and ctrl.size() == len(tiles):
+            self.tiles[cid] = list(tiles)
+            return
+        signs[cid] = sign
         keep = ctrl.getSelectedPosition() if self.getFocusId() == cid else 0
         items = [self._item(tile, shape) for tile in tiles]
         self.tiles[cid] = list(tiles)
@@ -740,6 +877,23 @@ class SearchWindow(xbmcgui.WindowXMLDialog):
 
     # ------------------------------------------------------------- events
     def onClick(self, cid):
+        if cid == BOARD_KEYS:
+            ctrl = self._ctrl(BOARD_KEYS)
+            item = ctrl.getSelectedItem() if ctrl is not None else None
+            if item is not None:
+                self._press(item.getProperty('key'))
+            return
+        if cid == BOARD_GO:
+            self._close_board(True)
+            return
+        if cid == BOARD_MODES:
+            ctrl = self._ctrl(BOARD_MODES)
+            item = ctrl.getSelectedItem() if ctrl is not None else None
+            if item is not None and item.getProperty('key') != self.mode:
+                self.mode = item.getProperty('key')
+                self._fill_modes()
+                self._fill_keys()
+            return
         if cid == KEYS:
             ctrl = self._ctrl(KEYS)
             item = ctrl.getSelectedItem() if ctrl is not None else None
@@ -810,9 +964,39 @@ class SearchWindow(xbmcgui.WindowXMLDialog):
 
     def onAction(self, action):
         aid = action.getId()
+        self._last_action = (aid, time.time())
+        if self._board:
+            if aid in (9, 61448):                     # a keyboard's backspace deletes a letter
+                self._press(DELETE)
+                return
+            if aid in A_BACK:                         # Back: the search with what was typed
+                self._close_board(True)
+                return
+            ch = _typed(action)
+            if ch:
+                self._press(ch)
+            return
+        if self.getFocusId() != FIELD and self.collection is None:
+            # v5.10.598: typing on a computer's keyboard anywhere on the page goes to the search
+            # (before, Kodi gave the letters other jobs unless the text field had the focus)
+            ch = _typed(action)
+            if ch:
+                self.query += ch
+                self._show_query()
+                self.setFocusId(FIELD)
+                self._schedule()
+                return
         if aid in A_BACK:
             if self.collection is not None:
                 self._close_collection()
+                return
+            if self.getFocusId() == FIELD:
+                if aid in (9, 61448):               # backspace: the field deletes a letter
+                    return
+                if getattr(self, '_home', KEYS) != FIELD:
+                    self.setFocusId(KEYS)           # Esc / Back: out of the field to the keys
+                    return
+                self.close()                        # a computer: the field is the start, Esc leaves
                 return
             if self.getFocusId() != KEYS and self.getFocusId() not in (MODES, RECENT):
                 # the keyboard is hidden while the results have the focus (the
@@ -821,14 +1005,67 @@ class SearchWindow(xbmcgui.WindowXMLDialog):
                 if self.getFocusId() not in (FILTERS, SORT):
                     self.setFocusId(FILTERS)
                     xbmc.sleep(180)
-                self.setFocusId(KEYS)
+                self.setFocusId(getattr(self, '_home', KEYS))
                 return
             self.close()
             return
         if aid in (A_LEFT, A_RIGHT, A_UP, A_DOWN):
             self._focus_info()
 
+    def _keyboard_guard(self):
+        """A click or Enter on the text field opens Kodi's keyboard window over the page (a
+        light screen, and a title chosen behind it opened under it). Kodi opens it on the click
+        itself, before the page hears the field took the focus, and nothing on this page asks
+        for that window, so whenever it shows over the search itself (not over a title page
+        opened from it) it closes at once and the field takes the typing."""
+        def run():
+            monitor = xbmc.Monitor()
+            while not self._closing and not monitor.abortRequested():
+                # the box's own keyboard window: this page is open and its box has the focus
+                # (a title page under the search, opened before it, no longer stops it)
+                if xbmc.getCondVisibility('Window.IsVisible(virtualkeyboard)') and self.getFocusId() == FIELD:
+                    xbmc.executebuiltin('Dialog.Close(virtualkeyboard,true)')
+                    xbmc.sleep(80)
+                    # v5.10.598: OK, Enter or a click on the box opens this page's glass keyboard
+                    # (a computer's keyboard types without it: the page starts in the box)
+                    self._open_board()
+                # v5.10.598: a film started from a title page opened over the search played
+                # behind both pages (this page is a dialog, and Kodi shows no video window over
+                # one): once a real video plays (not a trailer preview), the title page and the
+                # search give way to it
+                home = xbmcgui.Window(10000)
+                preview = (home.getProperty('dexhub.trailer.active') or home.getProperty('dhs.preview.opening')
+                           or home.getProperty('dhs.trailer') or home.getProperty('dhs.trailer.visible')
+                           or home.getProperty('dhs.trailer.status') in ('loading', 'playing'))
+                if xbmc.getCondVisibility('Player.HasVideo') and not preview:
+                    playing['n'] += 1
+                    if playing['n'] >= 20:              # 0.4 s of it: not a flicker
+                        self._log('a video plays: the search closes for it')
+                        xbmc.executebuiltin('Dialog.Close(movieinformation,true)')
+                        self.next = None
+                        self._closing = True
+                        self.close()
+                        xbmc.sleep(200)
+                        if not xbmc.getCondVisibility('Window.IsActive(fullscreenvideo)'):
+                            xbmc.executebuiltin('ActivateWindow(fullscreenvideo)')
+                        return
+                else:
+                    playing['n'] = 0
+                monitor.waitForAbort(0.02)
+        playing = {'n': 0}
+        threading.Thread(target=run, name='DexHubSearchKbGuard', daemon=True).start()
+
     def onFocus(self, cid):
+        self._field_last = cid == FIELD
+        if cid == FIELD:
+            field = self._ctrl(FIELD)
+            try:
+                if field is not None and field.getText() != self.query:
+                    field.setText(self.query)
+            except Exception:
+                pass
+            self._watch_field()
+            return
         self._focus_info()
 
     def _remember(self):

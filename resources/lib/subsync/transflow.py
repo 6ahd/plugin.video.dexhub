@@ -30,7 +30,16 @@ NAMES = {'ar': ('العربية', 'Arabic'), 'en': ('الإنجليزية', 'Eng
          'zh': ('الصينية', 'Chinese'), 'nl': ('الهولندية', 'Dutch'), 'he': ('العبرية', 'Hebrew')}
 
 _WHY = {
-    'image_track': ('هذي ترجمة صور (PGS)، ما فيها نص يترجم', 'This is an image subtitle (PGS), it has no text to translate'),
+    'image_track': ('هذي ترجمة صور من نوع ما ينقرا (VobSub أو DVB)، اختر ترجمة ثانية',
+                    'This image subtitle (VobSub or DVB) cannot be read; choose another subtitle'),
+    # v5.10.598: a PGS subtitle is read as text on the device (Control Centre › AI › Translate from PGS)
+    'pgs_off': ('هذي ترجمة صور (PGS) و«ترجمة من PGS» مطفية في مركز التحكم › الذكاء الاصطناعي',
+                'This is an image subtitle (PGS) and Translate from PGS is off in Control Centre › AI'),
+    'no_vision': ('ترجمة الصور (PGS) تحتاج كود DexWorld، أو خدمة AI تقرا الصور مثل Gemini أو OpenRouter: من مركز التحكم › الذكاء الاصطناعي',
+                  'An image subtitle (PGS) needs a DexWorld code, or an AI service that reads pictures such as Gemini or OpenRouter: Control Centre › AI'),
+    'ocr_failed': ('خدمة AI ما قرت صور الترجمة، جرّب بعد شوي', 'The AI service did not read the subtitle pictures; try again shortly'),
+    'ocr_unreadable': ('خدمة AI ردت بشي غير النص، جرّب نموذج ثاني لـ«ترجمة من PGS»',
+                       'The AI service did not answer with the text; try another model for Translate from PGS'),
     'no_cues_for_track': ('فهرس الملف ما يقول وين سطور هذي الترجمة', "The file's index doesn't say where this subtitle's lines are"),
     'no_positions': ('فهرس الملف ما يقول وين سطور هذي الترجمة', "The file's index doesn't say where this subtitle's lines are"),
     'no_cues': ('الملف ما فيه فهرس، فما أقدر أقرأ ترجمته المدمجة', 'The file has no index, so its embedded subtitle cannot be read'),
@@ -239,12 +248,231 @@ def _embedded_track(media, subs, s, lang):
     if track is None:
         raise _Stop('no_cues_for_track')
     if not track['text']:
-        raise _Stop('image_track')
+        from . import pgsocr
+        if not pgsocr.is_pgs(track['codec']):
+            raise _Stop('image_track')
+        if not _ai().feature('ocr').get('on'):
+            raise _Stop('pgs_off')
+        cfg = _ai().vision_config()
+        dexworld = bool(dexworld_cfg()) and bool(pgsocr.server_lang(_lang2(track['lang'] or lang or 'eng')))
+        if not cfg and not dexworld:
+            raise _Stop('no_vision')
+        # v5.10.598: DexWorld reads it first (spec 1d); ``image`` is the device's own reader, if any
+        track = dict(track, image=cfg or {}, dexworld=dexworld)
     return track
+
+
+def _same_timing(en_text, ar_text):
+    """True when a translation keeps its source's lines: most of its lines start with one of the
+    source's (DexWorld's reading and its Arabic must be the same subtitle)."""
+    from . import subtrans
+    en = subtrans.parse(en_text or '')
+    ar = subtrans.parse(ar_text or '')
+    if not en or not ar or abs(len(ar) - len(en)) > max(5, len(en) // 10):
+        return False
+    starts = sorted(x[0] for x in en)
+    import bisect
+    near = 0
+    for a, _b, _t in ar:
+        i = bisect.bisect_left(starts, a - 60)
+        if i < len(starts) and abs(starts[i] - a) <= 60:
+            near += 1
+    return near >= 0.8 * len(ar)
+
+
+def _lang2(code):
+    """eng -> en; '' for a language dexwatch does not know (its lang2 says 'ar' then)."""
+    table = getattr(dexwatch, '_C2A', {})
+    return table.get(dexwatch.norm_lang(code), '')
+
+
+def _pgs_server(media, track, bar, stop, target):
+    """v5.10.598 (spec 1d): a PGS subtitle read and translated by DexWorld, kept there for every
+    subscriber with the same release. The device takes the pictures out of the file once a release
+    (never a link), sends them, and waits. ('ar', srt text) when DexWorld translated it into Arabic,
+    ('en', lines) when it read it only (no AI in the account: the device translates), or None when
+    DexWorld cannot (the device reads the pictures itself then)."""
+    import hashlib
+    import shutil
+    import urllib.parse
+    import xbmcvfs
+    from . import dextext, pgsocr, subtrans
+    cfg = dexworld_cfg()
+    context = _title_context()
+    if not cfg or not context.get('imdb_id'):
+        _log('translate: PGS: %s, the device reads it' % ('no DexWorld code' if not cfg else 'no IMDb id for this title'))
+        return None
+    lang = pgsocr.server_lang(_lang2(track['lang'] or 'eng'))
+    parts = urllib.parse.urlsplit(cfg['base'])
+    title = {'imdbId': context['imdb_id']}
+    if context.get('type') == 'series' and context.get('season') and context.get('episode'):
+        title.update(season=int(context['season']), episode=int(context['episode']))
+    dw = pgsocr.DexWorld('%s://%s' % (parts.scheme, parts.netloc), cfg['key'], title)
+    base = autosync._split_kodi_media_url(media)[0]
+    fp_file = os.path.join(folder(), 'pgsfp-%s.json' % hashlib.sha1(('%s#%s' % (base, track['number'])).encode('utf-8')).hexdigest()[:20])
+    state = {'sets': None}
+
+    def read_sets():
+        def step(done, total):
+            bar.update(100.0 * done / max(1, total), '%s  %d / %d' % (T('أطلّع صور الترجمة من الملف…', 'Taking the subtitle pictures out of the file…'), done, total))
+            _keep_lock()
+        r = dextext.read_track(_source(media, dexcues.Budget(dexcues.DEFAULTS)), track['number'], workers=READERS,
+                               progress=step, cancelled=stop, raw=True, window=pgsocr.WINDOW)
+        if not r.get('ok'):
+            raise _Stop(r.get('reason') or 'error', r.get('detail') or '')
+        _log('translate: PGS: %d display sets read %s%s' % (len(r['lines']), dexcues.fmt_stats(r.get('stats')),
+                                                          (', %d missed' % r['missed']) if r.get('missed') else ''))
+        state['sets'] = r['lines'] if not r.get('missed') else None   # a gap would change the fingerprint
+        return state['sets']
+
+    fp = ''
+    try:
+        with open(fp_file, 'r') as f:
+            fp = json.load(f).get('fp') or ''
+    except Exception:
+        pass
+    # the index alone first: a release DexWorld already has needs no reading of the track at all
+    ifp = ''
+    try:
+        starts = dextext.line_starts(_source(media, dexcues.Budget(dexcues.DEFAULTS)), track['number'])
+        ifp = pgsocr.index_fingerprint(starts, lang) if starts else ''
+    except Exception as e:
+        _log('translate: PGS: index not read for the quick lookup: %s' % e)
+    status, answer = 0, {}
+    if ifp and not fp:
+        status, answer = dw.lookup(ifp=ifp)
+        _log('translate: PGS: DexWorld quick lookup %s %s' % (status, answer.get('status') if isinstance(answer, dict) else ''))
+        if status == 200 and dw.known(answer) and answer.get('fp'):
+            fp = answer['fp']
+    if not (status == 200 and dw.known(answer)):
+        if not fp:
+            if not read_sets():
+                return None
+            fp = pgsocr.fingerprint(state['sets'], lang)
+        status, answer = dw.lookup(fp, ifp)
+        _log('translate: PGS: DexWorld lookup %s %s' % (status, answer.get('status') if isinstance(answer, dict) else ''))
+    if fp:
+        try:
+            with open(fp_file, 'w') as f:
+                json.dump({'fp': fp}, f)
+        except Exception:
+            pass
+    if status != 200:
+        return None
+    if not fp:                                  # known by the index, but the server named no fp
+        fp = answer.get('fp') or ''
+        if not fp and answer.get('status') != 'ready':     # its status is asked by fp
+            if not read_sets():
+                return None
+            fp = pgsocr.fingerprint(state['sets'], lang)
+    sent, t0, en = False, time.time(), None
+    names = {'queued': T('بالدور عند DexWorld…', 'Waiting its turn at DexWorld…'),
+             'ocr': T('DexWorld يقرأ الصور…', 'DexWorld is reading the pictures…'),
+             'translating': T('DexWorld يترجم…', 'DexWorld is translating…')}
+    while True:
+        st = answer.get('status')
+        en = answer.get('en') or en
+        if st == 'ready' or (st == 'translating' and target != 'ar' and en):
+            if target == 'ar' and answer.get('ar'):
+                if _same_timing(en, answer['ar']):
+                    _log('translate: PGS: Arabic from DexWorld (%s lines)' % answer.get('cues'))
+                    return 'ar', answer['ar']
+                # 21 Nov: DexWorld once gave another release's translation of the episode
+                _log('translate: PGS: DexWorld\'s Arabic is not this subtitle\'s (other timing), translated here',
+                     xbmc.LOGWARNING)
+                answer = dict(answer, ar='', translate='failed')
+            if target != 'ar' or answer.get('translate') in ('off', 'failed', 'done', None):
+                lines = subtrans.parse(en or '')
+                _log('translate: PGS: English from DexWorld (%d lines), translated here' % len(lines))
+                return ('en', lines) if len(lines) >= 2 else None
+        elif st in ('missing', 'failed') and not sent:
+            sets = state['sets'] or read_sets()
+            if not sets:
+                return None
+            fp = fp or pgsocr.fingerprint(sets, lang)
+            shots = pgsocr.fit_for_server(pgsocr.pictures(sets))
+            if not shots:
+                _log('translate: PGS: %d pictures do not fit DexWorld, the device reads them' % len(sets))
+                return None
+            temp = os.path.join(xbmcvfs.translatePath('special://temp/'), 'dexhub-pgs', 'send-%d' % int(time.time() * 1000))
+            try:                                # the pictures stay on the device only until they are sent
+                os.makedirs(temp)
+                for n, (start, _e, data) in enumerate(shots):
+                    with open(os.path.join(temp, '%05d_%08d.png' % (n, start)), 'wb') as f:
+                        f.write(data)
+                bar.update(0, T('أرسل %d صورة لـ DexWorld…' % len(shots), 'Sending %d pictures to DexWorld…' % len(shots)))
+                status, answer = dw.submit(fp, lang, shots, ifp=ifp)
+            finally:
+                shutil.rmtree(temp, ignore_errors=True)
+            _log('translate: PGS: sent %d pictures (%d KB): %s %s' % (len(shots), sum(len(x[2]) for x in shots) // 1024, status,
+                                                                     answer.get('status') or answer.get('error') or ''))
+            if status not in (200, 201, 202):
+                return None                         # busy (503), over a limit...: the device reads it
+            sent = True
+            continue
+        elif st == 'failed':
+            _log('translate: PGS: DexWorld could not read it: %s' % answer.get('error'), xbmc.LOGWARNING)
+            return ('en', subtrans.parse(en)) if en else None
+        if stop() or time.time() - t0 > pgsocr.POLL_LIMIT_S:
+            _log('translate: PGS: DexWorld not done in %ds' % pgsocr.POLL_LIMIT_S, xbmc.LOGWARNING)
+            if en:
+                return 'en', subtrans.parse(en)
+            if stop():
+                raise _Stop('cancelled')
+            return None
+        pct = answer.get('progress')
+        msg = names.get(st, T('أنتظر DexWorld…', 'Waiting for DexWorld…'))
+        if isinstance(pct, str) and pct.strip():
+            msg = 'DexWorld: %s' % pct.strip()
+        bar.update(float(pct) if isinstance(pct, (int, float)) else min(95, (time.time() - t0) * 2), msg)
+        _keep_lock()
+        time.sleep(pgsocr.POLL_S)
+        status, answer = dw.status(fp)
+        if status != 200 or not isinstance(answer, dict):
+            answer = {'status': 'queued'}
+
+
+def _pgs_lines(media, track, bar, stop, want):
+    """v5.10.598: a PGS track's lines, read as text from its pictures (subsync/pgsocr.py); the
+    pictures go to a temp folder of their own and are deleted once read."""
+    import hashlib
+    import xbmcvfs
+    from . import pgsocr
+    cfg = track['image']
+    names = {'read': T('أقرأ ترجمة الصور…', 'Reading the image subtitle…'),
+             'ocr': T('أطلّع النص من الصور (%s)…' % service_label_of(cfg), 'Reading the text in the pictures (%s)…' % service_label_of(cfg))}
+
+    def step(stage, done, total):
+        bar.update(100.0 * done / max(1, total), '%s  %d / %d' % (names[stage], done, total))
+        _keep_lock()
+
+    def chat(system, parts):
+        return _ai()._chat(cfg, system, parts, timeout=90)[0]
+    base = autosync._split_kodi_media_url(media)[0]
+    key = hashlib.sha1(('%s#%s|%s' % (base, track['number'], cfg.get('model') or '')).encode('utf-8')).hexdigest()[:20]
+    temp = os.path.join(xbmcvfs.translatePath('special://temp/'), 'dexhub-pgs', '%d' % int(time.time() * 1000))
+    try:
+        return pgsocr.lines(_source(media, dexcues.Budget(dexcues.DEFAULTS)), track['number'], chat, temp,
+                            cache_dir=folder(), key=key, want=want, workers=READERS, progress=step, cancelled=stop,
+                            log=lambda m: _log('translate: ' + m))
+    except pgsocr.OcrError as e:
+        _log('translate: PGS pictures not read: %s %s' % (e.reason, e.detail), xbmc.LOGWARNING)
+        raise _Stop(e.reason, e.detail)
+
+
+def service_label_of(cfg):
+    try:
+        return '%s · %s' % (_ai().service_name(cfg.get('provider')), cfg.get('model') or '')
+    except Exception:
+        return 'AI'
 
 
 def _embedded_lines(media, track, bar, stop, want=None, label=''):
     from . import dextext
+    if track.get('image') or track.get('dexworld'):
+        if not track.get('image'):
+            raise _Stop('no_vision')
+        return _pgs_lines(media, track, bar, stop, want)
 
     def step(done, total):
         bar.update(100.0 * done / max(1, total), '%s  %d / %d' % (label, done, total))
@@ -351,6 +579,7 @@ FIRST_LINES = 48                   # ...the next 48 lines
 NEXT_LINES = 320                   # embedded: the 320 lines after them, then the rest
 READERS = 12                       # embedded lines read at a time (16 made box .54's Emby stream refuse reads)
 FIRST_DEADLINE = 25                # seconds: nothing on the screen by then, the translation is cancelled
+FIRST_DEADLINE_PGS = 60            # v5.10.598: a PGS subtitle's pictures are read as text first
 TOTAL_DEADLINE = 10 * 60           # seconds for the rest of the subtitle
 
 
@@ -398,15 +627,17 @@ def _reload(path, data, base, away_index):
     return True
 
 
-def _span(starts, at_ms):
-    """{lo, one, two}: the first part from ``lo`` to ``one`` (FIRST_LINES lines), the next to ``two``."""
+def _span(starts, at_ms, per_line=1):
+    """{lo, one, two}: the first part from ``lo`` to ``one`` (FIRST_LINES lines), the next to ``two``.
+    ``per_line``: index entries a line (2 for PGS: the line, then the set that clears it)."""
     lo = at_ms - FIRST_BACK_MS
     after = [t for t in starts if t >= lo]
     if not after:                      # past the last line: the last lines first
-        return {'lo': starts[max(0, len(starts) - FIRST_LINES)] if starts else 0, 'one': float('inf'), 'two': float('inf')}
+        return {'lo': starts[max(0, len(starts) - FIRST_LINES * per_line)] if starts else 0, 'one': float('inf'),
+                'two': float('inf')}
 
     def upto(n):
-        return after[min(n, len(after)) - 1]
+        return after[min(n * per_line, len(after)) - 1]
     return {'lo': lo, 'one': upto(FIRST_LINES), 'two': upto(FIRST_LINES + NEXT_LINES)}
 
 
@@ -447,14 +678,14 @@ def run():
     except Exception:
         at_ms = 0
     t0 = time.time()
-    state = {'shown': False}
+    state = {'shown': False, 'first': FIRST_DEADLINE}
     token = _claim()
 
     def gone():
         return _media() != media or xbmc.Monitor().abortRequested()
 
     def late():
-        return time.time() > t0 + (TOTAL_DEADLINE if state['shown'] else FIRST_DEADLINE)
+        return time.time() > t0 + (TOTAL_DEADLINE if state['shown'] else state['first'])
 
     stop = lambda: gone() or late() or _replaced(token)
 
@@ -496,6 +727,10 @@ def run():
             else:
                 track = _embedded_track(media, subs, s, lang)
                 lang = lang or dexwatch.norm_lang(track['lang'])
+                if track.get('dexworld'):
+                    state['first'] = 8 * 60          # the pictures out of the file, then DexWorld's reading
+                elif track.get('image'):
+                    state['first'] = FIRST_DEADLINE_PGS
                 key = media_key = _media_key(media, track['number'], which, target, model)
             src = NAMES.get(dexwatch.lang2(lang), (lang, lang or 'Sub'))[1]
             path, base = _file_for('Dex Hub %s %s' % (src, {'google': 'Google', 'dexworld': 'DexWorld'}.get(which, 'AI')),
@@ -508,11 +743,28 @@ def run():
                 _note('ترجمتها %s بـ %s (%d سطر)' % (_to(tname_ar), label, total),
                       'Translated into %s with %s (%d lines)' % (tname_en, label, total))
                 return
+            if track is not None and track.get('dexworld'):
+                got = _pgs_server(media, track, bar, stop, target)
+                if got and got[0] == 'ar':
+                    data = b'\xef\xbb\xbf' + got[1].lstrip('\ufeff').encode('utf-8')
+                    subtrans.cache_write(folder(), key, data)
+                    _put_on(path, data, media)
+                    total = len(subtrans.parse(got[1]))
+                    _log('translate: PGS: %d lines from DexWorld in %.1fs' % (total, time.time() - t0))
+                    _note('ترجمتها %s من DexWorld (%d سطر)' % (_to(tname_ar), total),
+                          'Translated into %s by DexWorld (%d lines)' % (tname_en, total))
+                    return
+                if got:
+                    all_lines = got[1]               # DexWorld read it; translated here like a text subtitle
+                    state['first'] = TOTAL_DEADLINE
+                    t0 = time.time()
+                elif not track.get('image'):
+                    raise _Stop('no_vision')
 
             # 1. the lines around the viewer, on the screen as soon as they are translated
             span.update(_span(sorted(x[0] for x in all_lines) if all_lines is not None else
                               dextext.line_starts(_source(media, dexcues.Budget(dexcues.DEFAULTS)), track['number']),
-                              at_ms))
+                              at_ms, 2 if track and track.get('image') else 1))
             reading = T('أقرأ الترجمة…', 'Reading the subtitle…')
             if all_lines is not None:
                 first = [x for x in all_lines if window(x[0])]
@@ -580,9 +832,9 @@ def run():
                     _note('ترجمت الدقائق الجاية بس، الباقي طوّل فوقفته', 'Only the next minutes are translated; the rest took too long and was stopped',
                           False, 6000)
                 else:
-                    _log('translate: nothing ready in %ds, cancelled' % FIRST_DEADLINE, xbmc.LOGWARNING)
-                    _note('الترجمة ما جهزت خلال %d ثانية، فلغيتها' % FIRST_DEADLINE,
-                          'The translation was not ready within %d seconds, so it was cancelled' % FIRST_DEADLINE, False, 6000)
+                    _log('translate: nothing ready in %ds, cancelled' % state['first'], xbmc.LOGWARNING)
+                    _note('الترجمة ما جهزت خلال %d ثانية، فلغيتها' % state['first'],
+                          'The translation was not ready within %d seconds, so it was cancelled' % state['first'], False, 6000)
                 return
             _log('translate: %s %s' % (e.reason, getattr(e, 'detail', '')), xbmc.LOGWARNING)
             if state['shown']:

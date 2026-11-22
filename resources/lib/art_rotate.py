@@ -123,11 +123,69 @@ def pick(tmdb, media):
     return out
 
 
+_LOGO_ON = {'at': 0.0, 'on': False}
+
+
+def _poster_logo():
+    """The skin draws the title's logo on its poster (Skin.String(dh.posterlogo)), read every 3 s."""
+    import time
+    now = time.time()
+    if now - _LOGO_ON['at'] > 3.0:
+        _LOGO_ON['at'] = now
+        try:
+            import xbmc
+            _LOGO_ON['on'] = xbmc.getInfoLabel('Skin.String(dh.posterlogo)') == 'on'
+        except Exception:
+            _LOGO_ON['on'] = False
+    return _LOGO_ON['on']
+
+
+def clean_poster(tmdb, media):
+    """v5.10.598: a poster of the title with no words on it (TMDb's textless ones), '' when it has
+    none or its images are not known yet (then fetched behind). Whatever the rotation's mode: the
+    logo goes on such a poster only, or the title showed twice (printed on the poster, and the
+    logo over it; the user, 21 Nov 2026: as the Apple TV app, the skin clean)."""
+    tmdb = str(tmdb or '').strip()
+    if not tmdb.isdigit():
+        return ''
+    data = _cached(tmdb, media)
+    if data is None:
+        _want(tmdb, media)
+        return ''
+    rows = [i for i in data.get('posters') or [] if isinstance(i, dict) and i.get('file_path')
+            and i.get('iso_639_1') in (None, '', 'xx')]
+    if not rows:
+        return ''
+    # TMDb's "no language" mark is put by hand and is wrong at times (The Good Place: a poster with
+    # the title printed, voted down to 3.3): one voted under 5 is left out, the title showed twice.
+    rows = [i for i in rows if not int(i.get('vote_count') or 0) or float(i.get('vote_average') or 0) >= 5.0]
+    if not rows:
+        return ''
+    rows.sort(key=lambda i: (-(float(i.get('vote_average') or 0)), -(int(i.get('vote_count') or 0))))
+    from .tmdb_direct import IMAGE_BASE_POSTER
+    key = '%s:%s:%s:c' % (_kind(media), tmdb, _period() if mode() != 'off' else 'fixed')
+    return IMAGE_BASE_POSTER + _choose(rows[:POSTERS], key)
+
+
+def with_clean_poster(art, tmdb, media):
+    """art['clearposter']: a textless poster of the title, for the skin's poster cards that draw
+    the title's logo (skin.dexhub 3.28.234 shows it over the title's own poster, and draws the logo
+    only then). The card's own poster stays: a card style without the logo keeps its title."""
+    if not art.get('clearlogo') or not art.get('poster'):
+        return art
+    clean = clean_poster(tmdb, media)
+    if not clean:
+        return art
+    art = dict(art)
+    art['clearposter'] = clean
+    return art
+
+
 def apply(art, tmdb, media):
     """A card's art with this period's pictures (the logo stays)."""
     chosen = pick(tmdb, media)
     if not chosen:
-        return art
+        return with_clean_poster(art, tmdb, media)
     art = dict(art)
     if chosen.get('poster') and art.get('poster'):
         if art.get('thumb') == art['poster']:
@@ -137,7 +195,7 @@ def apply(art, tmdb, media):
         art['fanart'] = chosen['fanart']
         if art.get('landscape'):
             art['landscape'] = chosen['fanart']
-    return art
+    return with_clean_poster(art, tmdb, media)
 
 
 # ------------------------------------------------------------- background

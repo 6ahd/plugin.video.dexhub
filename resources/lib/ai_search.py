@@ -96,6 +96,37 @@ def _save(data):
     os.replace(temp, path)
 
 
+def set_dexworld_code(code):
+    """v5.10.598 (spec 0): a DexWorld subscription code, entered once (the phone page): DexWorld
+    as an AI service, subtitle translation by DexWorld when it was on the default (Google), and
+    DexSubtitles told the same code when it is installed."""
+    code = str(code or '').strip()
+    data = _data()
+    data['services']['dexworld'] = {'key': code, 'base': _provider('dexworld')[2]}
+    f = data['features'].setdefault('subtitles', {})
+    if (f.get('service') or 'google') == 'google':
+        f['service'] = 'dexworld_tr'
+    _save(data)
+    _UNSAVED.pop('subtitles', None)
+    try:
+        import xbmcaddon
+        subs = xbmcaddon.Addon('service.subtitles.dexworld')
+        subs.setSetting('api_key', code)
+        subs.setSetting('server_url', 'https://dexworld.cc')
+    except Exception:
+        pass                                # DexSubtitles not installed
+
+
+def forget_dexworld():
+    """The DexWorld code removed: its translation goes back to Google."""
+    data = _data()
+    data['services'].pop('dexworld', None)
+    f = data['features'].get('subtitles') or {}
+    if f.get('service') == 'dexworld_tr':
+        f['service'] = 'google'
+    _save(data)
+
+
 def _provider(pid):
     return next((p for p in PROVIDERS if p[0] == pid), None)
 
@@ -112,7 +143,13 @@ FEATURES = (
      ('زر «ترجمة آلية» في المشغّل', 'The player\'s Translate subtitle button')),
     ('metadata', ('ترجمة الميتاداتا', 'AI metadata translation'),
      ('قصة العمل بلغتك لما TMDb ما عنده ترجمتها', 'A title\'s story in your language when TMDb has none in it')),
+    # v5.10.598: an image subtitle (PGS) read as text on the device, so it can be translated
+    ('ocr', ('ترجمة من PGS', 'Translate from PGS'),
+     ('ترجمة الصور (PGS) تنقرا نص ثم تنترجم', 'An image subtitle (PGS) is read as text, then translated')),
 )
+# v5.10.598: a model that reads pictures, for each service that has one (Translate from PGS, Automatic)
+VISION = (('openrouter', 'google/gemini-2.5-flash'), ('gemini', 'gemini-2.5-flash'), ('openai', 'gpt-4.1-mini'),
+          ('anthropic', 'claude-haiku-5-5'), ('grok', 'grok-4-fast-non-reasoning'), ('mistral', 'mistral-small-latest'))
 SENT = {
     'search': ('الوصف اللي تكتبه في البحث.', 'The description you type in Search.'),
     'lists': ('أسماء وسنوات اللي شفته مؤخراً، وهل هو فيلم أو مسلسل، والوصف اللي تكتبه للقائمة.',
@@ -120,6 +157,9 @@ SENT = {
               'description you type for a list.'),
     'metadata': ('قصة العمل اللي فتحت صفحته، واسمه وسنته، واللغة اللي تترجم لها.',
                  'The story of the title whose page you opened, its name and year, and the language to translate into.'),
+    'ocr': ('صور سطور ترجمة PGS بس (النص أسود على أبيض، بدون الفيديو)، وتنحذف من جهازك بعد ما تنقرا.',
+            'Only pictures of the PGS subtitle lines (black text on white, never the video), deleted from this '
+            'device once read.'),
     'subtitles': ('سطور الترجمة اللي تترجمها، ولغة الترجمة، ومع DexWorld اسم العمل والموسم والحلقة.',
                   'The subtitle lines to translate and the language to translate into; with DexWorld also the '
                   'title with its season and episode.'),
@@ -164,6 +204,8 @@ def feature(fid):
     if fid == 'subtitles':
         f.setdefault('service', 'google')
         f['on'] = True
+    if fid == 'ocr':
+        f.setdefault('on', True)                # Automatic: the first service set up that reads pictures
     return f
 
 
@@ -178,6 +220,23 @@ def config(fid='search'):
         return None
     return {'provider': pid, 'key': svc.get('key') or '', 'base': svc['base'], 'model': f['model'],
             'free': bool(f.get('free')), 'search': _data().get('search_mode') or 'auto'}
+
+
+def vision_config():
+    """v5.10.598: {provider, key, base, model} that reads the pictures of a PGS subtitle: the one
+    chosen for Translate from PGS, else (Automatic) the first service set up in VISION's order;
+    None when it is off or no such service is set up."""
+    f = feature('ocr')
+    if not f.get('on'):
+        return None
+    have = services()
+    pid = f.get('service')
+    if pid and pid in have and f.get('model'):
+        return {'provider': pid, 'key': have[pid].get('key') or '', 'base': have[pid]['base'], 'model': f['model']}
+    for pid, model in VISION:
+        if pid in have:
+            return {'provider': pid, 'key': have[pid].get('key') or '', 'base': have[pid]['base'], 'model': model}
+    return None
 
 
 def _no_chat(pid):
@@ -200,6 +259,10 @@ def feature_label(fid):
     if not f.get('on'):
         return _t('مطفي', 'Off')
     pid = f.get('service')
+    if fid == 'ocr' and not (pid and f.get('model')):
+        cfg = vision_config()
+        return '%s (%s)' % (_t('تلقائي', 'Automatic'), service_name(cfg['provider']) if cfg else
+                            _t('ما فيه خدمة تقرا الصور', 'no service reads pictures'))
     if _no_chat(pid):
         return service_name(pid)
     if not pid or not f.get('model'):
@@ -516,7 +579,8 @@ def edit_feature(fid):
     if fid != 'subtitles':
         rows.append('%s:  [B]%s[/B]' % (_t('الحالة', 'State'), _t('شغّال', 'On') if f.get('on') else _t('مطفي', 'Off')))
         keys.append('on')
-    rows.append('%s:  [B]%s[/B]' % (_t('الخدمة', 'Service'), service_name(f.get('service')) if f.get('service') else '-'))
+    rows.append('%s:  [B]%s[/B]' % (_t('الخدمة', 'Service'), service_name(f.get('service')) if f.get('service') else
+                                                       (_t('تلقائي', 'Automatic') if fid == 'ocr' else '-')))
     keys.append('service')
     if f.get('service') and not _no_chat(f.get('service')):
         rows.append('%s:  [B]%s[/B]' % (_t('النموذج', 'Model'), f.get('model') or '-'))
@@ -534,7 +598,7 @@ def edit_feature(fid):
     what = keys[pick]
     if what == 'on':
         f['on'] = not f.get('on')
-        if f['on'] and not (f.get('service') and f.get('model')):
+        if f['on'] and fid != 'ocr' and not (f.get('service') and f.get('model')):
             if not _choose_service(fid, f):
                 return False
     elif what == 'service':
@@ -632,6 +696,8 @@ def _choose_service(fid, f):
     dialog = xbmcgui.Dialog()
     have = services()
     rows = []
+    if fid == 'ocr':
+        rows.append(('', _t('تلقائي', 'Automatic')))
     if fid in ('subtitles', 'metadata'):
         rows.append(('google', 'Google Translate'))
     for pid, name, _b, _w, _p in PROVIDERS:
@@ -653,7 +719,7 @@ def _choose_service(fid, f):
         if pid == 'dexworld' and fid == 'subtitles':
             pid = 'dexworld_tr'               # DexWorld's own subtitle translation, its code just added
     f['service'] = pid
-    if _no_chat(pid):
+    if _no_chat(pid) or not pid:
         f['model'] = ''
         return True
     svc = services().get(pid)
