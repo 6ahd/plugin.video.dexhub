@@ -11,6 +11,7 @@ Kodi has one volume for everything, so the theme lowers it to its own level and 
 when it stops (a marker file puts it back after a crash too). Off by default:
 Control Centre › Trailers › Theme music.
 """
+import hashlib
 import json
 import os
 import re
@@ -207,6 +208,63 @@ def find(title, year='', series=False, tvdb='', tmdb='', imdb=''):
     return url
 
 
+# ------------------------------------------------------------------ the theme as a file
+FILES_KEPT = 40
+_FETCH = threading.Lock()
+
+
+def local(url):
+    """The theme as a file on this device, '' when it could not be fetched. Kodi opens an address
+    behind its loading dialog, which takes the remote for seconds while the sound buffers (the
+    page hung as it opened, the user, 22 Nov 2026); a file opens at once. Fetched off the page's
+    thread (about 1 MB), the last 40 kept."""
+    if not url:
+        return ''
+    folder = os.path.join(xbmcvfs.translatePath('special://profile/addon_data/%s/' % ADDON_ID), 'themes')
+    ext = '.m4a' if '.m4a' in url.lower() else '.mp3'
+    path = os.path.join(folder, hashlib.sha1(url.encode('utf-8')).hexdigest()[:20] + ext)
+    with _FETCH:
+        try:
+            if os.path.getsize(path) > 20000:
+                os.utime(path, None)
+                return path
+        except OSError:
+            pass
+        try:
+            os.makedirs(folder, exist_ok=True)
+            req = Request(url, headers={'User-Agent': 'DexHub (Kodi)'})
+            size = 0
+            with urlopen(req, timeout=10) as r, open(path + '.part', 'wb') as f:
+                while True:
+                    chunk = r.read(65536)
+                    if not chunk:
+                        break
+                    size += len(chunk)
+                    if size > 12 * 1024 * 1024:
+                        raise ValueError('too long')
+                    f.write(chunk)
+            if size < 20000:
+                raise ValueError('too short')
+            os.replace(path + '.part', path)
+            kept = sorted((os.path.getmtime(os.path.join(folder, n)), n) for n in os.listdir(folder))
+            for _at, name in kept[:-FILES_KEPT]:
+                os.remove(os.path.join(folder, name))
+            return path
+        except Exception as e:
+            _log('theme not fetched: %s' % e.__class__.__name__)
+            try:
+                os.remove(path + '.part')
+            except OSError:
+                pass
+            return ''
+
+
+def find_ready(*args):
+    """find(), and the theme fetched: (address, file)."""
+    url = find(*args)
+    return url, local(url)
+
+
 # ------------------------------------------------------------------ Kodi's volume, borrowed
 def _rpc(method, params=None):
     try:
@@ -277,9 +335,10 @@ class _Theme(object):
         except Exception:
             return False
 
-    def start(self, url, title):
+    def start(self, url, title, source=''):
         now = _volume()
         want = level()
+        source = source or url
         self.url = url
         self.began, self.heard = time.time(), False
         _STARTED.add(url)
@@ -299,7 +358,7 @@ class _Theme(object):
         except Exception:
             pass
         xbmc.Player().play(url, item, True)
-        _log('"%s" playing (%s)' % (title, 'Plex themes' if 'plexapp' in url else 'soundtrack preview'))
+        _log('"%s" playing (%s)' % (title, 'Plex themes' if 'plexapp' in source else 'soundtrack preview'))
 
     def _restore(self):
         if self.saved is not None:
@@ -341,6 +400,7 @@ class _Theme(object):
         if self.playing():
             if not self.heard:
                 self.heard = True
+                _log('sounding %.1f s after it was asked' % (time.time() - self.began))
             # Kodi keeps its loading dialog up while the theme's address buffers (3.7 s on the Mac,
             # 21 Nov: the mark showed from the moment a fixed 2.5 s ran out): the skin keeps it
             # away until Kodi itself closes it
@@ -387,7 +447,7 @@ def _ahead(rest):
     if key == rest['done'] or time.time() - rest['at'] < 0.5:
         return
     rest['done'] = key
-    threading.Thread(target=find, args=(t['title'], t['year'], t['series'], t['tvdb'], t['tmdb'], t['imdb']),
+    threading.Thread(target=find_ready, args=(t['title'], t['year'], t['series'], t['tvdb'], t['tmdb'], t['imdb']),
                      name='DexHub-theme-ahead', daemon=True).start()
 
 
@@ -467,7 +527,8 @@ def service_loop(monitor):
                                     if again['title'] == p['title'] and (again['tmdb'] or again['imdb']):
                                         p.update(tmdb=again['tmdb'], imdb=again['imdb'], tvdb=again['tvdb'])
                                         break
-                            out['url'] = find(p['title'], p['year'], p['series'], p['tvdb'], p['tmdb'], p['imdb'])
+                            url, out['file'] = find_ready(p['title'], p['year'], p['series'], p['tvdb'], p['tmdb'], p['imdb'])
+                            out['url'] = url
                         threading.Thread(target=look, name='DexHub-theme-find', daemon=True).start()
                 theme.taken()
                 if (page and not tried and 'url' in page['answer'] and time.time() - since >= REST_S
@@ -477,7 +538,7 @@ def service_loop(monitor):
                     if not url:
                         _log('none found for "%s"' % page['title'])
                     else:
-                        theme.start(url, page['title'])
+                        theme.start(page['answer'].get('file') or url, page['title'], url)
                         _log('started %.1f s after the page opened' % (time.time() - since))
         except Exception as e:
             _log('watch: %s' % e, xbmc.LOGWARNING)
