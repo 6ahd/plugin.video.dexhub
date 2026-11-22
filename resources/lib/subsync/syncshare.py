@@ -217,7 +217,7 @@ def sub_keys(raw, name=''):
     keep = []
     for l in _text_lines(raw):
         l = _SPACE.sub('', _BIDI.sub('', _TAGS.sub('', l)))
-        if l and not l.isdigit():
+        if l and not l.isdigit() and l != dexalign.INTRO:     # DexWorld's intro line (DEX_INTRO_CUE_V1)
             keep.append(l)
     body = '\n'.join(keep)
     sh = hashlib.sha1(body.encode('utf-8')).hexdigest() if len(keep) >= 20 else ''

@@ -67,6 +67,39 @@ def _open(raw):
     return raw, (lambda b: b), 'b'
 
 
+# DEX_INTRO_CUE_V1 (5.10.603): DexWorld opens every subtitle it serves with "هذه الترجمة من DexSubs"
+# at 0.3 s. That line is not part of the subtitle's timing: it is never used to align, never
+# counted in a per-line fix, never in the shared-sync keys, and it stays where it is when the
+# real lines move.
+INTRO = 'هذهالترجمةمنDexSubs'
+_INTRO_TAGS = re.compile(r'<[^>]*>|\{[^}]*\}')
+
+
+def _intro_text(chunk):
+    if isinstance(chunk, bytes):
+        try:
+            chunk = chunk.decode('utf-8')
+        except UnicodeDecodeError:
+            chunk = chunk.decode('cp1256', 'ignore')
+    return re.sub(r'\s+', '', _INTRO_TAGS.sub('', chunk.replace('\\N', ' ').replace('\\n', ' ')))
+
+
+def is_intro(text, m, kind):
+    """The cue whose timing match is m is DexWorld's intro line?"""
+    try:
+        rest = text[m.end():m.end() + 400]
+        if kind == 'ass':
+            nl = b'\n' if isinstance(rest, bytes) else '\n'
+            line = rest.split(nl, 1)[0]
+            body = line.split(b',' if isinstance(line, bytes) else ',', 6)[-1]
+        else:
+            blank = b'\n\n' if isinstance(rest, bytes) else '\n\n'
+            body = rest.replace(b'\r' if isinstance(rest, bytes) else '\r', b'' if isinstance(rest, bytes) else '').split(blank, 1)[0]
+        return _intro_text(body) == INTRO
+    except Exception:
+        return False
+
+
 def detect_kind(raw, name=''):
     text, _enc, mode = _open(raw)
     head = text[:6000]
@@ -85,6 +118,8 @@ def parse_starts(raw, name=''):
     for m in _RX[(kind, mode)].finditer(text):
         if kind == 'ass' and _as_str(m.group('kind')) != 'Dialogue':
             continue
+        if is_intro(text, m, kind):
+            continue
         try:
             a, b = _ts_ms(m.group('a')), _ts_ms(m.group('b'))
         except Exception:
@@ -102,6 +137,8 @@ def parse_intervals(raw, name=''):
     out = []
     for m in _RX[(kind, mode)].finditer(text):
         if kind == 'ass' and _as_str(m.group('kind')) != 'Dialogue':
+            continue
+        if is_intro(text, m, kind):
             continue
         try:
             a, b = _ts_ms(m.group('a')), _ts_ms(m.group('b'))
@@ -122,6 +159,8 @@ def apply_transform(raw, scale, offset_ms, name=''):
         return max(0, int(round(_ts_ms(t) * scale + offset_ms)))
 
     def rep(m):
+        if is_intro(text, m, kind):
+            return m.group(0)
         a0, b0 = m.group('a'), m.group('b')
         na = conv(a0)
         nb = max(na + 1, conv(b0))
@@ -428,6 +467,8 @@ def apply_segments(raw, scale, segments, name=''):
     rx = _RX[(kind, mode)]
     times = []
     for m in rx.finditer(text):
+        if is_intro(text, m, kind):
+            continue
         a = _ts_ms(m.group('a'))
         off = offs[max(0, bisect.bisect_right(firsts, a) - 1)]
         na = max(0, int(round(a * scale + off)))
@@ -442,6 +483,8 @@ def apply_segments(raw, scale, segments, name=''):
     it = iter(times)
 
     def rep(m):
+        if is_intro(text, m, kind):
+            return m.group(0)
         na, nb = next(it)
         a0, b0 = m.group('a'), m.group('b')
         fa, fb = _fmt_like(na, a0, kind), _fmt_like(nb, b0, kind)
@@ -471,6 +514,8 @@ def _file_starts(raw, name=''):
     text, _enc, mode = _open(raw)
     out = []
     for m in _RX[(kind, mode)].finditer(text):
+        if is_intro(text, m, kind):
+            continue
         try:
             out.append(_ts_ms(m.group('a')))
         except Exception:
@@ -529,7 +574,8 @@ def apply_lines(raw, scale, local, offset_ms=0, segments=None, name=''):
     fmap = _mapper(scale, offset_ms, segments)
     rx = _RX[(kind, mode)]
     times = []
-    for i, m in enumerate(rx.finditer(text)):
+    real = [m for m in rx.finditer(text) if not is_intro(text, m, kind)]
+    for i, m in enumerate(real):
         a, b = _ts_ms(m.group('a')), _ts_ms(m.group('b'))
         extra = local[i] if i < len(local) else 0
         shift = fmap(a) - a + extra
@@ -545,6 +591,8 @@ def apply_lines(raw, scale, local, offset_ms=0, segments=None, name=''):
     it = iter(times)
 
     def rep(m):
+        if is_intro(text, m, kind):
+            return m.group(0)
         na, nb = next(it)
         a0, b0 = m.group('a'), m.group('b')
         fa, fb = _fmt_like(na, a0, kind), _fmt_like(nb, b0, kind)
