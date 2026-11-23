@@ -26,6 +26,13 @@ def dispatch(action, params, api):
     if action == 'setup_quality': return api.setup_quality()
     if action == 'setup_stability': return api.setup_stability()
     if action == 'setup_diagnostics': return api.setup_diagnostics()
+    if action == 'addon_manage_one':
+        from .. import addons_manager
+        return addons_manager.manage_one(api, p('provider_id', ''))
+    if action == 'addons_manager':
+        # v5.10.606: the add-ons, clear: on, off, move, remove (one or several)
+        from .. import addons_manager
+        return addons_manager.run(api)
     if action in ('server_accounts', 'server_account_add'):
         # v5.10.605: more than one Plex, Emby, Jellyfin or Silo account
         from . import server_accounts_ui as ui

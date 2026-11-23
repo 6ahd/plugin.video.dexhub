@@ -728,10 +728,11 @@ def sources_libraries():
         nuvio = bool(_sync.Nuvio.is_linked())
     except Exception:
         nuvio = False
-    _add(_txt('إضافات Stremio وNuvio • %d', 'Stremio and Nuvio add-ons • %d') % count, 'providers',
+    _add(_txt('إضافات Stremio وNuvio • %d', 'Stremio and Nuvio add-ons • %d') % count, 'addons_manager',
          'root_sources.png',
          _txt('الإضافات اللي تجيب الكتالوجات والمصادر والميتاداتا: ترتيبها وتعطيلها وحذفها.',
-              'The add-ons that bring catalogs, streams and metadata: order, disable or remove them.'))
+              'The add-ons that bring catalogs, streams and metadata: order, disable or remove them.'),
+         folder=False)
     _add(_txt('إضافة مصدر جديد', 'Add a source'), 'add_provider', 'root_sources.png',
          _txt('رابط إضافة Stremio أو Nuvio (manifest.json)، أو من الجوال بكود QR.',
               'A Stremio or Nuvio add-on link (manifest.json), or from your phone with a QR code.'),

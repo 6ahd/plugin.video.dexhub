@@ -58,10 +58,14 @@ def choose(tr):
     user switches them on (kodi_sources)."""
     from . import kodi_sources
     from . import nas_sources
+    from . import usenet_source
     providers = _stream_providers()
     kodi = kodi_sources.installed()
     nas = nas_sources.is_set_up()
-    if not providers and not kodi and not nas:
+    # v5.10.606: Usenet too (its provider and indexers set up); it was searched, never listed here
+    ready = usenet_source.is_set_up()
+    usenet = True      # the engine comes with Dex Hub (5.10.605): always offered, set up when picked
+    if not providers and not kodi and not nas and not usenet:
         xbmcgui.Dialog().ok('Dex Hub', tr('ما فيه إضافات مصادر مربوطة'))
         return False
     off = skipped()
@@ -82,6 +86,12 @@ def choose(tr):
         labels.append('%s  ·  %s' % (nas_sources.brand(), tr('الـNAS وروابط SMB')))
         if nas_sources.PROVIDER_ID not in off:
             pre.append(nas_index)
+    usenet_index = nas_index + (1 if nas else 0)
+    if usenet:
+        labels.append('%s  ·  %s' % (usenet_source.NAME, tr('مزودك ومفهرساتك') if ready
+                                     else tr('مو مضبوط: يفتح إعداده لما تختاره')))
+        if ready and usenet_source.PROVIDER_ID not in off:
+            pre.append(usenet_index)
     picked = xbmcgui.Dialog().multiselect(tr('الإضافات اللي يبحث فيها عن المصادر'), labels, preselect=pre)
     if picked is None:
         return False
@@ -92,13 +102,22 @@ def choose(tr):
     # Dex Hub's bridge goes into each add-on switched on, and out of the others
     missing = kodi_sources.apply_choice(
         [aid for i, (aid, _n, _h) in enumerate(kodi, len(providers)) if i in keep])
-    if providers or nas:
+    if providers or nas or usenet:
         # keys of add-ons no longer linked are kept: relinking one keeps its choice
-        others = {k for k in off if k not in {key(p) for p in providers} and k != nas_sources.PROVIDER_ID}
+        own = {nas_sources.PROVIDER_ID} | ({usenet_source.PROVIDER_ID} if usenet else set())
+        others = {k for k in off if k not in {key(p) for p in providers} and k not in own}
         dropped = {key(p) for i, p in enumerate(providers) if i not in keep}
         if nas and nas_index not in keep:
             dropped.add(nas_sources.PROVIDER_ID)
+        if usenet and usenet_index not in keep:
+            dropped.add(usenet_source.PROVIDER_ID)
         _save(others | dropped)
+    if usenet and not ready and usenet_index in keep:
+        # picked before its provider and indexers were set: their page opens now
+        try:
+            usenet_source.setup()
+        except Exception:
+            pass
     if missing:
         xbmcgui.Dialog().ok('Dex Hub', '%s: %s' % (', '.join(missing), tr(
             'ما قدرت أربط هذي الإضافة: نسختها تغيّرت عن اللي يعرفها Dex Hub.')))

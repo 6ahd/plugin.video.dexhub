@@ -11286,6 +11286,12 @@ def providers():
     add_item(tr('إضافة مصدر Stremio'),
              build_url(action='add_provider'), art=root_art('add'),
              info={'title': 'إضافة رابط Manifest', 'plot': 'أضف manifest.json لأي إضافة Stremio.'})
+    if rows:
+        # v5.10.606: managing (off, move, remove one or several) said plainly, not only on long press
+        add_item(tr('إدارة الإضافات: إيقاف · ترتيب · حذف'), build_url(action='addons_manager'),
+                 is_folder=False, art=root_art('settings'),
+                 info={'title': tr('إدارة الإضافات: إيقاف · ترتيب · حذف'),
+                       'plot': tr('كل إضافة وش تجيب وهل هي شغالة، وحذف وحدة أو أكثر مرة وحدة.')})
     if not rows:
         add_item(tr('[COLOR grey]لا توجد إضافات Stremio مثبتة[/COLOR]'),
                  build_url(action='first_run_wizard'), is_folder=False,
@@ -11389,6 +11395,10 @@ def provider_menu(provider_id):
         return end_dir()
     pname = provider.get('name') or 'Provider'
     summary = _provider_summary(provider)
+    # v5.10.606: this add-on's own choices (off, refresh, move, remove), first on its page
+    add_item(tr('إدارة هذي الإضافة: إيقاف · حذف'), build_url(action='addon_manage_one', provider_id=provider_id),
+             is_folder=False, art=root_art('settings'),
+             info={'title': tr('إدارة هذي الإضافة: إيقاف · حذف'), 'plot': pname})
     if not store.is_enabled(provider):
         add_item(tr('تفعيل الإضافة'), build_url(action='provider_toggle_enabled', provider_id=provider_id),
                  is_folder=False, info={'title': tr('تفعيل الإضافة'),

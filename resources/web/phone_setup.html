@@ -132,6 +132,30 @@ section{margin-top:26px}
 .ad:first-child{border-top:0}
 .ad .av{width:34px;height:34px;border-radius:9px;background:var(--surface);display:grid;place-items:center;font-weight:700;font-size:13px;color:var(--accent);flex:none}
 .ad .n{flex:1;min-width:0}
+/* v5.10.606: the add-ons' clear rows */
+.ad .av{position:relative;overflow:hidden}
+.ad .av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:var(--surface)}
+.ad .n b{display:block;font-size:14.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ad .n span{display:block;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ad.off .n b,.ad.off .av{opacity:.55}
+.ad .n .adw{direction:inherit;text-align:start}
+.ad .n .adw span{display:inline;font-size:inherit;direction:inherit}
+.ad .n .adw i{font-style:normal}
+.adn{color:var(--text);font-weight:600}
+.adoff{display:inline-block;margin-top:3px;font-style:normal;font-size:11px;padding:1px 8px;border-radius:99px;background:color-mix(in srgb,var(--warn) 18%,transparent);color:#F8C46A}
+.adact{display:flex;gap:6px;flex:none}
+.adbtn{border:0;border-radius:10px;padding:8px 11px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;background:var(--surface);color:var(--text)}
+.adbtn.del{background:color-mix(in srgb,#FF6B6B 16%,transparent);color:#FF8A8A}
+.adbtn:disabled{opacity:.5}
+.adbar{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;font-size:12.5px;color:var(--muted)}
+.lnk{border:0;background:none;color:var(--accent);font:inherit;font-size:13px;font-weight:600;cursor:pointer;padding:4px 0}
+.adck{-webkit-appearance:none;appearance:none;flex:none;width:22px;height:22px;margin:0;border-radius:7px;cursor:pointer;
+  border:1.5px solid color-mix(in srgb,var(--text) 28%,transparent);background:var(--surface);display:grid;place-content:center}
+.adck:checked{background:#E5484D;border-color:#E5484D}
+.adck:checked::after{content:"";width:12px;height:12px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.3l3 3L12.5 5' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/12px no-repeat}
+.adfoot{padding:12px 14px;border-top:1px solid var(--line)}
+.adfoot .btn{width:100%;background:#E5484D;color:#fff}
+.adfoot .btn:disabled{opacity:.45}
 .ad .n b{display:block;font-weight:500;font-size:14.5px}
 .ad .n span{display:block;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr;text-align:right}
 .x{width:34px;height:34px;border-radius:10px;border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:18px}
@@ -1339,12 +1363,52 @@ document.addEventListener('click',async e=>{
 });
 
 /* ---------------- add-ons ---------------- */
+/* v5.10.606: the add-ons, clear: what each brings, on or off, and its own Turn off and Remove
+   buttons (it was one small × that removed at once); "Remove several" picks a few with
+   checkboxes. Every removal asks first and says what goes. */
+let adPick=null;
+const ADKIND={stream:['مصادر تشغيل','streams'],catalog:['كتالوجات','catalogs'],subtitles:['ترجمة','subtitles'],
+  meta:['ميتاداتا','metadata'],addon_catalog:['قوائم إضافات','add-on lists']};
 function renderAd(){
   const list=S.addons||[];
-  $('#adList').innerHTML=list.length?list.map(a=>`<div class="ad"><div class="av">${esc(String(a.name||'?').slice(0,2).toUpperCase())}</div><div class="n"><b>${esc(a.name)}</b><span>${esc(a.host)}</span></div><button class="x" type="button" aria-label="شيل ${esc(a.name)}" data-rm="${esc(a.id)}">×</button></div>`).join('')
+  if(adPick)adPick=new Set([...adPick].filter(id=>list.some(a=>a.id===id)));
+  const bar=list.length>1?`<div class="adbar"><span><span>عدد الإضافات</span> <b class="adn">${list.length}</b></span>
+    <button class="lnk" type="button" data-adsel>${adPick?'إلغاء':'حذف أكثر من وحدة'}</button></div>`:'';
+  const rows=list.map(a=>{
+    const what=(a.kinds||[]).map(k=>'<span>'+esc(ADKIND[k]?ADKIND[k][0]:k)+'</span>').join('<i aria-hidden="true"> · </i>')||esc(a.host||'');
+    const ini=esc(String(a.name||'?').slice(0,2).toUpperCase());
+    return `<div class="ad${a.on===false?' off':''}">
+      ${adPick?`<input type="checkbox" class="adck" data-ck="${esc(a.id)}" ${adPick.has(a.id)?'checked':''} aria-label="${esc(a.name)}">`:''}
+      <div class="av">${a.logo?`<img src="${esc(a.logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<span>${ini}</span></div>
+      <div class="n"><b dir="auto">${esc(a.name)}</b><span class="adw">${what}</span>${a.on===false?'<em class="adoff">موقوفة</em>':''}</div>
+      ${adPick?'':`<div class="adact"><button class="adbtn" type="button" data-tg="${esc(a.id)}">${a.on===false?'شغّل':'أوقف'}</button>
+      <button class="adbtn del" type="button" data-rm="${esc(a.id)}">حذف</button></div>`}</div>`}).join('');
+  const foot=adPick?`<div class="adfoot"><button class="btn p" type="button" data-adrm ${adPick.size?'':'disabled'}><span>احذف المختارة</span> (${adPick.size})</button></div>`:'';
+  $('#adList').innerHTML=list.length?bar+rows+foot
    :'<div class="ad"><div class="n"><span style="direction:inherit;text-align:start">ما فيه إضافات بعد</span></div></div>';
 }
-$('#adList').addEventListener('click',async e=>{const b=e.target.closest('[data-rm]');if(!b)return;b.disabled=true;const j=await post('addon',{op:'remove',id:b.dataset.rm},true);if(j.ok){S.addons=j.addons;renderAd();toast('انشالت الإضافة')}});
+function adName(id){const a=(S.addons||[]).find(x=>x.id===id);return a?a.name:id}
+async function adRemove(ids){
+  const names=ids.map(adName);
+  const ask=ids.length===1
+    ?T2('تحذف «%s»؟\nكتالوجاتها ومصادرها تختفي من Dex Hub، وتقدر ترجعها بعدين برابطها.','Remove "%s"?\nIts catalogs and streams leave Dex Hub; you can add it back later with its link.').replace('%s',names[0])
+    :(ids.length===2?T2('تحذف الإضافتين؟\n','Remove both add-ons?\n'):T2('تحذف %d إضافات؟\n','Remove %d add-ons?\n').replace('%d',ids.length))+names.slice(0,8).join(' · ')+(names.length>8?' …':'');
+  if(!confirm(ask))return false;
+  const j=await post('addon',{op:'remove',ids},true);
+  if(j.ok){S.addons=j.addons;adPick=null;renderAd();toast(ids.length===1?T2('انحذفت الإضافة','Add-on removed'):T2('انحذفت %d إضافات','%d add-ons removed').replace('%d',ids.length));return true}
+  return false;
+}
+$('#adList').addEventListener('change',e=>{const c=e.target.closest('[data-ck]');if(!c||!adPick)return;
+  c.checked?adPick.add(c.dataset.ck):adPick.delete(c.dataset.ck);renderAd()});
+$('#adList').addEventListener('click',async e=>{
+  if(e.target.closest('[data-adsel]')){adPick=adPick?null:new Set();renderAd();return}
+  const all=e.target.closest('[data-adrm]');if(all){if(adPick&&adPick.size){all.disabled=true;if(!await adRemove([...adPick]))all.disabled=false}return}
+  const t=e.target.closest('[data-tg]');
+  if(t){t.disabled=true;const j=await post('addon',{op:'toggle',id:t.dataset.tg},true);
+    if(j.ok){S.addons=j.addons;renderAd();const a=(S.addons||[]).find(x=>x.id===t.dataset.tg);toast(a&&a.on===false?T2('انوقفت: %s','Off: %s').replace('%s',a.name):T2('اشتغلت: %s','On: %s').replace('%s',a?a.name:''))}
+    else t.disabled=false;return}
+  const b=e.target.closest('[data-rm]');if(!b)return;b.disabled=true;if(!await adRemove([b.dataset.rm]))b.disabled=false;
+});
 $('#adForm').addEventListener('submit',async e=>{e.preventDefault();const v=cleanLink($('#adUrl').value);$('#adUrl').value=v;
   if(!/^(https?|stremio):\/\/[^\s]+$/i.test(v)){toast('الصق رابط الإضافة كامل، يبدأ بـ https:// أو stremio://','err');$('#adUrl').focus();return}
   const btn=$('#adForm button');btn.disabled=true;btn.textContent='يضيف…';
@@ -2179,6 +2243,8 @@ const exact={
 "متصل بـ":"Connected to","اختر خدماتك ورتّب شاشتك. كل تغيير يوصل للتلفزيون على طول.":"Choose your services and arrange your home screen. Every change reaches the TV right away.","مربوط":"Linked","محفوظ":"Saved","خلصت":"Done","جاهز على التلفزيون":"Ready on your TV","ارجع للتلفزيون، الصفحة الرئيسية تتحدث الحين.":"Go back to the TV. The home screen is refreshing now.","ابدأ الربط":"Start linking","أو اربطه من التلفزيون":"Or link it on the TV","افتحه على التلفزيون":"Open it on the TV","مربوط ويشتغل على التلفزيون":"Linked and working on the TV","اشتراكك مضاف، تقدر تضيف ثاني من التلفزيون":"Your subscription is added. Add another one on the TV.","بعد الموافقة يتحول هنا لـ \"مربوط\" لحاله.":"Once approved, this turns to Linked by itself.","افتح الرابط وحط الرمز، والتلفزيون ينربط لحاله.":"Open the link and enter the code. The TV links by itself.","تفتح صفحة Plex وتوافق، وتنربط سيرفراتك كلها.":"Approve on Plex and all your servers are linked.","انتهى الرمز قبل الموافقة، ابدأ من جديد.":"The code expired before approval. Start again.","عنوان السيرفر أو رابط M3U":"Server address or M3U link","تنرسل لتلفزيونك مباشرة على شبكة البيت، وما تمر على أي سيرفر ثاني.":"Sent straight to your TV on your home network, never through another server.","وصل للتلفزيون":"Sent to the TV","يحفظ…":"Saving…","الصق رابط manifest كامل":"Paste a full manifest link","يضيف…":"Adding…","انضافت الإضافة ✓":"Add-on added ✓","انشالت الإضافة":"Add-on removed","الثيم تغيّر على التلفزيون":"Theme changed on the TV","كبير جداً":"Extra large","انسخ النص":"Copy the text","احفظ كملف":"Save as file","الحسابات وكلمات المرور وروابط الإضافات ما تدخل الملف أبد.":"Accounts, passwords and add-on links never go into the file.","يطبق الإعداد…":"Applying…","انطبق الإعداد على التلفزيون ✓":"Applied on the TV ✓","انضافت الصفوف ✓":"Rows added ✓","الصفوف تطلع هنا أول ما تربط حساب أو تضيف إضافة":"Rows appear here once you link an account or add an add-on","ما فيه كوليكشن جاهز الحين":"No ready collections right now","انقطع الاتصال بالتلفزيون":"Lost the connection to the TV","انقطع الاتصال بالتلفزيون، تأكد إنه شغال على نفس الشبكة":"Lost the connection to the TV. Make sure it is on the same network.","ما ضبط، جرّب مرة ثانية":"That did not work, try again","الصفحة قفلت على التلفزيون، امسح الباركود مرة ثانية للتعديل":"The page closed on the TV. Scan the QR again to keep editing.","اكتب عنوان السيرفر":"Enter the server address","من قاعدة TMDb Helper على جهازك":"From TMDb Helper on this device","من إضافتك":"From your add-on","يفيد في البحث عن الممثلين. بدونه كل شي يشتغل عادي، والمفتاح ما يطلع هنا بعد ما ينحفظ.":"Used for cast searches. Everything works without it, and the key is not shown again once saved.","المفتاح انحفظ":"Key saved","انفتح على التلفزيون، كمّل هناك":"Opened on the TV, continue there","انفك الربط":"Unlinked","يجهز الرمز…":"Getting a code…","يربط…":"Linking…","اسم المستخدم (لـ Xtream)":"Username (for Xtream)","أفلامك ومسلسلاتك في الشبكة":"Your films and series on the network","الـNAS مضاف، وملفاته تطلع مع المصادر":"NAS added; its files show up as sources","عنوان الـNAS (أو smb://nas/movies)":"NAS address (or smb://nas/movies)","اترك الاسم وكلمة المرور فاضية لو المجلدات مفتوحة. كل مجلد مشارك يتقرأ، والأفلام والحلقات تنعرف من أسمائها.":"Leave the name and password empty if the folders are open. Every shared folder is read, and films and episodes are told apart by their names."
 };
 Object.assign(exact,{'تنرسل لتلفزيونك عبر DexCloud باتصال مشفّر، والموقع ما يحفظها.':'Sent to your TV through DexCloud over an encrypted connection; the site does not keep them.'});
+Object.assign(exact,{'حذف':'Remove','أوقف':'Turn off','شغّل':'Turn on','موقوفة':'off','حذف أكثر من وحدة':'Remove several',
+'احذف المختارة':'Remove the chosen','عدد الإضافات':'Add-ons','مصادر تشغيل':'streams','كتالوجات':'catalogs','ترجمة':'subtitles','ميتاداتا':'metadata','قوائم إضافات':'add-on lists'});
 Object.assign(exact,{'الحساب الأساسي':'Main account','حساب إضافي':'Extra account','فك':'Unlink','إضافة حساب آخر':'Add another account',
 'مكتبات ونسخ كل الحسابات تطلع مع المصادر.':"Every account's libraries and copies show up among the streams.",'الأساسي يبقى مثل ما هو':'the main one stays as it is',
 'إلغاء':'Cancel','حساب جديد':'New account'});

@@ -244,10 +244,13 @@ def _addons():
     out = []
     try:
         from .dexhub import store
+        from .addons_manager import kinds, _logo
         for row in store.list_providers() or []:
             url = str(row.get('manifest_url') or '')
             host = url.split('://', 1)[-1].split('/', 1)[0]
-            out.append({'id': row.get('id') or '', 'name': row.get('name') or host, 'host': host})
+            # v5.10.606: what it brings, whether it is on, its picture (the page says so plainly)
+            out.append({'id': row.get('id') or '', 'name': row.get('name') or host, 'host': host,
+                        'kinds': kinds(row, keys=True), 'on': store.is_enabled(row), 'logo': _logo(row)})
     except Exception:
         pass
     return out
@@ -862,7 +865,18 @@ class Session(object):
     def addon(self, body):
         from .dexhub import api, store
         if body.get('op') == 'remove':
-            store.remove_provider(str(body.get('id') or ''))
+            # v5.10.606: one ("id") or several ("ids") at once, their index purged as on the TV
+            from .addons_manager import _remove
+            ids = [str(x) for x in (body.get('ids') or [body.get('id')]) if x]
+            _remove(ids)
+        elif body.get('op') == 'toggle':
+            pid = str(body.get('id') or '')
+            row = store.get_provider(pid)
+            if not row:
+                raise ValueError('unknown add-on')
+            store.set_provider_enabled(pid, not store.is_enabled(row))
+            from .addons_manager import _home_changed
+            _home_changed()
         else:
             from .dexhub.links import manifest_link
             url = manifest_link(body.get('url'))
