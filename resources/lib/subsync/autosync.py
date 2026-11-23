@@ -739,6 +739,53 @@ def _english_reference(media_url):
         return None
 
 
+def _whisper_reference(media_url):
+    """v5.10.607: the film's speech heard by Whisper with the viewer's own Groq or OpenAI key
+    (whisperref), or None. Kept per video like the sound reference."""
+    if not _setting_bool('autosync_whisper', True):
+        return None
+    try:
+        from . import whisperref
+        if not whisperref.available():
+            return None
+    except Exception:
+        return None
+    key = 'whisper|' + media_url
+    now = time.time()
+    with _REF_LOCK:
+        hit = _REF_CACHE.get(key)
+        if hit and now < hit[0]:
+            return hit[1]
+    media = _sound_media(media_url)
+    if not media:
+        return None
+    duration = 0.0
+    try:
+        player = xbmc.Player()
+        if player.isPlayingVideo() and player.getPlayingFile() == media_url:
+            duration = float(player.getTotalTime() or 0)
+    except Exception:
+        pass
+    out = None
+    try:
+        def moved_on():
+            playing = _current_media_url()
+            return bool(playing) and playing != media_url
+        got = whisperref.reference(media, duration, abort=moved_on)
+        out = {'ok': True, 'starts': got['starts'], 'stats': None, 'via': 'whisper',
+               'track': {'number': '-', 'lang': 'speech', 'codec': 'Whisper (%s)' % got['service'],
+                         'cues': len(got['starts']), 'estimated': 0, 'name': '', 'kind': 'text'}}
+    except whisperref.WhisperError as e:
+        _log('whisper: %s %s' % (e.reason, e.detail or ''))
+        if e.reason == 'cancelled':
+            return None
+    except Exception as e:
+        _log('whisper failed: %s' % e, xbmc.LOGWARNING)
+    with _REF_LOCK:
+        _REF_CACHE[key] = (time.time() + (_SOUND_OK_TTL if out else _SOUND_FAIL_TTL), out)
+    return out
+
+
 def _share_lookup(media_url, raw, name):
     """What DexWorld knows of this Arabic subtitle on this release: (a fix it trusts, as AutoSync's
     result, or None; the release's shared reference times, or [])."""
@@ -803,7 +850,7 @@ def _analyze(raw, name, media_url, key, ext, use_marker=True):
                              'estimated': 0, 'name': '', 'kind': 'text'}}
             from_mem = True
         else:
-            eng = _english_reference(media_url)
+            eng = _english_reference(media_url) or _whisper_reference(media_url)
             if eng:
                 ref, from_mem = eng, True
         if not ref.get('ok'):
@@ -827,7 +874,7 @@ def _analyze(raw, name, media_url, key, ext, use_marker=True):
         time.time() - t1, decision))
     if decision != 'sync':
         pct = round(res['matched'] * 100)
-        if decision == 'in_sync' and ref.get('via') not in ('shared', 'english'):
+        if decision == 'in_sync' and ref.get('via') not in ('shared', 'english', 'whisper'):
             # 5.10.605: a subtitle found in time is worth sharing too (others can use it as it is),
             # and the release's reference times with it
             _share_report(media_url, raw, name, {'scale': 1.0, 'offset_ms': 0, 'matched': res['matched'],
@@ -850,8 +897,8 @@ def _analyze(raw, name, media_url, key, ext, use_marker=True):
     out = _transform(raw, res, name)
     _write_bytes(cached, out)
     via = ref.get('via')
-    _share_report(media_url, raw, name, res, {'shared': 'server', 'english': 'english'}.get(via, 'embedded'),
-                  None if via in ('shared', 'english') else ref['starts'])
+    _share_report(media_url, raw, name, res, {'shared': 'server', 'english': 'english', 'whisper': 'speech'}.get(via, 'embedded'),
+                  None if via in ('shared', 'english', 'whisper') else ref['starts'])
     return {'status': 'synced', 'path': cached,
             'msg': _t('%s (تطابق %d%%)') % (_describe(res, starts), round(res['matched'] * 100))}
 
@@ -963,6 +1010,9 @@ def reference(media_url):
         eng = _english_reference(media_url)      # 5.10.601: an English subtitle of this release
         if eng:
             return eng
+        heard = _whisper_reference(media_url)    # v5.10.607: Whisper, with the viewer's own key
+        if heard:
+            return heard
         sref = _sound_reference(media_url)       # v5.10.597: the film's sound
         return sref if sref.get('ok') else ref
     except Exception as e:
@@ -1012,8 +1062,8 @@ def score(raw, name, media_url, ref=None):
         out['data'] = _transform(raw, res, name)
         if media_url:
             _share_report(media_url, raw, name, res,
-                          {'sound': 'speech', 'english': 'english', 'shared': 'server'}.get(ref.get('via'), 'embedded'),
-                          None if ref.get('via') in ('sound', 'english', 'shared') else ref.get('starts'))
+                          {'sound': 'speech', 'whisper': 'speech', 'english': 'english', 'shared': 'server'}.get(ref.get('via'), 'embedded'),
+                          None if ref.get('via') in ('sound', 'whisper', 'english', 'shared') else ref.get('starts'))
         out['desc'] = _describe(res, starts) + (_t(' على كلام الفيلم') if ref.get('via') == 'sound' else '')
     elif decision == 'in_sync':
         out['status'] = 'in_sync'

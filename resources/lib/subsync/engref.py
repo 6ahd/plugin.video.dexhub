@@ -42,6 +42,21 @@ def _session():
     return _SESSION
 
 
+# v5.10.607 (after Najd 2.9.7.8): another cut of the film is never this release's clock. An English
+# subtitle of the Director's Cut moved a Theatrical Cut's Arabic by up to 372 s there.
+_CUTS = (('extended', r'extended'), ('directors', r"director'?s?[ ._-]*cut|\bdc\b"), ('unrated', r'unrated|uncut'),
+         ('theatrical', r'theatrical'), ('final', r'final[ ._-]*cut'), ('special', r'special[ ._-]*edition'),
+         ('imax', r'\bimax\b'), ('ultimate', r'ultimate[ ._-]*(cut|edition)'), ('alternate', r'alternate[ ._-]*cut'))
+
+
+def _cut(name):
+    low = str(name or '').lower()
+    found = {key for key, rx in _CUTS if re.search(rx, low)}
+    found.discard('theatrical')              # the theatrical cut is what a name without a cut means
+    found.discard('imax')                    # IMAX changes the picture, not the length
+    return frozenset(found)
+
+
 def _hearing_impaired(item):
     name = '%s %s' % (item.get('subtitleFileName') or '', item.get('movieReleaseName') or '')
     return bool(re.search(r'(?i)(^|[._\-\s\[(])(hi|sdh|cc)([._\-\s\])]|$)', name)) or str(item.get('hi') or '') == '1'
@@ -103,9 +118,12 @@ def reference(media_url, ids, filename='', oh='', size=None, fps=0.0):
     if items:
         video = dexpick.best_video_info([filename])
         has_hints = dexpick.has_release_hints(video)
+        cut = _cut(filename)
         ranked = []
         for i, x in enumerate(items):
             name = x.get('movieReleaseName') or x.get('subtitleFileName') or ''
+            if _cut(name) != cut:
+                continue                     # another cut: never this release's clock
             score = dexpick.name_score(video, name) if has_hints else 0.0
             info = dexpick.release_info(name)
             if video.get('service') and info.get('service') and video['service'] != info['service']:

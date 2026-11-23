@@ -340,7 +340,9 @@ def build_targets(api, media_type, canonical_id, meta=None, season=None, episode
                                   ids=api.extract_ids(dict(meta or {}, id=(meta or {}).get('id') or canonical_id)),
                                   season=season, episode=episode)
         if _usenet:
-            combined_targets = list(combined_targets) + list(_usenet)
+            # v5.10.607: first in the queue: only 4 sources run at once out of ~20, and last it
+            # started 13 s into a search that takes it 2 s (Mac, 23 Nov 2026)
+            combined_targets = list(_usenet) + list(combined_targets)
     except Exception as _usenet_exc:
         api.xbmc.log('[DexHub] Usenet source: %s' % _usenet_exc, api.xbmc.LOGWARNING)
     # v5.10.560: the IPTV provider's own file, for a title its IPTV page opened

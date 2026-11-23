@@ -5288,6 +5288,14 @@ def _dedup_mode():
     # --- dexhub-406-patch --- honour the setting instead of ignoring it
     try:
         raw = str(ADDON.getSetting('source_dedup_mode') or '').strip().lower()
+        # v5.10.607 (the user: "gather them together and drop the repeated ones"): the same file
+        # from several add-ons is one row (Dexstreams/AIOStreams asks Torrentio, Comet, MediaFusion...
+        # that are linked here too); switched on once for every install, the setting still rules after
+        if ADDON.getSetting('source_dedup_v607') != 'true':
+            ADDON.setSetting('source_dedup_v607', 'true')
+            if raw in ('', 'off'):
+                ADDON.setSetting('source_dedup_mode', 'Single best')
+                raw = 'single best'
     except Exception:
         return 'off'
     if raw.startswith('single'):

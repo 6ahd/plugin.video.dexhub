@@ -70,11 +70,24 @@ def config():
             data = {}
         _CONFIG['value'] = {'providers': list(data.get('providers') or []),
                             'indexers': list(data.get('indexers') or []),
-                            'private': bool(data.get('private'))}
+                            'private': bool(data.get('private')),
+                            'precheck': data.get('precheck')}
     return _CONFIG['value']
 
 
+def precheck_count():
+    """How many of the best releases are checked before they are shown (v5.10.607; 0: off)."""
+    from .usenet_check import DEFAULT
+    value = config().get('precheck')
+    try:
+        return max(0, min(30, int(DEFAULT if value is None else value)))
+    except (TypeError, ValueError):
+        return DEFAULT
+
+
 def _save(data):
+    if 'precheck' not in data and config().get('precheck') is not None:
+        data = dict(data, precheck=config().get('precheck'))
     path = xbmcvfs.translatePath(_FILE)
     try:
         folder = os.path.dirname(path)
@@ -572,6 +585,20 @@ def payload(provider):
     ranked = sorted(((name, release) for name, releases in list(found) for release in releases),
                     key=lambda pair: (_RES_RANK.get(_quality(pair[1]['title']), 1), pair[1]['size'] or 0),
                     reverse=True)
+    # v5.10.607: the best releases checked before they are shown (usenet_check): the complete ones
+    # first with a check mark, the incomplete ones (a part no provider has) left out
+    verdicts, hidden = {}, 0
+    try:
+        from . import usenet_check
+        count = precheck_count()
+        if count:
+            verdicts = usenet_check.check([r for _n, r in ranked], min(9.0, max(3.0, deadline - time.time())), count)
+            # releases checked before (by this device) keep their verdict, checked now or not
+            for k, v in usenet_check.known([r for _n, r in ranked]).items():
+                verdicts.setdefault(k, v)
+            ranked = sorted(ranked, key=lambda pair: 0 if verdicts.get(usenet_check.key(pair[1])) == 'ok' else 1)
+    except Exception as exc:
+        _log('the check before showing failed: %s' % exc, xbmc.LOGWARNING)
     for name, release in ranked:                # an indexer still answering adds to found no more here
         # v5.10.582: a release marked as passworded stays. Its password is often in the NZB,
         # which the engine reads (1.3.0 opens COMPLETE.BLURAY discs that way); left out,
@@ -580,15 +607,24 @@ def payload(provider):
         if key in seen:
             continue
         seen.add(key)
-        facts = u' \u00b7 '.join(x for x in (_size_label(release['size']), release['age'], name,
+        verdict = verdicts.get(usenet_check.key(release)) if verdicts else ''
+        if verdict == 'dead':
+            hidden += 1
+            continue
+        mark = u' \u2705' if verdict == 'ok' else ''
+        facts = u' \u00b7 '.join(x for x in ((_t('سليمة', 'complete') if verdict == 'ok' else ''),
+                                             _size_label(release['size']), release['age'], name,
                                              protected if release['password'] else '') if x)
-        stream = {'name': '[COLOR %s]%s[/COLOR] %s\n%s' % (COLOR, NAME, name, _quality(release['title'])),
+        stream = {'name': '[COLOR %s]%s[/COLOR] %s\n%s%s' % (COLOR, NAME, name, _quality(release['title']), mark),
                   'title': '%s\n%s' % (release['title'], facts),
                   'url': release['link'],
-                  'behaviorHints': {'bingeGroup': 'dexhub-usenet', 'filename': release['title']}}
+                  'behaviorHints': {'bingeGroup': 'dexhub-usenet', 'filename': release['title'],
+                                    'usenetHealth': verdict or 'unknown'}}
         if release['size']:
             stream['behaviorHints']['videoSize'] = release['size']
         streams.append(stream)
+    if hidden:
+        _log('%d incomplete release(s) left out of the list' % hidden)
     if streams:
         try:
             from . import usenet_engine
@@ -1049,6 +1085,39 @@ def _edit_indexer(i, new=False):
             return True
 
 
+def _engine_menu():
+    """v5.10.607: the engine bar's choices: the check before showing, and what the engine is.
+    True when the check changed."""
+    from .usenet_check import CHOICES
+    n = precheck_count()
+    dialog = xbmcgui.Dialog()
+    pick = dialog.select('Usenet', [
+        _t('الفحص قبل العرض: %s', 'Check before showing: %s') % (
+            (_t('أحسن %d نسخ', 'the best %d') % n) if n else _t('موقّف', 'off')),
+        _t('عن المحرك', 'About the engine')])
+    if pick == 1:
+        _engine_note()
+        return False
+    if pick != 0:
+        return False
+    labels = [(_t('أحسن %d نسخ', 'The best %d') % c) if c else _t('موقّف', 'Off') for c in CHOICES]
+    choice = dialog.select(_t('كم نسخة يفحص قبل ما يعرضها؟', 'How many releases to check before showing?'),
+                           labels, preselect=CHOICES.index(n) if n in CHOICES else -1)
+    if choice < 0 or CHOICES[choice] == n:
+        return False
+    if CHOICES[choice]:
+        dialog.ok('Usenet', _t(
+            'كل نسخة تنفحص تنزّل ملف NZB من المفهرس (تنحسب عليك مثل التشغيل، وبعض المفهرسات تحدّ العدد باليوم)، '
+            'وتسأل مزودك عن 5 أجزاء منها. الناقصة تنخفي، والسليمة تطلع أول وعليها ✅. النتيجة تنحفظ: السليمة 12 ساعة والناقصة 3 أيام.',
+            'Each release checked downloads its NZB from the indexer (counted like a play; some indexers allow only a few a day) '
+            'and asks your provider about 5 of its parts. Incomplete ones are hidden, complete ones come first with ✅. '
+            'Results are kept: complete for 12 hours, incomplete for 3 days.'))
+    data = {'providers': [dict(p) for p in config()['providers']], 'indexers': [dict(i) for i in config()['indexers']],
+            'private': config().get('private'), 'precheck': CHOICES[choice]}
+    _save(data)
+    return True
+
+
 def _engine_note():
     from . import usenet_engine
     if usenet_engine.in_app() and not usenet_engine.binary():
@@ -1108,6 +1177,11 @@ class SetupWindow(xbmcgui.WindowXMLDialog):
                                        if usenet_engine.in_app() and not usenet_engine.binary()
                                        else _t('المحرك مركّب وجاهز', 'The engine is on this device')) if ready
                          else _t('المحرك مو مركّب على هذا الجهاز', 'The engine is not on this device'))
+        if ready:
+            # v5.10.607: the check before showing, said on the engine's bar (OK on it changes it)
+            n = precheck_count()
+            self.setProperty('un.engine', self.getProperty('un.engine') + u'  \u00b7  ' + (
+                _t('يفحص أحسن %d نسخ', 'checks the best %d') % n if n else _t('الفحص قبل العرض موقّف', 'no check before showing')))
         for cid, rows, key, add in ((self.PROVIDERS, data['providers'], 'providers', _t('إضافة مزود', 'Add a provider')),
                                     (self.INDEXERS, data['indexers'], 'indexers', _t('إضافة مفهرس', 'Add an indexer'))):
             items = []
@@ -1145,7 +1219,9 @@ class SetupWindow(xbmcgui.WindowXMLDialog):
 
     def onClick(self, cid):
         if cid == self.ENGINE:
-            return _engine_note()
+            if _engine_menu():
+                self.fill()
+            return
         if cid not in (self.PROVIDERS, self.INDEXERS):
             return
         key = 'providers' if cid == self.PROVIDERS else 'indexers'
