@@ -8594,6 +8594,7 @@ def plex_menu():
     add_item('Plex • %s' % name, build_url(action='plex_menu'),
              art=root_art('accounts'), is_folder=True,
              info={'title': 'Plex', 'plot': 'كل مكتبات وسيرفرات Plex المرتبطة بهذا الحساب.'})
+    _server_accounts_row('plex')
     add_item('متابعة Plex', build_url(action='plex_continue'), art=root_art('continue'),
              info={'title': 'متابعة Plex', 'plot': 'يجمع On Deck من جميع السيرفرات المتاحة.'})
     add_item('كل سيرفرات Plex', build_url(action='plex_servers'), art=root_art('plex'),
@@ -9184,6 +9185,7 @@ def silo_menu():
         return end_dir(content='files', cache=False)
 
     auth = silo_client.account() or {}
+    _server_accounts_row('silo')
     add_item('Home', build_url(action='silo_home'),
              art=collection_banner_art('Discover', fanart=addon_fanart()),
              info={'title': 'Silo Home',
@@ -9910,6 +9912,19 @@ def emby_logout():
     xbmc.executebuiltin('Container.Refresh')
 
 
+def _server_accounts_row(service):
+    """v5.10.605: the service's accounts (the main one, the extra ones, Add another)."""
+    try:
+        from . import account_slots
+        total = 1 + len(account_slots.ids(service))
+    except Exception:
+        total = 1
+    add_item(tr('الحسابات • %d') % total, build_url(action='server_accounts', service=service),
+             is_folder=False, art=root_art('accounts'),
+             info={'title': tr('الحسابات • %d') % total,
+                   'plot': tr('كل حسابات هذه الخدمة، وإضافة حساب آخر تنضم مكتباته ونسخه للمصادر.')})
+
+
 def emby_menu():
     _set_render_section('emby')
     if not emby_client.is_signed_in():
@@ -9918,6 +9933,7 @@ def emby_menu():
         return end_dir(content='files', cache=False)
     try:
         server = _emby_server()
+        _server_accounts_row('emby')
         add_item(tr('بحث Emby'), build_url(action='emby_search'), art=root_art('search_movie'))
         # v3.9.232: Emby had NO continue-watching row at all while Plex has had
         # one all along. Emby's /Users/{id}/Items/Resume is the exact equivalent
@@ -16056,7 +16072,11 @@ def _refresh_native_playback_context(ctx):
         return ctx
     try:
         client = _server_client(backend)
-        auth = client.account() or {}
+        # v5.10.605: the account the source came from (an extra account's, by its token)
+        from .account_slots import use as _slot_use, find as _slot_find
+        _slot = _slot_find(backend, {'url': server_url, 'token': token})
+        with _slot_use(backend, _slot):
+            auth = client.account() or {}
         server = {
             'id': auth.get('user_id') or backend,
             'name': auth.get('server_name') or ('Silo' if backend == 'silo' else 'Emby'),
@@ -16064,6 +16084,7 @@ def _refresh_native_playback_context(ctx):
             'token': token,
             'user_id': auth.get('user_id') or '',
             'backend': backend,
+            'slot': _slot,
         }
         # v5.10.27: bound the refresh. It runs synchronously right before
         # Player.play, and the direct URL below is already a valid fallback.

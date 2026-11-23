@@ -78,6 +78,14 @@ class NativeReporter:
         self._closed = set()
 
     def _send(self, ctx, position_ms, stop=False):
+        # v5.10.605: a session of an extra Silo account reports in that account
+        from .. import account_slots
+        auth = dict((ctx.get('silo_session') or {}).get('auth') or {})
+        hint = auth or {'url': ctx.get('server_url'), 'token': ctx.get('token')}
+        with account_slots.for_server('silo', hint):
+            return self._send_in(ctx, position_ms, stop)
+
+    def _send_in(self, ctx, position_ms, stop=False):
         from . import silo_provider as provider
         sid = str(ctx.get('session_id') or '')
         if not sid or sid in self._closed:

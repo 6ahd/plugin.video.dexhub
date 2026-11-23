@@ -27,6 +27,16 @@ _BASE = 'plugin://%s/' % _ADDON_ID
 _MEDIA = os.path.join(_ADDON.getAddonInfo('path'), 'resources', 'media')
 
 
+
+def _with_more(linked, service):
+    """v5.10.605: "linked (2)" when the service has an extra account."""
+    try:
+        from resources.lib import account_slots
+        more = len(account_slots.ids(service))
+    except Exception:
+        more = 0
+    return '%s (%d)' % (linked, more + 1) if more else linked
+
 def _params():
     try:
         raw = sys.argv[2] if len(sys.argv) > 2 else ''
@@ -733,10 +743,10 @@ def sources_libraries():
                                          ('Emby', 'emby_menu', 'provider_emby.png', 'emby_auth_json'),
                                          ('Jellyfin', 'jellyfin_menu', 'provider_jellyfin.png',
                                           'jellyfin_auth_json')):
-        _add('%s • %s' % (name, linked if _has_auth(setting) else unlinked), action, asset,
+        _add('%s • %s' % (name, _with_more(linked, name.lower()) if _has_auth(setting) else unlinked), action, asset,
              _txt('سيرفرك: مكتباته في الرئيسية ونسخه ضمن مصادر التشغيل.',
                   'Your server: its libraries on the Home and its copies among the streams.'))
-    _add('Silo • %s' % (linked if _linked_json('silo_auth_json') else unlinked), 'silo_menu',
+    _add('Silo • %s' % (_with_more(linked, 'silo') if _linked_json('silo_auth_json') else unlinked), 'silo_menu',
          'provider_silo.png',
          _txt('ربط Silo وإظهاره كمصدر أصلي داخل نتائج التشغيل.',
               'Connect Silo and show it as a native playback source.'))

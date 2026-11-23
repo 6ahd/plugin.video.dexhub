@@ -72,6 +72,32 @@ section{margin-top:26px}
 .pill{font-size:12px;padding:3px 10px;border-radius:99px;background:var(--surface);color:var(--muted);white-space:nowrap}
 .pill.on{background:color-mix(in srgb,var(--ok) 18%,transparent);color:#7EE2A2}
 .pill.wait{background:color-mix(in srgb,var(--warn) 18%,transparent);color:#F8C46A}
+/* v5.10.605: a service's accounts (the main one and the extra ones) */
+.accs{display:flex;flex-direction:column;gap:6px}
+.acr{display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:12px;padding:9px 10px 9px 12px}
+.acr .av{width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:700;font-size:13px;
+  background:color-mix(in srgb,var(--accent) 22%,transparent);color:var(--text)}
+.acr .n{flex:1;min-width:0}
+.acr .n b{display:block;font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acr .n small{display:block;font-size:11.5px;color:var(--muted)}
+.acr .x{flex:none;border:0;background:transparent;color:var(--muted);font:inherit;font-size:12.5px;padding:6px 8px;border-radius:9px;cursor:pointer}
+.acr .x:active{background:color-mix(in srgb,var(--text) 8%,transparent)}
+.addacc{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:11px;border-radius:12px;cursor:pointer;
+  border:1.5px dashed color-mix(in srgb,var(--accent) 55%,transparent);background:transparent;color:var(--text);font:inherit;font-size:13.5px;font-weight:600}
+.addacc:active{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.addhead{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;color:var(--muted)}
+.addhead b{color:var(--text);font-weight:600}
+/* v5.10.605: the cards' checkboxes and drop-downs in the page's own look (they were the browser's) */
+.card select.inp{-webkit-appearance:none;appearance:none;padding-inline-end:40px;cursor:pointer;
+  background:var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%239AA3C0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 15px center/12px 8px}
+[dir="rtl"] .card select.inp{background-position:left 15px center}
+.card label:has(>input[type=checkbox]){display:flex;align-items:center;gap:10px;font-size:14px;color:var(--text);cursor:pointer;min-height:32px}
+.card input[type=checkbox]{-webkit-appearance:none;appearance:none;flex:none;width:22px;height:22px;margin:0;border-radius:7px;cursor:pointer;
+  border:1.5px solid color-mix(in srgb,var(--text) 28%,transparent);background:var(--surface);display:grid;place-content:center;transition:background .15s,border-color .15s}
+.card input[type=checkbox]:checked{background:var(--accent);border-color:var(--accent)}
+.card input[type=checkbox]:checked::after{content:"";width:12px;height:12px;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.3l3 3L12.5 5' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/12px no-repeat}
+.card input[type=checkbox]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .code{display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:12px;padding:10px 12px}
 .code .c{flex:1;font:600 22px/1 var(--f-code);letter-spacing:.18em;direction:ltr;text-align:center;color:var(--text);-webkit-user-select:all;user-select:all}
 .profs{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px}
@@ -1118,9 +1144,36 @@ document.addEventListener('change',async e=>{
   const j=await post('sync',c,true);
   if(j.ok)svc('stremio').sync={...svc('stremio').sync,...c};
 });
+/* v5.10.605: more than one Plex, Emby, Jellyfin or Silo account. "Add another account" shows
+   the service's usual sign-in again; what it signs in to becomes an extra account on the TV
+   (the main one stays). The TV keeps the sign-in's slot until it ends. */
+const MULTI=['plex','emby','jellyfin','silo'];
+// v5.10.605: opened from DexCloud's web link (not the TV's own address on the home network)
+const REMOTE=!/^(\d{1,3}\.){3}\d{1,3}$|^localhost$|^\[/.test(location.hostname);
+const addingAcc=new Set();
+const isExtra=id=>MULTI.includes(id)&&(addingAcc.has(id)||!!svc(id).adding)&&!!svc(id).linked;
+function accountsList(id){
+  const rows=svc(id).accounts||[];
+  const list=rows.map(r=>`<div class="acr"><span class="av">${esc(String(r.label||'?').trim().slice(0,1).toUpperCase())}</span>
+    <div class="n"><b dir="auto">${esc(r.label||svc(id).name)}</b><small>${r.main?'الحساب الأساسي':'حساب إضافي'}</small></div>
+    <button class="x" type="button" data-act="unlink" data-id="${id}" data-slot="${esc(r.slot||'')}">فك</button></div>`).join('');
+  return `<div class="accs">${list}</div>
+    <button class="addacc" type="button" data-act="addacc" data-id="${id}"><span aria-hidden="true">＋</span><span>إضافة حساب آخر</span></button>
+    <p class="hint">مكتبات ونسخ كل الحسابات تطلع مع المصادر.</p>`;
+}
 function cardBody(id){
   const s=svc(id),m=SVC_META[id]||{};
-  if(s.linked){
+  if(isExtra(id)){
+    // signing in another account: the usual form, under a line that says so
+    const head=`<div class="addhead"><span><b>حساب إضافي</b><span aria-hidden="true"> · </span><span>الأساسي يبقى مثل ما هو</span></span>
+      <button class="btn g s" type="button" data-act="addcancel" data-id="${id}">إلغاء</button></div>`;
+    return head+unlinkedBody(id,s,m);
+  }
+  if(s.linked&&MULTI.includes(id))return accountsList(id);
+  return unlinkedBody(id,s,m,true);
+}
+function unlinkedBody(id,s,m,orLinked){
+  if(orLinked&&s.linked){
     return (id==='stremio'?stremioSyncCard():'')+`<div class="done-line">${id==='iptv'?'اشتراكك مضاف، تقدر تضيف ثاني من التلفزيون':id==='nas'?'الـNAS مضاف، وملفاته تطلع مع المصادر':'مربوط ويشتغل على التلفزيون'}</div>`+
       (id==='iptv'||id==='nas'||id==='debrid'?'':`<div class="row"><button class="btn g s" data-act="unlink" data-id="${id}" type="button">فك الربط</button></div>`);
   }
@@ -1152,7 +1205,7 @@ function cardBody(id){
     <div class="field"><label for="p-${id}">كلمة المرور</label><input class="inp ltr" id="p-${id}" type="password" autocomplete="current-password"></div>
     <div class="row"><button class="btn p" data-act="login" data-id="${id}" type="button">اربط</button></div>
     ${id==='nas'?'<p class="hint">اترك الاسم وكلمة المرور فاضية لو المجلدات مفتوحة. كل مجلد مشارك يتقرأ، والأفلام والحلقات تنعرف من أسمائها.</p>':''}
-    <p class="hint">تنرسل لتلفزيونك مباشرة على شبكة البيت، وما تمر على أي سيرفر ثاني.</p>`;
+    <p class="hint">${REMOTE?'تنرسل لتلفزيونك عبر DexCloud باتصال مشفّر، والموقع ما يحفظها.':'تنرسل لتلفزيونك مباشرة على شبكة البيت، وما تمر على أي سيرفر ثاني.'}</p>`;
 }
 /* v5.10.242: Silo opens its own site on the phone, then the profile is picked here */
 let siloPick='';
@@ -1186,14 +1239,15 @@ function siloBody(id,s,m){
 }
 function siloServer(v){try{if(v===undefined)return localStorage.getItem('dexhub.phone.silo')||'';localStorage.setItem('dexhub.phone.silo',v)}catch(e){}return ''}
 function siloProfiles(j){
-  if(j.linked){toast('Silo انربط ✓');return refresh()}
+  if(j.linked){toast('Silo انربط ✓');addingAcc.delete('silo');return refresh()}
   svc('silo').pairing={status:'profile',profiles:j.profiles||[]};siloPick='';renderAcc();
 }
 function renderAcc(){
   const list=ORDER.filter(id=>chosen.has(id));
   keepInputs($('#acc'),()=>$('#acc').innerHTML=list.map(id=>{
     const s=svc(id);
-    const st=s.linked?'<span class="pill on">مربوط</span>':(s.pairing&&s.pairing.status==='pending'?'<span class="pill wait">ينتظر موافقتك</span>':(s.pairing&&s.pairing.status==='profile'?'<span class="pill wait">اختر البروفايل</span>':'<span class="pill">غير مربوط</span>'));
+    const many=(s.accounts||[]).length;
+    const st=s.linked&&!isExtra(id)?`<span class="pill on"><span>مربوط</span>${many>1?' · '+many:''}</span>`:isExtra(id)&&!(s.pairing&&s.pairing.status)?'<span class="pill wait">حساب جديد</span>':s.linked&&!s.pairing?'<span class="pill on">مربوط</span>':(s.pairing&&s.pairing.status==='pending'?'<span class="pill wait">ينتظر موافقتك</span>':(s.pairing&&s.pairing.status==='profile'?'<span class="pill wait">اختر البروفايل</span>':'<span class="pill">غير مربوط</span>'));
     return `<div class="card" id="c-${id}"><div class="ch">${ico(id)}<div class="n"><b>${esc(s.name)}</b><span>${(SVC_META[id]||{}).sub||''}</span></div>${st}</div>${cardBody(id)}</div>`}).join(''));
   $('#accEmpty').hidden=list.length>0;
   const n=list.filter(id=>svc(id).linked).length;
@@ -1208,6 +1262,7 @@ function pollAccounts(){
   pollTimer=setTimeout(async()=>{
     try{const st=await getState();const before=ORDER.filter(id=>svc(id).linked);S.services=st.services;S.addons=st.addons;if(!rowsBusy())S.home=st.home;S.meta=st.meta;
       ORDER.forEach(id=>{if(svc(id).linked&&!before.includes(id))toast(svc(id).name+' انربط ✓')});
+      MULTI.forEach(id=>{if(addingAcc.has(id)&&!svc(id).adding&&!svc(id).pairing){addingAcc.delete(id);toast(svc(id).name+' · '+T2('انضاف الحساب ✓','account added ✓'))}});
       renderAcc();renderAd();renderHome();renderMeta();}catch(e){}
     pollAccounts();
   },3000);
@@ -1224,7 +1279,7 @@ document.addEventListener('click',async e=>{
     return;
   }
   if(a.dataset.act==='copy'){const c=a.dataset.code;copyText(c).then(()=>toast('انسخ الرمز'),()=>toast('الرمز: '+c));return}
-  if(a.dataset.act==='code'){a.disabled=true;a.textContent='يجهز الرمز…';const j=await post('code',{service:id},true);
+  if(a.dataset.act==='code'){a.disabled=true;a.textContent='يجهز الرمز…';const j=await post('code',{service:id,extra:isExtra(id)},true);
     if(j.ok){svc(id).pairing={code:j.code,url:j.url,status:'pending'};renderAcc();pollAccounts();if(!j.code&&j.url)window.open(j.url,'_blank')}else{renderAcc()}return}
   if(a.dataset.act==='silosite'){
     const ad=$('#a-silo');ad.value=cleanText(ad.value);if(!ad.value){ad.focus();toast('اكتب عنوان السيرفر');return}
@@ -1232,7 +1287,7 @@ document.addEventListener('click',async e=>{
     // a tab opened now, inside the tap, is not blocked; the Silo page loads in it once the TV answers
     let w=null;try{w=window.open('about:blank','_blank')}catch(e){}
     a.disabled=true;a.textContent='يفتح Silo…';
-    const j=await post('code',{service:'silo',server:ad.value},true);
+    const j=await post('code',{service:'silo',server:ad.value,extra:isExtra('silo')},true);
     if(j.ok&&j.url){svc('silo').pairing={code:j.code,url:j.url,server:j.server||'',status:'pending'};renderAcc();pollAccounts();
       if(w){try{w.location.href=j.url}catch(e){w=null}}if(!w)window.location.href=j.url;}
     else{if(w)try{w.close()}catch(e){}renderAcc()}
@@ -1253,7 +1308,7 @@ document.addEventListener('click',async e=>{
     const pin=$('#pin-silo');if(pin&&!pin.value.trim()){pin.focus();toast('اكتب PIN البروفايل');return}
     a.disabled=true;a.textContent='يدخل…';
     const j=await post('silo',{profile:siloPick,pin:pin?pin.value.trim():''},true);
-    if(j.ok){toast('Silo انربط ✓');siloPick='';await refresh()}else{a.disabled=false;renderAcc()}
+    if(j.ok){toast('Silo انربط ✓');siloPick='';addingAcc.delete('silo');await refresh()}else{a.disabled=false;renderAcc()}
     return}
   if(a.dataset.act==='tv'){const j=await post('tv',{service:id},true);if(j.ok)toast('انفتح على التلفزيون، كمّل هناك');setTimeout(refresh,8000);return}
   if(a.dataset.act==='login'){
@@ -1263,9 +1318,9 @@ document.addEventListener('click',async e=>{
     if(id==='silo')siloServer(ad.value);
     if(id!=='iptv'&&id!=='nas'&&(!u.value.trim()||!pw.value)){(u.value.trim()?pw:u).focus();toast('اكتب البيانات أول');return}
     a.disabled=true;a.textContent='يربط…';
-    const j=await post('login',{service:id,server:ad?ad.value.trim():'',user:u.value.trim(),password:pw.value},true);
+    const j=await post('login',{service:id,server:ad?ad.value.trim():'',user:u.value.trim(),password:pw.value,extra:isExtra(id)},true);
     if(j.ok&&id==='silo'){siloProfiles(j);return}
-    if(j.ok){toast(svc(id).name+' انربط ✓');await refresh()}else{a.disabled=false;a.textContent='اربط'}
+    if(j.ok){toast(svc(id).name+' انربط ✓');addingAcc.delete(id);await refresh()}else{a.disabled=false;a.textContent='اربط'}
     return}
   if(a.dataset.act==='key'){
     const k=$('#k-'+id);k.value=cleanText(k.value);if(!k.value){k.focus();toast('اكتب الكود أول');return}
@@ -1273,7 +1328,14 @@ document.addEventListener('click',async e=>{
     const j=await post('login',{service:id,password:k.value},true);
     if(j.ok){toast(svc(id).name+' انحفظ ✓');await refresh()}else{a.disabled=false;a.textContent='احفظ'}
     return}
-  if(a.dataset.act==='unlink'){const j=await post('logout',{service:id},true);if(j.ok){toast('انفك الربط');await refresh()}}
+  if(a.dataset.act==='unlink'){
+    if(MULTI.includes(id)&&!confirm(T2('فك هذا الحساب من التلفزيون؟','Disconnect this account from the TV?')))return;
+    const j=await post('logout',{service:id,slot:a.dataset.slot||''},true);if(j.ok){toast('انفك الربط');await refresh()}}
+  if(a.dataset.act==='addacc'){addingAcc.add(id);const sp=svc(id);sp.pairing=null;renderAcc();
+    const f=document.querySelector('#c-'+id+' input');if(f)f.focus({preventScroll:true});return}
+  if(a.dataset.act==='addcancel'){addingAcc.delete(id);
+    if(id==='silo'&&svc('silo').pairing){await post('silo',{op:'cancel'},true)}
+    svc(id).pairing=null;svc(id).adding=false;renderAcc();return}
 });
 
 /* ---------------- add-ons ---------------- */
@@ -2006,6 +2068,8 @@ document.addEventListener('click',async e=>{
 
 /* ---------------- load ---------------- */
 function applyState(){
+  // v5.10.605: the TV's language first: what draws itself below picks its words by it
+  if(window.DexHubLanguage&&!window.DexHubLanguage.saved)window.DexHubLanguage.setLanguage(S.ui_language==='English'?'en':'ar',true);
   $('#tvName').textContent=S.tv||'Kodi';$('#tvName2').textContent=S.tv||'Kodi';  // v5.10.286
   if(!chosen.size){const c=loadChosen();chosen=c||new Set(ORDER.filter(id=>svc(id).linked));if(!chosen.size)['nuvio','trakt'].forEach(x=>chosen.add(x))}
   ORDER.forEach(id=>{if(svc(id).linked)chosen.add(id)});
@@ -2027,7 +2091,6 @@ function applyState(){
   renderPrefs();renderLayouts();renderScale(S.homeui_poster_scale||'100');online(true);  // v5.10.286
   renderQuick();  // v5.10.452
   if(!warmed){warmed=true;setTimeout(warmPages,600)}
-  if(window.DexHubLanguage&&!window.DexHubLanguage.saved)window.DexHubLanguage.setLanguage(S.ui_language==='English'?'en':'ar',true);
 }
 async function refresh(){try{S=await getState();applyState()}catch(e){online(false);toast('انقطع الاتصال بالتلفزيون','err')}}
 document.body.classList.add('loading');
@@ -2115,6 +2178,10 @@ const exact={
 'تجريبي':'Demo','إعداد من الجوال':'PHONE SETUP','ثلاث خطوات، تجربة واحدة.':'Three steps. One personal experience.','خدماتك، شاشتك، إعدادك.':'Your services. Your screen. Your setup.',
 "متصل بـ":"Connected to","اختر خدماتك ورتّب شاشتك. كل تغيير يوصل للتلفزيون على طول.":"Choose your services and arrange your home screen. Every change reaches the TV right away.","مربوط":"Linked","محفوظ":"Saved","خلصت":"Done","جاهز على التلفزيون":"Ready on your TV","ارجع للتلفزيون، الصفحة الرئيسية تتحدث الحين.":"Go back to the TV. The home screen is refreshing now.","ابدأ الربط":"Start linking","أو اربطه من التلفزيون":"Or link it on the TV","افتحه على التلفزيون":"Open it on the TV","مربوط ويشتغل على التلفزيون":"Linked and working on the TV","اشتراكك مضاف، تقدر تضيف ثاني من التلفزيون":"Your subscription is added. Add another one on the TV.","بعد الموافقة يتحول هنا لـ \"مربوط\" لحاله.":"Once approved, this turns to Linked by itself.","افتح الرابط وحط الرمز، والتلفزيون ينربط لحاله.":"Open the link and enter the code. The TV links by itself.","تفتح صفحة Plex وتوافق، وتنربط سيرفراتك كلها.":"Approve on Plex and all your servers are linked.","انتهى الرمز قبل الموافقة، ابدأ من جديد.":"The code expired before approval. Start again.","عنوان السيرفر أو رابط M3U":"Server address or M3U link","تنرسل لتلفزيونك مباشرة على شبكة البيت، وما تمر على أي سيرفر ثاني.":"Sent straight to your TV on your home network, never through another server.","وصل للتلفزيون":"Sent to the TV","يحفظ…":"Saving…","الصق رابط manifest كامل":"Paste a full manifest link","يضيف…":"Adding…","انضافت الإضافة ✓":"Add-on added ✓","انشالت الإضافة":"Add-on removed","الثيم تغيّر على التلفزيون":"Theme changed on the TV","كبير جداً":"Extra large","انسخ النص":"Copy the text","احفظ كملف":"Save as file","الحسابات وكلمات المرور وروابط الإضافات ما تدخل الملف أبد.":"Accounts, passwords and add-on links never go into the file.","يطبق الإعداد…":"Applying…","انطبق الإعداد على التلفزيون ✓":"Applied on the TV ✓","انضافت الصفوف ✓":"Rows added ✓","الصفوف تطلع هنا أول ما تربط حساب أو تضيف إضافة":"Rows appear here once you link an account or add an add-on","ما فيه كوليكشن جاهز الحين":"No ready collections right now","انقطع الاتصال بالتلفزيون":"Lost the connection to the TV","انقطع الاتصال بالتلفزيون، تأكد إنه شغال على نفس الشبكة":"Lost the connection to the TV. Make sure it is on the same network.","ما ضبط، جرّب مرة ثانية":"That did not work, try again","الصفحة قفلت على التلفزيون، امسح الباركود مرة ثانية للتعديل":"The page closed on the TV. Scan the QR again to keep editing.","اكتب عنوان السيرفر":"Enter the server address","من قاعدة TMDb Helper على جهازك":"From TMDb Helper on this device","من إضافتك":"From your add-on","يفيد في البحث عن الممثلين. بدونه كل شي يشتغل عادي، والمفتاح ما يطلع هنا بعد ما ينحفظ.":"Used for cast searches. Everything works without it, and the key is not shown again once saved.","المفتاح انحفظ":"Key saved","انفتح على التلفزيون، كمّل هناك":"Opened on the TV, continue there","انفك الربط":"Unlinked","يجهز الرمز…":"Getting a code…","يربط…":"Linking…","اسم المستخدم (لـ Xtream)":"Username (for Xtream)","أفلامك ومسلسلاتك في الشبكة":"Your films and series on the network","الـNAS مضاف، وملفاته تطلع مع المصادر":"NAS added; its files show up as sources","عنوان الـNAS (أو smb://nas/movies)":"NAS address (or smb://nas/movies)","اترك الاسم وكلمة المرور فاضية لو المجلدات مفتوحة. كل مجلد مشارك يتقرأ، والأفلام والحلقات تنعرف من أسمائها.":"Leave the name and password empty if the folders are open. Every shared folder is read, and films and episodes are told apart by their names."
 };
+Object.assign(exact,{'تنرسل لتلفزيونك عبر DexCloud باتصال مشفّر، والموقع ما يحفظها.':'Sent to your TV through DexCloud over an encrypted connection; the site does not keep them.'});
+Object.assign(exact,{'الحساب الأساسي':'Main account','حساب إضافي':'Extra account','فك':'Unlink','إضافة حساب آخر':'Add another account',
+'مكتبات ونسخ كل الحسابات تطلع مع المصادر.':"Every account's libraries and copies show up among the streams.",'الأساسي يبقى مثل ما هو':'the main one stays as it is',
+'إلغاء':'Cancel','حساب جديد':'New account'});
 Object.assign(exact,{'افتح Silo وسجّل':'Open Silo and sign in','ينفتح موقع Silo في الجوال، تسجّل وتوافق، وبعدها تختار البروفايل هنا.':'The Silo site opens on your phone. Sign in and approve, then pick the profile here.','أو بالاسم وكلمة المرور':'Or with username and password','افتح موقع Silo':'Open the Silo site','سجّل دخولك في موقع Silo ووافق على ربط Dex Hub، وبعدها ترجع هنا تختار البروفايل.':'Sign in on the Silo site and approve Dex Hub, then come back here to pick the profile.','وافقت ✓ اختر البروفايل:':'Approved ✓ Pick the profile:','مفتوح':'Open','انتهى الطلب قبل الموافقة، ابدأ من جديد.':'The request ended before approval. Start again.','يفتح Silo…':'Opening Silo…','يدخل…':'Signing in…','اكتب PIN البروفايل':'Type the profile PIN'});
 Object.assign(exact,{'الصفحات والصفوف':'Pages & rows','رتّب كل صفحة على كيفك':'Arrange every page your way','الصفحات':'Pages','معاينة الصفحة':'Page preview',
 'الرئيسية':'Home','أفلام':'Movies','مسلسلات':'Series','المكتبة':'Library','السيرفرات':'Servers','ظاهر':'shown','مخفي':'hidden','الترتيب الأصلي':'Original order',

@@ -103,10 +103,14 @@ def servers():
         login = ''
         if p.get('user'):
             login = '%s:%s@' % (quote(str(p.get('user')), safe=''), quote(str(p.get('password') or ''), safe=''))
+        # v5.10.605: sni=0 (engine 1.3.3): the server's name is left out of the TLS request, for
+        # networks that cut a connection naming the provider; the certificate is still checked
+        query = '&'.join(x for x in ('priority=1' if p.get('backup') else '',
+                                     'sni=0' if p.get('hide_name') and p.get('ssl', True) else '') if x)
         out.append('%s://%s%s:%d/%d' % ('nntps' if p.get('ssl', True) else 'nntp', login, p.get('host'),
                                         int(p.get('port') or (563 if p.get('ssl', True) else 119)),
                                         max(1, min(100, int(p.get('connections') or 20))))
-                   + ('?priority=1' if p.get('backup') else ''))
+                   + ('?' + query if query else ''))
     return out
 
 
@@ -621,6 +625,10 @@ def resolve(ctx):
     except Exception as exc:
         kind = getattr(exc, 'kind', '') or ''
         _log('the release did not open (%s): %s' % (kind or '-', exc), xbmc.LOGWARNING)
+        # v5.10.605: which release and which indexer (the log said neither: three Ripper Street
+        # releases failed on the CoreELEC box, 23 Nov 2026, and nothing told them apart)
+        _log('  release: %s  indexer: %s' % (str((ctx or {}).get('filename') or (ctx or {}).get('title') or '?')[:90],
+                                             _indexer_of(link)), xbmc.LOGWARNING)
         reason = {'provider': _t('المزود رفض الدخول أو خلصت الحصة', 'The provider refused the sign-in or its quota is used up'),
                   'engine': _t('محرك Usenet مو مركّب على هذا الجهاز', 'The Usenet engine is not on this device'),
                   'timeout': _t('محرك Usenet ما رد في الوقت', 'The Usenet engine did not answer in time'),
@@ -644,6 +652,28 @@ def resolve(ctx):
 _TEST_HINT = ('الإعدادات ← Usenet ← المزود ← فحص الاتصال', 'Settings › Usenet › provider › Test the sign-in')
 
 
+def _indexer_of(link):
+    """The indexer a release's link belongs to: a Prowlarr link names its indexer by id
+    (<prowlarr>/<id>/download), read back from the indexer list Dex Hub keeps; else the host."""
+    from urllib.parse import urlsplit
+    parts = urlsplit(str(link or ''))
+    m = re.search(r'/(\d+)/download', parts.path or '')
+    if m:
+        try:
+            for indexer in config()['indexers']:
+                if indexer.get('kind') != 'prowlarr':
+                    continue
+                if urlsplit(str(indexer.get('url') or '')).hostname != parts.hostname:
+                    continue
+                for ident, name in _prowlarr_usenet(indexer, 5) or []:
+                    if str(ident) == m.group(1):
+                        return '%s (Prowlarr)' % name
+        except Exception:
+            pass
+        return 'Prowlarr #%s' % m.group(1)
+    return parts.hostname or '?'
+
+
 def _plain_reason(text):
     """What went wrong, in words a viewer can act on, from the engine's answer and its log line
     ('' when it names nothing known)."""
@@ -662,6 +692,12 @@ def _plain_reason(text):
                   'The indexer\'s link is on the local network: turn on self-hosted servers in Usenet settings')
     if 'http 429' in low:
         return _t('المفهرس وصل حد التحميل، جرّب بعدين', 'The indexer\'s download limit is reached, try later')
+    if 'nzb download returned http 403' in low:
+        # v5.10.605: Prowlarr with "Redirect" on sends the device to the indexer itself, and an
+        # indexer that refuses this address answers 403 (altHUB did, for a home in Saudi Arabia,
+        # while Prowlarr's own server reached it)
+        return _t('المفهرس رفض يعطي الملف لهذا الجهاز (403). لو هو داخل Prowlarr: طفّ Redirect له، ويحمّله Prowlarr بنفسه',
+                  'The indexer refused this device (403). In Prowlarr, turn its Redirect off so Prowlarr fetches it')
     if 'could not download nzb' in low or 'nzb download returned' in low:
         return _t('المفهرس ما عطى ملف النسخة (NZB)', 'The indexer did not give the release\'s NZB file')
     if 'did not answer in time' in low:
@@ -704,7 +740,10 @@ def _test_provider(p, seconds=12):
     secure = p.get('ssl', True)
     try:
         raw = socket.create_connection((p.get('host'), int(p.get('port') or (563 if secure else 119))), seconds)
-        sock = _tls().wrap_socket(raw, server_hostname=p.get('host')) if secure else raw
+        if secure and p.get('hide_name'):
+            sock = _hidden_name(raw, p.get('host'))
+        else:
+            sock = _tls().wrap_socket(raw, server_hostname=p.get('host')) if secure else raw
         sock.settimeout(seconds)
         reader = sock.makefile('rb')
 
@@ -730,6 +769,60 @@ def _test_provider(p, seconds=12):
         return ''
     except Exception as exc:
         return str(exc)[:120]
+
+
+def _hidden_name(raw, host):
+    """v5.10.605: TLS without the server's name in the request (as the engine's sni=0); the
+    certificate's chain is checked by ssl, its names here against the host."""
+    import ssl as _ssl
+    context = _tls()
+    context.check_hostname = False
+    context.verify_mode = _ssl.CERT_REQUIRED
+    sock = context.wrap_socket(raw, server_hostname=None)
+    names = [v for k, v in (sock.getpeercert() or {}).get('subjectAltName', ()) if k == 'DNS']
+    host = str(host or '').lower().rstrip('.')
+    for name in names:
+        name = name.lower().rstrip('.')
+        if name == host or (name.startswith('*.') and host.endswith(name[1:]) and host.count('.') == name.count('.')):
+            return sock
+    sock.close()
+    raise _ssl.SSLError('the certificate is not for %s' % host)
+
+
+_CUT = ('reset by peer', 'errno 104', 'errno 54', 'connection refused', 'timed out', 'eof occurred',
+        'unexpected eof', 'connection aborted', 'no route')
+
+
+def _port_443(p, wrong, dialog):
+    """v5.10.605: a home network that cuts NNTP's SSL port (563) while 443 passes. Newshosting
+    from a home in Saudi Arabia, 23 Nov 2026: 563 reset at once ([Errno 104]), 443 and the
+    plain ports answered. Most providers serve SSL on 443 too: tried, and offered when it works.
+    Returns what is still wrong ('' when 443 was taken)."""
+    if not wrong or not p.get('ssl', True) or not any(k in str(wrong).lower() for k in _CUT):
+        return wrong
+    # v5.10.605: the same home cut every TLS request that NAMED news.newshosting.com, on 563
+    # and 443 alike (443 worked for a while: not every server address was watched); left
+    # unnamed, both ports answered. The name hidden is tried first, on the port as it is.
+    if not p.get('hide_name') and not _test_provider(dict(p, hide_name=True)):
+        if dialog.yesno('Usenet', _t('شبكتك تقطع الاتصال لما يظهر فيه اسم المزود (%s).\nأخفي الاسم؟ الاتصال يبقى مشفّر وشهادة السيرفر تنفحص مثل قبل.',
+                                     'Your network cuts the connection when it names the provider (%s).\nHide the name? The connection stays encrypted and the server\'s certificate is checked as before.')
+                         % p.get('host')):
+            p['hide_name'] = True
+            _log('provider %s: its name hidden in the TLS request (the network cut it)' % p.get('host'))
+            return ''
+        return wrong
+    if int(p.get('port') or 563) == 443:
+        return wrong
+    trial = dict(p, port=443)
+    if _test_provider(trial):
+        return wrong
+    if dialog.yesno('Usenet', _t('شبكتك تقطع منفذ %s، والمنفذ 443 (مشفّر بعد) شغال مع هذا المزود.\nأغيّر المنفذ إلى 443؟',
+                                 'Your network cuts port %s, and port 443 (also SSL) works with this provider.\nSwitch to port 443?')
+                     % p.get('port')):
+        p['port'] = 443
+        _log('provider %s: port 443 (the network cut the one before)' % p.get('host'))
+        return ''
+    return wrong
 
 
 def _is_prowlarr(indexer):
@@ -768,17 +861,63 @@ def _indexer_name(url):
     return (parts[0] if parts else host) or 'indexer'
 
 
+# v5.10.605: ready addresses (the user: "the links ready, we only pick them"). Only addresses:
+# every key, user and password is the viewer's own and typed by them.
+PROVIDER_PRESETS = (
+    ('Newshosting', 'news.newshosting.com'),
+    ('Eweka', 'news.eweka.nl'),
+    ('Easynews', 'news.easynews.com'),
+    ('UsenetServer', 'news.usenetserver.com'),
+    ('Giganews', 'news.giganews.com'),
+    ('Tweaknews', 'news.tweaknews.eu'),
+    ('Frugal Usenet', 'news.frugalusenet.com'),
+    ('UsenetExpress', 'news.usenetexpress.com'),
+    ('Newsgroup Ninja', 'news.newsgroup.ninja'),
+    ('NewsDemon', 'news.newsdemon.com'),
+)
+# the Newznab addresses as Prowlarr's own definitions have them (DexWorld's Prowlarr, 23 Nov 2026)
+INDEXER_PRESETS = (
+    ('DexWorld Prowlarr', 'https://prowlarr.dexworld.cc'),
+    ('NZBgeek', 'https://api.nzbgeek.info/api'),
+    ('DrunkenSlug', 'https://drunkenslug.com/api'),
+    ('NZBFinder', 'https://nzbfinder.ws/api'),
+    ('altHUB', 'https://api.althub.co.za/api'),
+    ('abNZB', 'https://abnzb.com/api'),
+    ('Tabula Rasa', 'https://www.tabula-rasa.pw/api/v1/api'),
+    ('usenet-crawler', 'https://www.usenet-crawler.com/api'),
+    ('SearchNZB', 'https://api.searchnzb.com/api'),
+    ('NinjaCentral', 'https://ninjacentral.co.za/api'),
+    ('omgwtfnzbs', 'https://api.omgwtfnzbs.org/api'),
+    ('AnimeTosho', 'https://feed.animetosho.org/api'),
+)
+
+
+def _pick(heading, presets, other):
+    """A ready address, '' to type one, None when nothing was chosen."""
+    choice = xbmcgui.Dialog().select(heading, ['%s  ·  %s' % (n, a.replace('https://', '')) for n, a in presets] + [other])
+    if choice < 0:
+        return None
+    return presets[choice] if choice < len(presets) else ''
+
+
 def _edit_provider(p, new=False, others=False):
     """Change a provider field by field; True when something changed. new: asks every field
     (and, when there are other providers already, whether this one is a backup)."""
     dialog = xbmcgui.Dialog()
     if new:
-        host = _ask(_t('عنوان سيرفر المزود (مثل news.example.com)', 'The provider\'s server (like news.example.com)')).strip()
-        if not host:
+        preset = _pick(_t('المزود', 'The provider'), PROVIDER_PRESETS, _t('مزود ثاني: أكتب عنوانه', 'Another provider: type its address'))
+        if preset is None:
             return False
-        p['host'] = host
-        p['ssl'] = bool(dialog.yesno('Usenet', _t('اتصال مشفّر SSL؟ (الأفضل نعم، منفذ 563)', 'Use SSL? (yes is better, port 563)')))
-        p['port'] = _number(_t('المنفذ', 'Port'), 563 if p['ssl'] else 119) or (563 if p['ssl'] else 119)
+        if preset:
+            # SSL on 563, the standard; the test below moves to 443 or hides the name if the network needs it
+            p['host'], p['ssl'], p['port'] = preset[1], True, 563
+        else:
+            host = _ask(_t('عنوان سيرفر المزود (مثل news.example.com)', 'The provider\'s server (like news.example.com)')).strip()
+            if not host:
+                return False
+            p['host'] = host
+            p['ssl'] = bool(dialog.yesno('Usenet', _t('اتصال مشفّر SSL؟ (الأفضل نعم، منفذ 563 أو 443)', 'Use SSL? (yes is better, port 563 or 443)')))
+            p['port'] = _number(_t('المنفذ', 'Port'), 563 if p['ssl'] else 119) or (563 if p['ssl'] else 119)
         p['user'] = _ask(_t('اسم المستخدم', 'User name')).strip()
         p['password'] = _ask(_t('كلمة المرور', 'Password'), hidden=True) if p['user'] else ''
         p['connections'] = max(1, min(100, _number(_t('عدد الاتصالات (20 مناسب)', 'Connections (20 suits most)'), 20) or 20))
@@ -787,7 +926,7 @@ def _edit_provider(p, new=False, others=False):
             p['backup'] = bool(dialog.yesno('Usenet', _t(
                 'هذا المزود احتياطي؟\nالاحتياطي ينستخدم فقط للأجزاء الناقصة عند المزود الأساسي. «لا» يخليه أساسي مع الباقين.',
                 'Is this provider a backup?\nA backup is used only for the parts the main provider lacks. "No" makes it a main one beside the others.')))
-        wrong = _test_provider(p)
+        wrong = _port_443(p, _test_provider(p), dialog)
         if wrong and not dialog.yesno('Usenet', _t('المزود ما قبل الدخول: %s\nأحفظه على أي حال؟',
                                                    'The provider did not accept the sign-in: %s\nKeep it anyway?') % wrong):
             return False
@@ -797,6 +936,7 @@ def _edit_provider(p, new=False, others=False):
         rows = [(_t('السيرفر: %s', 'Server: %s') % p.get('host'), 'host'),
                 (_t('المنفذ: %s', 'Port: %s') % p.get('port'), 'port'),
                 (_t('SSL: %s', 'SSL: %s') % (_t('نعم', 'yes') if p.get('ssl', True) else _t('لا', 'no')), 'ssl'),
+                (_t('إخفاء اسم السيرفر: %s', 'Hide the server\'s name: %s') % (_t('نعم', 'yes') if p.get('hide_name') else _t('لا', 'no')), 'hide'),
                 (_t('اسم المستخدم: %s', 'User name: %s') % (p.get('user') or '-'), 'user'),
                 (_t('كلمة المرور: %s', 'Password: %s') % ('••••••' if p.get('password') else '-'), 'password'),
                 (_t('عدد الاتصالات: %s', 'Connections: %s') % p.get('connections', 20), 'connections'),
@@ -835,10 +975,14 @@ def _edit_provider(p, new=False, others=False):
                 p['connections'], changed = max(1, min(100, value)), True
         elif what == 'backup':
             p['backup'], changed = not p.get('backup'), True
+        elif what == 'hide':
+            p['hide_name'], changed = not p.get('hide_name'), True
         elif what == 'off':
             p['off'], changed = not p.get('off'), True
         elif what == 'test':
-            wrong = _test_provider(p)
+            before = p.get('port')
+            wrong = _port_443(p, _test_provider(p), dialog)
+            changed = changed or p.get('port') != before
             dialog.ok('Usenet', _t('المزود شغال والدخول صحيح.', 'The provider answers and the sign-in is right.') if not wrong
                       else _t('ما نجح الفحص: %s', 'The test failed: %s') % wrong)
         elif what == 'remove' and dialog.yesno('Usenet', _t('أحذف المزود %s؟', 'Remove the provider %s?') % p.get('host')):
@@ -849,8 +993,11 @@ def _edit_provider(p, new=False, others=False):
 def _edit_indexer(i, new=False):
     dialog = xbmcgui.Dialog()
     if new:
-        url = _ask(_t('عنوان المفهرس أو Prowlarr (مثل https://api.example.com)',
-                      'The indexer\'s or Prowlarr\'s address (like https://api.example.com)')).strip()
+        preset = _pick(_t('المفهرس', 'The indexer'), INDEXER_PRESETS, _t('عنوان ثاني: أكتبه', 'Another address: type it'))
+        if preset is None:
+            return False
+        url = preset[1] if preset else _ask(_t('عنوان المفهرس أو Prowlarr (مثل https://api.example.com)',
+                                               'The indexer\'s or Prowlarr\'s address (like https://api.example.com)')).strip()
         if not url:
             return False
         i['url'] = url if url.startswith('http') else 'https://' + url

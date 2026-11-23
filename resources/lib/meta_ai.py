@@ -131,7 +131,8 @@ def translate(text, title='', year='', kind='plot', code=None):
             cfg = ai_search.config('metadata')
             if not cfg:
                 return ''
-            what = {'plot': 'story (plot summary)', 'episode': 'episode summary'}.get(kind, 'text')
+            what = {'plot': 'story (plot summary)', 'episode': 'episode summary',
+                    'biography': 'biography of the person'}.get(kind, 'text')
             system = ('You translate film and TV metadata into %s. Translate the %s of "%s"%s naturally, as a '
                       'streaming service would show it; keep names as they are usually written in %s. Answer with '
                       'the translation only.' % (_NAMES.get(code, code), what, title or 'the title',

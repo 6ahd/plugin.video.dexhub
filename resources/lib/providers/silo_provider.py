@@ -611,6 +611,24 @@ def select_profile(auth, profile, profile_token=''):
 
 
 def servers(*_args, **_kwargs):
+    """v5.10.605: the first account's server, then each extra account's (with its slot)."""
+    from .. import account_slots
+    if account_slots.current('silo') or not is_signed_in():
+        return _one_server()
+    out = _one_server()
+    for slot in account_slots.ids('silo'):
+        with account_slots.use('silo', slot):
+            who = account().get('account_name') or account().get('profile_name') or ''
+            for row in _one_server():
+                row['slot'] = slot
+                if who and who not in row['name']:
+                    row['name'] = '%s • %s' % (row['name'], who)
+                if not any(x.get('url') == row.get('url') and x.get('profile_id') == row.get('profile_id') for x in out):
+                    out.append(row)
+    return out
+
+
+def _one_server():
     auth = account()
     if not is_signed_in():
         return []
@@ -1586,3 +1604,39 @@ def artwork_url(server, item_id, kind='Primary'):
 
 def logo_url(server, item_id):
     return artwork_url(server, item_id, 'Logo')
+
+
+def _for_server_calls():
+    """v5.10.605: a public function given a server works in that server's account (an extra
+    account's server carries its slot): its reads, its session renewal and its checks all
+    see that account."""
+    import functools
+    import inspect
+    from .. import account_slots
+    names = []
+    for name, fn in list(globals().items()):
+        if name.startswith('__') or not inspect.isfunction(fn) or fn.__module__ != __name__:
+            continue
+        try:
+            params = list(inspect.signature(fn).parameters)
+        except (TypeError, ValueError):
+            continue
+        if 'server' not in params:
+            continue
+        at = params.index('server')
+
+        def wrap(fn=fn, at=at):
+            @functools.wraps(fn)
+            def call(*args, **kwargs):
+                server = kwargs.get('server') if 'server' in kwargs else (args[at] if len(args) > at else None)
+                if not isinstance(server, dict) or account_slots.current('silo'):
+                    return fn(*args, **kwargs)
+                with account_slots.for_server('silo', server):
+                    return fn(*args, **kwargs)
+            return call
+        globals()[name] = wrap()
+        names.append(name)
+    return names
+
+
+_FOR_SERVER = _for_server_calls()

@@ -618,7 +618,29 @@ def _auth_prop(name):
     return 'dexhub.plex.auth' if name.endswith('auth_json') else ''
 
 
+def _slot_of(name):
+    try:
+        from . import account_slots
+        return account_slots.split(name)
+    except Exception:
+        return None
+
+
+def _in_slot():
+    try:
+        from . import account_slots
+        return bool(account_slots.current('plex'))
+    except Exception:
+        return False
+
+
 def _parse_json_setting(name, default):
+    slot = _slot_of(name)
+    if slot:
+        # v5.10.605: an extra Plex account in use on this thread
+        from . import account_slots
+        value = account_slots.read(slot[0], slot[1], slot[2])
+        return value if isinstance(value, type(default)) else default
     raw = ''
     try:
         raw = _setting(name) or ''
@@ -648,6 +670,11 @@ def _parse_json_setting(name, default):
 
 
 def _save_json_setting(name, value):
+    slot = _slot_of(name)
+    if slot:
+        from . import account_slots
+        account_slots.write(slot[0], slot[1], slot[2], value)
+        return
     try:
         blob = json.dumps(value, separators=(',', ':'), ensure_ascii=False)
         _setting(name, blob)
@@ -660,6 +687,8 @@ def _save_json_setting(name, value):
 
 def account():
     value = _parse_json_setting('plex_auth_json', {})
+    if _in_slot():
+        return value if value.get('token') else {}
     if not value.get('token'):
         value = plex_state.load_account()
         if value.get('token'):
@@ -677,6 +706,11 @@ def is_signed_in():
 
 def sign_out():
     _LIBRARIES_MEM.clear()
+    if _in_slot():
+        # an extra account: only its slot goes
+        from . import account_slots
+        account_slots.remove('plex', account_slots.current('plex'))
+        return
     _setting('plex_auth_json', '')
     _remove_persistent('plex_auth_json')
     try:
@@ -686,6 +720,12 @@ def sign_out():
     _setting('plex_servers_cache_json', '')
     _remove_persistent('plex_servers_cache_json')
     plex_state.clear_account()
+    # v5.10.605: the oldest extra account becomes the main one
+    from . import account_slots
+    nxt = account_slots.promote('plex')
+    if nxt:
+        _save_json_setting('plex_auth_json', nxt)
+        plex_state.save_account(nxt)
 
 
 def request_pin(strong=False):
@@ -827,6 +867,9 @@ def poll_pin(pin_id, code='', flavor='v2'):
     _PIN_SHAPE.pop(str(pin_id), None)
     value = _account_for_token(token)
     _save_json_setting('plex_auth_json', value)
+    if _in_slot():
+        _save_json_setting('plex_servers_cache_json', {})
+        return value
     plex_state.save_account(value)
     _setting('plex_servers_cache_json', '')
     _remove_persistent('plex_servers_cache_json')
@@ -844,15 +887,41 @@ def _cache_servers(servers):
     _LIBRARIES_MEM.clear()
     payload = {'fetched_at': int(time.time()), 'servers': servers or []}
     _save_json_setting('plex_servers_cache_json', payload)
-    plex_state.save_server_cache(servers or [], payload['fetched_at'])
+    if not _in_slot():
+        plex_state.save_server_cache(servers or [], payload['fetched_at'])
 
 
 def servers(force=False, cached_only=False):
+    """Every server the Plex accounts reach: the first account's, then each extra
+    account's (v5.10.605), a server two accounts share listed once."""
+    out = _account_servers(force, cached_only)
+    if _in_slot():
+        return out
+    from . import account_slots
+    for slot in account_slots.ids('plex'):
+        try:
+            with account_slots.use('plex', slot):
+                who = account().get('username') or ''
+                mine = _account_servers(force, cached_only)
+        except Exception as exc:
+            xbmc.log('[DexHub] Plex extra account skipped: %s' % exc.__class__.__name__, xbmc.LOGWARNING)
+            continue
+        for row in mine:
+            if any(str(x.get('id')) == str(row.get('id')) for x in out):
+                continue
+            row = dict(row, slot=slot)
+            if who and not row.get('owned'):
+                row['name'] = '%s • %s' % (row.get('name') or 'Plex', who)
+            out.append(row)
+    return out
+
+
+def _account_servers(force=False, cached_only=False):
     """Discover every server accessible to the authenticated Plex account."""
     auth = account()
     token = auth.get('token')
     cached = _parse_json_setting('plex_servers_cache_json', {})
-    if not (cached.get('servers') or []):
+    if not (cached.get('servers') or []) and not _in_slot():
         cached = plex_state.load_server_cache()
         if cached.get('servers'):
             _save_json_setting('plex_servers_cache_json', cached)

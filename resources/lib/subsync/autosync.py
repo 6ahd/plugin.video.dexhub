@@ -827,6 +827,11 @@ def _analyze(raw, name, media_url, key, ext, use_marker=True):
         time.time() - t1, decision))
     if decision != 'sync':
         pct = round(res['matched'] * 100)
+        if decision == 'in_sync' and ref.get('via') not in ('shared', 'english'):
+            # 5.10.605: a subtitle found in time is worth sharing too (others can use it as it is),
+            # and the release's reference times with it
+            _share_report(media_url, raw, name, {'scale': 1.0, 'offset_ms': 0, 'matched': res['matched'],
+                                                  'rival': res['rival']}, 'embedded', ref['starts'])
         if decision == 'in_sync':
             why = _t('الترجمة مضبوطة أصلاً (تطابق %d%%)') % pct
         elif res.get('reason'):

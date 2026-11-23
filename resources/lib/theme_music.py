@@ -49,14 +49,14 @@ def _setting(key, default=''):
 
 
 def enabled():
-    return _setting('theme_music', 'false').lower() == 'true'
+    return _setting('theme_music', 'true').lower() == 'true'
 
 
 def level():
     try:
-        return max(5, min(100, int(float(_setting('theme_music_volume', '35')))))
+        return max(5, min(100, int(float(_setting('theme_music_volume', '60')))))
     except Exception:
-        return 35
+        return 60
 
 
 def _get(url, timeout=6, method='GET'):

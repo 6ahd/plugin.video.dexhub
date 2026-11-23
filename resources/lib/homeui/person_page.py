@@ -41,7 +41,13 @@ def _img(path, size):
 def person_data(person_id):
     """TMDb's person with their combined credits, cached; {} when unknown."""
     from .. import tmdb_direct as T
-    lang = (T._card_language() or 'en-US')
+    # v5.10.604: the metadata language, as the title pages (it followed the interface: an English
+    # Kodi with Arabic metadata showed an English page)
+    try:
+        from ..meta_source import meta_language
+        lang = 'ar-SA' if meta_language() == 'ar' else 'en-US'
+    except Exception:
+        lang = (T._card_language() or 'en-US')
     key = 'dh-person-v1:%s:%s' % (person_id, lang)
     data = T._cache_get(key)
     if isinstance(data, dict) and data:
@@ -120,6 +126,28 @@ class PersonWindow(xbmcgui.WindowXMLDialog):
         self._closing = False
         self._inited = False
 
+    def _translate_bio(self, bio, name):
+        """v5.10.604: TMDb often has the biography in English only: in the metadata language a
+        moment later, by the metadata translation service (Control Centre > AI), when it is on."""
+        try:
+            from .. import meta_ai
+            from ..meta_source import meta_language
+            code = 'ar' if meta_language() == 'ar' else meta_ai.target()
+            if not (bio and code and meta_ai.needs(bio, code) and meta_ai.enabled()):
+                return
+        except Exception:
+            return
+        import threading
+
+        def work():
+            try:
+                done = meta_ai.translate(bio, title=name, kind='biography', code=code)
+                if done:
+                    self.setProperty('bio', done)
+            except Exception:
+                pass
+        threading.Thread(target=work, name='DexHub-person-bio', daemon=True).start()
+
     def tr(self, text):
         return self.app.tr(text) if self.app is not None else text
 
@@ -160,8 +188,10 @@ class PersonWindow(xbmcgui.WindowXMLDialog):
         self.setProperty('photo', _img(data.get('profile_path'), 'w500'))
         self.setProperty('meta', self._meta(data))
         self.setProperty('credits', self.tr('%d مشاركة') % page['credits'] if page['credits'] else '')
-        self.setProperty('bio', (data.get('biography') or '').strip())
+        bio = (data.get('biography') or '').strip()
+        self.setProperty('bio', bio)
         self.setProperty('busy', '')
+        self._translate_bio(bio, data.get('name') or self.name)
         for index, poster in enumerate(page['wall']):
             self.setProperty('wall.%d' % index, poster)
         for cid, key in ((KNOWN, 'known'), (MOVIES, 'movie'), (TV, 'tv'), (DIRECTED, 'directed'), (TIMELINE, 'timeline')):

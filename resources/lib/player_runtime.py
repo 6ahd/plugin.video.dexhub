@@ -5836,7 +5836,11 @@ def _refresh_native_playback_context(ctx):
         return ctx
     try:
         client = _server_client(backend)
-        auth = client.account() or {}
+        # v5.10.605: the account the source came from (an extra account's, by its token)
+        from .account_slots import use as _slot_use, find as _slot_find
+        _slot = _slot_find(backend, {'url': server_url, 'token': token})
+        with _slot_use(backend, _slot):
+            auth = client.account() or {}
         server = {
             'id': auth.get('user_id') or backend,
             'name': auth.get('server_name') or ('Silo' if backend == 'silo' else 'Emby'),
@@ -5844,6 +5848,7 @@ def _refresh_native_playback_context(ctx):
             'token': token,
             'user_id': auth.get('user_id') or '',
             'backend': backend,
+            'slot': _slot,
         }
         # v5.10.27: bound the refresh. It runs synchronously right before
         # Player.play, and the direct URL below is already a valid fallback.

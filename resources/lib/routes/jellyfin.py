@@ -81,6 +81,7 @@ def run(api, action, params):
     content = 'videos'
     try:
         if action == 'jellyfin_menu':
+            api._server_accounts_row('jellyfin')
             api.add_item(_txt('بحث Jellyfin', 'Search Jellyfin'), api.build_url(action='jellyfin_search'))
             api.add_item(_txt('متابعة المشاهدة', 'Continue Watching'), api.build_url(action='jellyfin_continue'))
             for library in client.libraries(server):

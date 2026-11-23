@@ -358,6 +358,9 @@ class SetupWindow(xbmcgui.WindowXMLDialog):
         tr = self.tr
         if key == 'mdblist':
             options = [('login', tr('تغيير المفتاح')), ('logout', tr('مسح المفتاح'))]
+        elif key in ('plex', 'emby', 'jellyfin', 'silo'):
+            # v5.10.605: more than one account
+            options = [('accounts', tr('الحسابات وإضافة حساب آخر')), ('logout', tr('فصل الحساب'))]
         else:
             options = [('login', tr('إعدادات Nuvio') if key == 'nuvio' else tr('إعادة الربط')),
                        ('logout', tr('فصل الحساب'))]
@@ -365,7 +368,9 @@ class SetupWindow(xbmcgui.WindowXMLDialog):
         choice = choose(name, [label for _k, label in options], subtitle=tr('مربوط'))
         if choice < 0:
             return
-        if options[choice][0] == 'login':
+        if options[choice][0] == 'accounts':
+            self._run('server_accounts&service=%s' % key)
+        elif options[choice][0] == 'login':
             self._run(login)
         elif key == 'mdblist':
             if xbmcgui.Dialog().yesno(tr(name), tr('مسح مفتاح MDBList من Dex Hub؟')):

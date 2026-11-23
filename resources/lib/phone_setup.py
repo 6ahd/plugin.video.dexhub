@@ -531,6 +531,48 @@ class Session(object):
         self.changes = 0
         self.uploads = {}
         self.refresh_after = False  # v5.10.286: rows read again once the TV window closes
+        self.adding = {}            # v5.10.605: service -> the slot another account is signing in to
+
+    # -------------------------------------------------------------- more accounts
+    MULTI = ('plex', 'emby', 'jellyfin', 'silo')
+
+    def _slot(self, service, body=None):
+        """v5.10.605: the slot a sign-in writes to: a new one when the page asked for
+        another account (`extra`), '' (the main account) when it did not. Without a body:
+        the slot of the sign-in under way (a code being approved, a Silo profile)."""
+        if service not in self.MULTI:
+            return ''
+        from . import account_slots
+        with self.lock:
+            if body is not None:
+                if body.get('extra'):
+                    self.adding.setdefault(service, account_slots.new_slot())
+                else:
+                    self.adding.pop(service, None)
+            return self.adding.get(service, '')
+
+    def _added(self, service):
+        """The extra sign-in ended (linked, refused or cancelled): an empty slot goes."""
+        with self.lock:
+            had = self.adding.pop(service, None)
+        if had:
+            from . import account_slots
+            account_slots.drop_unlinked(service)
+
+    @staticmethod
+    def _accounts(key):
+        """[{label, slot, main}] of a server service, for the page."""
+        from . import account_slots
+        from .routes.server_accounts_ui import _main_auth, _signed_in
+        rows = []
+        try:
+            if _signed_in(None, key):
+                rows.append({'label': account_slots.label(key, _main_auth(None, key)), 'slot': '', 'main': True})
+            for row in account_slots.slots(key):
+                rows.append({'label': account_slots.label(key, row.get('auth')), 'slot': row['slot'], 'main': False})
+        except Exception:
+            pass
+        return rows
 
     def transfer(self, body):
         from .full_backup import context
@@ -570,7 +612,11 @@ class Session(object):
                 if choices:
                     row['linked'] = False
                     pending = {'status': 'profile', 'profiles': choices}
-            if pending and not row['linked']:
+            if key in self.MULTI:
+                row['accounts'] = self._accounts(key)
+                with self.lock:
+                    row['adding'] = key in self.adding
+            if pending and (not row['linked'] or row.get('adding')):
                 row['pairing'] = pending
             if key == 'stremio':
                 from .dexhub import nuvio_stremio_sync as sync
@@ -838,15 +884,22 @@ class Session(object):
             _set('stremio_sync_enabled', 'true')
             self._after_link('stremio')
         elif service in ('emby', 'jellyfin'):
-            from . import emby_client
-            emby_client.sign_in(server, user, password, backend=service)
+            from . import emby_client, account_slots
+            slot = self._slot(service, body)
+            try:
+                with account_slots.use(service, slot):
+                    emby_client.sign_in(server, user, password, backend=service)
+            finally:
+                self._added(service)
             self._servers_changed(service)
         elif service == 'silo':
             # v5.10.242: the profile (and its PIN) is chosen on the phone next
             from .providers import silo_provider
+            self._slot(service, body)
             try:
                 pending = silo_provider.login_account(server, user, password)
             except Exception as exc:
+                self._added('silo')
                 raise self._silo_failed(exc)
             return self._silo_profiles(pending)
         elif service == 'iptv':
@@ -977,6 +1030,12 @@ class Session(object):
 
     def logout(self, body):
         service = str(body.get('service') or '')
+        if service in self.MULTI and body.get('slot'):
+            # v5.10.605: one extra account
+            from . import account_slots
+            account_slots.remove(service, str(body.get('slot')))
+            self._servers_changed(service)
+            return {'ok': True}
         if service == 'plex':
             from . import plex_client
             plex_client.sign_out()
@@ -1040,12 +1099,14 @@ class Session(object):
                 return 'pending'
             every, life = max(3, int(c.get('interval') or 5)), int(c.get('expires_in') or 600)
         elif service == 'plex':
-            from . import plex_client
+            from . import plex_client, account_slots
+            slot = self._slot('plex', body)
             pin = plex_client.request_pin(strong=True)
             info = {'code': '', 'url': plex_client.auth_link_url(pin.get('code') or ''), 'status': 'pending'}
 
             def poll():
-                linked = plex_client.poll_pin(pin.get('id'), pin.get('code'), flavor=pin.get('flavor') or 'v2')
+                with account_slots.use('plex', slot):
+                    linked = plex_client.poll_pin(pin.get('id'), pin.get('code'), flavor=pin.get('flavor') or 'v2')
                 return 'ok' if linked else 'pending'
             every, life = 2, 300
         elif service == 'silo':
@@ -1055,6 +1116,7 @@ class Session(object):
             server = str(body.get('server') or '').strip()
             if not server:
                 raise ValueError(_tr('اكتب عنوان السيرفر'))
+            self._slot('silo', body)
             # v5.10.402: the address goes as typed; the provider cleans pasted
             # text and tries http for LAN addresses (https was forced here, so
             # 192.168.x.x:port servers never answered from the phone)
@@ -1115,6 +1177,15 @@ class Session(object):
             return                      # the phone picks the profile now
         if status == 'cancelled' and service == 'silo':
             return                      # a newer pairing (or a cancel) owns the card now
+        if service == 'plex':
+            if status == 'ok':
+                try:
+                    from . import plex_client, account_slots
+                    with account_slots.use('plex', self._slot('plex')):
+                        plex_client.servers(force=True)
+                except Exception:
+                    pass
+            self._added('plex')
         with self.lock:
             if service in self.codes:
                 self.codes[service]['status'] = status if status != 'pending' else 'expired'
@@ -1139,11 +1210,6 @@ class Session(object):
             if service == 'nuvio':
                 self._after_link('nuvio')
             elif service == 'plex':
-                try:
-                    from . import plex_client
-                    plex_client.servers(force=True)
-                except Exception:
-                    pass
                 self._servers_changed('plex')
             else:
                 _republish('accounts')
@@ -1187,7 +1253,10 @@ class Session(object):
 
     def _silo_link(self, pending, profile, token):
         from .providers import silo_provider
-        silo_provider.select_profile(pending, profile, token)
+        from . import account_slots
+        with account_slots.use('silo', self._slot('silo')):
+            silo_provider.select_profile(pending, profile, token)
+        self._added('silo')
         _set('silo_in_sources', 'true')
         with self.lock:
             self.silo_pending = None
@@ -1200,6 +1269,7 @@ class Session(object):
             self.silo_gen += 1
             self.silo_pending = None
             self.codes.pop('silo', None)
+        self._added('silo')
 
     def silo(self, body):
         """The profile picked on the phone (with its PIN when it has one)."""
@@ -1631,8 +1701,14 @@ class _Window(xbmcgui.WindowDialog):
     def __init__(self, *args, **kwargs):
         self.cancelled = False
         qr_path, url = kwargs.get('qr_path') or '', kwargs.get('url') or ''
+        web = kwargs.get('web') or ''
+        web_qr = kwargs.get('web_qr') or ''
         first = kwargs.get('first_run')
         cloud = kwargs.get('cloud') or {}
+        if web and web_qr:
+            # v5.10.605 (the user: "the local QR easy, a small one for the web, side by side")
+            self._two(qr_path, url, web_qr, web, first)
+            return
         # v5.10.378: on the first run the TV can also be linked to DexCloud
         # from the same screen (its own small QR and code under the text)
         w, h = (1120, 620) if cloud else (1000, 540)
@@ -1645,9 +1721,17 @@ class _Window(xbmcgui.WindowDialog):
                                              font='font14', textColor='FFFFFFFF'))
         self._body = xbmcgui.ControlTextBox(tx, y + 120, tw, 330 if not cloud else 250, font='font12', textColor='FFF0F3FA')
         self.addControl(self._body)
-        self._lead = (_tr('امسح الباركود بكاميرا الجوال. تفتح لك صفحة تربط فيها حساباتك وترتب الصفحة الرئيسية وتختار الشكل والترجمة، وكل شي يوصل للتلفزيون على طول.')
-                      + '\n\n' + _tr('الجوال والتلفزيون لازم يكونون على نفس الشبكة.') + '\n'
-                      + '[COLOR FF8FA0C0]%s[/COLOR]' % url)
+        if web:
+            # v5.10.605 (the user: "the local link, give me the web one"): the QR opens the page
+            # on DexCloud's site, from any network; the home network address stays as a fallback
+            self._lead = (_tr('امسح الباركود بكاميرا الجوال. تفتح لك صفحة تربط فيها حساباتك وترتب الصفحة الرئيسية وتختار الشكل والترجمة، وكل شي يوصل للتلفزيون على طول.')
+                          + '\n\n' + _tr('يفتح من أي مكان، حتى لو الجوال على شبكة ثانية:') + '\n'
+                          + '[B][COLOR FFAA9DFF]%s[/COLOR][/B]' % _short(web) + '\n'
+                          + '[COLOR FF8FA0C0]%s %s[/COLOR]' % (_tr('على نفس الشبكة:'), url))
+        else:
+            self._lead = (_tr('امسح الباركود بكاميرا الجوال. تفتح لك صفحة تربط فيها حساباتك وترتب الصفحة الرئيسية وتختار الشكل والترجمة، وكل شي يوصل للتلفزيون على طول.')
+                          + '\n\n' + _tr('الجوال والتلفزيون لازم يكونون على نفس الشبكة.') + '\n'
+                          + '[COLOR FF8FA0C0]%s[/COLOR]' % url)
         if cloud:
             white = os.path.join(_addon().getAddonInfo('path'), 'resources', 'media', 'white.png')
             self.addControl(xbmcgui.ControlImage(tx, y + 392, tw, 2, white, colorDiffuse='33FFFFFF'))
@@ -1656,9 +1740,44 @@ class _Window(xbmcgui.WindowDialog):
             self.addControl(note)
             note.setText('[B]%s[/B]\n%s\n%s [B]%s[/B]\n[COLOR FF8FA0C0]%s[/COLOR]' % (
                 _tr('عندك حساب DexCloud؟'),
-                _tr('امسح هذا الرمز واربط التلفزيون بحسابك، ويجيه إعدادك كله من أي مكان.'),
+                _tr('امسح هذا الرمز واربط التلفزيون بحسابك: يصير لهذي الصفحة رابط ويب يفتح من أي مكان.'),
                 _tr('أو افتح الموقع واكتب الرمز:'), cloud.get('code') or '',
                 cloud.get('host') or ''))
+        self._back = _tr('رجوع: أكمل على التلفزيون') if first else _tr('رجوع: إغلاق')
+        self.set_status(_tr('بانتظار الجوال…'))
+
+    def _two(self, qr_path, url, web_qr, web, first):
+        """Both QRs: the home network one big (the shortest link, nothing to sign in to), the
+        DexCloud one smaller beside it (any network, the account's sign-in)."""
+        from . import pairing_ui
+        white = os.path.join(_addon().getAddonInfo('path'), 'resources', 'media', 'white.png')
+        w, h = 1160, 600
+        x, y = pairing_ui.surface(self, w, h)
+        self.addControl(xbmcgui.ControlLabel(x + 60, y + 40, w - 120, 44, '[B]%s[/B]' % _tr('جهّز Dex Hub من جوالك'),
+                                             font='font14', textColor='FFFFFFFF'))
+        # the home network: big
+        big, small = 300, 196
+        bx, by = x + 70, y + 120
+        pairing_ui.qr(self, qr_path, bx, by, big)
+        self.addControl(xbmcgui.ControlLabel(bx - 10, by + big + 22, big + 20, 34, '[B]%s[/B]' % _tr('على نفس الشبكة'),
+                                             font='font13', textColor='FFFFFFFF', alignment=0x00000002))
+        self.addControl(xbmcgui.ControlLabel(bx - 10, by + big + 56, big + 20, 30, _tr('الأسهل: يفتح على طول'),
+                                             font='font12', textColor='FF8FA0C0', alignment=0x00000002))
+        # DexCloud: smaller, beside it
+        sx, sy = bx + big + 70, by + (big - small) // 2
+        pairing_ui.qr(self, web_qr, sx, sy, small)
+        self.addControl(xbmcgui.ControlLabel(sx - 30, sy + small + 22, small + 60, 34, '[B]%s[/B]' % _tr('من أي مكان'),
+                                             font='font13', textColor='FFFFFFFF', alignment=0x00000002))
+        self.addControl(xbmcgui.ControlLabel(sx - 30, sy + small + 56, small + 60, 30, _tr('عبر DexCloud'),
+                                             font='font12', textColor='FFAA9DFF', alignment=0x00000002))
+        tx = sx + small + 60
+        self.addControl(xbmcgui.ControlImage(tx - 30, by, 2, big, white, colorDiffuse='22FFFFFF'))
+        tw = x + w - 50 - tx
+        self._body = xbmcgui.ControlTextBox(tx, by - 4, tw, h - (by - y) - 40, font='font12', textColor='FFF0F3FA')
+        self.addControl(self._body)
+        self._lead = (_tr('امسح أي باركود بكاميرا الجوال: تربط حساباتك وترتب الرئيسية وتختار الشكل والترجمة، وكل شي يوصل للتلفزيون على طول.')
+                      + '\n\n' + _tr('الجوال على شبكة ثانية؟ استخدم باركود DexCloud وسجّل دخولك بحسابك.')
+                      + '\n\n[COLOR FF8FA0C0]%s[/COLOR]\n[COLOR FFAA9DFF]%s[/COLOR]' % (_short(url), _short(web)))
         self._back = _tr('رجوع: أكمل على التلفزيون') if first else _tr('رجوع: إغلاق')
         self.set_status(_tr('بانتظار الجوال…'))
 
@@ -1674,12 +1793,32 @@ class _Window(xbmcgui.WindowDialog):
             self.close()
 
 
-def _cloud_offer(first_run):
+def _short(url):
+    return str(url or '').replace('https://', '').replace('http://', '').rstrip('/')
+
+
+def _web_url(section=''):
+    """v5.10.605: the page's address on DexCloud's site (remote_setup relays it to this TV),
+    or '' when the TV is not linked. A backup and Kodi's files stay on the home network."""
+    if section in ('backup', 'files'):
+        return ''
+    try:
+        from . import hub_client
+        if not hub_client.linked():
+            return ''
+        device = str(hub_client.state().get('device_id') or '')
+        return '%s/tv/%s/' % (hub_client.base(), device) if device else ''
+    except Exception:
+        return ''
+
+
+def _cloud_offer(first_run, section=''):
     """v5.10.378: the first run also offers DexCloud: a pairing code from the
     hub and a thread that looks every 3 s whether the phone approved it.
-    ({} , state) when not the first run, already linked or the hub is out of reach."""
+    v5.10.605: every time the TV is not linked (linking gives the page its web link).
+    ({} , state) when already linked, the backup or files page, or the hub is out of reach."""
     state = {'done': False, 'stop': False}
-    if not first_run:
+    if section in ('backup', 'files'):
         return {}, state
     try:
         from . import hub_client
@@ -1733,16 +1872,22 @@ def run(first_run=False, section=''):
     if section in ('backup','files'):url += '#' + section
     threading.Thread(target=server.serve_forever, name='DexHubPhoneSetup', daemon=True).start()
     _log('serving on %s:%d' % (ip, server.server_address[1]))
-    qr_path = ''
+    web = _web_url(section)
+    if web and section:
+        web += '#' + section
+    qr_path = web_qr = ''
     try:
         from .plex_qr import qr_png
         qr_path = qr_png(url, box_size=8, border=3) or ''
+        if web:
+            web_qr = qr_png(web, box_size=6, border=3, family='dexcloud_page_qr') or ''
     except Exception:
         pass
     home = xbmcgui.Window(10000)
     home.setProperty('dexhub.phone.url', url)
-    cloud, linked = _cloud_offer(first_run)
-    win = _Window(qr_path=qr_path, url=url, first_run=first_run, cloud=cloud)
+    cloud, linked = ({}, {'done': False, 'stop': False}) if web else _cloud_offer(first_run, section)
+    _log('page links: web=%s' % bool(web))
+    win = _Window(qr_path=qr_path, url=url, web=web, web_qr=web_qr, first_run=first_run, cloud=cloud)
     win.show()
     started = time.time()
     monitor = xbmc.Monitor()

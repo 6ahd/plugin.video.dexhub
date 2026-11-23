@@ -26,6 +26,10 @@ def dispatch(action, params, api):
     if action == 'setup_quality': return api.setup_quality()
     if action == 'setup_stability': return api.setup_stability()
     if action == 'setup_diagnostics': return api.setup_diagnostics()
+    if action in ('server_accounts', 'server_account_add'):
+        # v5.10.605: more than one Plex, Emby, Jellyfin or Silo account
+        from . import server_accounts_ui as ui
+        return (ui.manage if action == 'server_accounts' else ui.add)(api, p('service', ''))
     if action == 'emby_menu': return api.emby_menu()
     if action == 'emby_login': return api.emby_login()
     if action == 'emby_logout': return api.emby_logout()

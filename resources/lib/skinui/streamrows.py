@@ -150,6 +150,9 @@ def subtitle(stream):
     title = re.sub(r'\s*[-\u00b7|]\s*(?=[-\u00b7|]|$)', '', title).strip(' -\u00b7|')
     if title and title.strip().lower() in (lang.lower(), code, str(stream.get('language') or '').lower()):
         title = ''
+    if title.startswith('(') and lang:
+        # "Arabic (Modern Standard)" keeps its language: "(Modern Standard)" alone reads cut
+        title = '%s %s' % (lang, title)
     external = 'External' in raw or 'خارجية' in raw or bool(re.search(r'\.(srt|ass|ssa|vtt|sub|sup)\b', raw, re.I))
     fmt = ''
     hint = ('%s %s' % (stream.get('codec') or '', raw)).lower()
@@ -177,6 +180,14 @@ def _known_row(stream, code, known):
     name = re.sub(u'[\U0001F1E6-\U0001F1FF\U0001F300-\U0001FAFF\u2600-\u27BF\uFE0F\u200D]', '', known.get('n') or '')
     name = re.sub(r'\s+', ' ', name).strip(' -\u00b7|')
     source = (known.get('s') or '').strip()
+    # 5.10.605: "El Sett (2025) | Arabic | External" -> "El Sett (2025)": the flag and the
+    # details line say the language and that it is external, the name keeps its room
+    for word in {lang, _english_name(code), 'External', 'خارجية'}:
+        if word:
+            # only a part of its own between the separators ("Dex External" stays)
+            name = re.sub(r'(?i)(^|\s*[\u00b7|]\s*)%s\s*(?=[\u00b7|]|$)' % re.escape(word), r'\1', name)
+    name = re.sub(r'\s*[\u00b7|]\s*(?=[\u00b7|]|$)', '', name).strip(' -\u00b7|')
+    name = re.sub(r'\s+', ' ', name)
     title = name or source
     raw = str(stream.get('name') or '')
     fmt = ''

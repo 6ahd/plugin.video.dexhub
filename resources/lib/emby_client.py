@@ -105,6 +105,12 @@ def _auth_prop(name):
 
 
 def _parse_json_setting(name, default):
+    from . import account_slots
+    slot = account_slots.split(name)
+    if slot:
+        # v5.10.605: an extra account in use on this thread
+        value = account_slots.read(slot[0], slot[1], slot[2])
+        return value if isinstance(value, type(default)) else default
     try:
         raw = _setting(name)
         if not raw:
@@ -117,6 +123,11 @@ def _parse_json_setting(name, default):
 
 
 def _save_json_setting(name, value):
+    from . import account_slots
+    slot = account_slots.split(name)
+    if slot:
+        account_slots.write(slot[0], slot[1], slot[2], value)
+        return
     try:
         blob = json.dumps(value)
         _setting(name, blob)
@@ -185,6 +196,11 @@ def _headers(token='', backend='emby'):
     if token:
         headers['X-MediaBrowser-Token'] = token
         headers['X-Emby-Token'] = token
+    if backend == 'jellyfin':
+        # v5.10.605: Jellyfin 10.11 refuses the legacy X-Emby-* headers (its demo answered
+        # 400 to the sign-in and 401 to every call); its own Authorization header carries
+        # the client and the token
+        headers['Authorization'] = auth + (', Token="%s"' % token if token else '')
     return headers
 
 
@@ -317,12 +333,22 @@ def is_signed_in(backend='emby'):
 
 def sign_out(backend='emby'):
     backend = _backend({'backend': backend})
+    from . import account_slots
+    if account_slots.current(backend):
+        # an extra account: only its slot goes
+        account_slots.remove(backend, account_slots.current(backend))
+        _VIEWS_MEM.clear()
+        return
     _setting('%s_auth_json' % backend, '')
     try:
         xbmcgui.Window(WINDOW_ID).clearProperty('dexhub.%s.auth' % backend)
     except Exception:
         pass
     _VIEWS_MEM.clear()
+    # v5.10.605: the oldest extra account becomes the main one
+    nxt = account_slots.promote(backend)
+    if nxt:
+        _save_json_setting('%s_auth_json' % backend, nxt)
 
 
 def sign_in(url, username, password='', backend='emby'):
@@ -347,7 +373,7 @@ def sign_in(url, username, password='', backend='emby'):
         'token': str(token),
         'user_id': str(user.get('Id')),
         'username': user.get('Name') or username or '',
-        'server_name': value.get('ServerName') or ('Silo' if backend == 'silo' else 'Emby'),
+        'server_name': value.get('ServerName') or {'silo': 'Silo', 'jellyfin': 'Jellyfin'}.get(backend, 'Emby'),
         'backend': backend,
         'signed_in_at': int(time.time()),
     }
@@ -357,8 +383,26 @@ def sign_in(url, username, password='', backend='emby'):
 
 
 def servers(backend='emby'):
-    """Emby is one configured server; keep the Plex-shaped list contract."""
+    """Emby is one configured server per account; keep the Plex-shaped list contract.
+    v5.10.605: the extra accounts' servers follow the first account's, each with its slot."""
     backend = _backend({'backend': backend})
+    from . import account_slots
+    if account_slots.current(backend) or not is_signed_in(backend):
+        return _one_server(backend)
+    out = _one_server(backend)
+    for slot in account_slots.ids(backend):
+        with account_slots.use(backend, slot):
+            who = account(backend).get('username') or ''
+            for row in _one_server(backend):
+                row['slot'] = slot
+                if who and who not in row['name']:
+                    row['name'] = '%s • %s' % (row['name'], who)
+                if not any(str(x.get('id')) == str(row.get('id')) and x.get('url') == row.get('url') for x in out):
+                    out.append(row)
+    return out
+
+
+def _one_server(backend):
     auth = account(backend)
     if not is_signed_in(backend):
         return []
