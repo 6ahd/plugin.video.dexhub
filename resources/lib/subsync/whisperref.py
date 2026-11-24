@@ -151,18 +151,39 @@ def _post(wav, account_row, timeout=120):
         raise WhisperError('unread', 'HTTP %d' % e.code)
 
 
-def starts_of(answer, offset_ms):
-    """The start (ms, on the film's clock) of every sentence Whisper heard in one piece."""
+FRAME_MS = 50
+
+
+def spans_of(answer, offset_ms=0):
+    """(start, end) in ms of every sentence Whisper heard in one piece (offset_ms: the piece's place)."""
     out = []
     for seg in (answer or {}).get('segments') or []:
         try:
             text = str(seg.get('text') or '').strip()
             if not text or float(seg.get('no_speech_prob') or 0) > 0.6:
                 continue
-            out.append(int(offset_ms + float(seg['start']) * 1000))
+            a, b = float(seg['start']) * 1000, float(seg['end']) * 1000
+            if b > a:
+                out.append((int(offset_ms + a), int(offset_ms + b)))
         except (KeyError, TypeError, ValueError):
             continue
     return out
+
+
+def starts_of(answer, offset_ms):
+    """The start (ms, on the film's clock) of every sentence Whisper heard in one piece."""
+    return [a for a, _b in spans_of(answer, offset_ms)]
+
+
+def _mask(spans, length_s):
+    """A piece's speech as bits of 50 ms frames, as soundref gives it (speechalign slides over these)."""
+    frames = int(length_s * 1000 // FRAME_MS)
+    bits = 0
+    for a, b in spans:
+        x, y = max(0, int(a // FRAME_MS)), min(frames, int(-(-b // FRAME_MS)))
+        if y > x:
+            bits |= ((1 << (y - x)) - 1) << x
+    return frames, bits
 
 
 def reference(media, duration_s=0.0, abort=None):
@@ -198,12 +219,15 @@ def reference(media, duration_s=0.0, abort=None):
         lo, hi = duration_s * 0.05, duration_s * 0.86 - length
         starts = [lo + (hi - lo) * i / float(max(1, count - 1)) for i in range(count)]
         found, errors, heard = [None] * count, [], [0]
+        spans = [None] * count
 
         def one(i):
             try:
                 pcm = _pcm(tool, src, extra, starts[i], length, layout, abort)
                 heard[0] += len(pcm) / float(RATE * 2)
-                found[i] = starts_of(_post(_wav(pcm), row), int(starts[i] * 1000))
+                answer = _post(_wav(pcm), row)
+                spans[i] = spans_of(answer)                 # on the piece's own clock
+                found[i] = [int(starts[i] * 1000) + a for a, _b in spans[i]]
             except WhisperError as e:
                 errors.append(e)
             except Exception as e:
@@ -226,8 +250,20 @@ def reference(media, duration_s=0.0, abort=None):
             raise bad[0] if bad else (errors[0] if errors else WhisperError('few', '%d lines' % len(lines)))
         _log('%s heard %d lines in %d pieces (%.0f s of sound, %.1f s)' % (
             row[0], len(lines), sum(1 for p in found if p), heard[0], time.time() - t0))
-        return {'ok': True, 'starts': lines, 'via': 'whisper', 'service': row[0],
-                'pieces': sum(1 for p in found if p), 'seconds': time.time() - t0}
+        # v5.10.608: the pieces as speech masks, like soundref: Whisper hears ~9 minutes of a film,
+        # so the subtitle is slid over those pieces only (speechalign), never matched line by line
+        # against the whole film (most lines would find nothing and the match rate would fail)
+        pieces, on, total = [], 0, 0
+        for i in range(count):
+            if spans[i] is None:
+                continue
+            frames, bits = _mask(spans[i], length)
+            pieces.append((int(round(starts[i] * 1000 / FRAME_MS)), frames, bits))
+            on += bin(bits).count('1')
+            total += frames
+        return {'ok': True, 'starts': lines, 'via': 'whisper', 'service': row[0], 'frame_ms': FRAME_MS,
+                'pieces': pieces, 'speech': (on / float(total)) if total else 0.0,
+                'seconds': time.time() - t0, 'duration_s': duration_s, 'layout': layout}
     finally:
         if server is not None:
             server.close()

@@ -110,11 +110,47 @@ def detect_kind(raw, name=''):
     return 'pair'
 
 
+# ── DEX_ASS_DIALOGUE_V1 (from DexHub-TV's AutoSyncAssDialogueFilter): signs, songs, karaoke and typeset events
+# never match speech or another subtitle, so they are left out of the timing analysis (the file shown keeps them).
+_ASS_NOT_DIALOGUE_STYLE = re.compile(r'sign|song|lyric|kara|\bop\b|\bed\b|opening|ending|title|logo|typeset|screen|note|insert|caption', re.I)
+_ASS_NOT_DIALOGUE_TAG = re.compile(r'\\(pos|move|org|clip|iclip)\(|\\k[fo]?\d|\\p[1-9]')
+
+
+def _ass_is_dialogue(text, m):
+    end = text.find('\n' if isinstance(text, str) else b'\n', m.start())
+    line = text[m.start(): end if end >= 0 else len(text)]
+    if isinstance(line, bytes):
+        line = line.decode('utf-8', 'ignore')
+    parts = line.split(':', 1)[-1].split(',', 9)
+    if len(parts) < 10:
+        return True
+    style, effect, body = parts[3], parts[8], parts[9]
+    return not (_ASS_NOT_DIALOGUE_STYLE.search(style) or effect.strip() or _ASS_NOT_DIALOGUE_TAG.search(body))
+
+
+def _ass_filtered(rows, keep):
+    """rows: (start, end) of every Dialogue; keep: same length, True for dialogue. Falls back to all rows when the
+    filter leaves under 20 lines or under 30%; then drops bursts of 5+ starts inside one second (typeset)."""
+    kept = [r for r, k in zip(rows, keep) if k]
+    if len(kept) < 20 or len(kept) < 0.3 * len(rows):
+        kept = list(rows)
+    kept.sort()
+    starts = [a for a, _b in kept]
+    out = []
+    for i, r in enumerate(kept):
+        lo = bisect.bisect_left(starts, r[0] - 999)
+        hi = bisect.bisect_right(starts, r[0] + 999)
+        if hi - lo >= 5 and len(kept) >= 40:
+            continue
+        out.append(r)
+    return out if len(out) >= 20 else kept
+
+
 def parse_starts(raw, name=''):
     """بدايات السطور بالملي ثانية (مرتبة) من SRT/VTT/ASS."""
     kind = detect_kind(raw, name)
     text, _enc, mode = _open(raw)
-    out = []
+    out, rows, keep = [], [], []
     for m in _RX[(kind, mode)].finditer(text):
         if kind == 'ass' and _as_str(m.group('kind')) != 'Dialogue':
             continue
@@ -126,6 +162,10 @@ def parse_starts(raw, name=''):
             continue
         if b >= a:
             out.append(a)
+            if kind == 'ass':
+                rows.append((a, b)); keep.append(_ass_is_dialogue(text, m))
+    if kind == 'ass' and rows:
+        return [a for a, _b in _ass_filtered(rows, keep)]   # DEX_ASS_DIALOGUE_V1
     out.sort()
     return out
 
@@ -134,7 +174,7 @@ def parse_intervals(raw, name=''):
     """(start, end) of every line in ms, sorted (v5.10.597, for the sound reference)."""
     kind = detect_kind(raw, name)
     text, _enc, mode = _open(raw)
-    out = []
+    out, keep = [], []
     for m in _RX[(kind, mode)].finditer(text):
         if kind == 'ass' and _as_str(m.group('kind')) != 'Dialogue':
             continue
@@ -146,6 +186,9 @@ def parse_intervals(raw, name=''):
             continue
         if b > a:
             out.append((a, min(b, a + 12000)))
+            keep.append(_ass_is_dialogue(text, m) if kind == 'ass' else True)
+    if kind == 'ass' and out:
+        return _ass_filtered(out, keep)   # DEX_ASS_DIALOGUE_V1
     out.sort()
     return out
 
@@ -291,7 +334,31 @@ def align(ref_starts, sub_starts, max_offset_ms=300000, tol_ms=350, sample=400):
                 'matched': hits / total, 'rival': rival / total})
     identity = moved(scale, off, 1.0, 0.0)
     res['max_move_ms'] = int(round(identity))
+    res['thirds'] = _thirds(ref, sub, scale, off, tol_ms, res['matched'])   # DEX_THIRDS_V1
     return res
+
+
+# ── DEX_THIRDS_V1 (from DexHub-TV's retimer): one offset must hold for the WHOLE film. Each third of the
+# subtitle, on its own, must match well and want the same offset (within 500 ms). A release with a cut fails
+# here and goes on to align_segments(); a wrong "sync" (a lucky offset in one part) is no longer applied.
+_THIRD_MAX_DRIFT_MS = 500
+_THIRD_MIN_RATE = 0.30
+_THIRD_MIN_LINES = 10
+
+
+def _thirds(ref, sub, scale, off, tol, global_rate):
+    n = len(sub)
+    out = []
+    for k in range(3):
+        part = sub[k * n // 3:(k + 1) * n // 3]
+        if len(part) < _THIRD_MIN_LINES:
+            continue
+        wide = _match(ref, part, scale, off, max(tol, 1000))
+        drift = _median([p[2] for p in wide]) if wide else 0.0
+        rate = len(_match(ref, part, scale, off + drift, tol)) / float(len(part))
+        ok = rate >= max(_THIRD_MIN_RATE, 0.7 * global_rate) and abs(drift) <= _THIRD_MAX_DRIFT_MS
+        out.append({'rate': round(rate, 2), 'drift_ms': int(round(drift)), 'ok': ok})
+    return out
 
 
 def decide(res, min_match=0.5, min_margin=0.2, min_hits=20, noop_ms=250):
@@ -300,6 +367,8 @@ def decide(res, min_match=0.5, min_margin=0.2, min_hits=20, noop_ms=250):
         return 'unsure'
     strong = res['matched'] >= min_match and (res['matched'] - res['rival']) >= min_margin and res['hits'] >= min_hits
     if not strong:
+        return 'unsure'
+    if res.get('thirds') and not all(t['ok'] for t in res['thirds']):   # DEX_THIRDS_V1
         return 'unsure'
     if res.get('max_move_ms', 0) < noop_ms:
         return 'in_sync'

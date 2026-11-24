@@ -771,10 +771,7 @@ def _whisper_reference(media_url):
         def moved_on():
             playing = _current_media_url()
             return bool(playing) and playing != media_url
-        got = whisperref.reference(media, duration, abort=moved_on)
-        out = {'ok': True, 'starts': got['starts'], 'stats': None, 'via': 'whisper',
-               'track': {'number': '-', 'lang': 'speech', 'codec': 'Whisper (%s)' % got['service'],
-                         'cues': len(got['starts']), 'estimated': 0, 'name': '', 'kind': 'text'}}
+        out = whisperref.reference(media, duration, abort=moved_on)   # speech masks, like soundref
     except whisperref.WhisperError as e:
         _log('whisper: %s %s' % (e.reason, e.detail or ''))
         if e.reason == 'cancelled':
@@ -850,10 +847,13 @@ def _analyze(raw, name, media_url, key, ext, use_marker=True):
                              'estimated': 0, 'name': '', 'kind': 'text'}}
             from_mem = True
         else:
-            eng = _english_reference(media_url) or _whisper_reference(media_url)
+            eng = _english_reference(media_url)
             if eng:
                 ref, from_mem = eng, True
         if not ref.get('ok'):
+            heard = _whisper_reference(media_url)   # v5.10.607: Whisper with the viewer's key, slid like the sound
+            if heard:
+                return _analyze_sound(raw, name, key, ext, cached, marker, heard, media_url)
             sref = _sound_reference(media_url)
             if sref.get('ok'):
                 return _analyze_sound(raw, name, key, ext, cached, marker, sref, media_url)
@@ -967,6 +967,11 @@ def _process_job(job, player):
             return False
         _log('%s: applied in %.1fs (%s)' % (key[:8], time.time() - t0, job.get('origin') or 'dexsubs'))
         _job_notify(job, a['msg'], 'applied')
+        try:   # DEVICE_SYNCED_V1: the synced text goes to DexWorld once (translated / kept, and saved for this release)
+            from . import share_synced
+            share_synced.send(a['path'], job, media_url)
+        except Exception as e:
+            _log('share skipped: %s' % e)
         return True
     if _is_latest(job):
         _job_notify(job, a['msg'], 'info' if a['status'] == 'in_sync' else 'skip')
@@ -1047,7 +1052,7 @@ def score(raw, name, media_url, ref=None):
         out['reason'] = ref.get('reason') or ''
         return out
     t1 = time.time()
-    if ref.get('via') == 'sound':
+    if ref.get('via') in ('sound', 'whisper'):
         res, decision = _by_sound(raw, name, ref)
     else:
         res = dexalign.align(ref['starts'], starts)
@@ -1057,14 +1062,14 @@ def score(raw, name, media_url, ref=None):
                 'scale': res['scale'], 'offset_ms': res['offset_ms']})
     if decision == 'sync':
         out['status'] = 'synced'
-        if ref.get('via') != 'sound':
+        if ref.get('via') not in ('sound', 'whisper'):
             res = _lines(res, ref['starts'], raw, name)
         out['data'] = _transform(raw, res, name)
         if media_url:
             _share_report(media_url, raw, name, res,
                           {'sound': 'speech', 'whisper': 'speech', 'english': 'english', 'shared': 'server'}.get(ref.get('via'), 'embedded'),
                           None if ref.get('via') in ('sound', 'whisper', 'english', 'shared') else ref.get('starts'))
-        out['desc'] = _describe(res, starts) + (_t(' على كلام الفيلم') if ref.get('via') == 'sound' else '')
+        out['desc'] = _describe(res, starts) + (_t(' على كلام الفيلم') if ref.get('via') in ('sound', 'whisper') else '')
     elif decision == 'in_sync':
         out['status'] = 'in_sync'
         out['data'] = raw
