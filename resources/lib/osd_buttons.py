@@ -50,7 +50,9 @@ NOTES = {
     'sources': ('يظهر مع فيديو من Dex Hub', 'Shows with a Dex Hub video'),
     'episodes': ('يظهر مع المسلسلات', 'Shows for series'),
     # v5.10.290: Dex Hub runs both itself; DexSubtitles only takes over the sync when installed
-    'subsync': ('يستخدم DexSubtitles لو كانت مثبتة', 'Uses DexSubtitles when installed'),
+    # v5.10.609: its list on focus (sync the current one, upload it) needs skin 3.28.238
+    'subsync': ('يستخدم DexSubtitles لو كانت مثبتة؛ قائمته تحتاج سكن Dex Hub 3.28.238',
+                'Uses DexSubtitles when installed; its list needs skin.dexhub 3.28.238'),
     'nextsub': ('وبعد آخر ترجمة: بدون ترجمة', 'After the last one: subtitles off'),
     'subtrans': ('يحتاج سكن Dex Hub 3.28.232 أو أحدث', 'Needs skin.dexhub 3.28.232 or later'),
     'external': ('على Apple TV فقط', 'Apple TV only'),
@@ -62,10 +64,13 @@ DOES = {
     'info': ('قصة العمل وتقييماته، OK يفتح صفحته', 'Plot and ratings, OK opens the title page'),
     'audio': ('اختيار مسار الصوت', 'Choose the audio track'),
     'subtitles': ('اختيار الترجمة وإعداداتها', 'Choose the subtitle and its settings'),
-    'subsync': ('يزامن الترجمة الشغالة أو يختار الأنسب', 'Syncs the playing subtitle or picks the best one'),
+    'subsync': ('يزامن الترجمة الشغالة أو يختار الأنسب؛ تقف عليه: مزامنة الحالية أو رفعها للسيرفر',
+                'Syncs the playing subtitle or picks the best one; rest on it: sync the current one or upload it'),
     'nextsub': ('ينتقل للترجمة التالية بضغطة', 'Moves to the next subtitle in one press'),
-    'subtrans': ('يترجم الترجمة الشغالة، مدمجة أو خارجية، بـ Google Translate أو خدمة AI حقك أو DexWorld',
-                 'Translates the playing subtitle, embedded or external, with Google Translate, your AI service or DexWorld'),
+    'subtrans': ('يترجم الترجمة الشغالة، مدمجة أو خارجية، بـ Google Translate أو خدمة AI حقك أو DexWorld؛ '
+                 'وإذا عجبتك ترفعها للسيرفر يترجمها كاملة',
+                 'Translates the playing subtitle, embedded or external, with Google Translate, your AI service or DexWorld; '
+                 'liked, upload it and the server translates all of it'),
     'external': ('يفتح الفيديو في مشغل خارجي', 'Opens the video in an external player'),
     'video': ('إعدادات الصورة والتشغيل', 'Picture and playback settings'),
     'ppi': ('معلومات التشغيل وأوضاع Dolby Vision', 'Playback info and Dolby Vision modes'),

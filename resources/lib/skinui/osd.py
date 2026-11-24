@@ -106,6 +106,10 @@ def trans_services(params, handle):
     from ..i18n import tr
     now = ai_search.feature('subtitles').get('service') or 'google'
     entries = []
+    # v5.10.609: a translation started on this video and liked: DexWorld translates all of it
+    upload = _trans_upload_row()
+    if upload:
+        entries.append(upload)
     for sid, name, model, note in ai_search.subtitle_choices():
         li = xbmcgui.ListItem(label=name, label2=' · '.join(x for x in (model, note) if x), offscreen=True)
         props = {'index': sid, 'dh_service': sid, 'isfolder': 'false', 'language': '', 'name': '',
@@ -119,6 +123,69 @@ def trans_services(params, handle):
     li.setProperties({'index': 'more', 'dh_service': 'more', 'isfolder': 'false', 'language': '', 'name': '',
                       'dh_icon': 'dexhub/osd/legacy/style.png'})
     entries.append((C.url('subtitle_translate', service='more'), li, False))
+    _end(handle, entries)
+
+
+# ------------------------------------------------------------ v5.10.609: sync and upload
+def _t(ar, en):
+    try:
+        from ..i18n import is_english
+        return en if is_english() else ar
+    except Exception:
+        return ar
+
+
+def _upload_note(why):
+    """The upload rows' second line when the upload cannot go (share_synced.ready())."""
+    return {'code': _t('يحتاج كود DexWorld (مركز التحكم ← الذكاء الاصطناعي)', 'Needs a DexWorld code (Control Centre › AI)'),
+            'imdb': _t('ما عرفت رقم IMDb لهذا العمل', "This title's IMDb id is not known")}.get(why, '')
+
+
+def _row(option_url, label, label2, icon, service):
+    li = xbmcgui.ListItem(label=label, label2=label2, offscreen=True)
+    li.setProperties({'index': service, 'dh_service': service, 'isfolder': 'false', 'language': '', 'name': '',
+                      'dh_icon': icon})
+    return option_url, li, False
+
+
+def _trans_upload_row():
+    """The Translate subtitle list's «رفع للسيرفر», while a translation started on this video
+    (transflow._LAST_PROP) is into Arabic."""
+    try:
+        last = json.loads(xbmcgui.Window(10000).getProperty('dexhub.subtrans.last') or '{}')
+        player = xbmc.Player()
+        if not (last and player.isPlayingVideo() and last.get('media') == player.getPlayingFile()):
+            return None
+    except Exception:
+        return None
+    if last.get('target') != 'ar':
+        note = _t('DexWorld يترجم للعربي بس', 'DexWorld translates into Arabic only')
+    else:
+        from ..subsync import share_synced
+        note = _upload_note(share_synced.ready()) or _t('DexWorld يترجمها كاملة للعربي ويحفظها لنسختك',
+                                                         'DexWorld translates all of it into Arabic and keeps it for your release')
+    return _row(C.url('subtitle_translate', service='upload'),
+                _t('رفع للسيرفر يترجمها كاملة', 'Upload: the server translates all of it'), note,
+                'dexhub/osd/legacy/subtrans.png', 'upload')
+
+
+def sync_options(params, handle):
+    """The Sync subtitle button's list (skin.dexhub 3.28.238, Custom_1156): the button's own Best synced
+    subtitle, the subtitle on screen synced, and that subtitle uploaded to DexWorld. A click runs
+    ?action=subtitle_sync_option&option=<dh_service>."""
+    from ..subsync import share_synced
+    icon = 'dexhub/osd/subsync.png'
+    entries = [
+        _row(C.url('subtitle_sync_option', option='best'), _t('أفضل ترجمة متزامنة', 'Best synced subtitle'),
+             _t('تزامن الشغالة، ولو ما انضبطت تجرب غيرها وتحط الأحسن',
+                'Syncs the one on screen; if it will not match, tries others and puts on the best'), icon, 'best'),
+        _row(C.url('subtitle_sync_option', option='current'), _t('مزامنة الترجمة الحالية', 'Sync the current subtitle'),
+             _t('تضبط توقيت الترجمة اللي على الشاشة بس', 'Times the subtitle on screen, nothing else'), icon, 'current'),
+        _row(C.url('subtitle_sync_option', option='upload'), _t('رفع الترجمة المتزامنة للسيرفر', 'Upload the synced subtitle'),
+             _upload_note(share_synced.ready()) or _t('تتأكد من توقيتها وترفعها لـ DexWorld لنسختك',
+                                                      'Checks its timing and sends it to DexWorld for your release'),
+             icon, 'upload'),
+    ]
     _end(handle, entries)
 
 

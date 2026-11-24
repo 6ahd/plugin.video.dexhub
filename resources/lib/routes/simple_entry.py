@@ -2343,6 +2343,14 @@ def dispatch():
         # v5.10.588: Control Centre › Subtitles › Translate subtitle: its service
         from resources.lib.subsync import transflow
         return transflow.pick_service()
+    if action == 'subtitle_sync_option':
+        # v5.10.609: the Sync subtitle button's list (skin 3.28.238, window 1156)
+        xbmc.executebuiltin('Dialog.Close(1156,true)')
+        action = {'best': 'subtitle_sync', 'current': 'subtitle_sync_current',
+                  'upload': 'subtitle_upload_synced'}.get(str(params.get('option') or ''), 'subtitle_sync')
+    if action == 'subtitle_translate' and str(params.get('service') or '') == 'upload':
+        # v5.10.609: the Translate subtitle list's «رفع للسيرفر»: DexWorld translates all of it
+        action = 'subtitle_trans_upload'
     if action == 'subtitle_translate' and params.get('service'):
         # v5.10.590: the Translate subtitle button's list: that service from now on, then translate
         sid = str(params.get('service'))
@@ -2353,7 +2361,8 @@ def dispatch():
         else:
             from resources.lib import ai_search
             ai_search.use_subtitle(sid)
-    if action in ('subtitle_sync', 'subtitle_next', 'subtitle_pick', 'subtitle_translate'):
+    if action in ('subtitle_sync', 'subtitle_next', 'subtitle_pick', 'subtitle_translate',
+                  'subtitle_sync_current', 'subtitle_upload_synced', 'subtitle_trans_upload'):
         # v5.10.290: the player's subtitle buttons, with or without DexSubtitles
         from resources.lib.subsync import buttons
         return buttons.run(action)

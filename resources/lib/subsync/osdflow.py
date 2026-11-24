@@ -761,6 +761,125 @@ def cmd_sync():
         _note('ما قدرت أقرأ ملف الترجمة', "Couldn't read the subtitle file", False)
 
 
+# ── v5.10.609: رفع الترجمة لـ DexWorld من أزرار المشغل ──
+_UPLOAD_WHY = {
+    'code': ('الرفع يحتاج كود DexWorld (مركز التحكم ← الذكاء الاصطناعي)',
+             'Uploading needs a DexWorld code (Control Centre › AI)'),
+    'imdb': ('ما عرفت رقم IMDb لهذا العمل، فما أقدر أحفظها له', "This title's IMDb id is not known, so it cannot be saved for it"),
+    'network': ('ما وصلت لـ DexWorld، جرّب بعد شوي', 'DexWorld did not answer; try again shortly'),
+}
+# Dex Hub's own machine translation (transflow._file_for): uploaded from the Translate subtitle list
+_MACHINE = re.compile(r'^Dex Hub .* (Google|DexWorld|AI)(\.[a-z]{2,3})?$', re.I)
+
+
+def upload_why(why):
+    pair = _UPLOAD_WHY.get(why)
+    return T(*pair) if pair else T('DexWorld ما قبلها: %s' % why, 'DexWorld did not take it: %s' % why)
+
+
+def upload_done(status, why, arabic, ar_done, en_done):
+    """The note after an upload: sent (``ar_done``/``en_done``), sent before, or why not."""
+    if why:
+        _note(upload_why(why), upload_why(why), False, 6000)
+    elif status == 'again':
+        _note('رفعتها قبل، وهي عند DexWorld لنسختك', 'Uploaded before; DexWorld has it for your release')
+    elif status == 'queued' and not arabic:
+        _note(ar_done + '، وDexWorld يترجمها للعربي', en_done + '; DexWorld translates it into Arabic', True, 6000)
+    else:
+        _note(ar_done, en_done, True, 6000)
+
+
+def cmd_upload():
+    """The Sync subtitle list's «رفع الترجمة المتزامنة»: the subtitle on screen, its timing checked
+    on the video first (synced and put on when it needs it), sent to DexWorld for this release
+    (share_synced.upload). A subtitle whose timing cannot be checked (no reference) goes only when
+    the viewer says it is in sync; one that does not match is not sent."""
+    from . import share_synced
+    from ..subtitle_encoding import normalize
+    media = _media()
+    if not media:
+        _note('شغّل الفيديو أول', 'Play a video first', False)
+        return
+    why = share_synced.ready()
+    if why:
+        _note(upload_why(why), upload_why(why), False, 6000)
+        return
+    cur = dexwatch.current_subtitle()
+    if not (cur and cur.get('enabled') and cur.get('index') is not None):
+        _note('شغّل الترجمة اللي تبي ترفعها أول', 'Turn on the subtitle to upload first', False)
+        return
+    if not cur.get('external'):
+        _note('الترجمة الشغالة مدمجة في الملف، والرفع للترجمات الخارجية',
+              'The playing subtitle is embedded in the file; uploading is for external subtitles', False)
+        return
+    pick, _cands = _current_file(media, cur)
+    if not pick:
+        _note('ما لقيت ملف الترجمة الشغالة', "Couldn't find the playing subtitle's file", False)
+        return
+    name = os.path.splitext(pick['name'])[0]
+    if _MACHINE.match(name):
+        _note('هذي ترجمة آلية: ارفعها من زر الترجمة الآلية، وDexWorld يترجمها كاملة',
+              'This is a machine translation: upload it from Translate subtitle, and DexWorld translates all of it',
+              False, 6000)
+        return
+    snap, h = dexwatch.snapshot(pick, autosync.WATCH_DIR, _session())
+    raw = _read(snap) if snap else b''
+    if not raw:
+        _note('ما قدرت أقرأ ملف الترجمة', "Couldn't read the subtitle file", False)
+        return
+    if (autosync.handled_info(h) or {}).get('ai') or re.search(r'\bAI\b|🤖', name):
+        _note('ترجمات AI ما ترفع', 'AI subtitles are not uploaded', False)
+        return
+    ext = _ext_for(raw, pick['name'])
+    sig = _sig(cur)
+    bar = _Bar(T('أتأكد من توقيت الترجمة…', 'Checking the subtitle timing…'))
+    try:
+        bar.update(30, T('أقرأ توقيت الفيديو وأطابق…', 'Reading the video timing…'))
+        r = autosync.score(raw, pick['name'], media)
+    finally:
+        bar.close()
+    st = r['status']
+    verified = True
+    if st in ('synced', 'in_sync') and _moved(media, sig):
+        _note('غيّرت الترجمة وإحنا نشتغل، ما رفعت شي', 'The subtitle changed meanwhile; nothing was uploaded', False)
+        return
+    if st == 'synced':
+        autosync.store_synced(raw, media, ext, r['data'])
+        _apply(r['data'], name, ext, media)
+        data = r['data']
+        _log('upload: synced first (%d%% match)' % _pct(r))
+    elif st == 'in_sync':
+        data = raw
+    elif st == 'noref':
+        ok = xbmcgui.Dialog().yesno(
+            T('رفع الترجمة المتزامنة', 'Upload the synced subtitle'),
+            T('ما أقدر أتأكد من توقيتها (%s).\nلو هي مضبوطة عندك، أرفعها؟' % _why(r['reason']),
+              "Its timing can't be checked (%s).\nIf it is in sync for you, upload it?" % _why(r['reason'])))
+        if not ok:
+            return
+        data, verified = raw, False
+    elif st == 'unsure':
+        _note('ما انضبطت (تطابق %d%%)، فما رفعتها. جرّب «أفضل ترجمة متزامنة»' % _pct(r),
+              "It didn't sync (%d%% match), so it wasn't uploaded. Try Best synced subtitle" % _pct(r), False, 6000)
+        return
+    elif st == 'few':
+        _note('الترجمة سطورها قليلة وما تكفي للمطابقة', 'Too few subtitle lines to match', False)
+        return
+    else:
+        _note('ما قدرت أقرأ ملف الترجمة', "Couldn't read the subtitle file", False)
+        return
+    text = normalize(data, cur.get('language') or '').decode('utf-8', 'replace')
+    bar = _Bar(T('أرفعها لـ DexWorld…', 'Uploading to DexWorld…'))
+    try:
+        bar.update(60, T('أرفعها لـ DexWorld…', 'Uploading to DexWorld…'))
+        status, why = share_synced.upload(text, name, media, 'manual',
+                                          extra={'verified': verified, 'match': _pct(r) if verified else 0})
+    finally:
+        bar.close()
+    upload_done(status, why, share_synced._lang(text) == 'ar',
+                'انرفعت الترجمة المتزامنة لنسختك', 'The synced subtitle is uploaded for your release')
+
+
 # ── next ──
 def cmd_next():
     if not _media():
@@ -924,9 +1043,15 @@ def cmd_trans_service():
     transflow.pick_service()
 
 
+def cmd_trans_upload():
+    from . import transflow
+    transflow.upload_full()
+
+
 _COMMANDS = {'best': cmd_best, 'auto': cmd_best, 'sync': cmd_sync, 'next': cmd_next, 'cycle': cmd_next,
              'pick': cmd_pick, 'choose': cmd_pick, 'change': cmd_pick,
-             'translate': cmd_translate, 'trans_service': cmd_trans_service}
+             'translate': cmd_translate, 'trans_service': cmd_trans_service,
+             'upload': cmd_upload, 'trans_upload': cmd_trans_upload}      # v5.10.609
 
 
 def run(argv):
@@ -945,7 +1070,9 @@ def run(argv):
     if not fn:
         _log('unknown command: %s' % cmd, xbmc.LOGWARNING)
         return
-    locked = cmd not in ('next', 'cycle')
+    # v5.10.609: the translation's upload takes the lock itself only when it has to read (a running
+    # translation holds it for minutes, and the upload is pressed while it runs)
+    locked = cmd not in ('next', 'cycle', 'trans_upload')
     if locked and not _acquire():
         # v5.10.590: Translate subtitle again stops the translation still running and starts at once
         taken = False
