@@ -4,7 +4,8 @@
 skin_use   switches Kodi to skin.dexhub:
              1. the skin is installed when it is missing: from the
                 repositories Kodi knows (Dex Hub's repository carries it),
-                else from a zip the user picks;
+                else straight from DexWorld's repository (v5.10.610), else
+                from a zip the user picks;
              2. it is enabled (a disabled skin makes Kodi ask about it);
              3. Dex Hub's own windows close (a skin change tears every window
                 down, and a Python window torn down under its script hangs or
@@ -277,6 +278,59 @@ def _merge(src, dest):
         shutil.copyfile(src, dest)
 
 
+# v5.10.610: when no repository Kodi knows carries the skin (Dex Hub installed
+# from its zip alone), it comes straight from DexWorld's repository
+DEXWORLD_REPOS = ('https://dexworld.cc/kodi/', 'https://dexworld.cc/dexhub/')
+
+
+def _install_from_dexworld(monitor):
+    """The skin's zip read from DexWorld's repository and put in Kodi's add-ons
+    folder (it needs nothing else: xbmc.gui only). False when it cannot."""
+    import urllib.request
+    import xml.etree.ElementTree as ET
+    import xbmcvfs
+    home = xbmcvfs.translatePath('special://home/addons/')
+    for base in DEXWORLD_REPOS:
+        work = tempfile.mkdtemp(prefix='dexhub_skin_', dir=xbmcvfs.translatePath('special://temp/'))
+        try:
+            def fetch(url, target=None):
+                req = urllib.request.Request(url, headers={'User-Agent': 'DexHub'})
+                with urllib.request.urlopen(req, timeout=30) as answer:
+                    if target is None:
+                        return answer.read()
+                    with open(target, 'wb') as handle:
+                        shutil.copyfileobj(answer, handle, 1 << 20)
+            index = ET.fromstring(fetch(base + 'addons.xml'))
+            version = next((a.get('version') for a in index.findall('addon') if a.get('id') == SKIN), '')
+            if not version:
+                continue
+            path = os.path.join(work, 'skin.zip')
+            fetch('%s%s/%s-%s.zip' % (base, SKIN, SKIN, version), path)
+            with zipfile.ZipFile(path) as archive:
+                names = archive.namelist()
+                if (not names or any(not n.startswith(SKIN + '/') or '..' in n.split('/') for n in names)
+                        or ET.fromstring(archive.read(SKIN + '/addon.xml')).get('id') != SKIN):
+                    raise ValueError('not the skin')
+                archive.extractall(os.path.join(work, 'x'))
+            dest = os.path.join(home, SKIN)
+            if os.path.isdir(dest) and current() != SKIN:
+                shutil.rmtree(dest, ignore_errors=True)
+            _merge(os.path.join(work, 'x', SKIN), dest)
+        except Exception as exc:
+            C.log('skin switch: %s from %s failed: %s' % (SKIN, base, exc), xbmc.LOGWARNING)
+            continue
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
+        xbmc.executebuiltin('UpdateLocalAddons')
+        for _ in range(60):
+            if installed(SKIN):
+                C.log('skin switch: %s %s installed from %s' % (SKIN, version, base))
+                return True
+            if monitor.waitForAbort(0.25):
+                return False
+    return installed(SKIN)
+
+
 def _install_from_zip(monitor):
     """The skin from a zip the user picks (skin.dexhub-x.y.z.zip)."""
     import xbmcvfs
@@ -325,7 +379,7 @@ def ensure_installed(monitor, interactive=True):
     if interactive and not _yesno(_tr('سكين Dex Hub غير مثبت. يثبت الآن من المستودع؟')):
         return False
     _notify(_tr('يثبت سكين Dex Hub'))
-    if _install_from_repo(monitor):
+    if _install_from_repo(monitor) or _install_from_dexworld(monitor):
         return True
     if not interactive:
         return False

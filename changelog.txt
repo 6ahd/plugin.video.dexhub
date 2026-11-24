@@ -1,3 +1,7 @@
+5.10.610
+أول ما تفتح Dex Hub من أيقونته وسكين Dex Hub مو مثبت: يثبته لحاله ثم يفتح فيه كسكين مؤقت، بدل رسالة «ثبّت سكين Dex Hub أولًا». يثبته من المستودع اللي عندك، ولو ما عندك مستودع فيه السكين (ثبّت Dex Hub من ملف zip بس) ينزّله من مستودع DexWorld مباشرة. لو ما قدر يفتح Dex Hub بدونه، وما يحاول مرة ثانية لين تعيد تشغيل كودي.
+Opening Dex Hub from its icon with the Dex Hub skin not installed: it installs the skin and opens in it as the temporary skin, instead of saying "Install the Dex Hub skin first". The skin comes from your repositories, or straight from DexWorld's repository when none of them carries it (Dex Hub installed from its zip alone). When it cannot, Dex Hub opens without it and does not try again until Kodi restarts.
+
 5.10.609
 زر مزامنة الترجمة له قائمة لما توقف عليه (مع سكن Dex Hub 3.28.238)، مثل زر الترجمة الآلية: أفضل ترجمة متزامنة (نفس ضغطة الزر)، ومزامنة الترجمة الحالية بس، ورفع الترجمة المتزامنة للسيرفر. الرفع يتأكد من توقيت الترجمة اللي على الشاشة أول (ويزامنها لو تحتاج)، ثم يرسلها لـ DexWorld ويحفظها لنسختك، وإذا مو عربية يترجمها للعربي. لو ما يقدر يتأكد من التوقيت يسألك قبل، والترجمة اللي ما انضبطت ما ترتفع. يحتاج كود DexWorld.
 زر الترجمة الآلية: لما تبدأ ترجمة وتعجبك، قائمته فيها «رفع للسيرفر يترجمها كاملة»: يرسل الترجمة الأصلية كاملة لـ DexWorld، يترجمها كلها للعربي ويحفظها لنسختك. لو ترجمة مدمجة والجهاز لسا يقراها، ينتظر لين تخلص القراءة ويرفعها (ما يقرا الفيديو مرتين).

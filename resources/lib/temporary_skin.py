@@ -6,6 +6,7 @@ import uuid
 
 PROP='dexhub.temporary_skin.active'
 BUSY='dexhub.temporary_skin.busy'
+NO_INSTALL='dexhub.temporary_skin.noinstall'
 
 def _parts():
     import xbmc,xbmcgui
@@ -111,10 +112,10 @@ def enter(handle=-1, params=None):
     if str(cached_addon().getSetting('temporary_skin_on_launch') or 'true').lower()!='true':return False
     xbmc,gui,C,switch=_parts();home=gui.Window(10000)
     if handle<0 or switch.current()==switch.SKIN or home.getProperty(BUSY) or switch.busy():return False
+    # v5.10.610: a missing skin is installed first (once a Kodi session: a failed install opens Dex Hub without it)
+    missing=not switch.installed(switch.SKIN)
+    if missing and home.getProperty(NO_INSTALL):return False
     if not _interface_launch(xbmc,handle,dict(params or {})):return False
-    if not switch.installed(switch.SKIN):
-        gui.Dialog().notification('Dex Hub',switch._tr('ثبّت سكين Dex Hub أولًا لتفعيل السكين المؤقت.'))
-        return False
     state={'original':switch.current(),'session':uuid.uuid4().hex,'started':time.time()}
     try:
         from .interface_fonts import current_font
@@ -127,6 +128,12 @@ def enter(handle=-1, params=None):
     xbmcplugin.endOfDirectory(handle,succeeded=False,updateListing=False,cacheToDisc=False)
     home.setProperty(BUSY,'1')
     try:
+        if missing and not switch.ensure_installed(xbmc.Monitor(),interactive=False):
+            # Dex Hub opens as it is, and does not try again this session
+            _clear(C,gui);home.setProperty(NO_INSTALL,'1')
+            gui.Dialog().notification('Dex Hub',switch._tr('ما قدرت أثبت سكين Dex Hub، فتحت Dex Hub بدونه'))
+            xbmc.executebuiltin('ActivateWindow(Videos,plugin://plugin.video.dexhub/,return)')
+            return True
         if _apply(switch.SKIN,C,switch,xbmc):
             home.setProperty(PROP,state['session'])
             xbmc.executebuiltin('ActivateWindow(Home)',wait=True)

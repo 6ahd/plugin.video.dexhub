@@ -4017,3 +4017,6 @@ STRINGS.update({  # v5.10.597: Control Centre
     'ترجمة انضبطت عند غيرك لنفس النسخة تنضبط عندك، وتشارك تصحيحاتك (التوقيت بس)': 'A subtitle timed on someone else\'s device for the same release is timed on yours, and yours are shared (timing only)',
     'لما ما فيه ترجمة داخل الفيديو نطابق على صوته': 'When the video has no subtitle inside, match to its sound',
 })
+
+# v5.10.610: the temporary skin installs a missing skin first
+STRINGS.setdefault('ما قدرت أثبت سكين Dex Hub، فتحت Dex Hub بدونه', "Couldn't install the Dex Hub skin; Dex Hub opened without it")
