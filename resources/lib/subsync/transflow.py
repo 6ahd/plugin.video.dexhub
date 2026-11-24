@@ -641,6 +641,157 @@ def _span(starts, at_ms, per_line=1):
     return {'lo': lo, 'one': upto(FIRST_LINES), 'two': upto(FIRST_LINES + NEXT_LINES)}
 
 
+# ---------------------------------------------------------------- v5.10.609: DexWorld translates all of it
+# A translation started in the player and liked: the Translate subtitle list's «رفع للسيرفر» sends the
+# source subtitle, whole, to DexWorld (share_synced.upload, method "translate"), which translates it
+# into Arabic on the account's AI and keeps it for this release. The source lines are kept here as
+# soon as they are all known (an external file at once, an embedded track when its last line is read),
+# so the upload never reads the video twice; pressed while an embedded track is still being read,
+# the upload waits for that read.
+_LAST_PROP = 'dexhub.subtrans.last'
+_UPLOAD_PROP = 'dexhub.subtrans.upload'
+
+
+def _src_key(media, index):
+    import hashlib
+    base = autosync._split_kodi_media_url(media)[0]
+    return 'src_' + hashlib.sha1(('%s#%s' % (base, index)).encode('utf-8')).hexdigest()[:20]
+
+
+def _remember_last(media, s, lang, target, label, model, token):
+    try:
+        xbmcgui.Window(10000).setProperty(_LAST_PROP, json.dumps({
+            'media': media, 'index': s.get('index'), 'name': _stream_label(s), 'lang': lang or '',
+            'target': target, 'service': label, 'model': model or '', 'token': token}))
+    except Exception:
+        pass
+
+
+def last_for(media):
+    """The translation started on this video: {index, name, lang, target, service, model, token}, or None."""
+    try:
+        last = json.loads(xbmcgui.Window(10000).getProperty(_LAST_PROP) or '{}')
+    except Exception:
+        return None
+    return last if media and last.get('media') == media else None
+
+
+def _keep_source(media, index, lines):
+    from . import subtrans
+    if lines and len(lines) >= 2:
+        subtrans.cache_write(folder(), _src_key(media, index),
+                             b'\xef\xbb\xbf' + subtrans.render_srt(sorted(lines)).encode('utf-8'))
+
+
+def _source_text(media, index):
+    from . import subtrans
+    data = subtrans.cache_read(folder(), _src_key(media, index))
+    return data.decode('utf-8-sig', 'replace') if data else ''
+
+
+def _send_source(media, last, text):
+    from . import share_synced
+    lang = dexwatch._C2A.get(dexwatch.norm_lang(last.get('lang')), '')
+    status, why = share_synced.upload(text, last.get('name') or '', media, 'translate', lang=lang,
+                                      extra={'target': last.get('target') or 'ar', 'liked': last.get('service') or '',
+                                             'model': last.get('model') or ''})
+    osdflow.upload_done(status, why, True, 'انرفعت: DexWorld يترجمها كاملة للعربي ويحفظها لنسختك',
+                        'Uploaded: DexWorld translates all of it into Arabic and keeps it for your release')
+
+
+def upload_ready(media):
+    """'' when the Translate subtitle list's upload row can work, or why not (for its second line)."""
+    from . import share_synced
+    last = last_for(media)
+    if not last:
+        return 'none'
+    if last.get('target') != 'ar':
+        return 'target'
+    return share_synced.ready()
+
+
+def upload_full():
+    """The Translate subtitle list's «رفع للسيرفر يترجمها كاملة» (no button lock: a translation
+    still running keeps its own)."""
+    media = _media()
+    if not media:
+        _note('شغّل الفيديو أول', 'Play a video first', False)
+        return
+    why = upload_ready(media)
+    if why == 'none':
+        _note('ابدأ الترجمة الآلية أول، ولو عجبتك ارفعها من هنا', 'Start a translation first; if you like it, upload it from here',
+              False, 6000)
+        return
+    if why == 'target':
+        _note('DexWorld يترجم للعربي بس', 'DexWorld translates into Arabic only', False)
+        return
+    if why:
+        _note(osdflow.upload_why(why), osdflow.upload_why(why), False, 6000)
+        return
+    last = last_for(media)
+    text = _source_text(media, last.get('index'))
+    if text:
+        _send_source(media, last, text)
+        return
+    w = xbmcgui.Window(10000)
+    if last.get('token') and w.getProperty(_RUN_PROP) == last.get('token'):
+        w.setProperty(_UPLOAD_PROP, last['token'])     # the running translation sends it once read
+        _note('أول ما أخلص قراءة الترجمة الأصلية أرفعها لـ DexWorld', 'It goes to DexWorld as soon as the source subtitle is read',
+              True, 5000)
+        return
+    if not osdflow._acquire():
+        _note('شغّال على طلب قبله، لحظة', 'Still working on the previous request', False, 2500)
+        return
+    bar = _Bar(T('أقرأ الترجمة الأصلية كاملة…', 'Reading the whole source subtitle…'))
+    try:
+        pid, subs, _cur, _enabled = _streams()
+        s = next((x for x in subs if x.get('index') == last.get('index')), None)
+        if s is None:
+            _note('الترجمة الأصلية ما عادت في المشغل', 'The source subtitle is no longer in the player', False)
+            return
+        lang = last.get('lang') or dexwatch.norm_lang(s.get('language'))
+        stop = lambda: _media() != media or xbmc.Monitor().abortRequested()
+        try:
+            if is_external(s):
+                lines = _external_lines(media, pid, s, lang)
+            else:
+                track = _embedded_track(media, subs, s, lang)
+                if track.get('image') or track.get('dexworld'):
+                    _note('ترجمة صور (PGS): بكود DexWorld زر الترجمة نفسه يرسلها لـ DexWorld ويترجمها كاملة',
+                          'An image subtitle (PGS): with a DexWorld code, Translate subtitle itself sends it to DexWorld, which translates all of it',
+                          False, 6000)
+                    return
+                lines = _embedded_lines(media, track, bar, stop, label=T('أقرأ الترجمة…', 'Reading the subtitle…'))
+        except (_Stop, dexcues.CuesError) as e:
+            if not stop():
+                _note(_why(e.reason), _why(e.reason), False, 6000)
+            return
+        if len(lines) < 2:
+            _note(_why('empty'), _why('empty'), False)
+            return
+        _keep_source(media, last.get('index'), lines)
+        bar.update(100, T('أرفعها لـ DexWorld…', 'Uploading to DexWorld…'))
+        _send_source(media, last, _source_text(media, last.get('index')))
+    finally:
+        bar.close()
+        osdflow._release()
+
+
+def _upload_when_read(token, media, s):
+    """At the end of a translation the viewer asked to upload meanwhile: its source, if all read."""
+    w = xbmcgui.Window(10000)
+    if w.getProperty(_UPLOAD_PROP) != token:
+        return
+    w.clearProperty(_UPLOAD_PROP)
+    last = last_for(media)
+    text = _source_text(media, s.get('index'))
+    if last and text:
+        _send_source(media, last, text)
+    else:
+        _note('ما خلصت قراءة الترجمة الأصلية، فما رفعتها. اضغط «رفع للسيرفر» مرة ثانية',
+              "The source subtitle wasn't read to the end, so it wasn't uploaded. Press Upload again", False, 6000)
+
+
 def run():
     from . import subtrans
     from . import dextext
@@ -680,6 +831,7 @@ def run():
     t0 = time.time()
     state = {'shown': False, 'first': FIRST_DEADLINE}
     token = _claim()
+    _remember_last(media, s, lang, target, label, model, token)     # v5.10.609: for «رفع للسيرفر»
 
     def gone():
         return _media() != media or xbmc.Monitor().abortRequested()
@@ -723,6 +875,7 @@ def run():
                 all_lines = _external_lines(media, pid, s, lang)
                 if len(all_lines) < 2:
                     raise _Stop('empty')
+                _keep_source(media, s.get('index'), all_lines)
                 key = subtrans.cache_key(all_lines, which, target, model)
             else:
                 track = _embedded_track(media, subs, s, lang)
@@ -814,6 +967,7 @@ def run():
             subtrans.cache_write(folder(), key, data)
             if all_lines is None:
                 subtrans.cache_write(folder(), subtrans.cache_key(sorted(first + rest), which, target, model), data)
+            _keep_source(media, s.get('index'), all_lines if all_lines is not None else first + rest)
             total = len(full)
             if state['shown']:
                 _reload(path, data, base, s.get('index'))
@@ -847,6 +1001,10 @@ def run():
             return
     finally:
         bar.close()
+        try:
+            _upload_when_read(token, media, s)
+        except Exception as e:
+            _log('translate: upload: %s' % e, xbmc.LOGWARNING)
         try:
             w = xbmcgui.Window(10000)
             if w.getProperty(_RUN_PROP) == token:

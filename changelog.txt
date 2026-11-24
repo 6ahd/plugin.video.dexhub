@@ -1,3 +1,11 @@
+5.10.609
+زر مزامنة الترجمة له قائمة لما توقف عليه (مع سكن Dex Hub 3.28.238)، مثل زر الترجمة الآلية: أفضل ترجمة متزامنة (نفس ضغطة الزر)، ومزامنة الترجمة الحالية بس، ورفع الترجمة المتزامنة للسيرفر. الرفع يتأكد من توقيت الترجمة اللي على الشاشة أول (ويزامنها لو تحتاج)، ثم يرسلها لـ DexWorld ويحفظها لنسختك، وإذا مو عربية يترجمها للعربي. لو ما يقدر يتأكد من التوقيت يسألك قبل، والترجمة اللي ما انضبطت ما ترتفع. يحتاج كود DexWorld.
+زر الترجمة الآلية: لما تبدأ ترجمة وتعجبك، قائمته فيها «رفع للسيرفر يترجمها كاملة»: يرسل الترجمة الأصلية كاملة لـ DexWorld، يترجمها كلها للعربي ويحفظها لنسختك. لو ترجمة مدمجة والجهاز لسا يقراها، ينتظر لين تخلص القراءة ويرفعها (ما يقرا الفيديو مرتين).
+الترجمة اللي انرفعت مرة (تلقائياً أو بالزر) ما ترتفع مرة ثانية.
+The Sync subtitle button has a list when you rest on it (with skin.dexhub 3.28.238), as Translate subtitle does: Best synced subtitle (what the button does), Sync the current subtitle alone, and Upload the synced subtitle. The upload checks the timing of the subtitle on screen first (syncing it when it needs it), then sends it to DexWorld, which keeps it for your release and translates it into Arabic when it is not Arabic. When its timing cannot be checked you are asked first; one that does not match is not sent. Needs a DexWorld code.
+Translate subtitle: once a translation you started looks good, its list has "Upload: the server translates all of it": the source subtitle, whole, goes to DexWorld, which translates all of it into Arabic and keeps it for your release. An embedded subtitle still being read is sent once the read ends (the video is not read twice).
+A subtitle uploaded once (on its own or by a button) is not sent again.
+
 5.10.602
 المسلسل يفتح صفحته دايماً: لما تفتح مسلسل من قوائم الإضافة في سكن كودي العادي أو مجلدات Arctic Fuse أو ويدجت، كانت تطلع قائمة مواسم كودي العادية ونافذة معلوماته. صار يفتح صفحة العمل حقت Dex Hub مثل ما يفتح من الرئيسية. لو صفحة العمل عندك «كلاسيكي» تبقى قائمة المواسم.
 A series always opens its page: opened from the add-on's menus in Kodi's default skin, from Arctic Fuse's folders or from a widget, it showed Kodi's plain season list and its information window. It now opens Dex Hub's title page, as it does from the Home. With the title page set to Classic the season list stays.
