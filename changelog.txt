@@ -1,7 +1,3 @@
-5.10.609
-المزامنة التلقائية صارت لترجمات Dex Hub وDexSubtitles بس: الترجمة اللي تجي من إضافة ترجمات ثانية (a4kSubtitles وغيرها) أو ترفقها إضافة فيديو ثانية ما تنزامن لحالها، والسجل يقول ليش. ترجمات Dex Hub (نافذة الترجمات، وترجمات التشغيل، وSilo) وترجمات DexSubtitles تنزامن مثل قبل، حتى لما كودي ينسخها باسم ثاني، وملف الترجمة اللي كان جنب الفيديو قبل التشغيل كذلك. زر المزامنة يبقى يزامن أي ترجمة لما تضغطه.
-AutoSync is for Dex Hub and DexSubtitles subtitles only: a subtitle from another subtitle add-on (a4kSubtitles and others) or attached by another video add-on is no longer synced on its own, and the log says why. Dex Hub's subtitles (the subtitle window, those it attaches at playback, Silo) and DexSubtitles' are synced as before, even when Kodi copies them under another name, and so is a subtitle file that was next to the video before it played. The sync button still syncs any subtitle when you press it.
-
 5.10.602
 المسلسل يفتح صفحته دايماً: لما تفتح مسلسل من قوائم الإضافة في سكن كودي العادي أو مجلدات Arctic Fuse أو ويدجت، كانت تطلع قائمة مواسم كودي العادية ونافذة معلوماته. صار يفتح صفحة العمل حقت Dex Hub مثل ما يفتح من الرئيسية. لو صفحة العمل عندك «كلاسيكي» تبقى قائمة المواسم.
 A series always opens its page: opened from the add-on's menus in Kodi's default skin, from Arctic Fuse's folders or from a widget, it showed Kodi's plain season list and its information window. It now opens Dex Hub's title page, as it does from the Home. With the title page set to Classic the season list stays.

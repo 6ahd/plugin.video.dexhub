@@ -2,13 +2,7 @@
 # Vendored from DexSubtitles 5.7.3 (service.subtitles.dexworld, AUTOSYNC_V573) for
 # Dex Hub 5.10.117: Dex Hub runs this AutoSync itself only while DexSubtitles
 # is not enabled (subsync/runner.py), so the two never sync the same subtitle.
-"""DEX_WATCH_V573: AutoSync للترجمة الخارجية اللي يشغلها كودي.
-
-v5.10.609: AutoSync لترجمات Dex Hub وDexSubtitles بس (وملف كان جنب الفيديو قبل التشغيل).
-ترجمة جات من إضافة ترجمات ثانية (a4kSubtitles وغيرها) أو أرفقتها إضافة فيديو ثانية ما نزامنها:
-نعرف ترجماتنا من مجلداتنا (dexworld_subs وdexhub_subs)، أو من بصمة محتواها لما كودي ينسخها
-باسم ثاني (نافذة الترجمات تنسخ الملف كما هو)، أو من علامة note_handled، أو لأن Dex Hub هو اللي
-شغّل الفيديو وأرفقها. زر المزامنة يبقى يزامن أي ترجمة على الطلب.
+"""DEX_WATCH_V573: AutoSync لأي ترجمة خارجية يشغلها كودي، من أي إضافة أو ملف جنب الفيديو.
 
 كودي ما يعطي مسار ملف الترجمة الشغالة، بس يعطي اسمها ولغتها، والاسم يطلع من اسم الملف
 بقاعدة كودي نفسها (CUtil::GetExternalStreamDetailsFromFilename): يشيل اسم الفيديو من أول
@@ -450,12 +444,10 @@ def _file_hash(path):
         return ''
 
 
-def snapshot(cand, dest_dir, session=None, data=None):
-    """ينسخ الترجمة لمجلدنا (لو كودي أو الإضافة كتبوا فوقها بعدين ما تتأثر المزامنة). يرجّع (مسار، sha1).
-    data: محتواها لو انقرى قبل (ما نقراه مرتين)."""
+def snapshot(cand, dest_dir, session=None):
+    """ينسخ الترجمة لمجلدنا (لو كودي أو الإضافة كتبوا فوقها بعدين ما تتأثر المزامنة). يرجّع (مسار، sha1)."""
     try:
-        if data is None:
-            data = _read_any(cand['path'], session)
+        data = _read_any(cand['path'], session)
     except Exception as e:
         _log('read failed: %s' % e, xbmc.LOGWARNING)
         return None, ''
@@ -486,72 +478,6 @@ def _stat(path):
         return None
 
 
-# ── v5.10.609: AutoSync لترجمات Dex Hub وDexSubtitles بس ──
-def _dexhub_dir():
-    """مجلد ترجمات Dex Hub (نتائج نافذة الترجمات، وترجمات التشغيل، وSilo)."""
-    try:
-        return xbmcvfs.translatePath('special://temp/dexhub_subs/')
-    except Exception:
-        return ''
-
-
-def _under(path, folder):
-    if not folder or not _is_local(path):
-        return False
-    try:
-        p = os.path.normcase(os.path.abspath(path))
-        f = os.path.normcase(os.path.abspath(folder)).rstrip('/\\')
-        return p.startswith(f + os.sep)
-    except Exception:
-        return False
-
-
-def _files_of_size(folder, size, deep):
-    """ملفات الترجمة في المجلد بنفس الحجم (deep: ومجلداته اللي تحته بمستوى، مجلد لكل تشغيل)."""
-    out = []
-    try:
-        with os.scandir(folder) as it:
-            for e in it:
-                if e.is_dir():
-                    if deep:
-                        out += _files_of_size(e.path, size, False)
-                elif os.path.splitext(e.name)[1].lower() in SUB_EXTS and e.stat().st_size == size:
-                    out.append(e.path)
-    except Exception:
-        pass
-    return out
-
-
-def same_as_ours(data, own_dir):
-    """نسخة كودي من ترجمة سلّمناها له: نافذة الترجمات تنسخ الملف كما هو (TempSubtitle في special://temp
-    أو جنب الفيديو)، والأصل باقي في مجلد DexSubtitles أو Dex Hub. مجلد DexSubtitles بدون مجلداته
-    (autosync_watch فيه نسخ المراقب من ترجمات الإضافات الثانية، فما نعدّها لنا)."""
-    if not data:
-        return False
-    want = hashlib.sha1(data).hexdigest()
-    folders = [(own_dir, False)] if own_dir else []
-    folders.append((_dexhub_dir(), True))
-    for folder, deep in folders:
-        if not folder:
-            continue
-        for path in _files_of_size(folder, len(data), deep):
-            if _file_hash(path) == want:
-                return True
-    return False
-
-
-def dexhub_plays(media):
-    """Dex Hub هو اللي شغّل هذا الفيديو (جلسته في نافذة Home)، فالترجمات المرفقة معه ترجماته."""
-    try:
-        import xbmcgui
-        raw = xbmcgui.Window(10000).getProperty('dexhub.session_v1')
-        ctx = json.loads(raw) if raw else {}
-        url = str((ctx or {}).get('stream_url') or '').split('|', 1)[0]
-        return bool(url) and url == str(media or '').split('|', 1)[0]
-    except Exception:
-        return False
-
-
 # ── المراقب (دورة كل ثانية داخل خدمة الإضافة) ──
 class Watcher(object):
     def __init__(self, autosync, setting_bool, own_dir):
@@ -569,7 +495,6 @@ class Watcher(object):
         self.sig = None
         self.due = 0.0
         self.done = set()
-        self.foreign = set()   # v5.10.609: ترجمات إضافات ثانية شفناها في هذا التشغيل (سطر واحد بالسجل)
         self.watch = None   # ملف الترجمة الشغالة: كودي يكتب الاختيار الجاي بنفس المسار ونفس رقم الترجمة
 
     def _spawn(self, fn, *args):
@@ -649,20 +574,6 @@ class Watcher(object):
         if media == self.media and self.watch is w and _stat(w['path']) != w['stat']:
             self.due = time.time() + DEBOUNCE_S
 
-    def _ours(self, pick, h, data, media):
-        """v5.10.609: a subtitle of Dex Hub or DexSubtitles (or the viewer's own file next to the
-        video); another add-on's is not synced on its own."""
-        where = pick['where']
-        if where == 'self' or self.autosync.handled_info(h):
-            return True
-        if _under(pick['path'], _dexhub_dir()):
-            return True
-        if where == 'video' and 0 < pick['mtime'] < self.start:
-            return True     # next to the video before it played: no add-on brought it
-        if where == 'item' and dexhub_plays(media):
-            return True
-        return same_as_ours(data, self.own_dir)
-
     def handle(self, cur, now, media):
         cands = collect(media, since=self.start - 5, own_dir=self.own_dir, deep_since=self.start - 900)
         cands = [c for c in cands if c['where'] != 'item-url']  # الروابط للزر بس: ما نحمّل من الشبكة بالخلفية
@@ -680,22 +591,7 @@ class Watcher(object):
                       'next': time.time() + VFS_CHECK_S}
         if pick['where'] == 'temp' and abs(pick['mtime'] - self.autosync.last_live_pick_at()) < 8:
             return  # كودي نسخ ترجمة AI المباشرة من DexSubtitles للتو (ملفها يكبر فبصمته تتغير)
-        try:
-            data = _read_any(pick['path'])
-        except Exception as e:
-            _log('read failed: %s' % e, xbmc.LOGWARNING)
-            return
-        if not data or len(data) > MAX_BYTES:
-            return
-        h = hashlib.sha1(data).hexdigest()
-        if h in self.foreign:
-            return
-        if not self._ours(pick, h, data, media):
-            # v5.10.609: AutoSync is Dex Hub's and DexSubtitles' own (the sync button still syncs it)
-            self.foreign.add(h)
-            _log('skip: %s is another add-on\'s subtitle (%s)' % (pick['name'], pick['where']))
-            return
-        snap, h = snapshot(pick, self.autosync.WATCH_DIR, data=data)
+        snap, h = snapshot(pick, self.autosync.WATCH_DIR)
         if not snap:
             return
         if h in self.done:

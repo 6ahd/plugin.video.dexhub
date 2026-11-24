@@ -1076,7 +1076,7 @@ msgid "AutoSync: fit subtitles to the timing of the subtitle the video carries"
 msgstr ""
 
 msgctxt "#31071"
-msgid "AutoSync Dex Hub and DexSubtitles subtitles, or a file next to the video (not other add-ons' subtitles)"
+msgid "AutoSync any external subtitle (any add-on, or a file next to the video)"
 msgstr ""
 
 msgctxt "#31072"

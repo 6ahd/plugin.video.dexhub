@@ -1076,8 +1076,8 @@ msgid "AutoSync: fit subtitles to the timing of the subtitle the video carries"
 msgstr "المزامنة التلقائية: اضبط توقيت الترجمة على الترجمة المدمجة في الفيديو"
 
 msgctxt "#31071"
-msgid "AutoSync Dex Hub and DexSubtitles subtitles, or a file next to the video (not other add-ons' subtitles)"
-msgstr "مزامنة ترجمات Dex Hub وDexSubtitles، أو ملف جنب الفيديو (مو ترجمات الإضافات الثانية)"
+msgid "AutoSync any external subtitle (any add-on, or a file next to the video)"
+msgstr "مزامنة أي ترجمة خارجية (من أي إضافة أو ملف جنب الفيديو)"
 
 msgctxt "#31072"
 msgid "Lowest match to apply a sync (%)"
