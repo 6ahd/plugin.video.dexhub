@@ -13992,7 +13992,9 @@ def _launch_tmdbhelper_url(url):
 
 
 def _default_click_uses_tmdbhelper():
-    return (not _tmdbh_invocation_active()) and _default_click_mode() == 'tmdbhelper' and _has_tmdbhelper()
+    # v5.10.614: the setting first; the handoff check reads four window properties (11 ms a
+    # title on a CoreELEC box, 0.45 s of a 40-title row) and matters only for TMDb Helper clicks
+    return _default_click_mode() == 'tmdbhelper' and (not _tmdbh_invocation_active()) and _has_tmdbhelper()
 
 
 def _ui_seed_query_from_art(art=None, meta=None):

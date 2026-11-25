@@ -344,6 +344,14 @@ def ensure(seconds=25):
     if not available():
         return None
     home = _home()
+    # v5.10.614: the service starts the engine; a service that died (an update at Kodi's start)
+    # is started again here, or every release failed with "not on this device or did not start"
+    try:
+        from .service_lease import ensure_started
+        if ensure_started():
+            _log('the service was not running: started it again')
+    except Exception:
+        pass
     started = time.time()
     asked = False
     while time.time() - started < seconds:

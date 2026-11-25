@@ -220,3 +220,7 @@ __marimo__/
 # Dex Hub: the add-on code lives in resources/lib
 !resources/lib/
 !resources/lib/**
+
+# compiled files never belong in the repo (Kodi writes its own)
+**/__pycache__/
+*.pyc

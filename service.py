@@ -812,7 +812,13 @@ if __name__ == '__main__':
             from resources.lib import bytecode_warm
             started = time.time()
             root = os.path.dirname(os.path.abspath(__file__))
-            checked, compiled = bytecode_warm.warm(root, watch)
+            def _quiet():
+                # v5.10.614: only while the remote rests (5 s) and nothing plays
+                try:
+                    return xbmc.getGlobalIdleTime() >= 5 and not xbmc.getCondVisibility('Player.HasVideo')
+                except Exception:
+                    return True
+            checked, compiled = bytecode_warm.warm(root, watch, ready=_quiet)
             if compiled:
                 xbmc.log('[DexHub] compiled %d of %d files in %.1f s' % (compiled, checked, time.time() - started),
                          xbmc.LOGINFO)

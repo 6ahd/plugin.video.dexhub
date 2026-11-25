@@ -1392,6 +1392,17 @@ class Context(object):
                 self._favorites = False
         if not self._favorites or not canonical:
             return False
+        # v5.10.614: the favourites read once for the row (each title opened the database:
+        # 0.5 s of a 40-title row on a CoreELEC box)
+        keys = getattr(self, '_favorite_keys', None)
+        if keys is None:
+            try:
+                keys = self._favorites.favorite_keys()
+            except Exception:
+                keys = False
+            self._favorite_keys = keys
+        if keys is not False:
+            return (str(media or ''), str(canonical)) in keys
         try:
             return bool(self._favorites.is_favorite(media, canonical))
         except Exception:

@@ -11,7 +11,9 @@ NEXTUP_CACHE_KEY = 'dexhub.nextup_cache'
 NEXTUP_CACHE_TS_KEY = 'dexhub.nextup_cache_ts'
 SERIES_CACHE_TTL = 3600
 NEXTUP_CACHE_TTL = 600  # fresh for 10 min
-NEXTUP_STALE_TTL = 21600  # serve stale cache up to 6h while refreshing in background
+NEXTUP_STALE_TTL = 7 * 86400  # serve stale cache while refreshing in background
+# v5.10.614: 6 h was shorter than a night: a box switched on in the morning built the row while
+# the Home waited (36 s, CoreELEC box, 25 Nov 2026); the refresh replaces it seconds later
 
 
 def _cache_file_path():

@@ -69,11 +69,15 @@ def _stale(src):
         return True
 
 
-def warm(root, monitor=None, throttle=0.05):
+def warm(root, monitor=None, throttle=0.05, ready=None):
     """Compile every stale .py under *root* to __pycache__.
 
     Returns (checked, compiled) counts. Safe to call repeatedly; after
     the first successful pass, subsequent calls are stat-only no-ops.
+    v5.10.614: *ready*, when given, is asked before each compile and the
+    work waits (in 1 s steps) until it says yes: Kodi's Python runs one
+    thing at a time, and compiling plugin.py held the Home's rows back
+    (189 files in 30 s while the viewer browsed, CoreELEC, 25 Nov 2026).
     """
     checked = 0
     compiled = 0
@@ -88,6 +92,11 @@ def warm(root, monitor=None, throttle=0.05):
             checked += 1
             if not _stale(src):
                 continue
+            while ready is not None and not ready():
+                if monitor is None:
+                    break
+                if monitor.waitForAbort(1.0):
+                    return checked, compiled
             try:
                 py_compile.compile(src, cfile=importlib.util.cache_from_source(src, optimization=_OPT),
                                    doraise=False, quiet=2, optimize=sys.flags.optimize,

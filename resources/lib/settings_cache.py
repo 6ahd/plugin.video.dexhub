@@ -143,10 +143,36 @@ def _real_for(addon_id):
         entry = _SHARED.get(addon_id)
         if entry and entry[1] == _GENERATION[0] and now - entry[2] < _SHARED_TTL:
             return entry[0]
-    real = _REAL_ADDON(addon_id or _FALLBACK_ID)
+    real = _own_addon(addon_id or _FALLBACK_ID)
     with _SHARED_LOCK:
         _SHARED[addon_id] = (real, _GENERATION[0], now)
     return real
+
+
+def _own_addon(addon_id, wait=20.0):
+    """xbmcaddon.Addon(addon_id); v5.10.614: Dex Hub's own id is waited for.
+
+    While Kodi installs an add-on (Dex Hub's own update, or another one's at the same moment) it
+    reads its add-on list again, and for that moment it knows no Dex Hub: "Unknown addon id
+    'plugin.video.dexhub'". The service started in that moment died of it and nothing started
+    it again, so the Usenet engine never started (CoreELEC box, 25 Nov 2026: Dex Hub and AB Tools
+    updated together at Kodi's start). Our own add-on is there: it is asked again."""
+    started = time.time()
+    while True:
+        try:
+            return _REAL_ADDON(addon_id)
+        except RuntimeError as exc:
+            if addon_id != _FALLBACK_ID or 'Unknown addon id' not in str(exc) \
+                    or time.time() - started > wait:
+                raise
+            stopping = False
+            try:
+                import xbmc
+                stopping = xbmc.Monitor().waitForAbort(0.5)
+            except Exception:
+                time.sleep(0.5)
+            if stopping:
+                raise
 
 
 def _drop_shared():
@@ -165,7 +191,7 @@ class SharedAddon(object):
         return _real_for(self._id)
 
     def _writer(self):
-        return _REAL_ADDON(self._id or _FALLBACK_ID)
+        return _own_addon(self._id or _FALLBACK_ID)
 
     def _write(self, method, sid, value):
         result = getattr(self._writer(), method)(sid, value)

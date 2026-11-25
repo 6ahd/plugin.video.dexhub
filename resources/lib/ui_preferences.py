@@ -238,8 +238,24 @@ def _migrate_collection_click_only():
     addon.setSetting('collection_click_only_v11', 'true')
 
 
+def _migrate_sources_prism():
+    """v5.10.614: Prism is the default search and sources theme (5.10.612). A device still on a
+    former default (Halo before 5.10.560, Aura until 5.10.611) stayed there, because Kodi keeps
+    a value once it was stored; it moves to Prism once. A theme picked by hand since stays."""
+    addon = _addon()
+    if addon.getSetting('sources_v614') == 'true':
+        return
+    if (addon.getSetting('sources_row_style') or '') in ('halo', 'aura'):
+        if addon.setSetting('sources_row_style', 'full') is False:
+            return
+        xbmc.log('[DexHub] sources: Prism is the default now', xbmc.LOGINFO)
+    addon.setSetting('sources_v614', 'true')
+
+
 def value(key):
     default, choices, _, _ = OPTIONS[key]
+    if key == 'sources_row_style':
+        _migrate_sources_prism()
     if key in ('homeui_follow_rows', 'homeui_follow_works'):
         _migrate_collection_click_only()
     if key == 'player_capsule_when':

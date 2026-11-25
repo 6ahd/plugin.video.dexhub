@@ -605,6 +605,14 @@ class Worker(object):
         # reach at depth alone (one row below the cursor in light mode) rows
         # 5 to 7 of a Home landed empty and filled 0.7 to 1.9 s later.
         shown = min(C.ROWS, max(reach, center + SHOW_AHEAD))
+        # v5.10.614: like Arctic Fuse 3, every row of the page is shown from its saved copy as
+        # soon as the page is up (AF3 gives all its widgets their paths at once). Down to three
+        # rows below the cursor, a row deeper in the Home was asked for only when the cursor came
+        # near, after the row above it, each in a Python of its own: the rows further down stood
+        # empty for seconds (CoreELEC box, 25 Nov 2026). The skin still asks them in order, top
+        # first, and only the rows in the loading depth are read again from their source.
+        if self._first_rows_in(tab):
+            shown = C.ROWS
         # v5.10.165: written when they change (they were written twice a second)
         if tab != 'fold':
             self._set_once('dhs.load.window', '1')
@@ -624,6 +632,23 @@ class Worker(object):
                     C.request_refresh(tab, spec['id'])
                 elif not rows.is_enriched(data):
                     C.request_refresh(tab, spec['id'], enrich_only=True)
+
+    def _first_rows_in(self, tab):
+        """v5.10.614: the rows the page opens on have their titles (the rest wait for them)."""
+        try:
+            layout = C.layout()
+            for slot in (1, 2):
+                row_id = C.prop('dhs.%s.%d.id' % (tab, slot))
+                if not row_id:
+                    continue
+                key = C.prop('dhs.%s.%d.key' % (tab, slot))
+                cid = layout.row_list(slot, tab)
+                if key and xbmc.getInfoLabel('Container(%d).ListItemAbsolute(0).Property(dhs.row)' % cid) != key \
+                        and C.prop('dhs.%s.%d.empty' % (tab, slot)) != key:
+                    return False
+            return True
+        except Exception:
+            return False
 
     def visible_rows(self):
         """None off the browse page; (tab, focused slot, loading depth) on it."""
