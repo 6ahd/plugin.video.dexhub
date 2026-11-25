@@ -174,7 +174,7 @@ def sync_options(params, handle):
     subtitle, the subtitle on screen synced, and that subtitle uploaded to DexWorld. A click runs
     ?action=subtitle_sync_option&option=<dh_service>."""
     from ..subsync import share_synced
-    icon = 'dexhub/osd/subsync.png'
+    icon = 'dexhub/osd/legacy/subsync.png'      # v5.10.612: the icon packs moved it
     entries = [
         _row(C.url('subtitle_sync_option', option='best'), _t('أفضل ترجمة متزامنة', 'Best synced subtitle'),
              _t('تزامن الشغالة، ولو ما انضبطت تجرب غيرها وتحط الأحسن',

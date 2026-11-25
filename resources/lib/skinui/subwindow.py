@@ -714,6 +714,10 @@ class SubtitleWindow(xbmcgui.WindowXMLDialog):
             self.fill_side(focus_current=True)
         else:
             self.setProperty('src', 'kodi')
+            # v5.10.612: DexSubtitles answers only Kodi's subtitle window and this page (its owner
+            # does not want other services pulling from it): the page says it is asking
+            import time as _time
+            xbmcgui.Window(10000).setProperty('dexsubs.ask', '%s|%d' % (provider['id'], int(_time.time())))
             self.setProperty('kodi_url', self._service_url())
 
     def ask_name(self):

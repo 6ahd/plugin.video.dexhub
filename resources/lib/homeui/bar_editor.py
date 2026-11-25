@@ -1026,7 +1026,7 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         if pick < 0:
             return
         self.insert_key = spec.get('key')
-        {'dexhub': self.pick_dexhub, 'dexworld': self.pick_dexworld, 'youtube': self.pick_youtube,
+        {'dexhub': self.pick_dexhub, 'lists': self.pick_lists, 'dexworld': self.pick_dexworld, 'youtube': self.pick_youtube,
          'nas': self.pick_nas, 'addon': self.pick_addons}[sources[pick][0]]()
         if self.mode != 'pick':
             self.insert_key = None          # nothing opened (no rows to pick from)
@@ -1174,8 +1174,12 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         self.leave(CATALOGS)
 
     # ---------------------------------------------------------- adding catalogs
-    SOURCES = (('dexhub', 'صفوف Dex Hub', 'Dex Hub rows', 'الكتالوجات والقوائم اللي في الرئيسية',
-                'The catalogs and lists of the Home', 'star.png'),
+    SOURCES = (('dexhub', 'صفوف Dex Hub', 'Dex Hub rows', 'أي صف في الرئيسية والأفلام والمسلسلات واكتشف والبث المباشر ومكتبتي',
+                'Any row of Home, Movies, Series, Discover, Live TV and My Library', 'star.png'),
+               # v5.10.612: the favourites and Trakt, Simkl, MDBList lists (the user did not find them)
+               ('lists', 'Trakt والمفضلة وقوائمك', 'Trakt, favourites and your lists',
+                'قائمة المشاهدة، مفضلتك، قوائمك ومجموعتك في Trakt وSimkl وMDBList', 'Watchlists, favourites, your lists and collection on Trakt, Simkl, MDBList',
+                'list-check.png'),
                ('dexworld', 'DexWorld', 'DexWorld', 'صفوف وكوليكشنات جاهزة', 'Ready rows and collections', 'globe.png'),
                ('youtube', 'YouTube', 'YouTube', 'قنواتك والرائج والمواضيع، أو أي بحث', 'Your channels, trending, topics or any search',
                 'circle-play.png'),
@@ -1208,7 +1212,7 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         self.enter('pick', PICK)
 
     def open_source(self, key):
-        {'dexhub': self.pick_dexhub, 'dexworld': self.pick_dexworld, 'youtube': self.pick_youtube,
+        {'dexhub': self.pick_dexhub, 'lists': self.pick_lists, 'dexworld': self.pick_dexworld, 'youtube': self.pick_youtube,
          'nas': self.pick_nas, 'addon': self.pick_addons, 'kodi': self.pick_kodi, 'ai': self.pick_ai}[key]()
         if self.mode == 'pick' and self.pick.get('source') != 'sources':
             self.pick['back'] = 'sources'
@@ -1226,6 +1230,20 @@ class BarEditor(xbmcgui.WindowXMLDialog):
         self.setProperty('bs.psub', _t('الرئيسية والأفلام والمسلسلات · حدد كم واحد تبي', 'Home, Movies and Series · tick as many as you like'))
         self.pick_render(0)
         self.enter('pick', PICK)
+
+    def pick_lists(self):
+        """v5.10.612: favourites and the account lists (Trakt, Simkl, MDBList, Nuvio)."""
+        xbmc.executebuiltin('ActivateWindow(busydialognocancel)')
+        try:
+            found = B.account_lists()
+        finally:
+            xbmc.executebuiltin('Dialog.Close(busydialognocancel)')
+        if not found:
+            xbmcgui.Dialog().notification('Dex Hub', _t('اربط Trakt أو Simkl من الإعدادات', 'Link Trakt or Simkl in the settings'),
+                                          time=3000, sound=False)
+            return
+        self.pick_list(found, _t('Trakt والمفضلة وقوائمك', 'Trakt, favourites and your lists'),
+                       _t('حدد كم واحد تبي، وتنضاف صفوف', 'Tick as many as you like; they become rows'))
 
     def pick_list(self, found, title, sub):
         """Tick rows from a list of (spec, where), then Save (the Dex Hub rows' picker)."""

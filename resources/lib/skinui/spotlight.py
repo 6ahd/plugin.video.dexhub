@@ -561,7 +561,10 @@ class Spotlight(threading.Thread):
         sources before Play". Once per card; warm_sources keeps its own four
         minutes per title and the sources_warm setting."""
         q = target.get('q') or ''
-        if not q or getattr(self, '_warmed', None) == target['key'] or now - since < self.WARM_DWELL:
+        dwell = self.WARM_DWELL
+        if C.prop('dhs.pref.title_sources_rail') == 'true':
+            dwell = 1.0       # v5.10.612: the title page's source cards are ready as it opens
+        if not q or getattr(self, '_warmed', None) == target['key'] or now - since < dwell:
             return
         self._warmed = target['key']
         try:

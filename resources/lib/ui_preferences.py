@@ -43,16 +43,21 @@ OPTIONS = {
     # v5.10.301: the sources window's rows; v5.10.438: the Halo theme (its own
     # search screen and sources page); v5.10.442: three themes: Prism (the
     # page like Nuvio TV, key "full"), Compact and Halo
-    'sources_row_style': ('aura', ('full', 'compact', 'halo', 'classic', 'aura'), 'ثيم البحث والمصادر', 'Search and sources theme'),
+    # v5.10.612: the title page's sources as Flix's cards (title_sources)
+    'title_sources_rail': ('true', None, 'المصادر في صفحة العمل مثل Flix', 'Sources on the title page, like Flix'),
+    'title_sources_page': ('glass', ('glass', 'theme'), 'صفحة نسخ البطاقة', 'What a source card opens'),
+    'sources_row_style': ('full', ('full', 'compact', 'halo', 'classic', 'aura', 'flix', 'glass'), 'ثيم البحث والمصادر', 'Search and sources theme'),
     # v5.10.298: the player bar's look (osd_look.py): style, darkness, colour
     'player_osd_style': ('classic', ('classic', 'glass', 'cinematic', 'minimal'), 'نمط شريط المشغّل', 'Player bar style'),
-    'player_osd_dim': ('70', ('0', '15', '30', '50', '60', '70', '80', '85', '95'), 'تعتيم خلفية المشغّل', 'Player background darkness'),
+    'player_osd_dim': ('55', ('0', '15', '30', '50', '55', '60', '70', '80', '85', '95'), 'تعتيم خلفية المشغّل', 'Player background darkness'),
     'player_osd_shape': ('circle', ('circle', 'square', 'ring', 'line', 'dot', 'soft'), 'شكل المؤشر في المشغّل', 'Player cursor shape'),
     # v5.10.302: the shades' colour and place, the buttons' backing, ready looks
-    'player_osd_scrim': ('auto', ('auto', 'black', 'theme', 'artwork', 'navy', 'plum', 'wine', 'forest', 'slate', 'warm'), 'لون ظل المشغّل', 'Player shade colour'),
+    'player_osd_scrim': ('black', ('auto', 'black', 'theme', 'artwork', 'navy', 'plum', 'wine', 'forest', 'slate', 'warm'), 'لون ظل المشغّل', 'Player shade colour'),
     'player_osd_area': ('bottom', ('bottom', 'both', 'none'), 'مكان ظل المشغّل', 'Player shade place'),
     'player_osd_buttons': ('none', ('none', 'soft', 'outline'), 'خلفية أزرار المشغّل', 'Player button backing'),
-    'player_osd_preset': ('custom', ('custom', 'nuvio', 'appletv', 'netflix', 'infuse', 'plex', 'disney', 'artwork', 'clean', 'theme'), 'شكل جاهز للمشغّل', 'Ready player look'),
+    'player_osd_preset': ('dex', ('custom', 'dex', 'nuvio', 'appletv', 'netflix', 'infuse', 'plex', 'disney', 'artwork', 'clean', 'theme'), 'شكل جاهز للمشغّل', 'Ready player look'),
+    # v5.10.612: the player's icon set (skin.dexhub 3.28.239)
+    'player_osd_icons': ('fill', ('fill', 'duo', 'bold', 'line'), 'أيقونات المشغّل', 'Player icons'),
     'player_osd_accent': ('white', ('white', 'theme', 'artwork', 'violet', 'blue', 'cyan', 'green', 'gold', 'orange', 'red', 'pink'),
                           'لون المشغّل', 'Player colour'),
     # v5.10.309: the pill's name, the 3.28.49 bar and title pills as options

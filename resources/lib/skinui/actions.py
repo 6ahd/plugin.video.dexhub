@@ -558,6 +558,9 @@ def _selected_episode(t):
 
 def sources(params, handle):
     from . import rows
+    if params.get('grp'):           # v5.10.612: a Flix card opens the page on its add-on
+        from .. import title_sources
+        title_sources.want_group(params.get('grp'), params.get('n') or 0)
     clear_trailer_mark()
     t = _title(params)
     ctx = rows.Context('all')
@@ -602,9 +605,11 @@ def warm_sources(params, handle):
     """v5.10.311: the Play button got the focus: ask every add-on for this
     title's (or the next episode's) sources in the background, so the list
     opens full a moment later. Once per title every four minutes."""
+    from .. import title_sources
+    rail = title_sources.enabled()       # v5.10.612: the title page's Flix cards need the search
     try:
         from .. import ui_preferences
-        if ui_preferences.value('sources_warm') != 'true':
+        if ui_preferences.value('sources_warm') != 'true' and not rail:
             return None
     except Exception:
         pass
@@ -615,6 +620,8 @@ def warm_sources(params, handle):
         if time.time() - float(home.getProperty(stamp) or 0) < 240:
             # warmed a moment ago: the card shows what that run found
             _republish_available(home, params.get('pid'))
+            if rail:
+                title_sources.mark(params.get('pid'))
             return None
     except Exception:
         pass
@@ -647,8 +654,27 @@ def warm_sources(params, handle):
     q = R.params_of(path)
     api = rows.api()
     page = params.get('pid') or t.title_id
+    try:
+        from .. import fel
+        title_sources.TITLE_FEL[0] = (not t.series) and fel.is_fel(t._imdb())
+    except Exception:
+        title_sources.TITLE_FEL[0] = False
     api._WARM_SUMMARY = []
     api._WARM_ONLY = True
+    if rail:
+        # v5.10.612: each add-on's answer shows on the page at once (at most every 0.6 s)
+        shown = {'at': 0.0}
+
+        def progress(found):
+            now = time.time()
+            if now - shown['at'] < 0.6:
+                return
+            shown['at'] = now
+            title_sources.store(page, title_sources.groups(found))
+        api._WARM_PROGRESS = progress
+    if rail:
+        home.setProperty('dhs.tp.src.title', _tr('مصادر التشغيل'))
+        home.setProperty('dhs.tp.src.wait', _tr('يبحث في إضافاتك…'))
     home.setProperty('dhs.tp.avail.busy', page or '')
     try:
         if q.get('action') == 'episode_streams':
@@ -662,7 +688,15 @@ def warm_sources(params, handle):
         C.log('warm failed:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
     finally:
         api._WARM_ONLY = False
+        api._WARM_PROGRESS = None
     _publish_available(home, page, getattr(api, '_WARM_SUMMARY', None) or [])
+    if rail:
+        cards = getattr(api, '_WARM_RAIL', None) or []
+        title_sources.store(page, cards)
+        if any(c.get('disc') for c in cards) and not t.series:     # v5.10.612: the Full Disc collection
+            from .. import disc_library
+            disc_library.add(t._imdb(), t.hero.get('title') or '', t.hero.get('year') or '')
+        title_sources.log('%d card(s) for %s' % (len(cards), page))
     if home.getProperty('dhs.tp.avail.busy') == page:
         home.setProperty('dhs.tp.avail.busy', '')
     return None
@@ -1659,6 +1693,7 @@ ROUTES = {
     'skin_play': play,
     'skin_sources': sources,
     'skin_warm_sources': warm_sources,
+    'skin_src_rail': lambda params, handle: __import__('resources.lib.title_sources', fromlist=['listing']).listing(params, handle),
     'skin_opengrid': open_grid,
     'skin_panel': lambda params, handle: _panel('listing', params, handle),
     'skin_alert_readall': lambda params, handle: _panel('read_all', params, handle),

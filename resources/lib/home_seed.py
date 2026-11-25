@@ -186,3 +186,81 @@ def run(monitor):
                                           xbmcgui.NOTIFICATION_INFO, 6000)
     except Exception as exc:
         _log('failed: %s' % exc)
+
+
+AV_MARK = 'av_rows_v612'
+SPLIT_MARK = 'av_split_v612'
+OLD_KIT = 'k:dexhub-av'
+SPLIT = ('k:dexhub-fel7', 'k:dexhub-fulldisc')     # the site's two collections (EXTRAS_SPLIT_V1)
+NOW_KIT = 'k:dexhub-now'                           # "Right Now": lists that change with the moment
+
+
+def _replace(app, media, old, ids):
+    """The page's row of ``old`` swapped for rows of ``ids`` in its place; else ``ids`` added."""
+    from .homeui import layout as L
+    page = app.layout.page(media)
+    custom = list(page.get('custom') or [])
+    gone = [r for r in custom if str((r.get('params') or {}).get('id')) == old]
+    have = set(str((r.get('params') or {}).get('id')) for r in custom)
+    specs = [spec for spec in _specs([i for i in ids if i not in have])]
+    if not gone:
+        return add(app, {media: [i for i in ids if i not in have]}) if specs else 0
+    fresh = [L.new_custom({'type': 'route', 'label': spec['title'], 'source': 'catalog', 'source_label': 'DexWorld',
+                           'subtitle': 'DexWorld', 'params': dict(spec['params']), 'shape': ''}) for spec in specs]
+    old_keys = [L.custom_key(r) for r in gone]
+    order = []
+    for key in page.get('order') or []:
+        if key == old_keys[0]:
+            order.extend(L.custom_key(r) for r in fresh)
+        elif key not in old_keys:
+            order.append(key)
+    app.layout.save_page(media, order=order, custom=[r for r in custom if r not in gone] + fresh)
+    return len(fresh)
+
+
+def seed_split():
+    """v5.10.612: the site split "Picture & Disc" into two collections of their own, FEL 7 and
+    Full Disc (each with rows inside), and made "Right Now": the old row becomes the two in its
+    place (Home and Movies), Right Now goes to the top of the Home. Once, when the site has them."""
+    try:
+        import xbmcaddon
+        if xbmcaddon.Addon('plugin.video.dexhub').getSetting(SPLIT_MARK) == 'true':
+            return 0
+        from . import dexworld as DW
+        by_id = DW.rows_by_id(DW.page())
+        if not all(k in by_id for k in SPLIT):
+            return 0                    # not on the site yet: another start
+        from .skinui import rows as R
+        app = R.app()
+        done = _replace(app, 'all', OLD_KIT, list(SPLIT)) + _replace(app, 'movie', OLD_KIT, list(SPLIT))
+        if NOW_KIT in by_id:
+            done += add(app, {'all': [NOW_KIT]})
+        xbmcaddon.Addon('plugin.video.dexhub').setSetting(SPLIT_MARK, 'true')
+        _log('FEL 7, Full Disc and Right Now on the Home: %d row(s)' % done)
+        return done
+    except Exception as exc:
+        _log('split collections: %s' % exc)
+        return 0
+
+
+def seed_av():
+    """v5.10.612: Dex Hub's "Picture & Disc" collection (FEL 7, Full Disc:
+    dexhub_collections) on the Home and Movies, once, after the Continue rows;
+    the Home's editor moves or removes it like any added row."""
+    try:
+        import xbmcaddon
+        addon = xbmcaddon.Addon('plugin.video.dexhub')
+        if addon.getSetting(AV_MARK) == 'true':
+            return seed_split()
+        from . import dexworld as DW
+        if all(k in DW.rows_by_id(DW.page()) for k in SPLIT):
+            xbmcaddon.Addon('plugin.video.dexhub').setSetting(AV_MARK, 'true')
+            return seed_split()         # the site has the two collections: no Picture & Disc row
+        from .skinui import rows as R
+        added = add(R.app(), {'all': ['k:dexhub-av'], 'movie': ['k:dexhub-av']})
+        xbmcaddon.Addon('plugin.video.dexhub').setSetting(AV_MARK, 'true')
+        _log('Picture & Disc collection added to %d page(s)' % added)
+        return added
+    except Exception as exc:
+        _log('Picture & Disc collection: %s' % exc)
+        return 0

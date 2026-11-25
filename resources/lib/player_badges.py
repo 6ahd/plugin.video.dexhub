@@ -157,7 +157,26 @@ def _set(key, value):
         addon.setSetting(key, value)
 
 
+def _flix_badges_once():
+    """v5.10.612: the skin's own badges are Flix's capsules now (the default
+    look). A device that was moved to the Colorful pack automatically
+    (_adopt_colorful, never the user's pick) comes back to them, once."""
+    addon = _addon()
+    if (addon.getSetting('badges_v612') or '') == 'true':
+        return
+    _set('badges_v612', 'true')
+    if (addon.getSetting('player_badges_colorful_adopted') or '') == 'true' \
+            and (addon.getSetting('player_badge_style') or '') == 'custom' \
+            and (addon.getSetting('player_badges_json_url') or '') == 'addon://' + RESOURCE_PREFIX + '.colorful':
+        _set('player_badge_style', 'colorful')
+        xbmc.log('[DexHub] badges: back to the skin\'s own (5.10.612 capsules)', xbmc.LOGINFO)
+
+
 def style():
+    try:
+        _flix_badges_once()
+    except Exception:
+        pass
     value = (_addon().getSetting('player_badge_style') or 'colorful').strip()
     value = value if value in STYLES else 'colorful'
     if value == 'custom':
@@ -197,6 +216,7 @@ def _adopt_colorful():
     """v5.10.144: the colourful badges left skin.dexhub for a pack of their
     own (resource.images.dexhub.badges.colorful). Whoever kept the colourful
     style gets the pack once it is installed, once; a later choice stays."""
+    return 'colorful'       # v5.10.612: the skin's own badges stay (Flix's capsules); the pack is a choice
     now = time.time()
     if now - _ADOPT['at'] < 60:
         return 'colorful'

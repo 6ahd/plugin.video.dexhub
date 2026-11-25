@@ -50,9 +50,38 @@ def _row_of(item):
     return {'kind': kind, 'tmdb': tmdb, 'imdb': ids.get('imdb') or '', 'title': item.get('label') or info.get('title') or '',
             'poster': art.get('poster') or art.get('thumb') or '', 'fanart': art.get('fanart') or art.get('landscape') or '',
             'year': year if year not in ('0', '-1') else '', 'rating': rating or '', 'plot': info.get('plot') or '',
-            'runtime': runtime, 'genres': list(info.get('genres') or []),
+            'runtime': runtime, 'genres': list(info.get('genres') or []), 'logo': art.get('clearlogo') or '',
             'key': ('movie|%s' if kind == 'movie' else 'series|%s') % tmdb, 'path': item.get('path') or '',
             'work': (item.get('props') or {}).get('kind') in ('work', None, '') and bool(tmdb or ids.get('imdb'))}
+
+
+def _title_logo(kind, tmdb, imdb=''):
+    """(clear logo, TMDb id) of a title from TMDb ('' when none), cached a week (v5.10.612)."""
+    from .. import tmdb_direct as T
+    lang = 'en' if F.english() else 'ar'
+    key = 'collection:logo2:%s:%s:%s:%s' % (kind, tmdb or '', imdb or '', lang)
+    known = T._cache_get(key)
+    if known is not None:
+        return known.get('logo') or '', known.get('tmdb') or str(tmdb or '')
+    media = 'tv' if kind == 'series' else 'movie'
+    logo = ''
+    try:
+        if not tmdb and imdb:
+            hit = T._request('/find/%s' % imdb, {'external_source': 'imdb_id'}, timeout=8, max_attempts=2) or {}
+            first = (hit.get('%s_results' % media) or [{}])[0] or {}
+            tmdb = str(first.get('id') or '')
+        if tmdb:
+            data = T._request('/%s/%s/images' % (media, tmdb), {'include_image_language': '%s,en,null' % lang},
+                              timeout=8, max_attempts=2) or {}
+            logos = data.get('logos') or []
+            ranked = sorted(logos, key=lambda x: ({lang: 0, 'en': 1}.get(x.get('iso_639_1') or '', 2),
+                                                 -(x.get('vote_average') or 0)))
+            if ranked and ranked[0].get('file_path'):
+                logo = 'https://image.tmdb.org/t/p/w500%s' % ranked[0]['file_path']
+    except Exception:
+        logo = ''
+    T._cache_set(key, {'logo': logo, 'tmdb': str(tmdb or '')}, 7 * 86400 if logo else 86400)
+    return logo, str(tmdb or '')
 
 
 class CollectionWindow(xbmcgui.WindowXMLDialog):
@@ -148,6 +177,13 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
             if network:
                 # v5.10.508: a network's clear logo in place of its name
                 folder['clearlogo'] = DW.network_logo(network.group(1), fetch=True)
+            elif first:
+                # v5.10.612: a list with a logo of its own has it in place of its name
+                by_id = DW.rows_by_id(DW.page())
+                own = ((by_id.get(first.get('id') or '') or {}).get('logo') or
+                       (by_id.get(self.params.get('dw') or '') or {}).get('logo') or '')   # else the collection's
+                if own:
+                    folder['clearlogo'] = own
             wall = DW._posters(first) if first else []
             if not wall and first and not self._closing:
                 try:
@@ -234,6 +270,7 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
         if count > SLOTS and not self._closing:
             self._show_catalogs()
         self._enrich_first_section()
+        self._enrich_logos()
 
     def _group_name(self):
         """The collection row the card was in ("Streaming Services")."""
@@ -255,6 +292,41 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
         self.data[n] = found
         self._show(n, found)
 
+    def _enrich_logos(self):
+        """v5.10.612: the clear logo of each title on the big and wide cards (TMDb, in the
+        page's language, else English), drawn in place of the name (the user: a clear logo,
+        no plots). A list that knows only IMDb ids (Dex Hub's FEL 7) is looked up once."""
+        for n in sorted(self.data):
+            if self._closing:
+                return
+            if n in self.ranked or SHAPES[n - 1] not in ('feature', 'wide'):
+                continue
+            rows_ = self.data.get(n) or []
+            todo = [row for row in rows_[:12] if not row.get('logo') and (row.get('tmdb') or row.get('imdb'))]
+            if not todo:
+                continue
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=READERS, thread_name_prefix='DexHub-collection-logo') as pool:
+                found = list(pool.map(lambda row: _title_logo(row['kind'], row.get('tmdb'), row.get('imdb')), todo))
+            changed = False
+            updated = [dict(row) for row in rows_]
+            by_key = dict((id(row), got) for row, got in zip(todo, found))
+            for old, row in zip(rows_, updated):
+                logo, tmdb = by_key.get(id(old)) or ('', '')
+                if logo:
+                    row['logo'] = logo
+                    changed = True
+                if tmdb and not row.get('tmdb'):
+                    # a list of IMDb ids only: now its year, rating and genres can be read too
+                    row['tmdb'] = tmdb
+                    row['key'] = ('movie|%s' if row['kind'] == 'movie' else 'series|%s') % tmdb
+                    changed = True
+            if changed and not self._closing:
+                self.data[n] = updated
+                self._show(n, updated)
+        if not self._closing:
+            self._enrich_first_section()
+
     def _enrich_first_section(self):
         """v5.10.531: the feature cards' story, after every section is on screen.
         Read before the first section was shown, it held the cards back: 84 % of
@@ -263,7 +335,7 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
             return
         first = self.data.get(1) or []
         missing = {row['key']: (row['kind'], row['tmdb']) for row in first[:8]
-                   if row['tmdb'] and not (row['plot'] and row['fanart'])}
+                   if row['tmdb'] and not (row['year'] and row['fanart'])}
         if not missing:
             return
         details = {row['key']: row for row in F._details_many(list(missing.values()))}
@@ -292,7 +364,8 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
         ranked = n in self.ranked
         items = []
         for index, row in enumerate(rows_):
-            art = {'thumb': row['poster'] or row['fanart'], 'fanart': row['fanart'] or row['poster']}
+            art = {'thumb': row['poster'] or row['fanart'], 'fanart': row['fanart'] or row['poster'],
+                   'clearlogo': row.get('logo') or ''}
             watched = '1' if row['key'] in self.watched else ''
             if ranked:
                 items.append(_item(row['title'], row['year'], art, watched=watched,
@@ -300,7 +373,7 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
             elif SHAPES[n - 1] in ('posters',):
                 items.append(_item(row['title'], row['year'], art, watched=watched))
             else:
-                items.append(_item(row['title'], _meta(row), art, watched=watched, plot=row['plot']))
+                items.append(_item(row['title'], _meta(row), art, watched=watched))
         with self._lock:
             if self._closing:
                 return

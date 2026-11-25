@@ -1089,6 +1089,12 @@ def _is_internal_navigation_path(path):
 class CompanionPlayer(xbmc.Player):
     def onAVStarted(self):
         try:
+            # v5.10.612: the stream is measured when it stops (line_speed), for the sources page
+            from . import line_speed
+            line_speed.record('' if self._foreign_active else (self.getPlayingFile() or ''))
+        except Exception:
+            pass
+        try:
             # v5.10.572: a subtitle put on a disc in its menus from anywhere (Kodi's
             # subtitle dialog, any subtitle add-on) gets the main-movie offer too
             from . import disc_menu
@@ -2318,6 +2324,11 @@ class CompanionPlayer(xbmc.Player):
             player_capsule.stopped()
         except Exception:
             pass
+        try:
+            from . import line_speed       # v5.10.612
+            line_speed.measure_after_stop()
+        except Exception:
+            pass
         # v5.10.239: a Home trailer's end (foreign) changes no watch progress:
         # the widgets are not marked stale for it (30 trailers an hour each
         # rebuilt Continue Watching)
@@ -2466,6 +2477,11 @@ class CompanionPlayer(xbmc.Player):
         try:
             from . import player_capsule
             player_capsule.stopped()
+        except Exception:
+            pass
+        try:
+            from . import line_speed       # v5.10.612
+            line_speed.measure_after_stop()
         except Exception:
             pass
         if not self._foreign_active and self.ctx.get('server_type') == 'silo':

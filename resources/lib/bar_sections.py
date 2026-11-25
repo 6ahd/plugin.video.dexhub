@@ -41,7 +41,10 @@ AF3_ICONS = 'special://home/addons/skin.arctic.fuse.3/extras/icons/'
 MENU_ICONS = 'special://home/addons/plugin.video.dexhub/resources/media/menu/'
 ICON_PATH = 'special://home/addons/skin.dexhub/media/dexhub/nav/%s.png'
 NAV = 'dexhub/nav/%s.png'
-SOURCE_TABS = (('all', 'الرئيسية', 'Home'), ('movie', 'الأفلام', 'Movies'), ('series', 'المسلسلات', 'Series'))
+SOURCE_TABS = (('all', 'الرئيسية', 'Home'), ('movie', 'الأفلام', 'Movies'), ('series', 'المسلسلات', 'Series'),
+               # v5.10.612: every tab's rows can be taken (the user: any Dex Hub section on the Home)
+               ('discover', 'اكتشف', 'Discover'), ('live', 'البث المباشر', 'Live TV'),
+               ('library', 'مكتبتي', 'My Library'), ('servers', 'السيرفرات', 'Servers'))
 
 
 def _t(ar, en):
@@ -185,6 +188,60 @@ def candidates():
             seen.add(ident)
             out.append(({'key': spec.get('key') or spec.get('id'), 'title': spec.get('title') or '', 'sub': spec.get('sub') or '',
                          'params': params, 'shape': spec.get('shape') or 'poster'}, _t(ar, en)))
+    return out
+
+
+def account_lists():
+    """[(spec, where)] v5.10.612: the favourites and the account lists as rows: My Favorites, the
+    Nuvio / Stremio lists, and Trakt's watchlist, favourites, own lists and collection, Simkl's and
+    MDBList's lists (the user did not find how to add Trakt to the Home)."""
+    import hashlib
+    import re
+    out, seen = [], set()
+
+    def put(title, params, where, shape='poster'):
+        ident = json.dumps(params, sort_keys=True)
+        if not title or ident in seen:
+            return
+        seen.add(ident)
+        out.append(({'key': 'list:%s' % hashlib.md5(ident.encode('utf-8')).hexdigest()[:10], 'title': title, 'sub': where, 'params': dict(params),
+                     'shape': shape or 'poster'}, where))
+    try:
+        from .routes import library
+        linked = library.linked_sources()
+        for key, title, shape, params in library._specs(linked):
+            if key == 'continue':
+                continue
+            where = 'Floppy' if 'floppy' in json.dumps(params) else 'Trakt' if 'trakt' in json.dumps(params) or key == 'lib:cal' else (
+                'Simkl' if 'simkl' in json.dumps(params) else ('MDBList' if 'mdblist' in json.dumps(params)
+                                                                else _t('مكتبتي', 'My Library')))
+            put(title, params, where, shape)
+    except Exception:
+        linked = []
+    try:
+        from .skinui.rows import api
+        from . import capture
+        from .homeui import rows as R
+    except Exception:
+        return out
+    for service, action in (('Trakt', 'trakt_hub'), ('Trakt', 'trakt_my_lists'), ('Simkl', 'simkl_lists_menu'),
+                            ('MDBList', 'mdblist_my_lists')):
+        if linked and service not in linked:
+            continue
+        try:
+            entries, _elapsed = capture.run_route({'action': action}, api())
+        except Exception:
+            entries = []
+        for entry in entries or []:
+            params = R.params_of(entry.get('path') or '')
+            act = params.get('action') or ''
+            if not entry.get('folder') or not act or act in ('continue', 'nextup', action, 'trakt_my_lists') \
+                    or act.endswith('_menu') or act.endswith('_my_lists'):
+                continue
+            label = re.sub(r'\[/?[A-Z]+[^\]]*\]', '', str(entry.get('label') or '')).strip()
+            if action == 'trakt_hub' and act == 'favorites':
+                params = {'action': 'favorites', 'source': 'trakt'}
+            put(label, params, service)
     return out
 
 

@@ -589,6 +589,17 @@ class HeadlessTitle(object):
                 pass
         props['dhs.tp.art.fanart'] = mine.get('fanart') or ''
         props['dhs.tp.art.clearlogo'] = mine.get('clearlogo') or ''
+        # v5.10.612: a film confirmed to carry Dolby Vision Profile 7 FEL (fel.py)
+        try:
+            from .. import fel
+            props['dhs.tp.fel'] = self.title_id if (not self.series and fel.is_fel(self._imdb())) else ''
+        except Exception:
+            props['dhs.tp.fel'] = ''
+        try:                                   # v5.10.612: a whole disc was found for it (disc_library)
+            from .. import disc_library
+            props['dhs.tp.disc'] = self.title_id if (not self.series and self._imdb() in disc_library.load()) else ''
+        except Exception:
+            props['dhs.tp.disc'] = ''
         if C.prop('dhs.tp.id') != self.title_id:
             C.set_prop('dhs.tp.id', '')
         for key, value in props.items():
@@ -644,7 +655,9 @@ class HeadlessTitle(object):
         # the classic page has no sources line any more: only the cinematic
         # card shows what the search found (Play still warms it on focus)
         if xbmc.getInfoLabel('Skin.String(dh.titlelayout)') != 'cinematic':
-            return
+            from .. import title_sources        # v5.10.612: or the page shows Flix's source cards
+            if not title_sources.enabled():
+                return
         home.setProperty('dexhub.warm.page', self.title_id)
         q = [(k, v) for k, v in sorted(self.q.items()) if k != 'pid'] + [('pid', self.title_id)]
         xbmc.executebuiltin('RunPlugin(%s?%s)' % (C.BASE, urlencode([('action', 'skin_warm_sources')] + q)))
@@ -929,6 +942,36 @@ def listing(action, params, handle):
                 props['dhs.click'] = 'run'
                 props['dhs.target'] = (C.BASE + '?' + urlencode([('action', 'skin_open')]) + '&' + q2 + '&'
                                        + urlencode([('page', urlencode(sorted(q.items())))]))
+            item['props'] = props
+            out.append(item)
+    elif action == 'skin_fel':
+        # v5.10.612: the FEL 7 Collection on a FEL film's page: other films of the
+        # list, those sharing its genres first, then the best rated (fel.py)
+        from .. import fel
+        content = 'movies'
+        ctx = RW.Context('all')
+        mine = title._imdb()
+        entries = fel.titles()
+        own = next((t for t in entries if t.get('imdb') == mine), {})
+        genres = set(own.get('genres') or [])
+        others = [t for t in entries if t.get('imdb') and t.get('imdb') != mine]
+        others.sort(key=lambda t: (-len(genres & set(t.get('genres') or [])), -(t.get('rating') or 0)))
+        for entry in others[:24]:
+            imdb = entry['imdb']
+            tile = {'kind': 'work', 'media_type': 'movie', 'id': imdb, 'imdb_id': imdb,
+                    'title': entry.get('title') or '', 'year': entry.get('year') or '',
+                    'rating': entry.get('rating') or 0, 'genres': entry.get('genres') or [],
+                    'poster': fel.art(imdb, 'poster'), 'fanart': fel.art(imdb, 'background'),
+                    'landscape': fel.art(imdb, 'background'), 'clearlogo': fel.art(imdb, 'logo')}
+            item = ctx.item(tile, {'shape': 'landscape'})
+            props = item.get('props') or {}
+            if props.get('dhs.click') == 'info':
+                q2 = props.get('dhs.q') or ''
+                props['dhs.click'] = 'run'
+                props['dhs.target'] = (C.BASE + '?' + urlencode([('action', 'skin_open')]) + '&' + q2 + '&'
+                                       + urlencode([('page', urlencode(sorted(q.items())))]))
+            props['fel.logo'] = fel.art(imdb, 'logo')
+            props['fel.art'] = fel.art(imdb, 'background')
             item['props'] = props
             out.append(item)
     elif action in ('skin_reviews', 'skin_artwork'):

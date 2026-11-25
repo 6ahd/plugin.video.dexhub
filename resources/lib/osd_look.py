@@ -47,10 +47,18 @@ PRESET = 'player_osd_preset'     # v5.10.302: a ready look (sets the others)
 NAMES = 'player_osd_names'       # v5.10.309: the name inside the focused pill
 DESIGN = 'player_osd_design'     # v5.10.309: legacy pills or the 3.28.49 bar
 TITLE = 'player_title_actions'   # v5.10.309: icon discs or text pills on the title page
+ICONS = 'player_osd_icons'       # v5.10.612: the player's icon set (dhs.osd.icons)
 KEYS = (STYLE, DIM, ACCENT, SHAPE, SCRIM, AREA, BUTTONS, PRESET)
 NAMES_ROWS = (('true', 'مفعّل', 'On'), ('false', 'مطفأ', 'Off'))
 DESIGN_ROWS = (('legacy', 'مثل Nuvio legacy', 'Like Nuvio legacy'), ('classic', 'الكلاسيكي السابق', 'Previous classic'))
 TITLE_ROWS = (('icons', 'أيقونات', 'Icons'), ('pills', 'كبسولات نصية', 'Text pills'))
+# v5.10.612: skin.dexhub 3.28.239 draws media/dexhub/osd/legacy<-set>/ (fill is plain legacy/)
+ICON_ROWS = (
+    ('fill', 'ممتلئة · مثل Apple TV', 'Filled · like Apple TV'),
+    ('duo', 'لونين · ظل خفيف داخل الأيقونة', 'Two-tone · a soft fill inside'),
+    ('bold', 'خطوط عريضة', 'Bold lines'),
+    ('line', 'خطوط رفيعة (السابقة)', 'Thin lines (previous)'),
+)
 
 STYLES = (
     ('classic', 'كلاسيكي', 'Classic'),
@@ -71,6 +79,7 @@ DIMS = (
     ('15', 'خفيف جداً · 15%', 'Barely there · 15%'),
     ('30', 'فاتح جداً · 30%', 'Very light · 30%'),
     ('50', 'فاتح · 50%', 'Light · 50%'),
+    ('55', 'مثل Flix · 55%', 'Like Flix · 55%'),
     ('60', 'هادئ · 60%', 'Soft · 60%'),
     ('70', 'متوسط · 70%', 'Medium · 70%'),
     ('80', 'مثل Nuvio · 80%', 'Like Nuvio · 80%'),
@@ -104,6 +113,11 @@ BUTTON_BGS = (
 # v5.10.302: ready looks: (key, ar, en, {setting: value})
 PRESETS = (
     ('custom', 'مخصص (اختياراتك)', 'Custom (your choices)', {}),
+    # v5.10.612: the default look, Flix's player: no panel, only a soft shade
+    # under the bar, white circle on the focused button, filled icons
+    ('dex', 'Dex · شفاف مثل Flix', 'Dex · see-through, like Flix',
+     {STYLE: 'classic', DIM: '55', ACCENT: 'white', SHAPE: 'circle', SCRIM: 'black', AREA: 'bottom',
+      BUTTONS: 'none', ICONS: 'fill'}),
     ('nuvio', 'Nuvio', 'Nuvio',
      {STYLE: 'classic', DIM: '80', ACCENT: 'white', SHAPE: 'circle', SCRIM: 'black', AREA: 'both', BUTTONS: 'none'}),
     ('appletv', 'Apple TV', 'Apple TV',
@@ -150,11 +164,18 @@ CHOICES = {
     BUTTONS: tuple(v for v, _, _ in BUTTON_BGS),
     PRESET: tuple(p[0] for p in PRESETS),
     NAMES: ('true', 'false'), DESIGN: ('legacy', 'classic'), TITLE: ('icons', 'pills'),
+    ICONS: tuple(v for v, _, _ in ICON_ROWS),
 }
-DEFAULTS = {STYLE: 'classic', DIM: '70', ACCENT: 'white', SHAPE: 'circle',
-            SCRIM: 'auto', AREA: 'bottom', BUTTONS: 'none', PRESET: 'custom', NAMES: 'true', DESIGN: 'legacy', TITLE: 'icons'}
+# v5.10.612: the defaults are the "dex" look
+DEFAULTS = {STYLE: 'classic', DIM: '55', ACCENT: 'white', SHAPE: 'circle',
+            SCRIM: 'black', AREA: 'bottom', BUTTONS: 'none', PRESET: 'dex', NAMES: 'true', DESIGN: 'legacy',
+            TITLE: 'icons', ICONS: 'fill'}
+# the defaults before 5.10.612: a player look left at these moves to "dex" once
+OLD_DEFAULTS = {STYLE: 'classic', DIM: '70', ACCENT: 'white', SHAPE: 'circle',
+                SCRIM: 'auto', AREA: 'bottom', BUTTONS: 'none'}
 ROWS = {STYLE: STYLES, DIM: DIMS, ACCENT: ACCENTS, SHAPE: SHAPES, SCRIM: SCRIMS, AREA: AREAS,
-        BUTTONS: BUTTON_BGS, PRESET: tuple(p[:3] for p in PRESETS), NAMES: NAMES_ROWS, DESIGN: DESIGN_ROWS, TITLE: TITLE_ROWS}
+        BUTTONS: BUTTON_BGS, PRESET: tuple(p[:3] for p in PRESETS), NAMES: NAMES_ROWS, DESIGN: DESIGN_ROWS, TITLE: TITLE_ROWS,
+        ICONS: ICON_ROWS}
 
 PROP_ART = 'dhs.osd.art_color'
 PROP_ART_KEY = 'dhs.osd.art_key'
@@ -278,7 +299,11 @@ def props():
     else:
         btn, btn_tex = '00FFFFFF', 'af3/common/circle.png'
     top = area == 'both' or (style == 'cinematic' and area != 'none')
+    icons = value(ICONS)
+    if icons not in CHOICES[ICONS]:
+        icons = 'fill'
     return {
+        'dhs.osd.icons': '' if icons == 'fill' else icons,
         'dhs.osd.style': style,
         'dhs.osd.bg': _argb(alpha, tint),
         'dhs.osd.glass': _argb(glass_alpha, glass_tint),
@@ -330,7 +355,7 @@ def after_write(key, val):
             return
         if key in KEYS and value(PRESET) != 'custom':
             import xbmcaddon
-            xbmcaddon.Addon().setSetting(PRESET, 'custom')
+            xbmcaddon.Addon('plugin.video.dexhub').setSetting(PRESET, 'custom')
             from .settings_cache import invalidate
             invalidate()
         if val == 'artwork' and key in (ACCENT, SCRIM):
@@ -350,7 +375,7 @@ def apply_preset(name):
         return False
     try:
         import xbmcaddon
-        addon = xbmcaddon.Addon()
+        addon = xbmcaddon.Addon('plugin.video.dexhub')
         for setting, val in values.items():
             addon.setSetting(setting, val)
         addon.setSetting(PRESET, name)
@@ -365,7 +390,35 @@ def apply_preset(name):
     return True
 
 
+LOOK_MARK = 'look_v612'
+_MIGRATED = []
+
+
+def _migrate_once():
+    """v5.10.612: a device still on the old default look gets the "dex"
+    look, once; a look the user picked or tuned stays."""
+    if _MIGRATED:
+        return
+    _MIGRATED.append(True)
+    try:
+        import xbmcaddon
+        addon = xbmcaddon.Addon('plugin.video.dexhub')
+        if addon.getSetting(LOOK_MARK) == 'true':
+            return
+        untouched = addon.getSetting(PRESET) in ('', 'custom', 'dex') and all(
+            addon.getSetting(k) in ('', old, DEFAULTS[k]) for k, old in OLD_DEFAULTS.items())
+        if untouched and not apply_preset('dex'):
+            return                             # tried again next start
+        # a fresh instance: Kodi saves the whole settings tree of the instance
+        # written through, and the one above predates the preset's values
+        xbmcaddon.Addon('plugin.video.dexhub').setSetting(LOOK_MARK, 'true')
+        _log('5.10.612 look: %s' % ('dex' if untouched else 'kept the chosen look'))
+    except Exception as exc:
+        _log('5.10.612 look: %s' % exc)
+
+
 def publish():
+    _migrate_once()
     try:
         for key, val in props().items():
             if _HOME.getProperty(key) != val:

@@ -851,6 +851,26 @@ if __name__ == '__main__':
         except Exception as exc:
             xbmc.log('[DexHub] Usenet engine worker: %s' % exc, xbmc.LOGWARNING)
     threading.Thread(target=_usenet_worker, name='DexHub-usenet', daemon=True).start()
+
+    def _clock_worker():
+        try:
+            from resources.lib import box_clock
+            box_clock.run(xbmc.Monitor())
+        except Exception:
+            pass
+    threading.Thread(target=_clock_worker, name='DexHub-clock', daemon=True).start()
+
+    def _av_rows_worker():
+        # v5.10.612: the Picture & Disc collection (FEL 7, Full Disc) on the Home, once
+        if xbmc.Monitor().waitForAbort(45):
+            return
+        try:
+            from resources.lib import home_seed
+            if home_seed.seed_av():
+                xbmc.executebuiltin('RunPlugin(plugin://plugin.video.dexhub/?action=skin_refresh)')
+        except Exception as exc:
+            xbmc.log('[DexHub] Picture & Disc rows: %s' % exc, xbmc.LOGWARNING)
+    threading.Thread(target=_av_rows_worker, name='DexHub-av-rows', daemon=True).start()
     _retire_apple_tv_addon()
     try:
         import xbmcaddon

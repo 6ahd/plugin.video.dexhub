@@ -7579,8 +7579,33 @@ def _collect_stream_entries(targets, media_type, canonical_id, best_meta, art, b
             timeout=25.0, lane='streams',
         )
 
+        # v5.10.612: a source card opened the page: it opens on that add-on's copies, so the
+        # race waits for them (a cache hit is instant) instead of the first add-on to answer
+        _card_want = ''
+        try:
+            _card_home = xbmcgui.Window(10000)
+            _card_name = _card_home.getProperty('dexhub.src.group')
+            _card_at = float(_card_home.getProperty('dexhub.src.group.at') or 0)
+            _card_want = ('V:%s' % _card_name.strip().upper()) if _card_name and \
+                0 <= _t.time() - _card_at < 60 else ''
+        except Exception:
+            _card_want = ''
+
+        _card_seen = [not _card_want]
+
+        def _card_ready():
+            if _card_seen[0]:
+                return True
+            try:
+                from .source_browser import _row_group_filter as _grp
+                _card_seen[0] = any(_grp(r) == _card_want for r in entries if isinstance(r, dict))
+            except Exception:
+                _card_seen[0] = True
+            return _card_seen[0]
+
         for idx, (target, data) in enumerate(_iter_source_race(
-                _source_race, lambda: _unique_count, lambda: bool(entries),
+                _source_race, lambda: (_unique_count if _card_ready() else 0),
+                lambda: bool(entries) and _card_ready(),
                 _started_at, _parallel_timeout, stop_after_first,
                 _result_goal, _quick_grace,
                 should_stop=(loader.is_stopped if loader is not None else None),
@@ -8147,6 +8172,14 @@ def _warm_source_targets(targets, media_type):
         if isinstance(payload, dict):
             with lock:
                 found.append((target[0] or {}, payload.get('streams') or []))
+                snapshot = list(found)
+            # v5.10.612: the title page's cards fill as each add-on answers
+            hook = _WARM_PROGRESS
+            if hook is not None:
+                try:
+                    hook(snapshot)
+                except Exception:
+                    pass
         try:
             provider, request_id = target
             key = _results.key(provider, media_type, request_id)
@@ -8192,6 +8225,10 @@ def _provider_position(provider):
     return 9999
 
 
+_WARM_RAIL = []
+_WARM_PROGRESS = None
+
+
 def _warm_summary(found):
     """v5.10.448: what the title page's "Available on" card shows: each
     provider that answered, its best quality, Dolby Vision or HDR there,
@@ -8214,6 +8251,13 @@ def _warm_summary(found):
             out.append({'name': name, 'q': best, 'rank': rank, 'hdr': 'DV' if dv else ('HDR' if hdr else ''),
                         'n': len(streams)})
     out.sort(key=lambda row: (-row['rank'], -row['n']))
+    # v5.10.612: and the title page's Flix cards, when they are on (title_sources)
+    global _WARM_RAIL
+    try:
+        from . import title_sources
+        _WARM_RAIL = title_sources.groups(found) if title_sources.enabled() else []
+    except Exception:
+        _WARM_RAIL = []
     return out
 
 

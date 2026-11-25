@@ -84,6 +84,18 @@ def _quality_bucket(text):
     return 'sd'
 
 
+def _glass_page():
+    """v5.10.612: the Dex Glass page is coming (a title page card, or the theme)."""
+    try:
+        import xbmcgui as _gui
+        if _gui.Window(10000).getProperty('dexhub.src.sheet') == '1':
+            return True
+        from .ui_preferences import value
+        return value('sources_row_style') == 'glass'
+    except Exception:
+        return False
+
+
 def _skin_file():
     """v5.10.438: the search screen of the chosen sources theme; v5.10.446:
     each theme has its own, in its sources page's look."""
@@ -428,6 +440,11 @@ class SourcesLoadingDialog(object):
             screensaver_hold.hold()
         except Exception:
             pass
+        if _glass_page():
+            # v5.10.612: Dex Glass shows the search itself (its header); the
+            # old search screen would flash before it
+            self._win = None
+            return self
         try:
             _file = _skin_file()
             self._win = _LoadingWindow(_file, _addon_path(), _SKIN_RES, _SKIN_DIMS)

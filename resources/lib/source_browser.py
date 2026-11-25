@@ -67,7 +67,50 @@ QUALITY_FILTERS = [
     ('Q:REMUX', 'الجودة • REMUX', ('REMUX', 'BDREMUX')),
     # v5.10.543: whole Blu-ray discs (ISO, BDMV): CoreELEC plays them with menus
     ('Q:DISC', 'الجودة • قرص كامل ISO', ()),
+    # v5.10.612: Dolby Vision Profile 7: the full enhancement layer, or the minimal one (fel.py)
+    ('Q:FEL', 'الجودة • Dolby Vision P7 FEL', ()),
+    ('Q:MEL', 'الجودة • Dolby Vision MEL', ()),
 ]
+_FEL_TITLE = [False]      # the open title is on the confirmed FEL list (open_sources_window)
+_LINE = [0.0, 0]          # v5.10.612: the line's speed (Mbit/s, samples), read when the page opens
+_LINE_LOCAL = ('T:PLEX', 'T:EMBY', 'T:JELLYFIN', 'T:SILO', 'T:NAS', 'T:LOCAL', 'T:LIBRARY')
+_FIT_COLOURS = {'ok': 'FF5BD68A', 'tight': 'FFF5C451', 'heavy': 'FFFF6B6B'}
+
+
+def _need_mbps(row, minutes):
+    """What a copy needs from the line: its size over the running time (0 when unknown or a
+    season pack, whose size is not one episode's)."""
+    size = _sort_size_bytes(row)
+    if size <= 0 or not minutes:
+        return 0.0
+    mbps = size * 8.0 / (minutes * 60.0) / 1000000.0
+    return mbps if 0.2 <= mbps < 200 else 0.0
+
+
+def _line_fit(row, mbps):
+    """'ok', 'tight', 'heavy' for a copy fetched over the internet; '' for a server at home or
+    before the line was measured (line_speed)."""
+    if not mbps or not _LINE[0] or _row_type_filter(row) in _LINE_LOCAL:
+        return ''
+    from . import line_speed
+    return line_speed.fit(mbps, _LINE[0])
+
+
+def _row_fel(row):
+    """'FEL', 'MEL' or '' for a copy (fel.layer), kept on the row."""
+    if not isinstance(row, dict):
+        return ''
+    known = row.get('_ui_fel')
+    if known is None:
+        try:
+            from . import fel
+            text = ' '.join(str(row.get(k) or '') for k in (
+                'name', 'title', 'filename', 'stream_title', 'stream_name_raw', 'stream_desc_raw', 'description'))
+            known = fel.layer(text + ' ' + _row_quality_blob(row), _FEL_TITLE[0])
+        except Exception:
+            known = ''
+        row['_ui_fel'] = known
+    return known
 
 _DISC_RE = re.compile(r'(?<![a-z0-9])(?:iso|bdmv|br[ ._-]?disk|full[ ._-]?disc|bd(?:25|50|66|100)|'
                       r'complete[ ._-]?(?:uhd[ ._-]?)?blu[ ._-]?ray)(?![a-z0-9])|\.iso(?:$|[?|])|/index\.bdmv', re.I)
@@ -1479,6 +1522,8 @@ def _filter_label(value):
 def _row_matches_quality(row, filter_value):
     if filter_value == 'Q:DISC':
         return _row_is_disc(row)
+    if filter_value in ('Q:FEL', 'Q:MEL'):
+        return _row_fel(row) == filter_value[2:]
     blob = _row_quality_blob(row)
     return _blob_matches_quality(blob, filter_value)
 
@@ -1740,6 +1785,25 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         self.retry_source = kwargs.get('retry_source')
         self.selected = None
         self.active_filter = 'ALL'
+        self._open_all = False      # v5.10.612: Dex Glass's "All sources" (the theme's page takes over)
+        self._handover = False      # ... and the search goes on for it
+        # v5.10.612: a source card on the title page opens the page on its add-on
+        try:
+            from .title_sources import take_group
+            _want = take_group()
+            self._card_group = _want or ''       # v5.10.612: Dex Glass shows this add-on alone
+            if _want:
+                _group = 'V:%s' % _want.strip().upper()
+                from .title_sources import take_single
+                if take_single():
+                    self._autoplay_group = _group     # v5.10.612: a card of one copy plays it
+                    self.setProperty('flix_autoplay', tr('يبدأ التشغيل…'))
+                if any(_row_group_filter(r) == _group for r in (kwargs.get('results') or []) if isinstance(r, dict)):
+                    self.active_filter = _group
+                else:
+                    self._want_group = _group       # its rows come with the live updates
+        except Exception:
+            pass
         # v5.10.557: the filter panel's choice; one saved with "Keep it" starts on
         try:
             from . import source_filter
@@ -1905,8 +1969,13 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         self.setProperty('nav_hint_updown', tr('أعلى / أسفل: اختيار النسخة'))
         # v5.10.105: Right and Left switch the group in place; Left on "All"
         # still opens the filters and sort drawer.
-        self.setProperty('nav_hint_group', tr('يمين / يسار: تبديل المجموعة'))
-        self.setProperty('nav_hint_filters', tr('يسار عند الكل: الفلاتر والترتيب'))
+        if self.getProperty('glass_one'):
+            # v5.10.612: Dex Glass on one add-on: no groups to switch; Left opens the filters
+            self.setProperty('nav_hint_group', tr('يسار: الفلاتر والترتيب'))
+            self.setProperty('nav_hint_filters', tr('فوق: كل المصادر'))
+        else:
+            self.setProperty('nav_hint_group', tr('يمين / يسار: تبديل المجموعة'))
+            self.setProperty('nav_hint_filters', tr('يسار عند الكل: الفلاتر والترتيب'))
         self.setProperty('nav_hint_info', tr('معلومات: تفاصيل المصدر'))
         self.setProperty('nav_hint_menu', tr('القائمة: خيارات النتائج'))
         try:
@@ -1964,6 +2033,7 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         # session of the results window — this is the fix for the
         # "previous item's poster appears briefly" issue.
         self.setProperty('dexhub.results.fanart', _fanart or '')
+        self._flix_backdrop(_fanart)
         self.setProperty('dexhub.results.clearlogo', _clearlogo or '')
         self._aura_tint(_fanart)
         # v3.9.89: _poster is always either a TMDb URL, a vetted addon
@@ -2220,7 +2290,7 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         done = self.getProperty('loading_more') != 'true'
         if not done and hasattr(self, '_search_finished_at'):
             del self._search_finished_at
-        status = search_status(done, len(self.results or []),
+        status = search_status(done, len(self._scoped(self.results)),
                                getattr(self, '_search_pending', None),
                                getattr(self, '_search_failed', 0), tr=tr)
         if status != getattr(self, '_search_status_signature', None):
@@ -2376,7 +2446,7 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             pass
 
     def _halo_quality_tile(self, control_id):
-        value = {2411: 'Q:2160P', 2412: 'Q:1080P', 2413: 'Q:720P', 2414: 'Q:480P'}.get(control_id)
+        value = {2411: 'Q:2160P', 2412: 'Q:1080P', 2413: 'Q:720P', 2414: 'Q:480P', 2415: 'Q:FEL'}.get(control_id)
         if not value:
             return
         if self.active_filter == value:
@@ -2402,15 +2472,33 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                  'aura': (('Aura', 'Aura'), ('الخلفية واضحة والألواح زجاج: كل مصدر بالكلام مع شاراته الملونة، وتفاصيل الملف المحدد كمربعات',
                                              'Clear artwork under glass panels: each source in words with coloured badges, and the selected file\'s details as tiles')),
                  'classic': (('كلاسيكي', 'Classic'), ('التصميم السابق: البوستر يسار، وكل التقييمات فوق بكبسولات زجاج',
-                                                      'The earlier page: the poster on the left, every rating on top as glass chips'))}
+                                                      'The earlier page: the poster on the left, every rating on top as glass chips')),
+                 # v5.10.612: Flix's source cards
+                 'flix': (('Flix', 'Flix'), ('بطاقات مثل Flix: الجودة بخط عريض، والصورة والصوت كبسولات خفيفة، وتحديد أبيض',
+                                             'Cards like Flix: the quality in heavy type, picture and sound as soft pills, white focus')),
+                 'glass': (('Dex Glass', 'Dex Glass'), ('لوح زجاجي فوق صفحة العمل: الإضافات والجودة والفلاتر فوق، والنسخ بطاقات عريضة',
+                                                        'A glass sheet over the title page: add-ons, quality and filters on top, the copies as wide cards'))}
         current = pref_value('sources_row_style')
-        items = []
-        for c in choices:
-            (ar, enl), (ard, end) = names.get(c, ((c, c), ('', '')))
-            item = xbmcgui.ListItem(label=(enl if en else ar) + ('  ✓' if c == current else ''), label2=end if en else ard)
-            items.append(item)
-        pick = xbmcgui.Dialog().select(OPTIONS['sources_row_style'][3 if en else 2], items, useDetails=True,
-                                       preselect=choices.index(current) if current in choices else 0)
+        pick = -2
+        try:
+            # v5.10.612: the themes as pictures, as the Control Centre shows them
+            from .homeui.control import preview_cards
+            from .homeui.options import choose
+            options = [(c, names.get(c, ((c, c),))[0][1 if en else 0]) for c in choices]
+            at = choices.index(current) if current in choices else 0
+            cards = preview_cards('sources_style', options, at, tr)
+            if cards:
+                pick = choose(OPTIONS['sources_row_style'][3 if en else 2], cards, preselect=at, layout='gallery')
+        except Exception as exc:
+            xbmc.log('[DexHub] theme gallery: %s' % exc, xbmc.LOGWARNING)
+        if pick == -2:
+            items = []
+            for c in choices:
+                (ar, enl), (ard, end) = names.get(c, ((c, c), ('', '')))
+                item = xbmcgui.ListItem(label=(enl if en else ar) + ('  ✓' if c == current else ''), label2=end if en else ard)
+                items.append(item)
+            pick = xbmcgui.Dialog().select(OPTIONS['sources_row_style'][3 if en else 2], items, useDetails=True,
+                                           preselect=choices.index(current) if current in choices else 0)
         if pick < 0 or choices[pick] == current:
             return
         set_value('sources_row_style', choices[pick])
@@ -2475,6 +2563,18 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             if rows_changed:
                 self.results = rows
                 self._results_signature = signature
+                self._flix_autoplay(done=bool(payload.get('done')))
+                _want = getattr(self, '_want_group', '')
+                if _want and str(self.active_filter or 'ALL') == 'ALL' and \
+                        any(_row_group_filter(r) == _want for r in rows if isinstance(r, dict)):
+                    self._want_group = ''           # v5.10.612: the card's add-on answered
+                    self.active_filter = _want
+                    self.setProperty('halo_qf', _want)
+                    try:
+                        self._build_filters()       # the new rows' groups, so the choice is kept below
+                        self._build_provider_chips()   # and its chip lit, not All
+                    except Exception as _silent_exc:
+                        log.silent('RESULTS_WIN', _silent_exc)
         done = bool(payload.get('done'))
         self._search_pending = payload.get('search_pending')
         self._search_failed = payload.get('search_failed', 0)
@@ -2485,7 +2585,7 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         # silent provider is visible at a glance.
         try:
             from .search.source_summary import provider_stats_line
-            stats = provider_stats_line(self.results)
+            stats = provider_stats_line(self._scoped(self.results))
             self.setProperty('dexhub.results.provider_stats', stats)
             self.setProperty('provider_stats', stats)
         except Exception:
@@ -2558,6 +2658,7 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                     self.setProperty('dexhub.results.poster', _kodi_safe_text(art.get('poster') or ''))
                 if art.get('fanart'):
                     self.setProperty('dexhub.results.fanart', _kodi_safe_text(art.get('fanart') or ''))
+                    self._flix_backdrop(art.get('fanart'))
                     self._aura_tint(art.get('fanart'))
                 if art.get('clearlogo'):
                     self.setProperty('dexhub.results.clearlogo', _kodi_safe_text(art.get('clearlogo') or ''))
@@ -2657,11 +2758,20 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             except Exception:
                 pass
 
+    def _scoped(self, rows):
+        """v5.10.612: Dex Glass opened from a source card: the page is that add-on's alone, so
+        every filter, count and choice works inside it (another add-on's copy never shows)."""
+        scope = getattr(self, '_scope', '')
+        rows = rows or []
+        if not scope:
+            return rows
+        return [row for row in rows if isinstance(row, dict) and _row_group_filter(row) == scope]
+
     def _build_filters(self):
         # One pass builds every section and its row membership. Older builds
         # rescanned a 300-row list once per quality/type/provider, which made
         # opening the drawer or choosing a section visibly pause on TV boxes.
-        rows = [row for row in (self.results or []) if isinstance(row, dict)]
+        rows = [row for row in self._scoped(self.results) if isinstance(row, dict)]
         facets = {'ALL': rows}
         order = {'Q': [], 'T': [], 'V': [], 'P': []}
         seen = {'ALL'}
@@ -2674,6 +2784,8 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                     candidates.append(quality)
             if _row_is_disc(row):
                 candidates.append('Q:DISC')
+            if _row_fel(row):
+                candidates.append('Q:' + _row_fel(row))
             candidates.extend((
                 _row_type_filter(row), _row_group_filter(row),
                 _row_provider_filter(row),
@@ -2691,6 +2803,15 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         self._facet_rows = facets
         self.filters = values
         _discs = len(facets.get('Q:DISC') or ())
+        if _discs:
+            try:                                      # v5.10.612: the Full Disc collection learns the title
+                _m = self.meta if isinstance(self.meta, dict) else {}
+                if str(_m.get('mediatype') or _m.get('media_type') or 'movie') in ('movie', ''):
+                    from . import disc_library
+                    disc_library.add(_m.get('imdb_id') or _m.get('imdbnumber') or '', _m.get('title') or '',
+                                     _m.get('year') or '')
+            except Exception:
+                pass
         if _discs != getattr(self, '_logged_discs', -1):
             self._logged_discs = _discs
             # v5.10.548: says in kodi.log why the Full disc filter is or is not there
@@ -2802,6 +2923,10 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                 rows = kept
         rows = _sorted_rows(rows, getattr(self, 'active_sort', 'S:DEFAULT'),
                             anime=getattr(self, '_anime', False))
+        if _FEL_TITLE[0]:
+            # v5.10.612: a FEL title: its FEL copies first, then MEL, in the chosen order
+            rank = {'FEL': 0, 'MEL': 1}
+            rows = sorted(rows, key=lambda r: rank.get(_row_fel(r), 2))
         if self._failed_keys or self._failed_marks:
             rows = ([row for row in rows if not self._row_failed(row)] +
                     [row for row in rows if self._row_failed(row)])
@@ -2838,23 +2963,24 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         cached = getattr(self, '_facet_rows', {}).get(str(filter_value or 'ALL'))
         if cached is not None:
             return list(cached)
+        base = self._scoped(self.results)      # v5.10.612: Dex Glass on one add-on: its copies alone
         if not filter_value or filter_value == 'ALL':
-            return list(self.results)
+            return list(base)
         if str(filter_value).startswith('Q:'):
-            return [row for row in self.results if _row_matches_quality(row, filter_value)]
+            return [row for row in base if _row_matches_quality(row, filter_value)]
         if str(filter_value).startswith('T:'):
             wanted = str(filter_value)
-            return [row for row in self.results if _row_type_filter(row) == wanted]
+            return [row for row in base if _row_type_filter(row) == wanted]
         if str(filter_value).startswith('V:'):
             wanted = str(filter_value)
-            return [row for row in self.results if _row_group_filter(row) == wanted]
+            return [row for row in base if _row_group_filter(row) == wanted]
         if str(filter_value).startswith('I:'):
             wanted = str(filter_value)
-            return [row for row in self.results if _row_indexer_filter(row) == wanted]
+            return [row for row in base if _row_indexer_filter(row) == wanted]
         if str(filter_value).startswith('P:'):
             wanted = str(filter_value)[2:]
-            return [row for row in self.results if _row_provider_filter(row) == ('P:%s' % wanted)]
-        return [row for row in self.results if _row_provider_filter(row) == ('P:%s' % str(filter_value).strip().upper())]
+            return [row for row in base if _row_provider_filter(row) == ('P:%s' % wanted)]
+        return [row for row in base if _row_provider_filter(row) == ('P:%s' % str(filter_value).strip().upper())]
 
     _CHIP_LIST_ID = 2300
 
@@ -2870,6 +2996,8 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         """
         try:
             rows = self.results if isinstance(self.results, list) else []
+            if getattr(self, '_card_group', ''):
+                self.setProperty('glass_all_n', str(len(rows)))     # v5.10.612: Dex Glass's All button
             counts = {}
             order = []
             for row in rows:
@@ -3394,6 +3522,11 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                 for _key, _value in _aura_props(row, getattr(self, '_smart_min', 0) or self._smart_minutes(lookup=True),
                                                 getattr(self, '_anime', False), _work).items():
                     li.setProperty(_key, _value)
+                li.setProperty('fel', _row_fel(row))     # v5.10.612: FEL / MEL on the card
+                if getattr(self, '_grid', False):       # v5.10.612: Flix's cards: the add-on's logo and name
+                    li.setProperty('flix_logo', self._flix_logo(row))
+                    li.setProperty('flix_name', _kodi_safe_text(str(row.get('provider_name_raw') or row.get('provider')
+                                                                    or row.get('addon') or '')))
                 if (self._failed_keys or self._failed_marks) and self._row_failed(row):
                     li.setProperty('aura_head', u'%s  \u00b7  %s' % (tr('ما اشتغل'), li.props.get('aura_head', '')))
                 # its coloured badges: every fact but the resolution (the pill says it); unlike
@@ -3687,6 +3820,72 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
     def _resolve_choice_mode(self):
         return self.play_mode
 
+    _FLIX_MEDIA = 'special://home/addons/plugin.video.dexhub/resources/media/'
+
+    def _flix_backdrop(self, url):
+        """v5.10.612: Flix's soft backdrop: a small copy of the artwork, stretched (Kodi has no blur)."""
+        url = str(url or '')
+        small = re.sub(r'(image\.tmdb\.org/t/p/)(original|w\d+)/', r'\1w300/', url)
+        self.setProperty('flix_blur', _kodi_safe_text(small))
+
+    def _flix_logo(self, row):
+        """v5.10.612: the add-on's logo for Flix's cards (from the installed add-ons, else a server's own)."""
+        logos = getattr(self, '_flix_logos', None)
+        if logos is None:
+            logos = {}
+            try:
+                from .dexhub import store
+                from .art import provider_art
+                for provider in store.list_providers() or []:
+                    name = str(provider.get('name') or provider.get('id') or '').strip()
+                    if not name:
+                        continue
+                    manifest = provider.get('manifest') or {}
+                    try:
+                        icon = provider_art(name, manifest, base_url=provider.get('base_url') or '').get('icon') or ''
+                    except Exception:
+                        icon = ''
+                    icon = icon or str(manifest.get('logo') or manifest.get('icon') or '')
+                    if icon:
+                        logos[name.upper()] = icon
+            except Exception as exc:
+                xbmc.log('[DexHub] Flix logos: %s' % exc, xbmc.LOGDEBUG)
+            self._flix_logos = logos
+        name = str(row.get('provider_name_raw') or row.get('provider') or '').strip().upper()
+        if name in logos:
+            return logos[name]
+        for word, image in (('PLEX', 'provider_plex.png'), ('EMBY', 'provider_emby.png'),
+                            ('JELLYFIN', 'provider_jellyfin.png'), ('SILO', 'provider_silo.png'),
+                            ('AIOSTREAMS', 'provider_aiostreams.png')):
+            if word in name:
+                return self._FLIX_MEDIA + image
+        return self._FLIX_MEDIA + 'provider.png'
+
+    def _flix_autoplay(self, done=False):
+        """v5.10.612: a source card of one copy on the title page plays it as
+        soon as its add-on's row is here; else the page shows."""
+        want = getattr(self, '_autoplay_group', '')
+        if not want or self._closing or self.selected:
+            return
+        rows = [r for r in (self.results or []) if isinstance(r, dict) and _row_group_filter(r) == want]
+        if not rows:
+            if done:
+                self._autoplay_group = ''
+                self.setProperty('flix_autoplay', '')
+            return
+        self._autoplay_group = ''
+        key = str(rows[0].get('stream_key') or '') if len(rows) == 1 else ''
+        mode = self._resolve_choice_mode() if key else None
+        if not key or not mode:
+            self.setProperty('flix_autoplay', '')
+            return
+        xbmc.log('[DexHub] Dex Glass: the card\'s one copy plays at once', xbmc.LOGINFO)
+        self.selected = key
+        self.play_with_subtitles = (mode == MODE_PLAY_SUBS)
+        self._closing = True
+        self._shutdown()
+        self.close()
+
     def _choose(self):
         # Hard guards against the OK-press double-event:
         #   1. window is already closing → drop
@@ -3701,6 +3900,8 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         stream_key = item.getProperty('stream_key') if item else None
         if not stream_key:
             return
+        if not self._line_ok(stream_key):
+            return
         chosen_mode = self._resolve_choice_mode()
         if not chosen_mode:
             return
@@ -3713,6 +3914,34 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         self._closing = True
         self._shutdown()
         self.close()
+
+    def _line_ok(self, stream_key):
+        """v5.10.612: a copy heavier than the line asks first (once for each copy): it would likely
+        stop and buffer. Only when the line was measured twice or more."""
+        if _LINE[1] < 2 or stream_key in getattr(self, '_line_asked', set()):
+            return True
+        row = next((r for r in (self.results or []) if isinstance(r, dict) and
+                    str(r.get('stream_key') or '') == str(stream_key)), None)
+        if not row:
+            return True
+        need = _need_mbps(row, self._smart_minutes())
+        if _line_fit(row, need) != 'heavy':
+            return True
+        self._line_asked = getattr(self, '_line_asked', set()) | {stream_key}
+        self._mode_dialog_open = True
+        try:
+            play = xbmcgui.Dialog().yesno(
+                tr('النسخة أثقل من خطك'),
+                tr('هالنسخة تحتاج تقريباً %d Mbps، وخطك يجيب تقريباً %d Mbps، فغالباً بتوقف وتحمّل.') % (
+                    round(need), round(_LINE[0])) + '\n' + tr('تشغلها كذا، أو ترجع تختار نسخة أخف؟'),
+                nolabel=tr('أختار أخف'), yeslabel=tr('شغّلها'))
+        except Exception:
+            play = True
+        finally:
+            self._mode_dialog_open = False
+        xbmc.log('[DexHub] line speed: a copy of ~%.0f Mbit/s on a line of ~%.0f: %s' % (
+            need, _LINE[0], 'played anyway' if play else 'back to the list'), xbmc.LOGINFO)
+        return bool(play)
 
     def _show_info(self):
         try:
@@ -3829,7 +4058,7 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         return True
 
     def _open_filter_panel(self):
-        rows = [row for row in (self.results or []) if isinstance(row, dict)]
+        rows = [row for row in self._scoped(self.results) if isinstance(row, dict)]   # v5.10.612
         if not rows:
             return False
         from . import source_filter
@@ -3948,6 +4177,13 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             self._open_filters()               # v5.10.439: Halo's Filters button
         elif controlId == 2202:
             self._halo_settings()
+        elif controlId == 2420:
+            # v5.10.612: Dex Glass on one add-on: every source, in the chosen theme's page
+            self._open_all = True
+            self._handover = True
+            self.selected = None
+            self._closing = True
+            self.close()
         elif controlId == 2401:
             self._halo_stop_search()
         elif controlId == 2402:
@@ -3955,7 +4191,7 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
             self._closing = True
             self._shutdown()
             self.close()
-        elif controlId in (2411, 2412, 2413, 2414):
+        elif controlId in (2411, 2412, 2413, 2414, 2415):
             self._halo_quality_tile(controlId)
         elif controlId == 2300:
             # v4.6.1: provider chip — apply / toggle the top-level V: filter.
@@ -4055,6 +4291,13 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
                 self._apply_chip_filter()
                 self._drain_pending_updates()
             return
+        if focus_id == 2000 and getattr(self, '_grid', False) and action_id in (ACTION_RIGHT | ACTION_LEFT):
+            return          # v5.10.612: Flix's grid: Left / Right move between its two columns
+        if focus_id == 2000 and self.getProperty('glass_one') and action_id in (ACTION_RIGHT | ACTION_LEFT):
+            # v5.10.612: Dex Glass on one add-on: no other group to step to; Left opens the filters
+            if action_id in ACTION_LEFT and not drawer_open:
+                self._open_filters()
+            return
         if focus_id == 2000 and action_id in ACTION_RIGHT:
             # v5.10.105: RIGHT switches to the next group (chip) in place; the
             # bar above stays reachable with UP from the first copy.
@@ -4082,7 +4325,7 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         # every later session update and makes Back a real cancellation path
         # rather than merely hiding the dialog while providers keep parsing.
         try:
-            if self.session_key:
+            if self.session_key and not getattr(self, '_handover', False):
                 source_session.close(self.session_key)
         except Exception as _silent_exc:
             log.silent('RESULTS_WIN', _silent_exc)
@@ -4138,12 +4381,28 @@ class SourcesWindow(xbmcgui.WindowXMLDialog):
         except Exception as _silent_exc:
             log.silent('RESULTS_WIN', _silent_exc)
     def run(self):
+        # v5.10.612: a source card of one copy: when its row is here already,
+        # it plays without the page showing at all
+        want = getattr(self, '_autoplay_group', '')
+        if want:
+            rows = [r for r in (self.results or []) if isinstance(r, dict) and _row_group_filter(r) == want]
+            if len(rows) == 1 and rows[0].get('stream_key') and self.play_mode:
+                xbmc.log('[DexHub] Dex Glass: the card\'s one copy plays at once', xbmc.LOGINFO)
+                self.selected = str(rows[0].get('stream_key'))
+                self.play_with_subtitles = (self.play_mode == MODE_PLAY_SUBS)
+                self._shutdown()
+                return {'stream_key': self.selected, 'play_with_subtitles': self.play_with_subtitles,
+                        'play_mode': self.play_mode}
+            if rows:
+                self._autoplay_group = ''
+                self.setProperty('flix_autoplay', '')
         self.doModal()
         self._shutdown()
         return {
             'stream_key': self.selected,
             'play_with_subtitles': self.play_with_subtitles,
             'play_mode': self.play_mode,
+            'open_all': bool(getattr(self, '_open_all', False)),
         }
 
 
@@ -4214,7 +4473,8 @@ def _aura_release_name(name, work=''):
         if not words:
             continue
         # the title's words in order at the start, whatever separates them, then a year
-        pattern = r'^\W*' + r'[\W_]+'.join(re.escape(w) for w in words) + r'[\W_]*(?:\(?(?:19|20)\d\d\)?[\W_]*)?'
+        # (up to two of them: '1917 / 1917 (2019) UHD...', where the title itself reads as a year)
+        pattern = r'^\W*' + r'[\W_]+'.join(re.escape(w) for w in words) + r'[\W_]*(?:\(?(?:19|20)\d\d\)?[\W_]*){0,2}'
         cut = re.sub(pattern, '', text, count=1, flags=re.I)
         if len(cut) >= 6 and cut != text:
             text = cut
@@ -4270,10 +4530,12 @@ def _aura_props(row, minutes=0, anime=False, work=''):
     if size_text in ('--', '0', '0 B'):
         size_text = ''
     rate = ''
-    if size > 0 and minutes:
-        mbps = size * 8.0 / (minutes * 60.0) / 1000000.0
-        if 0.2 <= mbps < 200:                  # a season pack's size is not one episode's
-            rate = ('~%d Mbps' % round(mbps)) if mbps >= 10 else ('~%.1f Mbps' % mbps)
+    mbps = _need_mbps(row, minutes)
+    fit = ''
+    if mbps:
+        rate = ('~%d Mbps' % round(mbps)) if mbps >= 10 else ('~%.1f Mbps' % mbps)
+        # v5.10.612: against the line: green plays easily, yellow is close, red will likely buffer
+        fit = _line_fit(row, mbps)
     tier = fact.get('tier') or ''
     hints = row.get('behaviorHints') if isinstance(row.get('behaviorHints'), dict) else {}
     filename = str(row.get('filename') or hints.get('filename') or '').strip()
@@ -4337,7 +4599,7 @@ def _aura_props(row, minutes=0, anime=False, work=''):
            'aura_flags': '  ·  '.join(flags[:2]),
            'aura_pic': dash(pics[0] if pics else ('SDR' if res else '')), 'aura_pic2': pics[1] if len(pics) > 1 else '',
            'aura_snd': dash(codec_name), 'aura_snd2': extra, 'aura_codec': dash(video), 'aura_group': dash(group),
-           'aura_gb': dash(size_text), 'aura_rate': rate, 'aura_score': dash(score),
+           'aura_gb': dash(size_text), 'aura_rate': rate, 'aura_score': dash(score), 'aura_fit': fit,
            # the line under the copy's name: its channels and edition (the bitrate is under its size)
            'aura_sub2': '  ·  '.join(x for x in [chan] + flags[:2] if x),
            'aura_q': res, 'aura_kind': kind, 'aura_head': head,
@@ -4348,8 +4610,15 @@ def _aura_props(row, minutes=0, anime=False, work=''):
            'aura_audio': sound, 'aura_size': '  ·  '.join(x for x in (size_text, rate) if x),
            'aura_release': '  ·  '.join(x for x in (kind, group) if x), 'aura_file': filename}
     # aura_rk and aura_q are compared by the page: kept bare (the anchor is a character)
-    return dict((key, value if key in ('aura_rk', 'aura_q', 'aura_meta2') or value == u'\u2013' else _bidi_anchor(_kodi_safe_text(value)))
-                for key, value in out.items())
+    out = dict((key, value if key in ('aura_rk', 'aura_q', 'aura_meta2', 'aura_fit') or value == u'\u2013'
+                else _bidi_anchor(_kodi_safe_text(value))) for key, value in out.items())
+    if fit and rate:
+        # v5.10.612: the bitrate in the line's colour (after the cleaning, which drops colour tags)
+        shown = '[COLOR %s]%s[/COLOR]' % (_FIT_COLOURS[fit], rate)
+        for key in ('aura_rate', 'aura_sub', 'aura_size'):
+            if rate in out.get(key, ''):
+                out[key] = out[key].replace(rate, shown, 1)
+    return out
 
 
 def _is_anime_title(meta):
@@ -4366,6 +4635,17 @@ def _is_anime_title(meta):
         return False
 
 
+def _theme_page():
+    """The sources page of the chosen theme, for Dex Glass's "All sources" (v5.10.612)."""
+    try:
+        from .ui_preferences import value as _pref
+        return {'halo': 'sources_halo.xml', 'full': 'sources_nuvio.xml', 'aura': 'sources_aura.xml',
+                'classic': 'sources_classic.xml', 'flix': 'sources_flix.xml',
+                'glass': 'sources_aura.xml'}.get(_pref('sources_row_style'), 'sources_results.xml')
+    except Exception:
+        return 'sources_aura.xml'
+
+
 def open_sources_window(results, meta, play_mode=MODE_ASK, session_key='', retry_source=None):
     # v5.10.442: three themes: Prism (sources_nuvio.xml, the add-on's own
     # lines like Nuvio TV, key "full"), Compact (sources_results.xml) and
@@ -4377,60 +4657,114 @@ def open_sources_window(results, meta, play_mode=MODE_ASK, session_key='', retry
         # poster on the left, the logo and every rating on top, the groups as tabs)
         # v5.10.560: and Aura (sources_aura.xml: rows as words, the selected file's details)
         skin_xml = {'halo': 'sources_halo.xml', 'full': 'sources_nuvio.xml', 'aura': 'sources_aura.xml',
-                    'classic': 'sources_classic.xml'}.get(_pref('sources_row_style'), 'sources_results.xml')
+                    'classic': 'sources_classic.xml', 'flix': 'sources_flix.xml',
+                    'glass': 'sources_glass.xml'}.get(_pref('sources_row_style'), 'sources_results.xml')
+    except Exception:
+        pass
+    try:
+        from .title_sources import take_sheet       # v5.10.612: a card on the title page: Dex Glass over it
+        if take_sheet():
+            skin_xml = 'sources_glass.xml'
     except Exception:
         pass
     # v5.10.444: the three pages share one layout; your badges fit the text
     # column (1.3 times larger, so 470 px is about 610 on screen)
     SOURCE_BADGE_LIMIT[0] = 1170 if skin_xml == 'sources_classic.xml' else 470
     try:
+        from . import fel
+        _m = meta if isinstance(meta, dict) else {}
+        _imdb = str(_m.get('imdb_id') or _m.get('imdbnumber') or _m.get('imdb') or '')
+        _FEL_TITLE[0] = fel.is_fel(_imdb)
+    except Exception:
+        _FEL_TITLE[0] = False
+    try:
+        from . import line_speed              # v5.10.612: each copy against the line
+        _LINE[0], _LINE[1] = line_speed.estimate()
+    except Exception:
+        _LINE[0], _LINE[1] = 0.0, 0
+    try:
         xbmc.log('[DexHub] scan-ui results window: opening with %d row(s)' % len(results or []), xbmc.LOGINFO)
     except Exception:
         pass
-    win = SourcesWindow(skin_xml, ADDON_PATH, 'Default', '1080i', results=results, meta=meta, play_mode=play_mode, session_key=session_key, retry_source=retry_source)
-    # v5.10.444: every theme has Halo's layout and behaviour; v5.10.481: but
-    # the Classic theme, the page of 5.10.441 with its own
-    win._halo = skin_xml != 'sources_classic.xml'
-    win._prism = skin_xml == 'sources_nuvio.xml'     # v5.10.447: its quality share bar
-    # v5.10.479: Compact shows them under the picture; v5.10.481: Classic on top
-    win._want_ratings = skin_xml in ('sources_results.xml', 'sources_classic.xml', 'sources_aura.xml')   # v5.10.560: Aura
-    win._anime = _is_anime_title(meta)                # v5.10.447: TRaSH's anime scores
-    # v5.10.560: Aura; v5.10.574: every theme but Classic takes Aura's colours: the backdrop's
-    # colour bloom and the gold highlight
-    win._aura = skin_xml == 'sources_aura.xml'
-    win._bloom = skin_xml != 'sources_classic.xml'
-    if win._bloom:
-        from .i18n import is_english
-        # Aura's highlight (the 4K pill, the tab under the cursor, what is on in its filter) and the
-        # text colour on it: gold, as its gradient badges (the user did not want white)
+    def _build(skin_xml, rows):
+        # v5.10.612: one page made ready; Dex Glass's "All sources" builds a second one
+        win = SourcesWindow(skin_xml, ADDON_PATH, 'Default', '1080i', results=rows, meta=meta, play_mode=play_mode, session_key=session_key, retry_source=retry_source)
+        # v5.10.444: every theme has Halo's layout and behaviour; v5.10.481: but
+        # the Classic theme, the page of 5.10.441 with its own
+        win._halo = skin_xml != 'sources_classic.xml'
+        win._prism = skin_xml == 'sources_nuvio.xml'     # v5.10.447: its quality share bar
+        # v5.10.479: Compact shows them under the picture; v5.10.481: Classic on top
+        win._want_ratings = skin_xml in ('sources_results.xml', 'sources_classic.xml', 'sources_aura.xml', 'sources_flix.xml', 'sources_glass.xml')   # v5.10.560: Aura
+        win._anime = _is_anime_title(meta)                # v5.10.447: TRaSH's anime scores
+        # v5.10.560: Aura; v5.10.574: every theme but Classic takes Aura's colours: the backdrop's
+        # colour bloom and the gold highlight
+        win._aura = skin_xml in ('sources_aura.xml', 'sources_flix.xml', 'sources_glass.xml')   # v5.10.612: Flix, Glass: Aura's data
+        win._grid = skin_xml == 'sources_flix.xml'      # v5.10.612: Flix's copies in two columns
+        if skin_xml == 'sources_glass.xml' and getattr(win, '_card_group', ''):
+            # v5.10.612: opened from a source card: that add-on alone, its logo and name on top,
+            # and "All sources" in place of the add-on row (the user: only the card's own copies)
+            _name = win._card_group
+            win.setProperty('glass_one', _name)
+            # the card's add-on is the page itself, not one filter of it: a quality or the
+            # filter panel narrows its copies (it used to swap the add-on for 4K of every one)
+            win._scope = 'V:%s' % _name.strip().upper()
+            win._want_group = ''
+            if str(win.active_filter or '').startswith('V:'):
+                win.active_filter = 'ALL'
+            try:
+                win.setProperty('glass_one_logo', win._flix_logo({'provider_name_raw': _name}))
+            except Exception:
+                pass
+            from .i18n import is_english as _is_en
+            win.setProperty('glass_all', 'All sources' if _is_en() else 'كل المصادر')
+            win.setProperty('glass_all_n', str(len(rows or [])))
+        win._bloom = skin_xml != 'sources_classic.xml'
+        if win._bloom:
+            from .i18n import is_english
+            # Aura's highlight (the 4K pill, the tab under the cursor, what is on in its filter) and the
+            # text colour on it: gold, as its gradient badges (the user did not want white)
+            try:
+                _home = xbmcgui.Window(10000)
+                _home.setProperty('dexhub.aura.rec', '★ RECOMMENDED' if is_english() else '★ موصى به')
+                _flix = skin_xml in ('sources_flix.xml', 'sources_glass.xml')   # v5.10.612: Flix's white focus, dark text
+                _home.setProperty('dexhub.aura.hi', 'FFFFFFFF' if _flix else 'FFE8C35A')   # Lucent's Gold focus colour
+                _home.setProperty('dexhub.aura.ht', 'FF0B0D12' if _flix else 'FF0B1119')   # and its on-focus navy
+            except Exception:
+                pass
         try:
-            _home = xbmcgui.Window(10000)
-            _home.setProperty('dexhub.aura.rec', '★ RECOMMENDED' if is_english() else '★ موصى به')
-            _home.setProperty('dexhub.aura.hi', 'FFE8C35A')      # Lucent's Gold focus colour
-            _home.setProperty('dexhub.aura.ht', 'FF0B1119')      # and its on-focus navy
+            from .i18n import is_english
+            _en = is_english()
+            for _key, _ar, _enw in (('halo_streams', 'المصادر', 'Streams'),        # v5.10.438
+                                    ('halo_stop', 'وقّف البحث', 'Stop searching'),  # v5.10.439
+                                    ('halo_cancel', 'إلغاء', 'Cancel'),
+                                    ('aura_l_sel', 'المصدر المحدد', 'Selected source'),      # v5.10.560
+                                    ('aura_l_res', 'الدقة', 'Resolution'), ('aura_l_pic', 'الصورة', 'Picture'),
+                                    ('aura_l_video', 'الفيديو', 'Video'), ('aura_l_audio', 'الصوت', 'Sound'),
+                                    ('aura_l_size', 'الحجم', 'Size'), ('aura_l_group', 'الفريق', 'Group'),
+                                    ('aura_l_rel', 'الإصدار', 'Release'), ('aura_l_ratings', 'التقييمات', 'Ratings'),
+                                    ('aura_l_dist', 'المصادر حسب الجودة', 'Sources by quality'),
+                                    ('aura_l_rec', '★ موصى به', '★ RECOMMENDED'),
+                                    ('aura_l_score', 'تقييم TRaSH', 'TRaSH score'),
+                                    ('aura_l_src', 'المصدر', 'Source'), ('aura_l_file', 'اسم الملف', 'File name'),
+                                    ('halo_filters', 'الفلتر', 'Filters')):
+                win.setProperty(_key, _enw if _en else _ar)
         except Exception:
             pass
+        return win
+
+    win = _build(skin_xml, results)
     try:
-        from .i18n import is_english
-        _en = is_english()
-        for _key, _ar, _enw in (('halo_streams', 'المصادر', 'Streams'),        # v5.10.438
-                                ('halo_stop', 'وقّف البحث', 'Stop searching'),  # v5.10.439
-                                ('halo_cancel', 'إلغاء', 'Cancel'),
-                                ('aura_l_sel', 'المصدر المحدد', 'Selected source'),      # v5.10.560
-                                ('aura_l_res', 'الدقة', 'Resolution'), ('aura_l_pic', 'الصورة', 'Picture'),
-                                ('aura_l_video', 'الفيديو', 'Video'), ('aura_l_audio', 'الصوت', 'Sound'),
-                                ('aura_l_size', 'الحجم', 'Size'), ('aura_l_group', 'الفريق', 'Group'),
-                                ('aura_l_rel', 'الإصدار', 'Release'), ('aura_l_ratings', 'التقييمات', 'Ratings'),
-                                ('aura_l_dist', 'المصادر حسب الجودة', 'Sources by quality'),
-                                ('aura_l_rec', '★ موصى به', '★ RECOMMENDED'),
-                                ('aura_l_score', 'تقييم TRaSH', 'TRaSH score'),
-                                ('aura_l_src', 'المصدر', 'Source'), ('aura_l_file', 'اسم الملف', 'File name'),
-                                ('halo_filters', 'الفلتر', 'Filters')):
-            win.setProperty(_key, _enw if _en else _ar)
-    except Exception:
-        pass
-    try:
-        return win.run()
+        result = win.run()
+        if isinstance(result, dict) and result.get('open_all'):
+            # v5.10.612: Dex Glass opened on one add-on; "All sources" shows every copy in the
+            # page of the chosen theme (the search goes on: the first page left the session open)
+            rows = list(getattr(win, 'results', None) or results or [])
+            theme = _theme_page()
+            xbmc.log('[DexHub] Dex Glass: all sources in %s (%d rows)' % (theme, len(rows)), xbmc.LOGINFO)
+            del win
+            win = _build(theme, rows)
+            result = win.run()
+        return result
     finally:
         # v5.10.15: the window is gone, so nothing is left to receive results.
         # Closing the session is what lets the live-refresh worker exit its

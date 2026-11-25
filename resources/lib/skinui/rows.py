@@ -1841,6 +1841,14 @@ class Context(object):
         }
         from ..catalog_follow import target_for
         props['dhs.follow'] = target_for(tile, click, target, include_works=True)
+        # v5.10.612: a FEL film (Dolby Vision Profile 7 FEL, fel.py): its tile on the card (fel_marks.py)
+        if kind == 'work' and media == 'movie':
+            try:
+                from .. import fel
+                props['dhs.fel'] = '1' if fel.is_fel(tile.get('imdb_id') or (tile.get('ids') or {}).get('imdb')
+                                                     or tile.get('id') or '') else ''
+            except Exception:
+                pass
         if tile.get('catalog_node') and not tile.get('catalog_banner'):
             props['dhs.catalog'] = '1'
             props['dhs.catalog_icon'] = tile.get('catalog_icon') or ''

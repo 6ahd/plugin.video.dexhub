@@ -784,6 +784,13 @@ STRINGS = {
     'إضافة رابط Manifest': 'Add Manifest URL',
     'متابعة المشاهدة': 'Continue Watching',
     'المصادر': 'Add-ons',
+    'يبحث في إضافاتك…': 'Searching your add-ons…',
+    'مثل Flix: خلفية بنفسجية، والنسخ بطاقات في عمودين': 'Like Flix: a purple backdrop, the copies as cards in two columns',
+    'Dex Glass: لوح زجاجي فوق صفحة العمل، شرائح ملونة وفلاتر فوق': 'Dex Glass: a glass sheet over the title page, coloured chips and filters on top',
+    'يبدأ التشغيل…': 'Starting…',
+    'الخلفية واضحة والألواح زجاج، كل مصدر بالكلام مع شاراته الملونة، وتفاصيل الملف المحدد كمربعات واسمه الكامل': 'Clear artwork under glass panels: each source in words with coloured badges, and the selected file\'s details as tiles',
+    'صفحة نسخ البطاقة': 'What a source card opens',
+    'المصادر في صفحة العمل مثل Flix': 'Sources on the title page, like Flix',
     'الكوليكشن': 'Collections',
     'الحساب والتكامل': 'Accounts & Integrations',
     'الإعدادات': 'Settings',
@@ -1899,6 +1906,7 @@ STRINGS = {
     'اختصارات الريموت': 'Remote shortcuts',
     'أعلى / أسفل: اختيار النسخة': 'Up / Down: choose version',
     'يسار: الفلاتر والترتيب': 'Left: filters and sorting',
+    'فوق: كل المصادر': 'Up: all sources',
     'يمين: وضع التشغيل': 'Right: playback mode',
     'معلومات: تفاصيل المصدر': 'Info: source details',
     'تفاصيل المصدر': 'Source details',
@@ -3201,7 +3209,56 @@ _SUBSTRING_KEYS = tuple(k for k in _SORTED_KEYS if _is_safe_for_substring(k))
 
 
 STRINGS['مكتبتي'] = 'My Library'
+STRINGS['مفضلتي ومكتبتي'] = 'My favourites and library'
+STRINGS['المفضلة وقوائمك في Trakt وNuvio وSimkl وغيرها'] = 'Favourites and your Trakt, Nuvio, Simkl lists and more'
 STRINGS['خيارات المكتبة'] = 'Library options'
+STRINGS['Dex Glass الجديدة فوق صفحة العمل، أو صفحة المصادر السابقة'] = 'The new Dex Glass over the title page, or the previous sources page'
+STRINGS['Prism أو مختصرة أو Halo أو كلاسيكي أو Aura أو Flix أو Dex Glass'] = 'Prism, Compact, Halo, Classic, Aura, Flix or Dex Glass'
+STRINGS['أيقونات المشغل'] = 'Player icons'
+STRINGS['بطاقات تحت زر التشغيل بشعار الإضافة والجودة، وتفتح المصادر على إضافتها'] = "Cards under the Play button with the add-on's logo and quality; each opens the sources on its add-on"
+STRINGS['ممتلئة أو لونين أو عريضة أو رفيعة'] = 'Filled, two-tone, bold or thin'
+STRINGS['55% مثل Flix'] = '55% like Flix'
+STRINGS['Aura · زجاج فوق الخلفية وتفاصيل الملف'] = "Aura · glass over the backdrop and the file's details"
+STRINGS['Dex Glass · لوح زجاجي فوق صفحة العمل'] = 'Dex Glass · a glass sheet over the title page'
+STRINGS['Dex · شفاف مثل Flix'] = 'Dex · see-through, like Flix'
+STRINGS['Flix · بطاقات بتحديد أبيض'] = 'Flix · cards with a white highlight'
+STRINGS['خطوط رفيعة (السابقة)'] = 'Thin lines (previous)'
+STRINGS['خطوط عريضة'] = 'Bold lines'
+STRINGS['صفحة المصادر السابقة (ثيمك)'] = 'The previous sources page (your theme)'
+STRINGS['لونين · ظل خفيف داخلها'] = 'Two-tone · a soft fill inside'
+STRINGS['ممتلئة · مثل Apple TV'] = 'Filled · like Apple TV'
+STRINGS['النسخة أثقل من خطك'] = 'This copy is heavier than your line'
+STRINGS['هالنسخة تحتاج تقريباً %d Mbps، وخطك يجيب تقريباً %d Mbps، فغالباً بتوقف وتحمّل.'] = 'This copy needs about %d Mbps and your line brings about %d Mbps, so it will likely stop and buffer.'
+STRINGS['تشغلها كذا، أو ترجع تختار نسخة أخف؟'] = 'Play it anyway, or go back and pick a lighter copy?'
+STRINGS['أختار أخف'] = 'Pick a lighter one'
+STRINGS['شغّلها'] = 'Play it'
+STRINGS['صفوف الأفلام والمسلسلات واكتشف والبث، DexWorld، YouTube، Trakt، المجموعات… أي قائمة تصير صف'] = 'Rows of Movies, Series, Discover and Live, DexWorld, YouTube, Trakt, collections… any list becomes a row'
+STRINGS['صفوف أقسام Dex Hub'] = "Rows of Dex Hub's tabs"
+STRINGS['أي صف في الأفلام والمسلسلات واكتشف والبث المباشر ومكتبتي والسيرفرات وأقسامك'] = 'Any row of Movies, Series, Discover, Live TV, My Library, Servers and your sections'
+STRINGS['قوائم Trakt وSimkl وMDBList'] = 'Trakt, Simkl and MDBList lists'
+STRINGS['قائمة المشاهدة والمفضلة وقوائمك'] = 'Watchlists, favourites and your lists'
+STRINGS['كل كتالوجات الأفلام من مصادرك'] = 'Every movie catalog of your sources'
+STRINGS['كل كتالوجات المسلسلات من مصادرك'] = 'Every series catalog of your sources'
+STRINGS['قسمك الأول'] = 'Your first section'
+STRINGS['قسمك الثاني'] = 'Your second section'
+STRINGS['قسمك الثالث'] = 'Your third section'
+STRINGS['افتح الرئيسية مرة وارجع'] = 'Open the Home once and come back'
+STRINGS['أي قسم من Dex Hub'] = 'Any Dex Hub section'
+STRINGS['كوليكشنات وقوائم DexWorld'] = "DexWorld's collections and lists"
+STRINGS['حسابك والبث المباشر والرائج والأقسام وقنواتك'] = 'Your account, live, trending, topics and your channels'
+STRINGS['NAS وروابط SMB'] = 'NAS and SMB shares'
+STRINGS['أفلام ومسلسلات وجديد مجلداتك'] = 'Films, series and the newest of your folders'
+STRINGS['اكتشف'] = 'Discover'
+STRINGS['TMDb: الرائج والأنواع والشبكات والسنوات'] = 'TMDb: trending, genres, networks and years'
+STRINGS['أقسام صفحة الأفلام'] = "The Movies page's sections"
+STRINGS['أقسام صفحة المسلسلات'] = "The Series page's sections"
+STRINGS['مجموعات Dex Hub الجاهزة'] = "Dex Hub's ready collections"
+STRINGS['مجموعات Nuvio والمحفوظة'] = 'Nuvio and saved collections'
+STRINGS['قوائم Trakt'] = 'Trakt lists'
+STRINGS['قوائم MDBList'] = 'MDBList lists'
+STRINGS['قوائم Simkl'] = 'Simkl lists'
+STRINGS['مكتباتي'] = 'My libraries'
+STRINGS['القائمة الرئيسية كلها'] = 'The whole main menu'
 # v5.10.192: the IPTV page in the DexTV design
 STRINGS.update({
     'تنقل': 'Move',

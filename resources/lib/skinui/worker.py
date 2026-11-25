@@ -753,7 +753,10 @@ class Worker(object):
         params = request.get('params') or {}
         if not params.get('pid'):
             return True
-        until = float(request.get('t') or 0) + self.WARM_SETTLE
+        settle = self.WARM_SETTLE
+        if C.prop('dhs.pref.title_sources_rail') == 'true':
+            settle = 1.0      # v5.10.612: the page shows the search's cards; it waits less
+        until = float(request.get('t') or 0) + settle
         while time.time() < until:
             if self.stopped() or getattr(self, '_warm_next', None):
                 return False

@@ -86,6 +86,11 @@ def pick_row(app, media='all'):
         # v5.10.179: a row of collection cards, one for each catalog the user picks
         ('shelf', tr('كوليكشن من كتالوجاتك'), tr('تختار كتالوجات وكل واحد يصير بطاقة كوليكشن بنفس الصف'),
          'lay_collection.png'),
+        # v5.10.612: the favourites and lists of My Library (the user did not find them for the Home)
+        ('mine', tr('مفضلتي ومكتبتي'), tr('المفضلة وقوائمك في Trakt وNuvio وSimkl وغيرها'), 'lay_library.png'),
+        # v5.10.612: any list of any Dex Hub section (the user: not the libraries alone)
+        ('sections', tr('أي قسم من Dex Hub'), tr('صفوف الأفلام والمسلسلات واكتشف والبث، DexWorld، YouTube، Trakt، المجموعات… أي قائمة تصير صف'),
+         'lay_catalog.png'),
     ]
     for service, label, _root, client in _LIBRARY_ROOTS:
         if _linked(api, client):
@@ -102,10 +107,191 @@ def pick_row(app, media='all'):
         elif kind == 'shelf':
             from .shelf import pick as pick_shelf
             spec = pick_shelf(app, media)
+        elif kind == 'mine':
+            spec = pick_mine(app)
+        elif kind == 'sections':
+            spec = pick_section(app)
         else:
             spec = pick_library(app, kind)
         if spec:
             return spec
+
+
+def pick_mine(app):
+    """v5.10.612: one of My Library's lists as a row: My Favourites (films, series), the
+    Nuvio / Stremio lists, the Trakt, Simkl and MDBList watchlists, Floppy..."""
+    tr = app.tr
+    try:
+        from ..routes import library
+        specs = [s for s in library._specs(library.linked_sources()) if s[0] not in ('continue',)]
+    except Exception:
+        specs = []
+    if not specs:
+        _notify(app, 'لا يوجد شيء هنا')
+        return None
+    index = _select(app, tr('مفضلتي ومكتبتي'), [(title, '', 'lay_library.png') for _key, title, _shape, _params in specs])
+    if index < 0:
+        return None
+    _key, title, shape, params = specs[index]
+    return {'type': 'route', 'label': title, 'source': 'library',
+            'source_label': '%s  •  %s' % ('Dex Hub', tr('مكتبتي')), 'subtitle': tr('مكتبتي'),
+            'params': dict(params), 'shape': '' if shape == 'poster' else shape}
+
+
+# v5.10.612: the Dex Hub sections a row can come from; the menus are walked like a library
+_SECTIONS = (
+    ('tabs', 'صفوف أقسام Dex Hub', 'أي صف في الأفلام والمسلسلات واكتشف والبث المباشر ومكتبتي والسيرفرات وأقسامك', None),
+    ('dexworld', 'DexWorld', 'كوليكشنات وقوائم DexWorld', None),
+    ('youtube', 'YouTube', 'حسابك والبث المباشر والرائج والأقسام وقنواتك', None),
+    ('nas', 'NAS وروابط SMB', 'أفلام ومسلسلات وجديد مجلداتك', None),
+    ('lists', 'قوائم Trakt وSimkl وMDBList', 'قائمة المشاهدة والمفضلة وقوائمك', None),
+    ('movies', 'كتالوجات الأفلام', 'كل كتالوجات الأفلام من مصادرك', {'action': 'nuvio_home_media', 'media': 'movie'}),
+    ('series', 'كتالوجات المسلسلات', 'كل كتالوجات المسلسلات من مصادرك', {'action': 'nuvio_home_media', 'media': 'series'}),
+    ('ready', 'مجموعات جاهزة', 'مجموعات Dex Hub الجاهزة', {'action': 'ready_collections_menu'}),
+    ('sets', 'المجموعات', 'مجموعات Nuvio والمحفوظة', {'action': 'collection_sets'}),
+    ('libraries', 'مكتباتي', 'Plex وEmby وJellyfin وSilo', {'action': 'media_libraries_menu'}),
+    ('root', 'Dex Hub', 'القائمة الرئيسية كلها', {}),
+)
+# the tabs of skin.dexhub's bar whose rows can be copied to another page
+_TABS = (('movie', 'الأفلام'), ('series', 'المسلسلات'), ('discover', 'اكتشف'), ('live', 'البث المباشر'),
+         ('library', 'مكتبتي'), ('servers', 'السيرفرات'), ('c1', 'قسمك الأول'), ('c2', 'قسمك الثاني'),
+         ('c3', 'قسمك الثالث'), ('all', 'الرئيسية'))
+
+
+def pick_section(app):
+    tr = app.tr
+    while True:
+        index = _select(app, tr('أي قسم من Dex Hub'),
+                        [(tr(label), tr(sub), 'lay_catalog.png') for _k, label, sub, _p in _SECTIONS])
+        if index < 0:
+            return None
+        key, label, _sub, params = _SECTIONS[index]
+        if key == 'dexworld':
+            spec = pick_dexworld(app)
+        elif key == 'tabs':
+            spec = pick_tab_row(app)
+        elif key == 'lists':
+            spec = pick_mine(app)
+        elif key in ('youtube', 'nas'):
+            spec = pick_found(app, key, tr(label))
+        else:
+            spec = walk(app, dict(params), tr(label), source='dexhub',
+                        source_label='%s  •  %s' % ('Dex Hub', tr(label)))
+        if spec:
+            return spec
+
+
+def _tab_names():
+    """The bar's own names for the user's sections (c1, c2, c3), when it has them."""
+    names = {}
+    try:
+        from .. import bar_sections as B
+        for n, sec in enumerate(B.read().get('custom') or []):
+            name = (sec or {}).get('name') or (sec or {}).get('title') if isinstance(sec, dict) else ''
+            if name:
+                names['c%d' % (n + 1)] = clean_label(name)
+    except Exception:
+        pass
+    return names
+
+
+def pick_tab_row(app):
+    """Any row another tab of the bar shows (Movies, Series, Discover, Live TV, My Library...),
+    copied as a row of this page."""
+    import json
+    tr = app.tr
+    try:
+        from ..skinui import board
+    except Exception:
+        return None
+    named = _tab_names()
+    tabs = []
+    for tab, title in _TABS:
+        rows, seen = [], set()
+        try:
+            specs = board.load_specs(tab)
+        except Exception:
+            specs = []
+        for spec in specs:
+            params = spec.get('params') or {}
+            if spec.get('progress') or not params.get('action') or not spec.get('title'):
+                continue
+            ident = json.dumps(params, sort_keys=True)
+            if ident in seen:
+                continue
+            seen.add(ident)
+            rows.append(spec)
+        if rows:
+            tabs.append((named.get(tab) or tr(title), rows))
+    if not tabs:
+        _notify(app, 'افتح الرئيسية مرة وارجع')
+        return None
+    while True:
+        index = _select(app, tr('صفوف أقسام Dex Hub'),
+                        [(name, tr('%d صف') % len(rows), 'lay_catalog.png') for name, rows in tabs])
+        if index < 0:
+            return None
+        name, rows = tabs[index]
+        pick = _select(app, name, [(clean_label(r.get('title')), clean_label(r.get('sub') or ''), 'lay_catalog.png')
+                                   for r in rows])
+        if pick < 0:
+            continue
+        spec = rows[pick]
+        shape = spec.get('shape') or ''
+        return {'type': 'route', 'label': clean_label(spec.get('title')), 'source': 'dexhub',
+                'source_label': '%s  •  %s' % ('Dex Hub', name), 'subtitle': clean_label(spec.get('sub') or '') or name,
+                'params': dict(spec.get('params') or {}), 'shape': '' if shape == 'poster' else shape}
+
+
+def pick_found(app, key, heading):
+    """The rows the top bar's editor offers for YouTube and the NAS, one of them as a Home row."""
+    try:
+        with _Busy():
+            if key == 'youtube':
+                from .. import youtube_feed as Y
+                found = Y.row_choices()
+            else:
+                from .. import nas_sources as N
+                if N.import_kodi_sources():
+                    N.scan()
+                found = N.row_choices()
+    except Exception:
+        found = []
+    found = [(spec, where) for spec, where in found or [] if spec.get('params')]
+    if not found:
+        _notify(app, 'لا يوجد شيء هنا')
+        return None
+    index = _select(app, heading, [(clean_label(spec.get('title')), clean_label(where or ''), 'lay_catalog.png')
+                                   for spec, where in found])
+    if index < 0:
+        return None
+    spec = found[index][0]
+    return {'type': 'route', 'label': clean_label(spec.get('title')), 'source': key, 'source_label': heading,
+            'subtitle': heading, 'params': dict(spec['params']), 'shape': ''}
+
+
+def pick_dexworld(app):
+    """Every collection and list of DexWorld's page (the kits open as cover cards)."""
+    tr = app.tr
+    try:
+        from .. import dexworld as DW
+        with _Busy():
+            rows = [r for r in (DW.page().get('rows') or []) if r.get('id') and r.get('title')]
+    except Exception:
+        rows = []
+    if not rows:
+        _notify(app, 'لا يوجد شيء هنا')
+        return None
+    rows.sort(key=lambda r: 0 if (r.get('kind') == 'kit' or r.get('members')) else 1)
+    shown = [(clean_label(r.get('title')),
+              tr('كوليكشن') if (r.get('kind') == 'kit' or r.get('members')) else clean_label(r.get('meta') or r.get('desc') or ''),
+              r.get('logo') or 'lay_collection.png') for r in rows]
+    index = _select(app, 'DexWorld', shown)
+    if index < 0:
+        return None
+    spec = DW.spec_of(rows[index])
+    return {'type': 'route', 'label': spec['title'], 'source': 'catalog', 'source_label': 'DexWorld',
+            'subtitle': 'DexWorld', 'params': dict(spec['params']), 'shape': ''}
 
 
 def pick_member(app, media='all', heading=''):
@@ -316,12 +502,19 @@ def pick_library(app, service):
     if root is None:
         return None
     _service, label, action, _client = root
-    stack = [({'action': action}, label)]
+    return walk(app, {'action': action}, label)
+
+
+def walk(app, root_params, label, source='', source_label=''):
+    """Walks a Dex Hub menu down to the listing the user adds as a row (v5.10.612: any section)."""
+    tr = app.tr
+    api = app.api()
+    stack = [(dict(root_params), label)]
     while stack:
         params, title = stack[-1]
         folders, works = _level(app, api, params)
         choices = []
-        if len(stack) > 1:
+        if len(stack) > 1 or (works and folders == []):
             choices.append(('add', None, (tr('أضف «%s» كصف') % title,
                                           (tr('%d عنصر في الصفحة الأولى') % works) if works else '',
                                           'lay_add.png')))
@@ -340,12 +533,12 @@ def pick_library(app, service):
             continue
         kind, entry, _shown = choices[index]
         if kind == 'add':
-            return library_spec(app, label, params, title)
+            return library_spec(app, label, params, title, source=source, source_label=source_label)
         stack.append((R.params_of(entry.get('path')), clean_label(entry.get('label'))))
     return None
 
 
-def library_spec(app, service_label, params, title):
+def library_spec(app, service_label, params, title, source='', source_label=''):
     tr = app.tr
     params = dict(params or {})
     params.pop('start', None)
@@ -366,8 +559,8 @@ def library_spec(app, service_label, params, title):
             suffix = tr(name)
     label = '%s  ·  %s' % (title, suffix) if suffix else title
     return {
-        'type': 'route', 'label': label, 'source': service_label.lower(),
-        'source_label': '%s  •  %s' % (service_label, tr('مكتبة')),
-        'subtitle': service_label,
+        'type': 'route', 'label': label, 'source': source or service_label.lower(),
+        'source_label': source_label or '%s  •  %s' % (service_label, tr('مكتبة')),
+        'subtitle': 'Dex Hub' if source == 'dexhub' else service_label,
         'params': params, 'shape': '',
     }

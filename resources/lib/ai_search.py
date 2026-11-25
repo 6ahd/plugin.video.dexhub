@@ -34,12 +34,11 @@ PROVIDERS = (
      ('grok-4-1-fast-non-reasoning', 'grok-4-fast-non-reasoning', 'grok-4-1-fast', 'grok-4-fast', 'grok-3-mini')),
     # v5.10.579: Groq (not xAI's Grok): fast open models behind an OpenAI-compatible API
     ('groq', 'Groq', 'https://api.groq.com/openai/v1', 'console.groq.com/keys',
-     ('openai/gpt-oss-120b', 'llama-3.3-70b-versatile', 'meta-llama/llama-4-maverick-17b-128e-instruct',
-      'llama-3.1-8b-instant')),
+     ('openai/gpt-oss-120b', 'qwen/qwen3.8-27b', 'openai/gpt-oss-20b')),
     ('openai', 'OpenAI', 'https://api.openai.com/v1', 'platform.openai.com/api-keys',
      ('gpt-5-mini', 'gpt-4.1-mini', 'gpt-4o-mini')),
     ('gemini', 'Gemini', 'https://generativelanguage.googleapis.com/v1beta/openai', 'aistudio.google.com/apikey',
-     ('gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.0-flash')),
+     ('gemini-flash-latest', 'gemini-2.5-flash')),     # v5.10.611: the alias follows Google's newest Flash
     ('openrouter', 'OpenRouter', 'https://openrouter.ai/api/v1', 'openrouter.ai/keys',
      ('x-ai/grok-4-fast', 'google/gemini-2.5-flash', 'openai/gpt-4o-mini')),
     ('deepseek', 'DeepSeek', 'https://api.deepseek.com/v1', 'platform.deepseek.com/api_keys', ('deepseek-chat',)),
@@ -300,15 +299,150 @@ def _post(cfg, path, body=None, timeout=30):
         return 0, {'error': str(exc)[:160]}
 
 
+def _error_text(answer):
+    """The service's error message, whatever its shape (Gemini answers [{"error": {...}}])."""
+    if isinstance(answer, list) and answer:
+        answer = answer[0]
+    if not isinstance(answer, dict):
+        return ''
+    error = answer.get('error')
+    if isinstance(error, dict):
+        error = error.get('message') or error.get('status') or ''
+    return str(error or answer.get('message') or '')
+
+
+def _model_gone(status, error):
+    low = str(error or '').lower()
+    return status == 404 or (status == 400 and 'model' in low and any(
+        k in low for k in ('not found', 'does not exist', 'decommission', 'deprecated', 'not supported', 'invalid model')))
+
+
+# v5.10.611: models that cannot chat (speech, voice, guards, pictures) are never offered or picked
+_NOT_CHAT = re.compile(r'whisper|orpheus|tts|guard|safeguard|embed|rerank|moderation|imagen|image|veo|audio|'
+                       r'transcribe|speech|-vl\b|ocr', re.I)
+# what to prefer, best first, per service; then the biggest model the name tells
+_PREFER = {'groq': ('gpt-oss-120b', 'qwen3', 'llama-4', 'llama-3.3', 'gpt-oss-20b'),
+           'gemini': ('gemini-flash-latest', 'flash'),
+           'openrouter': ('gemma-4-31b', 'nemotron-3-ultra', 'gemma-4', 'deepseek', 'llama-3.3-70b', 'qwen3'),
+           'mistral': ('mistral-small-latest', 'mistral-medium'),
+           'openai': ('gpt-5-mini', 'gpt-4.1-mini', 'gpt-4o-mini'),
+           'grok': ('grok-4-1-fast-non-reasoning', 'grok-4-fast'), 'deepseek': ('deepseek-chat',)}
+# v5.10.611: the free services offered in one step, with where their free key comes from
+FREE = (('groq', 'console.groq.com/keys', ('مجاني وسريع، بحد يومي', 'Free and fast, with a daily limit')),
+        ('gemini', 'aistudio.google.com/apikey', ('مجاني من Google، بحد يومي', 'Free from Google, with a daily limit')),
+        ('openrouter', 'openrouter.ai/keys', ('نماذج مجانية كثيرة (:free)', 'Many free models (:free)')))
+
+
+def _size(model):
+    m = re.findall(r'(\d+(?:\.\d+)?)b\b', str(model).lower())
+    return max(float(x) for x in m) if m else 0.0
+
+
+def rank_models(pid, have, free_only=False):
+    """The models a key can chat with, best first: the service's own preference, then the biggest.
+    have: {id: free} from the service's list."""
+    rows = [m for m in have if not _NOT_CHAT.search(m) and (have[m] or not free_only)]
+    if pid == 'gemini':
+        rows = [m for m in rows if 'gemini' in m and 'lite' not in m] or rows
+    if free_only and pid == 'openrouter':
+        rows = [m for m in rows if m.endswith(':free')]
+    prefer = _PREFER.get(pid, ())
+
+    def score(m):
+        hit = next((i for i, p in enumerate(prefer) if p in m), len(prefer))
+        slow = 1 if 'reason' in m or 'thinking' in m or 'preview' in m else 0
+        return (hit, slow, -_size(m), m)
+    return sorted(rows, key=score)
+
+
+def _heal_model(cfg):
+    """v5.10.611: the model went away (Groq removed three of four in a year; a Gemini name retires):
+    the service's own list gives the closest one that works, every feature on the old one moves to
+    it, and it is saved. Returns the new model or ''."""
+    pid, old = cfg.get('provider'), cfg.get('model')
+    have = _models(cfg)
+    ranked = [m for m in rank_models(pid, have, free_only=bool(cfg.get('free'))) if m != old] or \
+        [m for m in rank_models(pid, have) if m != old]
+    if not ranked:
+        return ''
+    new = ranked[0]
+    data = _data()
+    for f in data['features'].values():
+        if f.get('service') == pid and f.get('model') == old:
+            f['model'], f['free'] = new, bool(have.get(new)) or bool(f.get('free'))
+    _save(data)
+    _log('%s: %s is gone, now %s' % (pid, old, new), xbmc.LOGWARNING)
+    return new
+
+
+def quick_free():
+    """v5.10.611 (the user: "why don't we make the free setup easy, and the models"): one step. Pick a free
+    service, paste its key; the best free model the key really has is chosen from the service's own list,
+    search, recommendations and metadata switch on with it, and it is tested."""
+    dialog = xbmcgui.Dialog()
+    rows = [('%s  ·  %s' % (_provider(pid)[1], _t(*note)), pid, where) for pid, where, note in FREE]
+    pick = dialog.select(_t('إعداد مجاني بخطوة وحدة', 'Free setup in one step'), [r[0] for r in rows])
+    if pick < 0:
+        return False
+    _label, pid, where = rows[pick]
+    name, base = _provider(pid)[1], _provider(pid)[2]
+    dialog.ok(name, _t('خذ مفتاح مجاني من:\n[B]%s[/B]\nوالصقه في الخانة الجاية (أو اكتبه).',
+                       'Get a free key at:\n[B]%s[/B]\nand paste it in the next box (or type it).') % where)
+    key = (dialog.input(_t('مفتاح %s', '%s key') % name, option=xbmcgui.ALPHANUM_HIDE_INPUT) or '').strip()
+    if not key:
+        return False
+    busy = xbmcgui.DialogProgressBG()
+    busy.create(name, _t('يتأكد من المفتاح ويختار النموذج…', 'Checking the key and choosing the model…'))
+    try:
+        cfg = {'base': base, 'key': key, 'provider': pid}
+        status, _answer = _post(cfg, '/models', None, timeout=15)
+        if status in (401, 403):
+            dialog.ok(name, _t('المفتاح مرفوض، تأكد إنك نسخته كامل', 'The key was refused; check you copied all of it'))
+            return False
+        if status != 200:
+            dialog.ok(name, _t('ما وصلت للخدمة (%s)، جرّب بعد شوي', "Couldn't reach the service (%s); try again shortly") % status)
+            return False
+        have = _models(cfg)
+        ranked = rank_models(pid, have, free_only=(pid == 'openrouter'))
+        if not ranked:
+            dialog.ok(name, _t('ما لقيت نموذج مجاني بهذا المفتاح', 'No free model found for this key'))
+            return False
+        model = ranked[0]
+        cfg['model'] = model
+        ok = _test(dict(cfg, free=True), quiet=True)
+        if not ok and len(ranked) > 1:              # the first did not answer well: the next one
+            model = ranked[1]
+            cfg['model'] = model
+            ok = _test(dict(cfg, free=True), quiet=True)
+    finally:
+        busy.close()
+    data = _data()
+    data['services'][pid] = {'key': key, 'base': base}
+    for fid in ('search', 'lists', 'metadata'):
+        data['features'][fid] = {'on': True, 'service': pid, 'model': model, 'free': True}
+    _save(data)
+    _log('free setup: %s · %s (test %s)' % (pid, model, 'ok' if ok else 'no answer'))
+    if ok:
+        dialog.ok(name, _t('جاهز ✓\n%s · %s\nالبحث بالوصف والمقترحات وترجمة القصص صارت شغالة.',
+                           'Ready ✓\n%s · %s\nSearch by description, recommendations and story translation are on.') % (name, model))
+    else:
+        dialog.ok(name, _t('انحفظ (%s · %s)، بس التجربة ما ردت الحين. لو استمر، جرّب خدمة ثانية.',
+                           'Saved (%s · %s), but the test got no answer now. If it goes on, try another service.') % (name, model))
+    return True
+
+
 def _chat(cfg, system, user, timeout=30):
     status, answer = _post(cfg, '/chat/completions', {
         'model': cfg['model'], 'messages': [{'role': 'system', 'content': system}, {'role': 'user', 'content': user}]},
         timeout=timeout)
     if status != 200:
-        error = answer.get('error') if isinstance(answer, dict) else ''
-        if isinstance(error, dict):
-            error = error.get('message') or ''
-        _log('the service answered %s: %s' % (status, str(error)[:120]), xbmc.LOGWARNING)
+        error = _error_text(answer)
+        _log('the service answered %s: %s (%s · %s)' % (status, error[:120], cfg.get('provider') or '?', cfg.get('model') or '?'),
+             xbmc.LOGWARNING)
+        if not cfg.get('_healed') and _model_gone(status, error):
+            new = _heal_model(cfg)
+            if new:
+                return _chat(dict(cfg, model=new, _healed=True), system, user, timeout)
         return None, status
     try:
         text = answer['choices'][0]['message']['content']
@@ -538,12 +672,17 @@ def setup():
     dialog = xbmcgui.Dialog()
     changed = False
     while True:
-        rows = ['%s:  [B]%s[/B]' % (_t(*names), feature_label(fid)) for fid, names, _d in FEATURES]
+        rows = ['[B]%s[/B]' % _t('⚡ إعداد مجاني بخطوة وحدة (Groq · Gemini · OpenRouter)', '⚡ Free setup in one step (Groq · Gemini · OpenRouter)')]
+        rows += ['%s:  [B]%s[/B]' % (_t(*names), feature_label(fid)) for fid, names, _d in FEATURES]
         rows.append('%s:  [B]%s[/B]' % (_t('الخدمات والمفاتيح', 'Services and keys'), label()))
         rows.append(_t('وش ينرسل لكل خدمة', 'What each sends'))
         pick = dialog.select(_t('الذكاء الاصطناعي', 'AI'), rows)
         if pick < 0:
             return changed
+        if pick == 0:
+            changed = quick_free() or changed
+            continue
+        pick -= 1
         if pick < len(FEATURES):
             changed = edit_feature(FEATURES[pick][0]) or changed
         elif pick == len(FEATURES):
@@ -843,8 +982,10 @@ def _choose_model(cfg, prefer):
     have = _models(cfg)
     _LISTED.clear()
     _LISTED.update(have)
-    rest = sorted((m for m in have if m not in prefer), key=lambda m: (not have[m], m))
-    ordered = [m for m in prefer if not have or m in have] + rest
+    # v5.10.611: only models that can chat, the ones the service really has, best first
+    ranked = rank_models(cfg.get('provider'), have) if have else []
+    rest = sorted((m for m in ranked if m not in prefer), key=lambda m: (not have[m], ranked.index(m)))
+    ordered = [m for m in prefer if not have or m in ranked] + rest
     if not ordered:
         return (dialog.input(_t('اسم النموذج', 'Model name'), cfg.get('model') or '') or '').strip()
     rows = []

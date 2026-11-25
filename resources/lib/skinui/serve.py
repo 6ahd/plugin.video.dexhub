@@ -117,7 +117,7 @@ def run(params):
             return None
         # everything else needs the router
         if action in ('skin_seasons', 'skin_episodes', 'skin_cast', 'skin_related', 'skin_collection', 'skin_studios',
-                      'skin_reviews', 'skin_artwork'):
+                      'skin_reviews', 'skin_artwork', 'skin_fel'):
             from . import title
             return title.listing(action, params, _handle())
         from . import actions

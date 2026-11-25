@@ -37,6 +37,53 @@ def lang():
         return 'ar'
 
 
+_TZ = []
+
+
+def tz():
+    """The device's time zone as an IANA name ('' when unknown: the site takes Riyadh), for the
+    site's "Right Now" collection (NOW_KIT_V1, v5.10.612)."""
+    if _TZ:
+        return _TZ[0]
+    name = ''
+    try:
+        real = os.path.realpath('/etc/localtime')
+        if 'zoneinfo/' in real:
+            name = real.split('zoneinfo/', 1)[1]
+    except Exception:
+        pass
+    if not name:
+        for path in ('/storage/.cache/timezone', '/etc/timezone'):    # LibreELEC / CoreELEC, Debian
+            try:
+                with open(path, encoding='utf-8') as handle:
+                    text = handle.read().strip()
+                name = text.split('=', 1)[1].strip().strip('"') if '=' in text else text
+                if name:
+                    break
+            except Exception:
+                continue
+    if not name:
+        try:
+            import xbmc
+            answer = json.loads(xbmc.executeJSONRPC(json.dumps({
+                'jsonrpc': '2.0', 'id': 1, 'method': 'Settings.GetSettingValue',
+                'params': {'setting': 'locale.timezone'}})) or '{}')
+            name = str((answer.get('result') or {}).get('value') or '')
+        except Exception:
+            pass
+    name = name if '/' in name and ' ' not in name else ''
+    _TZ.append(name)
+    return name
+
+
+def _tz_arg():
+    zone = tz()
+    if not zone:
+        return ''
+    from urllib.parse import quote
+    return '&tz=%s' % quote(zone, safe='/')
+
+
 def _log(text):
     try:
         import xbmc
@@ -92,7 +139,22 @@ def _get(path, etag=''):
 
 
 def page(language=None, fresh=False):
-    """The whole page as the site gives it ({} when it was never read and the site is away)."""
+    """The whole page as the site gives it ({} when it was never read and the site is away),
+    with Dex Hub's own collections after its rows (v5.10.612, dexhub_collections)."""
+    data = _site_page(language, fresh)
+    try:
+        from . import dexhub_collections as LC
+        rows = LC.merge((data or {}).get('rows') or [])
+    except Exception as exc:
+        _log('local collections: %s' % exc)
+        return data
+    out = dict(data or {})
+    out['rows'] = rows
+    return out
+
+
+def _site_page(language=None, fresh=False):
+    """The site's page alone."""
     language = language or lang()
     now = time.time()
     with _lock:
@@ -105,7 +167,7 @@ def page(language=None, fresh=False):
             _mem[language] = (float(stored['at']), stored['data'])
             return stored['data']
         try:
-            status, data, etag = _get('/api/dexhub?lang=%s' % language, stored.get('etag') or '')
+            status, data, etag = _get('/api/dexhub?lang=%s%s' % (language, _tz_arg()), stored.get('etag') or '')
         except Exception as exc:
             _log('page: %s' % exc.__class__.__name__)
             status, data, etag = 0, None, ''
@@ -126,6 +188,9 @@ def page(language=None, fresh=False):
 
 def row_page(row_id, number=1, language=None):
     """One block's whole list, a page at a time: {'items': [...], 'page', 'pages', 'total', 'title'}."""
+    if str(row_id or '').startswith('b:local-'):          # v5.10.612: Dex Hub's own lists
+        from . import dexhub_collections as LC
+        return LC.row_page(row_id, number)
     language = language or lang()
     from urllib.parse import quote
     key = 'row_%s_%s_%d.json' % (language, row_id.replace(':', '_').replace('/', '_'), int(number))
@@ -134,7 +199,8 @@ def row_page(row_id, number=1, language=None):
     if stored.get('data') and time.time() - float(stored.get('at') or 0) < TTL:
         return stored['data']
     try:
-        status, data, _etag = _get('/api/dexhub/row?id=%s&lang=%s&page=%d' % (quote(row_id, safe=':'), language, int(number)))
+        status, data, _etag = _get('/api/dexhub/row?id=%s&lang=%s&page=%d%s' % (quote(row_id, safe=':'), language, int(number),
+                                                                               _tz_arg()))
     except Exception as exc:
         _log('row %s: %s' % (row_id, exc.__class__.__name__))
         status, data = 0, None
@@ -362,7 +428,8 @@ def kit_tiles(row_id):
         if not wall:
             missing.append(full['id'])
         network = NETWORK_ID.match(str(full.get('id') or ''))
-        logo = network_logo(network.group(1)) if network else ''
+        # v5.10.612: a list with a logo of its own (Dex Hub's FEL 7, Full Disc) shows it in the hero
+        logo = network_logo(network.group(1)) if network else str(full.get('logo') or '')
         cover = full.get('cover') or first.get('backdrop') or first.get('poster') or ''
         path = 'plugin://plugin.video.dexhub/?' + urlencode({'action': 'dexworld_row', 'id': full['id'],
                                                              'title': full.get('title') or ''})
