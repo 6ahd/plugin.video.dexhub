@@ -1094,6 +1094,18 @@ class CompanionPlayer(xbmc.Player):
             line_speed.record('' if self._foreign_active else (self.getPlayingFile() or ''))
         except Exception:
             pass
+        if not self._foreign_active:
+            # v5.10.615: the player's Sources panel built a few seconds into the film, so its
+            # first opening shows at once (osd_sources.warm)
+            def _sources_panel_ahead():
+                if xbmc.Monitor().waitForAbort(8):
+                    return
+                try:
+                    from .skinui import osd_sources
+                    osd_sources.warm()
+                except Exception:
+                    pass
+            threading.Thread(target=_sources_panel_ahead, name='DexHub-osd-sources-ahead', daemon=True).start()
         try:
             # v5.10.572: a subtitle put on a disc in its menus from anywhere (Kodi's
             # subtitle dialog, any subtitle add-on) gets the main-movie offer too

@@ -940,6 +940,14 @@ def _elite_badge_rules_nonblocking():
         _ELITE_BADGE_RULE_CACHE.update({
             'fallback_url': url, 'fallback_rules': list(fallback),
         })
+    # v5.10.615: every plugin call is a new Python, so the memory above is empty in each, and
+    # each call fetched the rules from the internet again (the player's Sources panel: every
+    # opening). A copy saved within the hour is the rules.
+    try:
+        if time.time() - os.path.getmtime(_elite_rules_disk_path(url)) < 3600:
+            return fallback
+    except OSError:
+        pass
     start = False
     with _ELITE_BADGE_REFRESH_LOCK:
         if _ELITE_BADGE_RULE_CACHE.get('refreshing_url') != url:

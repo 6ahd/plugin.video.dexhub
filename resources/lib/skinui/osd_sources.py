@@ -123,6 +123,26 @@ def _bytes(size):
     return float(match.group(1)) * 1024 ** ' KMGT'.index(match.group(2).upper())
 
 
+_RES_ONLY = re.compile(r'^(?:\d{3,4}[pi]|[48]k|uhd|fhd|hd|sd)$', re.I)
+
+
+def _without_repeats(line, name, size):
+    """v5.10.615: the card's line without what the card shows already: the size (on its right)
+    and a part the name holds ("86.17 GB · 324d · altHUB" under "Usenet altHUB")."""
+    parts = [p.strip() for p in str(line or '').split('\u00b7') if p.strip()]
+    low_name = str(name or '').casefold()
+    low_size = str(size or '').replace(' ', '').casefold()
+    kept = []
+    for part in parts:
+        folded = part.casefold()
+        if low_size and folded.replace(' ', '') == low_size:
+            continue
+        if len(folded) >= 3 and folded in low_name:
+            continue
+        kept.append(part)
+    return '  \u00b7  '.join(kept)
+
+
 _QTONE = {'4K': 'FFF5B428', '8K': 'FFF5B428', '1080p': 'FF50C8FF', '720p': 'FF6EE7A8'}
 
 
@@ -258,154 +278,250 @@ def _youtube_rows():
     return entries
 
 
-def sources(params, handle):
-    entries = []
-    from .. import youtube_feed as _yt
-    if xbmc.Player().isPlayingVideo() and _yt.playing():
-        entries = _youtube_rows()
-    elif xbmc.Player().isPlayingVideo():
-        try:
-            from ..i18n import tr as _t
-        except Exception:
-            _t = lambda text: text
-        state = _state()
-        if state.startswith('searching'):
-            # 'searching' or 'searching:<answered>/<providers>'
-            counter = state.partition(':')[2]
-            line = _t('الفيديو يكمل، والنتائج تطلع هنا')
-            if '/' in counter:
-                done, _sl, total = counter.partition('/')
-                line = _t('ردّ %s من %s') % (done, total) + '  ·  ' + line
-            li = xbmcgui.ListItem(label=_t('جاري البحث في كل المصادر…'),
-                                  label2=line, offscreen=True)
-            li.setProperties({'pos': 'busy', 'rescan': 'true', 'busy': 'true', 'isfolder': 'false'})
-            entries.append((C.url('switch_source', pick='none'), li, False))
-        elif state == 'done:0':
-            li = xbmcgui.ListItem(label=_t('ما لقينا مصادر لهذا العمل'),
-                                  label2=_t('جرّب بعدين أو تأكد من إضافاتك'), offscreen=True)
-            li.setProperties({'pos': 'none', 'rescan': 'true', 'isfolder': 'false'})
-            entries.append((C.url('switch_source', pick='none'), li, False))
-        listed, _current = rows()
+class _Rec(object):
+    """A row of the panel as data: what a Kodi list item is made from."""
+
+    def __init__(self, label='', label2='', offscreen=True, props=None):
+        self.label, self.label2, self.props = label, label2, dict(props or {})
+
+    def setProperties(self, props):
+        self.props.update(props)
+
+    def getLabel2(self):
+        return self.label2
+
+
+_BUILT = 'dexhub.osd.sources.built'
+
+
+def _panel_key():
+    """What the panel's rows follow: the list found, the search's state, the sort and filter, the
+    playing source and title, the language."""
+    import hashlib
+    try:
         from ..playback.session import load_session
         ctx = load_session() or {}
-        item = _item_key(ctx.get('canonical_id'), ctx.get('season'), ctx.get('episode'))
-        # v5.10.297: the sort row, then the list in that order (the playing
-        # source stays first, as before)
-        mode = sort_mode()
-        try:
-            from ..settings_cache import cached_addon
-            arabic = (cached_addon().getSetting('ui_language') or '').strip().lower().startswith('ar')
-        except Exception:
-            arabic = False
-        label = _SORT_LABEL[mode][0 if arabic else 1]
-        li = xbmcgui.ListItem(label=('الترتيب: %s' if arabic else 'Sort: %s') % label,
-                              label2=' / '.join(_SORT_LABEL[m][0 if arabic else 1] for m in _SORTS),
-                              offscreen=True)
-        li.setProperties({'pos': 'sort', 'sort': mode, 'isfolder': 'false'})
-        entries.append((C.url('skin_osd_sources_sort'), li, False))
-        if mode != 'default' and listed:
-            head = [r for r in listed[:1] if r.get('current')]
-            rest = listed[len(head):]
-            if mode == 'size':
-                rest = sorted(rest, key=lambda r: -_bytes(r.get('s')))
-            else:
-                rest = sorted(rest, key=lambda r: (-_RANK.get(_quality(str(r.get('q') or '')) or
-                                                              _quality(str(r.get('n') or r.get('l') or '')), 0),
-                                                   -_bytes(r.get('s'))))
-            listed = head + rest
-        built = []
-        for pos, row in enumerate(listed):
-            name = _TAGS.sub('', str(row.get('l') or '?')).replace('\n', ' ').strip()
-            name = re.sub(r'\s{2,}', '  ', name)
-            if row.get('n'):
-                # v5.10.297: as Nuvio shows it: the add-on's own name line on
-                # top, its description under it, and the size
-                name = _plain(row.get('n')) or name
-                desc = [_plain(part) for part in str(row.get('d') or '').splitlines()]
-                size = str(row.get('s') or '').strip()
-                if size == '--':
-                    size = ''
-                line = '  \u00b7  '.join(part for part in desc if part)
-                low = (name + ' ' + line).lower()
-                props = {'pos': str(pos), 'provider': _plain(row.get('p') or ''),
-                         'quality': _quality(str(row.get('q') or '')) or _quality(name + ' ' + line),
-                         'isfolder': 'false'}
-                if size:
-                    props['size'] = size
-                if row.get('lib') or row.get('c') is True:
-                    props['cache'] = 'cached'
-                elif row.get('c') is False:
-                    props['cache'] = 'uncached'
-            elif 'id' in row:
-                # v5.10.294: the sources window's own line (the add-on's or
-                # AIOStreams formatter identity, not the add-on's name)
-                ident = _TAGS.sub('', str(row.get('id') or '')).replace('\n', ' ').strip()
-                size = str(row.get('s') or '').strip()
-                if size == '--':
-                    size = ''
-                # v5.10.296: the add-on's name first, exactly as the sources
-                # window shows it, then that window's identity line and size
-                addon_name = _TAGS.sub('', str(row.get('p') or '')).replace('\n', ' ').strip()
-                parts = [addon_name] if addon_name else []
-                if ident and ident.casefold() != addon_name.casefold():
-                    parts.append(ident)
-                if size:
-                    parts.append(size)
-                line = '  ·  '.join(parts)
-                low = (name + ' ' + line).lower()
-                props = {'pos': str(pos), 'provider': addon_name or ident,
-                         'quality': _quality(str(row.get('q') or '')) or _quality(name + ' ' + line),
-                         'isfolder': 'false'}
-                if size:
-                    props['size'] = size
-                if row.get('lib') or row.get('c') is True:
-                    props['cache'] = 'cached'
-                elif row.get('c') is False:
-                    props['cache'] = 'uncached'
-            else:
-                line = _TAGS.sub('', str(row.get('l2') or '')).strip()
-                parts = [p.strip() for p in line.split('·') if p.strip()]
-                low = (name + ' ' + line).lower()
-                props = {'pos': str(pos), 'provider': parts[0] if parts else '',
-                         'quality': _quality(name + ' ' + line), 'isfolder': 'false'}
-                size = next((p for p in parts if re.search(r'\d\s*(?:gb|mb)\b', p, re.I)), '')
-                if size:
-                    props['size'] = size
-                if 'uncached' in low or 'not ready' in low:
-                    props['cache'] = 'uncached'
-                elif 'cached' in low or '⚡' in name or 'ready' in low or 'in library' in low:
-                    props['cache'] = 'cached'
-            built.append((row, name, line, props))
-        # v5.10.448: the filter row, with each filter's count
-        counts = dict((option, sum(1 for b in built if _matches(b[3], option))) for option in _FILTERS)
-        C.home().setProperty(_FILTER_COUNTS, json.dumps(counts))
-        shown_mode = filter_mode() if counts.get(filter_mode()) else 'all'
-        if built:
-            choices = [option for option in _FILTERS if option == 'all' or counts.get(option)]
-            li = xbmcgui.ListItem(
-                label=('الفلتر: %s' if arabic else 'Filter: %s') % _FILTER_LABEL[shown_mode][0 if arabic else 1],
-                label2=' / '.join('%s %d' % (_FILTER_LABEL[o][0 if arabic else 1], counts[o]) for o in choices),
-                offscreen=True)
-            li.setProperties({'pos': 'sort', 'filter': shown_mode, 'isfolder': 'false'})
-            entries.append((C.url('skin_osd_sources_filter'), li, False))
-        for row, name, line, props in [b for b in built if b[0].get('current') or _matches(b[3], shown_mode)][:60]:
-            li = xbmcgui.ListItem(label=name, label2=line, offscreen=True)
-            if row.get('current'):
-                props['iscurrent'] = 'true'
-            props.update(_island_props(name, line, props.get('quality') or ''))
-            li.setProperties(props)
-            entries.append((C.url('switch_source', stream_key=str(row.get('k') or ''), item=item), li, False))
-        # v5.10.248: the whole search again, over the playing video (the list
-        # holds only what was found before the first source was picked)
-        try:
-            from ..i18n import tr
-        except Exception:
-            tr = lambda text: text
-        if not state.startswith('searching'):
-            li = xbmcgui.ListItem(label=tr('ابحث عن مصادر من جديد'),
-                                  label2=tr('بحث كامل في كل المصادر، والنتائج تطلع هنا'), offscreen=True)
-            li.setProperties({'pos': 'rescan', 'rescan': 'true', 'isfolder': 'false'})
-            entries.append((C.url('switch_source', rescan='1'), li, False))
+    except Exception:
+        ctx = {}
+    try:
+        from ..settings_cache import cached_addon
+        language = cached_addon().getSetting('ui_language') or ''
+    except Exception:
+        language = ''
+    parts = [C.home().getProperty('dexhub.last_streams') or '', _state(), sort_mode(), filter_mode(),
+             str(ctx.get('stream_key') or ''), _item_key(ctx.get('canonical_id'), ctx.get('season'), ctx.get('episode')),
+             language]
+    return hashlib.sha1('\x00'.join(parts).encode('utf-8', 'replace')).hexdigest()
+
+
+def _panel_rows(build=True):
+    """v5.10.615: the panel's rows kept while what they follow is the same: building them took a
+    second each opening on a CoreELEC box (the sources page's code and 60 cards of badges); the
+    service builds them a few seconds into the film (warm), so the first opening is quick too."""
+    key = _panel_key()
+    try:
+        kept = json.loads(C.home().getProperty(_BUILT) or '{}')
+    except ValueError:
+        kept = {}
+    if kept.get('key') == key and isinstance(kept.get('rows'), list):
+        return [(url, _Rec(label, label2, props=props)) for url, label, label2, props in kept['rows']]
+    if not build:
+        return None
+    rows_ = _build_panel()
+    try:
+        C.home().setProperty(_BUILT, json.dumps({'key': key, 'rows': [[url, r.label, r.label2, r.props]
+                                                                       for url, r in rows_]}))
+    except Exception:
+        pass
+    return rows_
+
+
+def warm():
+    """The service, a few seconds into a film: the panel's rows ready before it is opened."""
+    try:
+        playing_path = xbmc.getInfoLabel('Player.FilenameAndPath') or ''
+        if not xbmc.Player().isPlayingVideo() or 'youtube' in playing_path:
+            return
+        if _panel_rows(build=False) is None:
+            _panel_rows()
+            C.log('player sources panel built ahead', xbmc.LOGDEBUG)
+    except Exception as exc:
+        C.log('player sources panel ahead: %s' % exc, xbmc.LOGDEBUG)
+
+
+def _build_panel():
+    """The panel's rows as (url, row) pairs, row a _Rec (no Kodi list item: the service
+    builds them too, v5.10.615)."""
+    entries = []
+    try:
+        from ..i18n import tr as _t
+    except Exception:
+        _t = lambda text: text
+    state = _state()
+    if state.startswith('searching'):
+        # 'searching' or 'searching:<answered>/<providers>'
+        counter = state.partition(':')[2]
+        line = _t('الفيديو يكمل، والنتائج تطلع هنا')
+        if '/' in counter:
+            done, _sl, total = counter.partition('/')
+            line = _t('ردّ %s من %s') % (done, total) + '  ·  ' + line
+        li = _Rec(label=_t('جاري البحث في كل المصادر…'),
+                              label2=line, offscreen=True)
+        li.setProperties({'pos': 'busy', 'rescan': 'true', 'busy': 'true', 'isfolder': 'false'})
+        entries.append((C.url('switch_source', pick='none'), li))
+    elif state == 'done:0':
+        li = _Rec(label=_t('ما لقينا مصادر لهذا العمل'),
+                              label2=_t('جرّب بعدين أو تأكد من إضافاتك'), offscreen=True)
+        li.setProperties({'pos': 'none', 'rescan': 'true', 'isfolder': 'false'})
+        entries.append((C.url('switch_source', pick='none'), li))
+    listed, _current = rows()
+    from ..playback.session import load_session
+    ctx = load_session() or {}
+    item = _item_key(ctx.get('canonical_id'), ctx.get('season'), ctx.get('episode'))
+    # v5.10.297: the sort row, then the list in that order (the playing
+    # source stays first, as before)
+    mode = sort_mode()
+    try:
+        from ..settings_cache import cached_addon
+        arabic = (cached_addon().getSetting('ui_language') or '').strip().lower().startswith('ar')
+    except Exception:
+        arabic = False
+    label = _SORT_LABEL[mode][0 if arabic else 1]
+    li = _Rec(label=('الترتيب: %s' if arabic else 'Sort: %s') % label,
+                          label2=' / '.join(_SORT_LABEL[m][0 if arabic else 1] for m in _SORTS),
+                          offscreen=True)
+    li.setProperties({'pos': 'sort', 'sort': mode, 'isfolder': 'false'})
+    entries.append((C.url('skin_osd_sources_sort'), li))
+    if mode != 'default' and listed:
+        head = [r for r in listed[:1] if r.get('current')]
+        rest = listed[len(head):]
+        if mode == 'size':
+            rest = sorted(rest, key=lambda r: -_bytes(r.get('s')))
+        else:
+            rest = sorted(rest, key=lambda r: (-_RANK.get(_quality(str(r.get('q') or '')) or
+                                                          _quality(str(r.get('n') or r.get('l') or '')), 0),
+                                               -_bytes(r.get('s'))))
+        listed = head + rest
+    built = []
+    for pos, row in enumerate(listed):
+        name = _TAGS.sub('', str(row.get('l') or '?')).replace('\n', ' ').strip()
+        name = re.sub(r'\s{2,}', '  ', name)
+        if row.get('n'):
+            # v5.10.297: as Nuvio shows it: the add-on's own name line on
+            # top, its description under it, and the size
+            name_lines = [_plain(part) for part in str(row.get('n') or '').splitlines()]
+            name_lines = [part for part in name_lines if part]
+            name = name_lines[0] if name_lines else name
+            # v5.10.615: the add-on's name kept to one line (a second line, "2160p", made the
+            # card taller than its place and it covered the next one)
+            extra = [part for part in name_lines[1:] if not _RES_ONLY.match(part)]
+            desc = extra + [_plain(part) for part in str(row.get('d') or '').splitlines()]
+            size = str(row.get('s') or '').strip()
+            if size == '--':
+                size = ''
+            line = '  \u00b7  '.join(part for part in desc if part)
+            low = (name + ' ' + line).lower()
+            props = {'pos': str(pos), 'provider': _plain(row.get('p') or ''),
+                     'quality': _quality(str(row.get('q') or '')) or _quality(name + ' ' + line),
+                     'isfolder': 'false'}
+            if size:
+                props['size'] = size
+            if row.get('lib') or row.get('c') is True:
+                props['cache'] = 'cached'
+            elif row.get('c') is False:
+                props['cache'] = 'uncached'
+        elif 'id' in row:
+            # v5.10.294: the sources window's own line (the add-on's or
+            # AIOStreams formatter identity, not the add-on's name)
+            ident = _TAGS.sub('', str(row.get('id') or '')).replace('\n', ' ').strip()
+            size = str(row.get('s') or '').strip()
+            if size == '--':
+                size = ''
+            # v5.10.296: the add-on's name first, exactly as the sources
+            # window shows it, then that window's identity line and size
+            addon_name = _TAGS.sub('', str(row.get('p') or '')).replace('\n', ' ').strip()
+            parts = [addon_name] if addon_name else []
+            if ident and ident.casefold() != addon_name.casefold():
+                parts.append(ident)
+            if size:
+                parts.append(size)
+            line = '  ·  '.join(parts)
+            low = (name + ' ' + line).lower()
+            props = {'pos': str(pos), 'provider': addon_name or ident,
+                     'quality': _quality(str(row.get('q') or '')) or _quality(name + ' ' + line),
+                     'isfolder': 'false'}
+            if size:
+                props['size'] = size
+            if row.get('lib') or row.get('c') is True:
+                props['cache'] = 'cached'
+            elif row.get('c') is False:
+                props['cache'] = 'uncached'
+        else:
+            line = _TAGS.sub('', str(row.get('l2') or '')).strip()
+            parts = [p.strip() for p in line.split('·') if p.strip()]
+            low = (name + ' ' + line).lower()
+            props = {'pos': str(pos), 'provider': parts[0] if parts else '',
+                     'quality': _quality(name + ' ' + line), 'isfolder': 'false'}
+            size = next((p for p in parts if re.search(r'\d\s*(?:gb|mb)\b', p, re.I)), '')
+            if size:
+                props['size'] = size
+            if 'uncached' in low or 'not ready' in low:
+                props['cache'] = 'uncached'
+            elif 'cached' in low or '⚡' in name or 'ready' in low or 'in library' in low:
+                props['cache'] = 'cached'
+        built.append((row, name, line, props))
+    # v5.10.448: the filter row, with each filter's count
+    counts = dict((option, sum(1 for b in built if _matches(b[3], option))) for option in _FILTERS)
+    C.home().setProperty(_FILTER_COUNTS, json.dumps(counts))
+    shown_mode = filter_mode() if counts.get(filter_mode()) else 'all'
+    if built:
+        choices = [option for option in _FILTERS if option == 'all' or counts.get(option)]
+        li = _Rec(
+            label=('الفلتر: %s' if arabic else 'Filter: %s') % _FILTER_LABEL[shown_mode][0 if arabic else 1],
+            label2=' / '.join('%s %d' % (_FILTER_LABEL[o][0 if arabic else 1], counts[o]) for o in choices),
+            offscreen=True)
+        li.setProperties({'pos': 'sort', 'filter': shown_mode, 'isfolder': 'false'})
+        entries.append((C.url('skin_osd_sources_filter'), li))
+    chosen = [b for b in built if b[0].get('current') or _matches(b[3], shown_mode)]
+    # v5.10.615: the header counts sources only ("3 / 63" counted the sort and filter rows),
+    # and says how many there are when the list holds the first 60
+    C.home().setProperty('dexhub.osd.sources.total', str(min(len(chosen), 60)) if len(chosen) <= 60 else
+                         '60  \u00b7  %d' % len(chosen))
+    for number, (row, name, line, props) in enumerate(chosen[:60], 1):
+        line = _without_repeats(line, name, props.get('size'))
+        li = _Rec(label=name, label2=line, offscreen=True)
+        props['num'] = str(number)
+        if row.get('current'):
+            props['iscurrent'] = 'true'
+        props.update(_island_props(name, line, props.get('quality') or ''))
+        li.setProperties(props)
+        entries.append((C.url('switch_source', stream_key=str(row.get('k') or ''), item=item), li))
+    # v5.10.248: the whole search again, over the playing video (the list
+    # holds only what was found before the first source was picked)
+    try:
+        from ..i18n import tr
+    except Exception:
+        tr = lambda text: text
+    if not state.startswith('searching'):
+        li = _Rec(label=tr('ابحث عن مصادر من جديد'),
+                              label2=tr('بحث كامل في كل المصادر، والنتائج تطلع هنا'), offscreen=True)
+        li.setProperties({'pos': 'rescan', 'rescan': 'true', 'isfolder': 'false'})
+        entries.append((C.url('switch_source', rescan='1'), li))
+    return entries
+
+
+def sources(params, handle):
+    entries = []
+    # v5.10.615: YouTube told by the playing path (youtube_feed.playing's test) without loading
+    # that module (0.23 s of each opening of the panel on a CoreELEC box)
+    playing_path = xbmc.getInfoLabel('Player.FilenameAndPath') or ''
+    if xbmc.Player().isPlayingVideo() and ('action=youtube_play' in playing_path or 'youtube/manifest' in playing_path):
+        entries = _youtube_rows()
+    elif xbmc.Player().isPlayingVideo():
+        for url, row in _panel_rows():
+            li = xbmcgui.ListItem(label=row.label, label2=row.label2, offscreen=True)
+            li.setProperties(row.props)
+            entries.append((url, li, False))
     if handle >= 0:
         if entries:
             xbmcplugin.addDirectoryItems(handle, entries, len(entries))

@@ -416,7 +416,7 @@ def _renew_token():
         from youtube_plugin.kodion.context import XbmcContext
         context = XbmcContext()
         Provider().get_client(context=context)          # renews expired tokens
-        tokens, _n, _expiry = context.get_access_manager().get_access_tokens()
+        tokens, _refresh, _expiry, _kinds = _saved_tokens(context.get_access_manager())
         value = tokens[0] if tokens else ''
     except Exception as exc:
         _log('account sign-in: %s' % exc.__class__.__name__)
@@ -1395,12 +1395,16 @@ def link(show_code, show_state, stopped):
         provider = Provider()
         client = provider.get_client(context)
         manager = context.get_access_manager()
-        access_tokens, _n, expiry_timestamp = manager.get_access_tokens()
-        refresh_tokens, _n = manager.get_refresh_tokens()
+        addon_id = context.get_param('addon_id', None)
+        access_tokens, refresh_tokens, expiry_timestamp, kinds = _saved_tokens(manager, addon_id)
     except Exception as exc:
         _link_failed('setup', exc)
         return 'failed'
-    kinds = ['tv', 'user', 'vr', 'dev']
+    new_api = not hasattr(manager, 'get_access_tokens')
+    if new_api:
+        # v5.10.615: YouTube 7.7 counts the expiry in seconds from now (it adds the time itself)
+        left = int(expiry_timestamp - time.time()) if expiry_timestamp and expiry_timestamp > 0 else 0
+        expiry_timestamp = left if left > 0 else 0
     new_access = dict.fromkeys(kinds, None)
     tokens = list(kinds)
     shown = 0
@@ -1448,9 +1452,32 @@ def link(show_code, show_state, stopped):
             tokens[index] = token
     if not shown and not any(new_access.values()):
         return 'failed'
-    provider.reset_client(context=context, access_tokens=new_access)
-    manager.update_access_token(context.get_param('addon_id', None), *zip(*tokens))
+    try:
+        provider.reset_client(context=context, access_tokens=new_access)
+    except TypeError:
+        provider.reset_client()             # YouTube 7.7: no arguments
+    manager.update_access_token(addon_id, *zip(*tokens))
     return 'linked' if any(new_access.values()) else 'failed'
+
+
+def _saved_tokens(manager, addon_id=None):
+    """(access tokens, refresh tokens, expiry time, kinds) as the YouTube add-on keeps them.
+
+    v5.10.615: YouTube 7.7 (Nov 2026) keeps two kinds, tv and personal, read with
+    get_access_token / get_refresh_token (lists) and the expiry in the user's details; the
+    add-on before it had four kinds and get_access_tokens / get_refresh_tokens. Dex Hub asked
+    the old names and 7.7 answered AttributeError: the sign-in page showed no code."""
+    if hasattr(manager, 'get_access_tokens'):
+        access, _n, expiry = manager.get_access_tokens()
+        refresh, _n = manager.get_refresh_tokens()
+        return list(access), list(refresh), expiry, ['tv', 'user', 'vr', 'dev']
+    access = list(manager.get_access_token(addon_id) or [])
+    refresh = list(manager.get_refresh_token(addon_id) or [])
+    try:
+        expiry = float((manager.get_current_user_details(addon_id) or {}).get('token_expires', -1))
+    except (TypeError, ValueError):
+        expiry = -1
+    return access, refresh, expiry, ['tv', 'personal']
 
 
 def sign_in():
