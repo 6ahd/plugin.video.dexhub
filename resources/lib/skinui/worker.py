@@ -401,6 +401,7 @@ class Worker(object):
                 continue
             self.dispatch_requests(rows)
             self.take_warm()
+            self.watch_episode()
             self.take_fold()
             self.read_rows_ahead()
             self.focus_gif(rows)
@@ -680,7 +681,51 @@ class Worker(object):
             return
         if time.time() - float(request.get('t') or 0) > 60:
             return
+        if (request.get('params') or {}).get('pid'):
+            self._warm_page = request       # v5.10.613: an episode of this page is searched with it
         self._warm_next = request
+        thread = getattr(self, '_warm_thread', None)
+        if thread is not None and thread.is_alive():
+            return
+        thread = threading.Thread(target=self._warm_run, name='DexHubWarmService')
+        thread.daemon = True
+        self._warm_thread = thread
+        thread.start()
+
+    EP_DWELL = 0.6      # v5.10.613: seconds on an episode before its sources are searched
+
+    def watch_episode(self):
+        """v5.10.613: the title page's source cards follow the episode the cursor rests on (the user:
+        they must change at once with the episode): the old cards go, the row says it is searching,
+        and that episode is searched (take_warm's thread, the newest waiting)."""
+        if C.prop('dhs.pref.title_sources_rail') != 'true' or not xbmc.getCondVisibility(
+                'Window.IsVisible(movieinformation) + Control.HasFocus(8300)'):
+            self._ep_seen = None
+            return
+        season = xbmc.getInfoLabel('Container(8300).ListItem.Property(season)')
+        episode = xbmc.getInfoLabel('Container(8300).ListItem.Property(episode)')
+        if not season or not episode:
+            return
+        key = '%s:%s' % (season, episode)
+        now = time.time()
+        seen = getattr(self, '_ep_seen', None)
+        if not seen or seen[0] != key:
+            self._ep_seen = (key, now)
+            return
+        if now - seen[1] < self.EP_DWELL or C.prop('dhs.tp.src.ep') == key:
+            return
+        request = dict(getattr(self, '_warm_page', None) or {})
+        params = dict(request.get('params') or {})
+        page = params.get('pid') or ''
+        if not page or page != xbmc.getInfoLabel('ListItem.Property(dhs.id)'):
+            return              # the last search was another title's page
+        from .. import title_sources
+        C.set_prop('dhs.tp.src.ep', key)
+        C.set_prop('dhs.tp.avail.busy', page)
+        title_sources.store(page, [])
+        params.update({'s': season, 'e': episode})
+        self._warm_next = {'params': params, 'scope': request.get('scope'), 't': now}
+        title_sources.log('the cursor rests on S%sE%s: its sources' % (season, episode))
         thread = getattr(self, '_warm_thread', None)
         if thread is not None and thread.is_alive():
             return

@@ -172,9 +172,23 @@ def _flix_badges_once():
         xbmc.log('[DexHub] badges: back to the skin\'s own (5.10.612 capsules)', xbmc.LOGINFO)
 
 
+def _jmxd_default_once():
+    """v5.10.613: jmxd Full is the default badges: a device on the former default (the skin's own,
+    'colorful') moves to it once; a pack, a folder or no badges chosen stays."""
+    addon = _addon()
+    if (addon.getSetting('badges_v613') or '') == 'true':
+        return
+    _set('badges_v613', 'true')
+    if (addon.getSetting('player_badge_style') or 'colorful') == 'colorful':
+        _set('player_badges_json_url', DEFAULT_PACK)
+        _set('player_badge_style', 'custom')
+        xbmc.log('[DexHub] badges: jmxd Full is the default now', xbmc.LOGINFO)
+
+
 def style():
     try:
         _flix_badges_once()
+        _jmxd_default_once()
     except Exception:
         pass
     value = (_addon().getSetting('player_badge_style') or 'colorful').strip()
@@ -752,6 +766,10 @@ def _resource_label(key):
 
 # the version of resource.images.dexhub.badges whose copies Dex Hub carries
 BUNDLED_FROM = (1, 3, 0)
+# v5.10.613: jmxd Full evened out (one-line words no bigger than two lines) and completed (2.1, 4.0,
+# 5.0, 7.1.2, 3D): read from Dex Hub even with the repository add-on installed (its copy is older)
+OWN_COPY = ('jmxdfull',)
+DEFAULT_PACK = 'addon://' + BUNDLED_ROOT + '/jmxdfull'     # the default badges (the user, 25 Nov 2026)
 _REPO_VERSION = {'at': 0.0, 'version': None}
 
 
@@ -778,6 +796,8 @@ def _pack_home(sub):
     repository add-on's copy when it is installed and at least as new as
     Dex Hub's (1.3.0: jmxd White replaced Kometa), else Dex Hub's own."""
     repo = '%s/%s' % (RESOURCE_PREFIX, sub)
+    if sub in OWN_COPY:
+        return '%s/%s' % (BUNDLED_ROOT, sub)     # v5.10.613: Dex Hub's copy is the newer one
     version = _repo_version()
     if version and version >= BUNDLED_FROM and \
             os.path.isfile(os.path.join(_resource_folder(repo), 'badges.json')):

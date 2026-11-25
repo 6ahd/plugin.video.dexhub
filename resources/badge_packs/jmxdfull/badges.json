@@ -232,6 +232,12 @@
    "group": "audio"
   },
   {
+   "name": "712",
+   "pattern": "^(?=.*(?<![0-9.])(?:7\\.1\\.2|9\\.1)(?![0-9])).*",
+   "image": "ch_10.png",
+   "group": "channels"
+  },
+  {
    "name": "714",
    "pattern": "^(?=.*(?<![0-9.])7\\.1(?![0-9]))(?=.*(?:\\batmos\\b|\\bdts[:-]?x\\b)).*",
    "image": "ch_714.png",
@@ -262,6 +268,24 @@
    "group": "channels"
   },
   {
+   "name": "5",
+   "pattern": "^(?=.*(?<![0-9.])(?:5\\.0|4\\.1)(?![0-9.])).*",
+   "image": "ch_5.png",
+   "group": "channels"
+  },
+  {
+   "name": "4",
+   "pattern": "^(?=.*(?<![0-9.])4\\.0(?![0-9.])).*",
+   "image": "ch_4.png",
+   "group": "channels"
+  },
+  {
+   "name": "3",
+   "pattern": "^(?=.*(?<![0-9.])2\\.1(?![0-9.])).*",
+   "image": "ch_3.png",
+   "group": "channels"
+  },
+  {
    "name": "2",
    "pattern": "^(?=.*(?<![0-9.])2\\.0(?![0-9])).*",
    "image": "ch_2.png",
@@ -272,6 +296,12 @@
    "pattern": "^(?=.*(?<![0-9.])1\\.0(?![0-9])).*",
    "image": "ch_1.png",
    "group": "channels"
+  },
+  {
+   "name": "3D",
+   "pattern": "^(?=.*(?:\\b3d\\b|\\bh[ ._-]?sbs\\b|half[ ._-]?sbs|\\bh[ ._-]?ou\\b|half[ ._-]?ou)).*",
+   "image": "other_3d.png",
+   "group": "3d"
   }
  ]
 }

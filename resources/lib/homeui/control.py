@@ -91,7 +91,8 @@ BASIC_SECTIONS = (
      ('playback', 'source_addons', 'debrid', 'usenet', 'easynews', 'nas', 'add_source', 'source_behavior',
       'sources_style', 'title_rail', 'title_rail_page')),
     ('b_play', 'circle-play', 'التشغيل', 'الصوت والترجمة وأزرار المشغّل والحلقات والتريلر',
-     ('tv_player', 'audio_tracks', 'subtitles', 'osd_buttons', 'osd_preset', 'osd_icons', 'episodes', 'trailers')),
+     ('tv_player', 'audio_tracks', 'subtitles', 'osd_buttons', 'osd_preset', 'osd_icons', 'badges', 'badges_visible',
+      'episodes', 'trailers')),     # v5.10.613: the player's badges in Basic (the user did not find them)
     ('b_system', 'gears', 'النظام', 'النسخ الاحتياطي والكاش والتشخيص وكودي والخروج',
      ('kodi_addons', 'backup', 'clear_cache', 'diagnostics', 'leave_dexhub', 'skin', 'kodi', 'power', 'android')),
 )

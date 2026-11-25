@@ -616,8 +616,16 @@ def warm_sources(params, handle):
     from . import rows
     home = xbmcgui.Window(10000)
     stamp = 'dexhub.warm.%s' % (params.get('id') or params.get('canonical_id') or '')
+    # v5.10.613: an episode the cursor rests on (worker.watch_episode) is searched itself, each time:
+    # the cards follow the episode (the user), the providers' own caches keep it quick
+    ep_want = None
     try:
-        if time.time() - float(home.getProperty(stamp) or 0) < 240:
+        if params.get('s') and params.get('e'):
+            ep_want = (int(params['s']), int(params['e']))
+    except (TypeError, ValueError):
+        ep_want = None
+    try:
+        if not ep_want and time.time() - float(home.getProperty(stamp) or 0) < 240:
             # warmed a moment ago: the card shows what that run found
             _republish_available(home, params.get('pid'))
             if rail:
@@ -629,10 +637,16 @@ def warm_sources(params, handle):
     t = _title(params)
     ctx = rows.Context('all')
     path = ''
+    token = ''
     if t.series:
         row = None
         _label, _status, target = t.play_choice()
+        if ep_want:
+            target = ep_want
         if target:
+            # the episode these cards are for: a search for another one that ends later is dropped
+            token = '%s:%s' % (int(target[0]), int(target[1] or 0))
+            home.setProperty('dhs.tp.src.ep', token)
             row = next((r for r in t._season_rows(target[0]) or []
                         if int(r.get('episode') or 0) == int(target[1] or 0)), None)
         command = next((m[1] for m in (row or {}).get('menu') or [] if m and len(m) > 1), '')
@@ -670,10 +684,13 @@ def warm_sources(params, handle):
             if now - shown['at'] < 0.6:
                 return
             shown['at'] = now
+            if token and home.getProperty('dhs.tp.src.ep') != token:
+                return              # the cursor went to another episode
             title_sources.store(page, title_sources.groups(found))
         api._WARM_PROGRESS = progress
     if rail:
-        home.setProperty('dhs.tp.src.title', _tr('مصادر التشغيل'))
+        home.setProperty('dhs.tp.src.title', _tr('مصادر التشغيل') + (
+            '  ·  S%sE%s' % tuple(token.split(':')) if token else ''))
         home.setProperty('dhs.tp.src.wait', _tr('يبحث في إضافاتك…'))
     home.setProperty('dhs.tp.avail.busy', page or '')
     try:
@@ -690,7 +707,9 @@ def warm_sources(params, handle):
         api._WARM_ONLY = False
         api._WARM_PROGRESS = None
     _publish_available(home, page, getattr(api, '_WARM_SUMMARY', None) or [])
-    if rail:
+    if rail and token and home.getProperty('dhs.tp.src.ep') != token:
+        title_sources.log('%s ended after the cursor moved on: its cards are dropped' % token)
+    elif rail:
         cards = getattr(api, '_WARM_RAIL', None) or []
         title_sources.store(page, cards)
         if any(c.get('disc') for c in cards) and not t.series:     # v5.10.612: the Full Disc collection
