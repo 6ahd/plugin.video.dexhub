@@ -38,6 +38,7 @@ _ANSWER = 90.0          # a slow server's catalog can take this long
 _MAX_REQUEST = 256 * 1024
 _MAX_ANSWER = 64 * 1024 * 1024
 _WORKERS = 3
+_PRIMARY = frozenset(('skin_seasons', 'skin_episodes', 'skin_cast'))   # v5.10.617: a slot kept for them
 
 
 # ----------------------------------------------------------- the call side
@@ -203,6 +204,7 @@ def _server_class():
             self.monitor = monitor
             self._halt = threading.Event()
             self._slots = threading.Semaphore(_WORKERS)
+            self._secondary = threading.Semaphore(_WORKERS - 1)
             self.token = os.urandom(12).hex()
             self.sock = None
 
@@ -257,7 +259,10 @@ def _server_class():
                 if action not in ROUTES:
                     reply = {'ok': False, 'e': 'unknown listing'}
                 else:
-                    with self._slots:
+                    from contextlib import nullcontext
+                    queued = time.monotonic()
+                    with (nullcontext() if action in _PRIMARY else self._secondary), self._slots:
+                        work_at = time.monotonic()
                         try:
                             reply = {'ok': True, 'd': _work(action, request.get('p') or {})}
                         except Exception as exc:
@@ -265,6 +270,10 @@ def _server_class():
                             C.log('listing %s failed in the service:\n%s' % (action, traceback.format_exc()),
                                   xbmc.LOGWARNING)
                             reply = {'ok': False, 'e': str(exc) or exc.__class__.__name__}
+                    done = time.monotonic()
+                    if done - queued >= 0.5:
+                        C.log('listing %s: queue %.0f ms, work %.0f ms' % (
+                            action, (work_at - queued) * 1000, (done - work_at) * 1000))
                 conn.settimeout(30.0)
                 _send(conn, _plain(reply))
                 C.log('listing %s in the service: %.0f ms' % (action, (time.monotonic() - started) * 1000),

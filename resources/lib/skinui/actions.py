@@ -601,12 +601,14 @@ def open_grid(params, handle):
     return None
 
 
-def warm_sources(params, handle):
+def warm_sources(params, handle, stop=None):
     """v5.10.311: the Play button got the focus: ask every add-on for this
     title's (or the next episode's) sources in the background, so the list
     opens full a moment later. Once per title every four minutes."""
     from .. import title_sources
     rail = title_sources.enabled()       # v5.10.612: the title page's Flix cards need the search
+    if stop is not None and stop():
+        return None
     try:
         from .. import ui_preferences
         if ui_preferences.value('sources_warm') != 'true' and not rail:
@@ -661,6 +663,8 @@ def warm_sources(params, handle):
             entries = []
         command = next((m[1] for m in entries if m and len(m) > 1), '')
         path = _route_of(command) if command else ''
+    if stop is not None and stop():
+        return None
     if not path:
         C.log('warm: no sources route for "%s"' % (t.hero.get('title') or t.canonical))
         return None
@@ -681,7 +685,7 @@ def warm_sources(params, handle):
 
         def progress(found):
             now = time.time()
-            if now - shown['at'] < 0.6:
+            if now - shown['at'] < 0.6 or (stop is not None and stop()):
                 return
             shown['at'] = now
             if token and home.getProperty('dhs.tp.src.ep') != token:
@@ -706,6 +710,11 @@ def warm_sources(params, handle):
     finally:
         api._WARM_ONLY = False
         api._WARM_PROGRESS = None
+    if stop is not None and stop():
+        # v5.10.617: a newer search or another page: this one's cards are not shown
+        if home.getProperty('dhs.tp.avail.busy') == page:
+            home.clearProperty('dhs.tp.avail.busy')
+        return None
     _publish_available(home, page, getattr(api, '_WARM_SUMMARY', None) or [])
     if rail and token and home.getProperty('dhs.tp.src.ep') != token:
         title_sources.log('%s ended after the cursor moved on: its cards are dropped' % token)

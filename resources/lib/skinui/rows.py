@@ -551,13 +551,15 @@ EMPTY_GRACE = 10 * 60.0     # a row that had titles stays on show this long when
 FAIL_PAUSES = (5 * 60.0, 15 * 60.0, 30 * 60.0, 60 * 60.0)   # a failing row's next reads (v5.10.119)
 
 
-def fetch(tab, row_id, spec=None, fresh=False, patience=0.0, wait_other=True):
+def fetch(tab, row_id, spec=None, fresh=False, patience=0.0, wait_other=True, stop=None):
     """Read a row through its route and store it; returns the cache dict or None."""
     spec = spec or find_spec(tab, row_id)
     if spec is None:
         return None
     lock = _row_lock(tab, row_id)
     with lock:
+        if stop is not None and stop():
+            return None
         busy = 'dhs.busy.%s.%s' % (tab, row_id)
         if wait_other and _read_elsewhere(busy):
             # the Home's first read or the service read it meanwhile
@@ -577,7 +579,7 @@ def fetch(tab, row_id, spec=None, fresh=False, patience=0.0, wait_other=True):
             # v5.10.115: the mark stays until the copy is written: a call
             # waiting for this read (the page's own, serve._first_read) read
             # the row again when it saw the mark go before the file came
-            return _fetch_marked(tab, row_id, spec, old, fresh, patience, started)
+            return _fetch_marked(tab, row_id, spec, old, fresh, patience, started, stop)
         finally:
             C.set_prop(busy, '')
 
@@ -589,15 +591,19 @@ def _gone(exc):
 
 
 @_scope.bound
-def _fetch_marked(tab, row_id, spec, old, fresh, patience, started):
+def _fetch_marked(tab, row_id, spec, old, fresh, patience, started, stop=None):
     gone = False
     try:
         tiles, more = _load(tab, spec, fresh=fresh, patience=patience)
+        if stop is not None and stop():
+            return None
         tiles = [t for t in tiles or [] if not is_note(t)]
         if spec.get('sort'):
             from .. import bar_sections
             tiles = bar_sections.sort_tiles(tiles, spec['sort'])
     except Exception as exc:
+        if stop is not None and stop():
+            return None
         C.log('row "%s" failed: %s' % (spec.get('title'), exc), xbmc.LOGWARNING)
         gone = _gone(exc)
         if old is not None and not gone:

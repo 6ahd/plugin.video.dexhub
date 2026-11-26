@@ -400,7 +400,7 @@ def read_ahead(url, stop=None, readers=4):
         if stop is not None and stop():
             return
         try:
-            rows.fetch(TAB, spec['id'], spec, wait_other=False)
+            rows.fetch(TAB, spec['id'], spec, wait_other=False, stop=stop)
         except Exception as exc:
             C.log('collection read ahead: %s: %s' % (spec.get('title'), exc.__class__.__name__))
     from concurrent.futures import ThreadPoolExecutor

@@ -111,7 +111,7 @@ def _save(data):
 
 
 # ---------------------------------------------------------------- discovery
-def _discover(on_found=None):
+def _discover(on_found=None, force=False):
     """{'t', 'servers': [{service, brand, id, name, key, libs: [{title, params}], sections}]}"""
     from ..homeui import servers as S
     from ..skinui import rows as SR
@@ -134,12 +134,15 @@ def _discover(on_found=None):
 
     def read(server):
         results[S.server_key(server)] = _server_entry(server, api, app)
-    threads = [threading.Thread(target=read, args=(s,), name='dexhub-servers-libs') for s in found]
+    from .. import plex_client
+    eligible = [s for s in found if force or s['service'] != 'plex' or not plex_client.resting(s)]
+    threads = [threading.Thread(target=read, args=(s,), name='dexhub-servers-libs') for s in eligible]
     for thread in threads:
         thread.daemon = True
         thread.start()
+    deadline = time.monotonic() + 2 * PATIENCE + 6.0
     for thread in threads:
-        thread.join(2 * PATIENCE + 6.0)
+        thread.join(max(0.0, deadline - time.monotonic()))
     incomplete = not found and bool(signed)
     for server in found:
         entry = results.get(S.server_key(server))
@@ -214,7 +217,7 @@ def _refresh_later(force=False):
                     _save({'account': account, 't': 0, 'servers': servers, 'incomplete': True})
                     from ..skinui import common as C
                     C.ask_republish('servers source')
-            new = _discover(on_found=first)
+            new = _discover(on_found=first, force=force)
             if _account_key() != account:
                 return                    # an old account must not replace a new one
             new['account'] = account

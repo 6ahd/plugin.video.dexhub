@@ -20511,16 +20511,18 @@ def _continue_rows(limit=500, stages=None):
     except Exception:
         rows = local
     mark('servers')
+    finished = None
     try:
         from . import continue_nextup
-        rows = continue_nextup.merge(rows, _nextup_items_cached(limit=60, cached_only=True),
-                                    playback_store.list_finished_items(limit=400), _work_keys)
+        nextup = _nextup_items_cached(limit=60, cached_only=True)
+        finished = playback_store.list_finished_items(limit=400)
+        rows = continue_nextup.merge(rows, nextup, finished, _work_keys)
     except Exception as exc:
         xbmc.log('[DexHub] continue next episode: %s' % exc, xbmc.LOGDEBUG)
     mark('nextup')
     # v5.10.286: titles removed from Continue Watching stay out (every
     # source's rows of them), until newer progress of the title arrives
-    rows = _continue_order(_continue_merge(_cw_hidden_filter(_with_iptv(_continue_source_filter(_drop_finished(rows))))))
+    rows = _continue_order(_continue_merge(_cw_hidden_filter(_with_iptv(_continue_source_filter(_drop_finished(rows, finished))))))
     mark('filters')
     return rows
 
@@ -20644,15 +20646,16 @@ def _finished_keys(row):
     return set(k + code for k in keys)
 
 
-def _drop_finished(rows):
+def _drop_finished(rows, finished=None):
     """v5.10.236: a half-way row of an episode or a film finished after it
     (under another id, or by another service: Trakt, Nuvio, a server) is no
     longer shown, as Recently watched shows it finished. A replay started
-    after the finish stays."""
-    try:
-        finished = playback_store.list_finished_items(limit=400)
-    except Exception:
-        return rows
+    after the finish stays. v5.10.617: the list read once by _continue_rows."""
+    if finished is None:
+        try:
+            finished = playback_store.list_finished_items(limit=400)
+        except Exception:
+            return rows
     if not finished:
         return rows
     done = {}
@@ -25608,6 +25611,12 @@ def youtube_play(video_id='', title=''):
         if HANDLE >= 0:
             xbmcplugin.setResolvedUrl(HANDLE, False, xbmcgui.ListItem())
         return
+    # v5.10.617: the last film's ids handed to the subtitle add-ons (subtitle_files.py) went
+    # with the YouTube video: DexSubtitles attached that film's subtitle to it (Schindler's List
+    # on a YouTube video, 26 Nov 2026). A YouTube video is no title of theirs: the ids go.
+    _home = xbmcgui.Window(10000)
+    for _key in ('imdb_id', 'tmdb_id', 'tvdb_id', 'season', 'episode', 'title', 'mediatype'):
+        _home.clearProperty('dexhub.sub.%s' % _key)
     _yt.quiet_setup()
     # every quality as its own stream, so the player's Sources button switches
     # them in place; the add-on plays it itself if its resolver fails

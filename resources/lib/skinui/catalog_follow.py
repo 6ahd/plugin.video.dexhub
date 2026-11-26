@@ -136,6 +136,7 @@ class Controller(threading.Thread):
                 xbmc.getInfoLabel(prefix + 'Label'))
 
     def run(self):
+        import xbmc
         with profile_scope.bind(self._scope):
             previous, since = None, 0.0
             while not self.done.is_set() and not self.monitor.abortRequested() and profile_scope.is_current():
@@ -160,7 +161,7 @@ class Controller(threading.Thread):
                         publish()
                     except Exception as exc:
                         C.log('focused metadata: %s' % exc.__class__.__name__)
-                if self.done.wait(0.15):
+                if self.done.wait(0.5 if xbmc.getGlobalIdleTime() >= 3 else 0.2):
                     break
 
     def request(self, tab, parent, target, title):

@@ -211,9 +211,12 @@ class HeroFocus(threading.Thread):
             self._tone_wanted = xbmc.getInfoLabel('Skin.String(dh.pagetone)') == 'artwork'
         # v5.10.560: an IPTV title's page always takes its art's colour (its
         # poster when the provider has no backdrop)
-        iptv_page = guistate.video_info_up() and bool(C.prop('dhs.tp.iptv'))
+        title_page = guistate.video_info_up()
+        iptv_page = title_page and bool(C.prop('dhs.tp.iptv'))
         if not (self._tone_wanted or iptv_page):
-            art_colour.stop_following()
+            if getattr(self, '_tone_seen', None) is not None:
+                art_colour.stop_following()
+                self._tone_seen = None
             return
         info = xbmc.getInfoLabel
         if xbmc.getCondVisibility('Window.IsVisible(1195)'):
@@ -225,7 +228,7 @@ class HeroFocus(threading.Thread):
             # v5.10.598: another dialog sits over the title page for a moment (Kodi's loading
             # dialog when the theme music starts, a notice): the page keeps its colour
             return
-        if guistate.video_info_up():
+        if title_page:
             prefix, extra = 'ListItem.', ''
         elif guistate.active() == guistate.window_id(self.fold_window):
             if C.prop('dhs.fold.view') == 'catalogs':
@@ -248,9 +251,10 @@ class HeroFocus(threading.Thread):
             if art_colour.known(*value):
                 art_colour.follow(*value)   # known: at once
             return
-        if now - self._tone_since >= 0.06:
+        if self._tone_since is not None and now - self._tone_since >= 0.06:
             art_colour.follow(*value)
             self._row_ahead(art_colour, info, prefix)
+            self._tone_since = None
 
     def _row_ahead(self, art_colour, info, prefix):
         """Every title of the row on show, nearest first, worked out ahead
@@ -281,7 +285,8 @@ class HeroFocus(threading.Thread):
                 self._page_colour()
             except Exception:
                 pass
-            self._halt.wait(0.05)
+            idle = guistate.dialog_up() and not guistate.video_info_up()
+            self._halt.wait(0.35 if idle or xbmc.getGlobalIdleTime() >= 3 else 0.12)
 
     def _run(self):
         from ..ui_preferences import enabled

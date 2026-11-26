@@ -257,7 +257,7 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
             if self._closing:
                 return
             try:
-                data = rows.fetch(folderpage.TAB, spec['id'], spec, wait_other=False)
+                data = rows.fetch(folderpage.TAB, spec['id'], spec, wait_other=False, stop=lambda: self._closing)
             except Exception:
                 data = None
             if data is not None and not self._closing:
@@ -267,7 +267,9 @@ class CollectionWindow(xbmcgui.WindowXMLDialog):
         # the workers end with the block: nothing outlives the page (Kodi 22)
         with ThreadPoolExecutor(max_workers=READERS, thread_name_prefix='DexHub-collection-read') as pool:
             list(pool.map(read, todo))
-        if count > SLOTS and not self._closing:
+        if self._closing:
+            return
+        if count > SLOTS:
             self._show_catalogs()
         self._enrich_first_section()
         self._enrich_logos()

@@ -19,6 +19,7 @@ again from its fresh cache; a row whose content did not change is left alone.
 Nothing is read while a video plays, except the progress rows after it.
 """
 import bisect
+from collections import deque
 import threading
 import os
 import time
@@ -153,6 +154,8 @@ class Worker(object):
         self._section_check_at = 0.0
         self._ahead_window = None
         self._pending_updates = {}
+        self._warm_waiting = deque(maxlen=1)    # v5.10.617: the newest search waits, older ones go
+        self._fold_waiting = deque(maxlen=1)
         self._pending_metadata = set()
         self._redraw_hashes = {}
         self._later = None              # v5.10.188: tabs published after the one on screen
@@ -696,19 +699,20 @@ class Worker(object):
         the newest waiting, so no short-lived interpreter is torn down after
         a search's threads (Kodi 22 crashed there now and then)."""
         raw = C.prop('dhs.warm.request')
-        if not raw:
+        if raw:
+            C.set_prop('dhs.warm.request', '')
+            try:
+                import json
+                request = json.loads(raw)
+            except Exception:
+                return
+            if time.time() - float(request.get('t') or 0) > 60:
+                return
+            if (request.get('params') or {}).get('pid'):
+                self._warm_page = request       # v5.10.613: an episode of this page is searched with it
+            self._warm_waiting.append(request)
+        if not self._warm_waiting:
             return
-        C.set_prop('dhs.warm.request', '')
-        try:
-            import json
-            request = json.loads(raw)
-        except Exception:
-            return
-        if time.time() - float(request.get('t') or 0) > 60:
-            return
-        if (request.get('params') or {}).get('pid'):
-            self._warm_page = request       # v5.10.613: an episode of this page is searched with it
-        self._warm_next = request
         thread = getattr(self, '_warm_thread', None)
         if thread is not None and thread.is_alive():
             return
@@ -749,7 +753,7 @@ class Worker(object):
         C.set_prop('dhs.tp.avail.busy', page)
         title_sources.store(page, [])
         params.update({'s': season, 'e': episode})
-        self._warm_next = {'params': params, 'scope': request.get('scope'), 't': now}
+        self._warm_waiting.append({'params': params, 'scope': request.get('scope'), 't': now})
         title_sources.log('the cursor rests on S%sE%s: its sources' % (season, episode))
         thread = getattr(self, '_warm_thread', None)
         if thread is not None and thread.is_alive():
@@ -763,17 +767,18 @@ class Worker(object):
         """v5.10.476: a collection's catalogs read ahead (spotlight._note_fold),
         in a thread of this service, the newest card waiting."""
         raw = C.prop('dhs.fold.warm')
-        if not raw:
+        if raw:
+            C.set_prop('dhs.fold.warm', '')
+            try:
+                import json
+                request = json.loads(raw)
+            except Exception:
+                return
+            if time.time() - float(request.get('t') or 0) > 60:
+                return
+            self._fold_waiting.append(request)
+        if not self._fold_waiting:
             return
-        C.set_prop('dhs.fold.warm', '')
-        try:
-            import json
-            request = json.loads(raw)
-        except Exception:
-            return
-        if time.time() - float(request.get('t') or 0) > 60:
-            return
-        self._fold_next = request
         thread = getattr(self, '_fold_thread', None)
         if thread is not None and thread.is_alive():
             return
@@ -786,12 +791,17 @@ class Worker(object):
         from .. import profile_scope
         from . import folderpage
         while not self.stopped():
-            request, self._fold_next = getattr(self, '_fold_next', None), None
-            if not request:
+            try:
+                request = self._fold_waiting.popleft()
+            except IndexError:
                 return
             try:
                 with profile_scope.bind(request.get('scope')):
-                    folderpage.read_ahead(request.get('u') or '', stop=self.stopped)
+                    # v5.10.617: it stops for a newer card, a video, or the Home left
+                    folderpage.read_ahead(request.get('u') or '', stop=lambda: (
+                        self.stopped() or self.busy() or bool(self._fold_waiting)
+                        or not xbmc.getCondVisibility('Window.IsVisible(home)')
+                        or not profile_scope.is_current()))
             except Exception:
                 C.log('collection read ahead (service):\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
 
@@ -799,16 +809,30 @@ class Worker(object):
         from .. import profile_scope
         from . import actions
         while not self.stopped():
-            request, self._warm_next = getattr(self, '_warm_next', None), None
-            if not request:
+            try:
+                request = self._warm_waiting.popleft()
+            except IndexError:
                 return
             if not self._warm_settled(request):
                 continue
+            params = dict(request.get('params') or {})
             try:
                 with profile_scope.bind(request.get('scope')):
-                    actions.warm_sources(dict(request.get('params') or {}), -1)
+                    # v5.10.617: it stops for a newer search, a video, or the page left
+                    actions.warm_sources(params, -1, stop=lambda: (
+                        self.stopped() or self.watching() or not profile_scope.is_current()
+                        or bool(self._warm_waiting) or not self._warm_current(params)))
             except Exception:
                 C.log('warm (service):\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
+
+    @staticmethod
+    def _warm_current(params):
+        """The search is still wanted: its title page is open; a Home card's search while the
+        Home (or the page it opens) is on show. Only the windows: on the page the focused item
+        may be a cast card or another title."""
+        if not params.get('pid'):
+            return xbmc.getCondVisibility('Window.IsVisible(home) | Window.IsVisible(movieinformation)')
+        return xbmc.getCondVisibility('Window.IsVisible(movieinformation)')
 
     WARM_SETTLE = 3.0   # v5.10.518: seconds a title page gets to fill before its sources search
 
@@ -828,7 +852,7 @@ class Worker(object):
             settle = 1.0      # v5.10.612: the page shows the search's cards; it waits less
         until = float(request.get('t') or 0) + settle
         while time.time() < until:
-            if self.stopped() or getattr(self, '_warm_next', None):
+            if self.stopped() or self._warm_waiting:
                 return False
             time.sleep(0.2)
         return bool(xbmc.getCondVisibility('Window.IsVisible(movieinformation)'))
