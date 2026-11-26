@@ -25613,6 +25613,8 @@ def youtube_play(video_id='', title=''):
     # them in place; the add-on plays it itself if its resolver fails
     item = _yt.player_item(video_id, title) if HANDLE >= 0 else None
     if item is not None:
+        if item.getProperty('inputstream') == _yt.ISA:
+            _yt.isa_tried(video_id, title)      # v5.10.616: played again by itself if it cannot start
         xbmcplugin.setResolvedUrl(HANDLE, True, item)
         return
     url = _yt.play_url(video_id)

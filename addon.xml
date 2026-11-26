@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addon id="plugin.video.dexhub" name="Dex Hub" version="5.10.615" provider-name="Dex Hub">
+<addon id="plugin.video.dexhub" name="Dex Hub" version="5.10.616" provider-name="Dex Hub">
   <requires>
     <import addon="xbmc.python" version="3.0.0" />
     <import addon="script.module.urllib3" version="1.26.0" optional="true" />
@@ -7,6 +7,7 @@
     <import addon="service.upnext" version="1.1.0" optional="true" />
     <import addon="script.module.pil" optional="true" />
     <import addon="script.dexhub.usenet" version="1.3.2" />
+    <import addon="script.dexhub.youtube" version="1.0.0" optional="true" />
   </requires>
   <extension point="xbmc.python.pluginsource" library="default.py">
     <provides>video</provides>

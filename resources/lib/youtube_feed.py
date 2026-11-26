@@ -1063,7 +1063,26 @@ def _arabic_rows(chip):
 
 
 # ------------------------------------------------------------ playback
-ADDON = 'plugin.video.youtube'
+ENGINE = 'script.dexhub.youtube'
+ORIGINAL = 'plugin.video.youtube'
+
+
+def _which_addon():
+    """v5.10.616: Dex Hub's own YouTube engine (script.dexhub.youtube: the official add-on under
+    an id of its own) when it is installed and on, else the official add-on. A build had put an
+    unofficial YouTube "7.7" on a CoreELEC box with its service switched off: its local server never
+    ran and no video played; the engine is Dex Hub's, nothing replaces it."""
+    try:
+        import xbmc
+        if xbmc.getCondVisibility('System.HasAddon(%s)' % ENGINE) \
+                and xbmc.getCondVisibility('System.AddonIsEnabled(%s)' % ENGINE):
+            return ENGINE
+    except Exception:
+        pass
+    return ORIGINAL
+
+
+ADDON = _which_addon()
 
 
 def addon_installable():
@@ -1358,7 +1377,13 @@ def _addon_code():
     import xbmcvfs
     fix_settings_version()
     path = xbmcvfs.translatePath('special://home/addons/%s/resources/lib' % ADDON)
-    for folder in [path] + _module_paths(ADDON, set()):
+    # v5.10.616: the chosen add-on's own code first: the engine and the official add-on both
+    # hold youtube_plugin, and a path that already had the other one answered in its place
+    if os.path.isdir(path):
+        if path in sys.path:
+            sys.path.remove(path)
+        sys.path.insert(0, path)
+    for folder in _module_paths(ADDON, set()):
         if folder not in sys.path and os.path.isdir(folder):
             sys.path.append(folder)
 
@@ -1535,9 +1560,6 @@ def player_item(video_id, title=''):
     import xbmcaddon
     import xbmcgui
     try:
-        lib = os.path.join(xbmcaddon.Addon(ADDON).getAddonInfo('path'), 'resources', 'lib')
-        if lib not in sys.path:
-            sys.path.append(lib)
         _addon_code()
         network_guard()
         import youtube_resolver
@@ -1546,7 +1568,12 @@ def player_item(video_id, title=''):
             # the add-on wakes it the same way before it plays
             from youtube_plugin.kodion.context import XbmcContext
             from youtube_plugin.kodion.constants import SERVER_WAKEUP
-            XbmcContext().ipc_exec(SERVER_WAKEUP, timeout=5)
+            context = XbmcContext()
+            # v5.10.616: YouTube 7.7 named it wakeup (ipc_exec before): with the old name the
+            # server stayed asleep and the player was handed a video list nobody served
+            # (inputstream.adaptive: "Permanent failure", CoreELEC box, 25 Nov 2026)
+            wake = getattr(context, 'wakeup', None) or getattr(context, 'ipc_exec')
+            wake(SERVER_WAKEUP, timeout=5)
         except Exception as exc:
             _log('wake: %s' % exc)
         streams = youtube_resolver.resolve(video_id) or []
@@ -1554,6 +1581,15 @@ def player_item(video_id, title=''):
         _log('resolver: %s' % exc)
         return None
     stream = next((s for s in streams if s.get('container') == 'mpd' and s.get('url')), None)
+    if stream and not isa_usable():
+        _log('inputstream.adaptive cannot start on this Kodi: HLS in Kodi\'s own player')
+        return _direct_item(video_id, title)
+    if stream and not _served(stream['url']):
+        # v5.10.616: the video list is served by the add-on's own server, and nothing answers
+        # there (a YouTube 7.7 build with its service switched off, CoreELEC box, 25 Nov 2026):
+        # the video's direct streams instead, as the add-on itself plays when its server sleeps
+        _log('its local server does not answer: direct streams')
+        return _direct_item(video_id, title)
     if not stream:
         return None
     meta = stream.get('meta') or {}
@@ -1583,6 +1619,252 @@ def player_item(video_id, title=''):
         tag.setMediaType('video')
     except Exception:
         pass
+    return item
+
+
+_ISA_OK = []
+
+
+def isa_usable():
+    """v5.10.616: False when Kodi refuses this inputstream.adaptive's interface: another major
+    version, or an add-on asking for a newer interface than this Kodi's (Kodi takes an older minor
+    one: Kodi 22 RC2 has 3.5.0 and takes 3.4.x). A failure Kodi gives with no reason (CoreELEC's
+    canary 20261119) is remembered after the first video (_isa_marked)."""
+    if _ISA_OK:
+        return _ISA_OK[0]
+    usable = True
+    try:
+        import xbmc
+        import xbmcaddon
+        import xml.etree.ElementTree as ET
+        kodi = xbmc.getInfoLabel('System.AddonVersion(kodi.binary.instance.inputstream)') or ''
+        root = ET.parse(os.path.join(xbmcaddon.Addon(ISA).getAddonInfo('path'), 'addon.xml')).getroot()
+        node = next((n for n in root.iter('import') if n.get('addon') == 'kodi.binary.instance.inputstream'), None)
+        built = (node.get('version') or '') if node is not None else ''
+        least = (node.get('minversion') or built) if node is not None else ''
+
+        def parts(text):
+            return tuple(int(p) for p in text.split('.')[:3] if p.isdigit())
+        if kodi and built and (parts(kodi)[:1] != parts(built)[:1] or parts(least) > parts(kodi)):
+            usable = False
+            _log('inputstream.adaptive was built for inputstream %s, this Kodi has %s' % (built, kodi))
+    except Exception:
+        usable = True
+    if usable and _isa_marked():
+        usable = False
+    _ISA_OK.append(usable)
+    return usable
+
+
+# v5.10.616: a failure remembered. CoreELEC's canary (20261119) has an inputstream.adaptive built
+# for this Kodi's interface that still fails to start (no line of its own): the first YouTube video
+# that fails through it marks this Kodi and this inputstream.adaptive, and plays again at once in
+# Kodi's own player (HLS); a CoreELEC or inputstream.adaptive update clears the mark.
+ISA_TRY = 'dexhub.yt.isa_try'
+_ISA_FILE = 'youtube_isa.json'
+
+
+def _isa_key():
+    import xbmc
+    # the build carries Kodi's git hash (a CoreELEC update changes it); System.OSVersionInfo
+    # answers "Busy" at first, so it is not part of it
+    return '|'.join((xbmc.getInfoLabel('System.BuildVersion'), xbmc.getInfoLabel('System.AddonVersion(%s)' % ISA)))
+
+
+def _isa_path():
+    import xbmcaddon
+    import xbmcvfs
+    return os.path.join(xbmcvfs.translatePath(xbmcaddon.Addon('plugin.video.dexhub').getAddonInfo('profile')),
+                        _ISA_FILE)
+
+
+def _isa_marked():
+    try:
+        with open(_isa_path(), encoding='utf-8') as handle:
+            return json.load(handle).get('broken') == _isa_key()
+    except Exception:
+        return False
+
+
+def isa_tried(video_id, title=''):
+    """A YouTube video handed to inputstream.adaptive (the plugin call, before the player opens it)."""
+    try:
+        import xbmcgui
+        xbmcgui.Window(10000).setProperty(ISA_TRY, json.dumps({'v': video_id, 't': title, 'at': time.time()}))
+    except Exception:
+        pass
+
+
+def isa_try_ok():
+    """The player opened it (the service, onAVStarted)."""
+    try:
+        import xbmcgui
+        xbmcgui.Window(10000).clearProperty(ISA_TRY)
+    except Exception:
+        pass
+
+
+def isa_try_failed():
+    """The player stopped before it opened the video handed to inputstream.adaptive (the service):
+    the mark is written and the video's Dex Hub address returned, to play again; else ''."""
+    try:
+        import xbmcgui
+        home = xbmcgui.Window(10000)
+        raw = home.getProperty(ISA_TRY)
+        if not raw:
+            return ''
+        home.clearProperty(ISA_TRY)
+        tried = json.loads(raw)
+        if time.time() - float(tried.get('at') or 0) > 45:
+            return ''
+        with open(_isa_path(), 'w', encoding='utf-8') as handle:
+            json.dump({'broken': _isa_key(), 'at': int(time.time())}, handle)
+        _ISA_OK[:] = [False]
+        _log('inputstream.adaptive did not start on this Kodi: YouTube plays in Kodi\'s own player from now on')
+        return dexhub_url(tried.get('v') or '', tried.get('t') or '')
+    except Exception as exc:
+        _log('inputstream.adaptive mark: %s' % exc)
+        return ''
+
+
+def _hdr_screen():
+    """True when the screen shows HDR (Kodi lists the HDR kinds it can send)."""
+    try:
+        import xbmc
+        return bool(xbmc.getInfoLabel('System.SupportedHDRTypes').strip())
+    except Exception:
+        return False
+
+
+def _line_mbps():
+    """The line's measured speed (Mbit/s, line_speed.py), 0 when not measured yet."""
+    try:
+        from . import line_speed
+        return float(line_speed.estimate()[0] or 0)
+    except Exception:
+        return 0.0
+
+
+def _hls_variant(url, headers=None, max_height=2160):
+    """The best variant of an HLS master list, '' when none.
+
+    v5.10.616: up to 4K (YouTube's lists carry VP9 2160p60, SDR and HDR); HDR only on a screen
+    that shows it; and none heavier than 70 % of the line once its speed is known (the lightest
+    one left when every one is heavier)."""
+    hdr_ok, line = _hdr_screen(), _line_mbps()
+    try:
+        import urllib.request
+        from urllib.parse import urljoin
+        sent = dict((k, v) for k, v in (headers or {}).items() if k.lower() != 'accept-encoding')
+        sent.setdefault('User-Agent', 'Mozilla/5.0')
+        request = urllib.request.Request(url, headers=sent)
+        with urllib.request.urlopen(request, timeout=8) as answer:
+            raw = answer.read(2000000)
+            if (answer.headers.get('Content-Encoding') or '').lower() == 'gzip' or raw[:2] == b'\x1f\x8b':
+                import gzip
+                raw = gzip.decompress(raw)
+            text = raw.decode('utf-8', 'replace')
+        found_all, lines = [], text.splitlines()
+        for index, entry in enumerate(lines):
+            if not entry.startswith('#EXT-X-STREAM-INF:'):
+                continue
+            target = next((l.strip() for l in lines[index + 1:index + 3] if l.strip() and not l.startswith('#')), '')
+            found = re.search(r'RESOLUTION=\d+x(\d+)', entry)
+            height = int(found.group(1)) if found else 0
+            rate = re.search(r'(?<![-A-Z])BANDWIDTH=(\d+)', entry)
+            rate = int(rate.group(1)) if rate else 0
+            codecs = (re.search(r'CODECS="([^"]*)"', entry) or [None, ''])[1]
+            hdr = 'vp09.02' in codecs or 'av01.0.' in codecs and '.10.' in codecs
+            if not target or (height and height > max_height) or (hdr and not hdr_ok):
+                continue
+            found_all.append(((height, hdr, rate), urljoin(url, target)))
+        if not found_all:
+            return ''
+        fitting = [v for v in found_all if not line or v[0][2] <= line * 0.7 * 1000000]
+        best = max(fitting) if fitting else min(found_all, key=lambda v: v[0][2])
+        _log('HLS variant %dp%s %.1f Mbit/s (line %s)' % (best[0][0], ' HDR' if best[0][1] else '',
+                                                          best[0][2] / 1e6, '%.0f Mbit/s' % line if line else 'not measured'))
+        return best[1]
+    except Exception as exc:
+        _log('HLS variants: %s' % exc)
+    return ''
+
+
+def _served(url):
+    """False when *url* is on this device's own server (the add-on's, 127.0.0.1) and nothing
+    answers there."""
+    try:
+        from urllib.parse import urlsplit
+        parts = urlsplit(str(url).split('|', 1)[0])
+        if parts.hostname not in ('127.0.0.1', 'localhost'):
+            return True
+        import socket
+        with socket.create_connection((parts.hostname, parts.port or 80), timeout=1.5):
+            return True
+    except Exception:
+        return False
+
+
+def _direct_item(video_id, title=''):
+    """A ListItem of the video's best direct stream (no MPD list), or None."""
+    import xbmcgui
+    try:
+        _addon_code()
+        from youtube_plugin.youtube.provider import Provider
+        from youtube_plugin.kodion.context import XbmcContext
+        context = XbmcContext()
+        client = Provider().get_client(context=context)
+        if hasattr(client, 'load_stream_info'):         # the engine (YouTube 7.4.x)
+            streams, _item = client.load_stream_info(video_id=video_id, use_mpd=False)
+        else:                                           # YouTube 7.7
+            streams, _item = client.get_streams(context=context, video_id=video_id, use_mpd=False)
+    except Exception as exc:
+        _log('direct streams: %s' % exc)
+        return None
+    streams = sorted([s for s in list(streams or []) if s.get('url') and s.get('container') != 'mpd'],
+                     key=lambda s: s.get('sort', (0, 0)))
+    # v5.10.616: HLS first (Kodi plays it itself), the one with sound and picture together before
+    # the adaptive one (separate renditions)
+    streams.sort(key=lambda s: (0 if s.get('container') == 'hls' and not s.get('adaptive') else
+                                1 if s.get('container') == 'hls' else 2))
+    if not streams:
+        return None
+    stream = streams[0]
+    meta = stream.get('meta') or {}
+    thumbs = meta.get('thumbnails') or {}
+    thumb = ((thumbs.get('maxres') or thumbs.get('720') or thumbs.get('high') or {}).get('url')) or ''
+    url = stream['url']
+    headers = dict(stream.get('headers')) if isinstance(stream.get('headers'), dict) else {}
+    if not isa_usable():
+        # v5.10.616: Kodi's own player reads the lists as sent; asked compressed, it could not
+        # read them (20 s, "could not find codec parameters")
+        headers = dict((k, v) for k, v in headers.items() if k.lower() != 'accept-encoding')
+    if (stream.get('container') == 'hls' or '.m3u8' in url) and not isa_usable():
+        # v5.10.616: Kodi's own player read every variant of the master list first (20 s and
+        # more on a CoreELEC box): it is given the one variant chosen here
+        url = _hls_variant(url, headers) or url
+    if headers:
+        from urllib.parse import urlencode
+        url = '%s|%s' % (url, urlencode(headers))
+    item = xbmcgui.ListItem(title or meta.get('title') or video_id, offscreen=True)
+    item.setPath(url)
+    item.setContentLookup(False)
+    if stream.get('container') == 'hls' or '.m3u8' in url:
+        item.setMimeType('application/vnd.apple.mpegurl')
+        if isa_usable():
+            item.setProperty('inputstream', ISA)
+    if thumb:
+        item.setArt({'thumb': thumb, 'fanart': thumb})
+    subtitles = [path for path in (meta.get('subtitles') or []) if path]
+    if subtitles:
+        item.setSubtitles(subtitles)
+    try:
+        tag = item.getVideoInfoTag()
+        tag.setTitle(title or meta.get('title') or '')
+        tag.setMediaType('video')
+    except Exception:
+        pass
+    _log('direct stream: %s' % (stream.get('title') or stream.get('container') or '?'))
     return item
 
 

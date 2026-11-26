@@ -1089,6 +1089,11 @@ def _is_internal_navigation_path(path):
 class CompanionPlayer(xbmc.Player):
     def onAVStarted(self):
         try:
+            from . import youtube_feed
+            youtube_feed.isa_try_ok()
+        except Exception:
+            pass
+        try:
             # v5.10.612: the stream is measured when it stops (line_speed), for the sources page
             from . import line_speed
             line_speed.record('' if self._foreign_active else (self.getPlayingFile() or ''))
@@ -2316,8 +2321,27 @@ class CompanionPlayer(xbmc.Player):
         _save_local_progress(self.ctx, pos, self._duration_ms(), finished=False)
         self._report('progress', position_ms=pos)
 
+    def _youtube_isa_retry(self):
+        """v5.10.616: a YouTube video inputstream.adaptive could not start plays again in Kodi's
+        own player (youtube_feed.isa_try_failed)."""
+        try:
+            from . import youtube_feed
+            again = youtube_feed.isa_try_failed()
+        except Exception:
+            again = ''
+        if not again:
+            return False
+
+        def _play():
+            if not xbmc.Monitor().waitForAbort(1):
+                xbmc.executebuiltin('PlayMedia(%s)' % again)
+        threading.Thread(target=_play, name='DexHub-youtube-again', daemon=True).start()
+        return True
+
     def onPlayBackError(self):
         """Kodi 20+ fires this on format/codec/network failures."""
+        if self._youtube_isa_retry():
+            return
         if self._foreign_active:
             return
         self._back_keymap_async(False)
@@ -2331,6 +2355,8 @@ class CompanionPlayer(xbmc.Player):
 
 
     def onPlayBackStopped(self):
+        if self._youtube_isa_retry():
+            return
         try:
             from . import player_capsule
             player_capsule.stopped()

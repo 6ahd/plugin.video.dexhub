@@ -142,7 +142,13 @@ class YouTubeWindow(xbmcgui.WindowXMLDialog):
     def _ready(self):
         """The official add-on set up out of sight, and whether YouTube is linked.
         Not linked: asked once each time Kodi runs, since many never find the
-        menu and miss the higher qualities and their own subscriptions."""
+        menu and miss the higher qualities and their own subscriptions.
+        v5.10.616: Dex Hub's YouTube engine installed beside the page when it is missing."""
+        try:
+            from .. import youtube_engine
+            youtube_engine.ensure_async()
+        except Exception:
+            xbmc.log('[DexHub] youtube engine:\n%s' % traceback.format_exc(), xbmc.LOGWARNING)
         Y.quiet_setup()
         self._account()
         if Y.addon_ready(install=False) and not Y.linked():
