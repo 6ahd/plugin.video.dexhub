@@ -88,6 +88,17 @@ def _run():
     import time
     import xbmc
     started = time.monotonic()
+    # v5.10.620: Dex Hub TV hands over the link it was playing (direct_url):
+    # played as it is, with its subtitles and moment; without direct_url the
+    # title is searched by its ids as before
+    try:
+        from urllib.parse import parse_qsl
+        _params = dict(parse_qsl((sys.argv[2] if len(sys.argv) > 2 else '').lstrip('?')))
+    except Exception:
+        _params = {}
+    if _params.get('action') == 'play_item' and _params.get('direct_url'):
+        from .direct_link import play as _play_direct
+        return _play_direct(_params)
     from .settings_cache import invalidate
     from .i18n import reset_language_cache
     invalidate()
