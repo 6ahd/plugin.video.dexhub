@@ -1678,10 +1678,17 @@ def _isa_path():
                         _ISA_FILE)
 
 
+_ISA_MARK_KEEP = 12 * 3600
+
+
 def _isa_marked():
+    """v5.10.619: the mark holds 12 hours, then inputstream.adaptive is tried again: Kodi's own
+    player plays YouTube's lists without sound (every variant is picture only, the sound a list of
+    its own that Kodi's player leaves out), so a mark kept for good left every video silent."""
     try:
         with open(_isa_path(), encoding='utf-8') as handle:
-            return json.load(handle).get('broken') == _isa_key()
+            state = json.load(handle)
+        return state.get('broken') == _isa_key() and time.time() - float(state.get('at') or 0) < _ISA_MARK_KEEP
     except Exception:
         return False
 
@@ -1695,11 +1702,25 @@ def isa_tried(video_id, title=''):
         pass
 
 
+def _isa_state():
+    try:
+        with open(_isa_path(), encoding='utf-8') as handle:
+            state = json.load(handle)
+        return state if isinstance(state, dict) else {}
+    except Exception:
+        return {}
+
+
 def isa_try_ok():
-    """The player opened it (the service, onAVStarted)."""
+    """The player opened it (the service, onAVStarted): failures counted so far are forgotten."""
     try:
         import xbmcgui
         xbmcgui.Window(10000).clearProperty(ISA_TRY)
+    except Exception:
+        pass
+    try:
+        if _isa_state().get('fails') and not _isa_marked():
+            os.remove(_isa_path())
     except Exception:
         pass
 
@@ -1717,10 +1738,23 @@ def isa_try_failed():
         tried = json.loads(raw)
         if time.time() - float(tried.get('at') or 0) > 45:
             return ''
+        # v5.10.619: marked only after two failures in a row. One "Permanent failure" came when a
+        # video was started just after another was stopped (CoreELEC box, 28 Nov 2026), and the
+        # mark then held every video to one HLS stream, with no quality choice and three times as
+        # slow to start, on a Kodi whose inputstream.adaptive played them a minute before.
+        key = _isa_key()
+        state = _isa_state()
+        fails = (int(state.get('fails') or 0) if state.get('key') == key else 0) + 1
+        state = {'key': key, 'fails': fails, 'at': int(time.time())}
+        if fails >= 2:
+            state['broken'] = key
         with open(_isa_path(), 'w', encoding='utf-8') as handle:
-            json.dump({'broken': _isa_key(), 'at': int(time.time())}, handle)
-        _ISA_OK[:] = [False]
-        _log('inputstream.adaptive did not start on this Kodi: YouTube plays in Kodi\'s own player from now on')
+            json.dump(state, handle)
+        if fails >= 2:
+            _ISA_OK[:] = [False]
+            _log('inputstream.adaptive did not start on this Kodi twice: YouTube plays in Kodi\'s own player from now on')
+        else:
+            _log('inputstream.adaptive did not start (once): the video plays again')
         return dexhub_url(tried.get('v') or '', tried.get('t') or '')
     except Exception as exc:
         _log('inputstream.adaptive mark: %s' % exc)
