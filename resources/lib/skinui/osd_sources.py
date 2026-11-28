@@ -40,6 +40,7 @@ def rows():
     want = _item_key(ctx.get('canonical_id'), ctx.get('season'), ctx.get('episode')) \
         if (ctx.get('canonical_id') or ctx.get('video_id')) else ''
     found = []
+    data = {}
     try:
         data = json.loads(C.home().getProperty('dexhub.last_streams') or '{}')
         if data.get('rows') and (not want or data.get('item') == want):
@@ -54,6 +55,9 @@ def rows():
                 found = [r for r in cached.get('rows') or [] if r.get('k')]
         except Exception:
             found = []
+    if not found and isinstance(data, dict) and data.get('rows'):
+        C.log('player sources: a list for %s, the playing title is %s'
+              % (data.get('item'), want), xbmc.LOGDEBUG)
     key = str(ctx.get('stream_key') or '')
     for i, row in enumerate(found):
         if key and str(row.get('k') or '') == key:
@@ -292,6 +296,23 @@ class _Rec(object):
 
 
 _BUILT = 'dexhub.osd.sources.built'
+_HEADER = 'dexhub.osd.sources.chips'
+
+
+def _header_buttons():
+    """The skin's panel draws Sort, Filter and Search again as buttons over the list
+    (skin.dexhub 3.28.242 sets this when the panel opens): those rows leave the list,
+    whose rows are all one height, and the searching / nothing found / search again
+    rows are kept only while there is no source to show."""
+    return bool(C.home().getProperty(_HEADER))
+
+
+def _publish_header(**values):
+    home = C.home()
+    for name, value in values.items():
+        prop = 'dexhub.osd.sources.' + name
+        if home.getProperty(prop) != value:
+            home.setProperty(prop, value)
 
 
 def _panel_key():
@@ -310,7 +331,7 @@ def _panel_key():
         language = ''
     parts = [C.home().getProperty('dexhub.last_streams') or '', _state(), sort_mode(), filter_mode(),
              str(ctx.get('stream_key') or ''), _item_key(ctx.get('canonical_id'), ctx.get('season'), ctx.get('episode')),
-             language]
+             language, '1' if _header_buttons() else '']
     return hashlib.sha1('\x00'.join(parts).encode('utf-8', 'replace')).hexdigest()
 
 
@@ -507,7 +528,42 @@ def _build_panel():
                               label2=tr('بحث كامل في كل المصادر، والنتائج تطلع هنا'), offscreen=True)
         li.setProperties({'pos': 'rescan', 'rescan': 'true', 'isfolder': 'false'})
         entries.append((C.url('switch_source', rescan='1'), li))
-    return entries
+    return _for_header(entries, state, len(chosen), tr)
+
+
+def _for_header(entries, state, count, tr):
+    """skin.dexhub 3.28.242's panel: Sort, Filter and Search again are its buttons (their
+    labels published here), the list holds the sources, or one card while it has none:
+    searching, or search again (saying nothing was found after a search found nothing)."""
+    searching = state.startswith('searching')
+    by_pos = dict((row.props.get('pos'), (url, row)) for url, row in entries
+                  if row.props.get('pos') in ('busy', 'none', 'rescan'))
+    labels = [row.label for _url, row in entries if row.props.get('pos') == 'sort']
+    counter = state.partition(':')[2]
+    if searching and '/' in counter:
+        done, _sl, total = counter.partition('/')
+        stateline = tr('ردّ %s من %s') % (done, total)
+    else:
+        stateline = tr('جاري البحث في كل المصادر…') if searching else ''
+    _publish_header(n=str(count), state='searching' if searching else '', stateline=stateline,
+                    sortlabel=labels[0] if labels else '',
+                    filterlabel=labels[1] if len(labels) > 1 else '',
+                    rescanlabel=tr('ابحث عن مصادر من جديد'))
+    if not _header_buttons():
+        return entries
+    sources_ = [(url, row) for url, row in entries
+                if row.props.get('pos') not in ('busy', 'none', 'rescan', 'sort')]
+    if sources_:
+        return sources_
+    if searching:
+        return [by_pos['busy']] if 'busy' in by_pos else []
+    if 'rescan' not in by_pos:
+        return []
+    url, row = by_pos['rescan']
+    if 'none' in by_pos:
+        # nothing found: said on the card that searches again
+        row = _Rec(label=by_pos['none'][1].label, label2=row.label2, props=row.props)
+    return [(url, row)]
 
 
 def sources(params, handle):
@@ -516,6 +572,7 @@ def sources(params, handle):
     # that module (0.23 s of each opening of the panel on a CoreELEC box)
     playing_path = xbmc.getInfoLabel('Player.FilenameAndPath') or ''
     if xbmc.Player().isPlayingVideo() and ('action=youtube_play' in playing_path or 'youtube/manifest' in playing_path):
+        _publish_header(n='0', state='', stateline='')     # a YouTube video: no sort, filter or search
         entries = _youtube_rows()
     elif xbmc.Player().isPlayingVideo():
         for url, row in _panel_rows():

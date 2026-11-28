@@ -148,6 +148,10 @@ def ratings_key():
     if own:
         return own
     try:
+        # without TMDb Helper, Addon() raises and Kodi logs an EXCEPTION at
+        # every playback start
+        if not xbmc.getCondVisibility('System.HasAddon(plugin.video.themoviedb.helper)'):
+            return ''
         return (xbmcaddon.Addon('plugin.video.themoviedb.helper').getSetting('mdblist_apikey') or '').strip()
     except Exception:
         return ''

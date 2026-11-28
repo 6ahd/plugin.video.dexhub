@@ -434,6 +434,12 @@ def _clear_screen(monitor):
 def apply(target, monitor):
     """Kodi takes the skin ``target``; its questions are answered yes. True
     when the skin is in use and stays (Kodi has not gone back)."""
+    if target == SKIN and current() != target:
+        try:
+            from . import home_layouts
+            home_layouts.seed()     # a light Home from the very first load
+        except Exception as exc:
+            C.log('home rows: seed failed (%s)' % exc, xbmc.LOGWARNING)
     answers = _Answers(target=target)
     answers.start()
     try:

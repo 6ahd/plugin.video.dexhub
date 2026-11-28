@@ -25617,6 +25617,20 @@ def youtube_play(video_id='', title=''):
     _home = xbmcgui.Window(10000)
     for _key in ('imdb_id', 'tmdb_id', 'tvdb_id', 'season', 'episode', 'title', 'mediatype'):
         _home.clearProperty('dexhub.sub.%s' % _key)
+    # The last film's playback session stays after it stops (resume, source switching), and the
+    # service published it again when the YouTube video started: the player showed The Odyssey's
+    # logo and its age-rating card over a YouTube match (CoreELEC box, 28 Nov 2026). The session,
+    # what is playing and the artwork the last title left go before a YouTube video plays.
+    try:
+        clear_session()
+    except Exception:
+        pass
+    try:
+        from . import nowplaying as _np
+        _np.clear()
+    except Exception:
+        pass
+    _clear_source_transient_props(clear_global=True)
     _yt.quiet_setup()
     # every quality as its own stream, so the player's Sources button switches
     # them in place; the add-on plays it itself if its resolver fails

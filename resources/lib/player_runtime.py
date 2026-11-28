@@ -9647,8 +9647,14 @@ def osd_rescan(ctx, on_progress=None):
     poster = (ctx or {}).get('poster') or ''
     playing = ctx or {}
     keys = [(canonical_id, season_i, episode_i)]
-    if playing.get('canonical_id') and playing.get('canonical_id') != canonical_id:
-        keys.append((playing.get('canonical_id'), playing.get('season'), playing.get('episode')))
+    # the panel lists the playing session's own key (skinui/osd_sources.rows):
+    # compared whole, a film whose session holds a season or an episode (a
+    # server's item, "S0E5") was searched under another key and the panel
+    # stayed at 0 sources after finding 164
+    playing_key = (playing.get('canonical_id'), playing.get('season'), playing.get('episode'))
+    if (playing.get('canonical_id') or playing.get('video_id')) and \
+            _streams_item_key(*playing_key) != _streams_item_key(canonical_id, season_i, episode_i):
+        keys.append(playing_key)
 
     def _publish(found):
         for cid, s_, e_ in keys:

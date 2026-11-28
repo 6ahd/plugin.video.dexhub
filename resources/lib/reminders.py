@@ -616,6 +616,13 @@ def run(monitor):
             with profile_scope.bind():
                 _panel_ahead(force=requested)
         except Exception as exc:
+            if 'Profile changed' in str(exc):
+                # the profile switched mid-check (an account linked on the
+                # first run): try again soon instead of in half an hour
+                _log('check postponed: the profile changed', xbmc.LOGDEBUG)
+                if monitor.waitForAbort(30):
+                    return
+                continue
             _log('check failed: %s' % exc, xbmc.LOGWARNING)
         deadline = time.monotonic() + _EVERY
         while time.monotonic() < deadline:

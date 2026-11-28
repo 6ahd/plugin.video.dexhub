@@ -251,6 +251,9 @@ def _mal_rating(details, series):
 
 def _helper_key(name):
     try:
+        import xbmc
+        if not xbmc.getCondVisibility('System.HasAddon(plugin.video.themoviedb.helper)'):
+            return ''
         import xbmcaddon
         return (xbmcaddon.Addon('plugin.video.themoviedb.helper').getSetting(name) or '').strip()
     except Exception:

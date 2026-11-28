@@ -106,6 +106,18 @@ CONTENT = '''<?xml version="1.0" encoding="UTF-8"?>
       <button id="6">Back</button>
     </customcontroller>
   </VideoOSD>
+  <!-- A disc in its menus (Kodi's VideoMenu) gets the arrows and OK; held OK opens the player's bar,
+       which Kodi's own map gives only to a Menu key many remotes lack. -->
+  <VideoMenu>
+    <keyboard>
+      <return mod="longpress">OSD</return>
+      <enter mod="longpress">OSD</enter>
+      <ok mod="longpress">OSD</ok>
+    </keyboard>
+    <remote>
+      <select mod="longpress">OSD</select>
+    </remote>
+  </VideoMenu>
 </keymap>
 '''
 

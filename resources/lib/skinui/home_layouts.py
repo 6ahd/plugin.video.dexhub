@@ -136,6 +136,48 @@ def _seen(wanted, have_of, now):
     return state
 
 
+def seed():
+    """Before Kodi first loads skin.dexhub, its empty row strings are written
+    into the skin's own settings file (another skin is in use, so
+    Skin.SetString would land there). An empty string takes every style:
+    90,636 Home controls against 11,166 with posters only, and 32-bit Kodi
+    (Android on an AM8) ran out of memory 20 s into that Home every time,
+    before sync() could ever write them. Rows get what the board published,
+    or posters; sync() adds the rest as usual. Strings already set stay."""
+    import xml.etree.ElementTree as ET
+    import xbmcvfs
+    path = xbmcvfs.translatePath('special://profile/addon_data/%s/settings.xml' % C.SKIN_ID)
+    try:
+        root = ET.parse(path).getroot() if os.path.exists(path) else ET.Element('settings')
+    except (ET.ParseError, OSError):
+        return False
+    if root.tag != 'settings':
+        return False
+    have = dict((el.get('id'), el) for el in root.findall('setting'))
+    changed = []
+    for n, tokens in wanted().items():
+        key = 'dexhub.row.%d' % n
+        el = have.get(key)
+        if el is not None and (el.text or '').strip():
+            continue
+        if el is None:
+            el = ET.SubElement(root, 'setting', {'id': key, 'type': 'string'})
+        el.text = _encode(tokens)
+        changed.append(n)
+    if not changed:
+        return False
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        temp = path + '.tmp'
+        ET.ElementTree(root).write(temp, encoding='utf-8', xml_declaration=False)
+        os.replace(temp, path)
+    except OSError as exc:
+        C.log('home rows: skin settings not written (%s)' % exc, xbmc.LOGWARNING)
+        return False
+    C.log('home rows: %d row style(s) written before the skin loads' % len(changed))
+    return True
+
+
 def sync():
     """Write each row's styles; reload the skin when a row lacks one it now shows."""
     if not xbmc.getSkinDir().startswith('skin.dexhub'):
